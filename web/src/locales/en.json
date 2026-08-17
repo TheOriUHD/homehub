@@ -128,11 +128,28 @@
     "healthOk": "All systems normal",
     "healthIssues": "Needs attention",
     "recentActivity": "Recent activity",
-    "noActivity": "No recent activity.",
+    "noActivity": "Nothing yet.",
     "quickActions": "Quick actions",
     "addUser": "Invite a user",
     "createRole": "Create a role",
-    "viewAudit": "Review audit log"
+    "viewAudit": "Review audit log",
+    "allQuiet": "All {{count}} systems reporting in — everything looks quiet.",
+    "problems": "{{count}} system(s) need attention.",
+    "systemsTitle": "Connected systems",
+    "viewAll": "View all",
+    "noSystems": "No systems connected yet — add one under Administration → Systems.",
+    "cards": {
+      "cameras": "cameras recording",
+      "nodes": "Proxmox nodes online",
+      "mcServers": "Minecraft servers · {{players}} playing",
+      "storage": "storage · {{used}} of {{total}}",
+      "tailnet": "tailnet devices online",
+      "dns": "DNS blocked · {{blocked}} today",
+      "containers": "containers running",
+      "ampServers": "AMP servers running",
+      "caddySites": "sites behind Caddy",
+      "databases": "database servers"
+    }
   },
   "health": {
     "title": "System health",
