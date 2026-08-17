@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, LayoutList, Lightbulb } from "lucide-react";
-import type { HaDashboardCard } from "@/lib/api";
+import { ArrowDown, ArrowUp, Check, LayoutList, Lightbulb } from "lucide-react";
+import type { HaDashboardCard, HaEntity } from "@/lib/api";
 import { cn, randomId } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent } from "@/ui/dialog";
@@ -10,6 +10,7 @@ import { Input } from "@/ui/input";
 import { PageLoader } from "@/ui/misc";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
 import { stateLabel } from "./entity-card";
+import { cardLabels, withCardLabels, type CardLabels } from "./card-labels";
 import { useHaEntities } from "./shared";
 
 /** Server-enforced per-card limit, mirrored for instant feedback. */
@@ -39,12 +40,20 @@ export function CardEditorDialog({
   const [type, setType] = useState<CardType | null>(card?.type ?? null);
   const [title, setTitle] = useState(card?.title ?? "");
   const [selected, setSelected] = useState<string[]>(card?.entityIds ?? []);
+  // Per-row renames for group cards; pruned to the final selection on save.
+  const [labels, setLabels] = useState<CardLabels>(() => ({ ...(card ? cardLabels(card) : undefined) }));
   const [search, setSearch] = useState("");
   const [areaFilter, setAreaFilter] = useState("all");
   const [domainFilter, setDomainFilter] = useState<Set<string>>(new Set());
 
   const all = useMemo(() => entities.data?.entities ?? [], [entities.data]);
   const areas = entities.data?.areas ?? [];
+
+  const byId = useMemo(() => {
+    const map = new Map<string, HaEntity>();
+    for (const e of all) map.set(e.entityId, e);
+    return map;
+  }, [all]);
 
   const domains = useMemo(() => [...new Set(all.map((e) => e.domain))].sort(), [all]);
 
@@ -89,15 +98,30 @@ export function CardEditorDialog({
     selected.length >= 1 &&
     (type === "entity" ? selected.length === 1 : !overLimit);
 
+  const moveSelected = (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    setSelected((prev) => {
+      if (target < 0 || target >= prev.length) return prev;
+      const next = prev.slice();
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
+  const setLabel = (entityId: string, name: string) =>
+    setLabels((prev) => ({ ...prev, [entityId]: name }));
+
   const submit = () => {
     if (!valid || type === null) return;
-    onSave({
+    // `title` doubles as the entity card's display-name override.
+    const base: HaDashboardCard = {
       id: card?.id ?? randomId(8),
       type,
       entityIds: selected,
-      ...(type === "group" && title.trim() !== "" ? { title: title.trim() } : {}),
+      ...(title.trim() !== "" ? { title: title.trim() } : {}),
       ...(card?.size ? { size: card.size } : {}),
-    });
+    };
+    onSave(type === "group" ? withCardLabels(base, labels) : base);
   };
 
   const toggleDomain = (domain: string) =>
@@ -163,7 +187,7 @@ export function CardEditorDialog({
           <PageLoader className="py-10" />
         ) : (
           <div className="space-y-3">
-            {type === "group" && (
+            {type === "group" ? (
               <Field
                 label={t("ha.board.dialog.groupTitle")}
                 optional={t("common.optional")}
@@ -175,10 +199,93 @@ export function CardEditorDialog({
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder={t("ha.board.dialog.groupTitlePlaceholder")}
+                    maxLength={80}
                     autoComplete="off"
                   />
                 )}
               </Field>
+            ) : (
+              <Field
+                label={t("ha.board.dialog.displayName")}
+                optional={t("common.optional")}
+                hint={t("ha.board.dialog.displayNameHint")}
+              >
+                {(fieldProps) => (
+                  <Input
+                    {...fieldProps}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder={
+                      (selected[0] !== undefined ? byId.get(selected[0])?.name : undefined) ??
+                      t("ha.board.dialog.displayNamePlaceholder")
+                    }
+                    maxLength={80}
+                    autoComplete="off"
+                  />
+                )}
+              </Field>
+            )}
+
+            {type === "group" && selected.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-fg text-[13px] font-medium">
+                  {t("ha.board.dialog.selectedCount", { count: selected.length })}
+                </p>
+                <ul className="border-edge divide-edge max-h-56 divide-y overflow-y-auto rounded-lg border">
+                  {selected.map((id, index) => {
+                    const entity = byId.get(id);
+                    const name = entity?.name ?? id;
+                    return (
+                      <li key={id} className="flex items-center gap-1.5 py-1.5 pr-2.5 pl-1.5">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-6 shrink-0"
+                          disabled={index === 0}
+                          aria-label={t("ha.board.dialog.moveUp", { name })}
+                          onClick={() => moveSelected(index, -1)}
+                        >
+                          <ArrowUp className="size-3.5" aria-hidden />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-6 shrink-0"
+                          disabled={index === selected.length - 1}
+                          aria-label={t("ha.board.dialog.moveDown", { name })}
+                          onClick={() => moveSelected(index, 1)}
+                        >
+                          <ArrowDown className="size-3.5" aria-hidden />
+                        </Button>
+                        <span className="min-w-0 flex-1">
+                          {entity ? (
+                            <>
+                              <span className="text-fg block truncate text-[13px] font-medium">
+                                {entity.name}
+                              </span>
+                              <span className="text-fg-subtle block truncate font-mono text-[11px]">
+                                {entity.entityId}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-fg-subtle block truncate font-mono text-xs">{id}</span>
+                          )}
+                        </span>
+                        <Input
+                          value={labels[id] ?? ""}
+                          onChange={(e) => setLabel(id, e.target.value)}
+                          placeholder={t("ha.board.dialog.renamePlaceholder")}
+                          aria-label={t("ha.board.dialog.renameRow", { name })}
+                          maxLength={80}
+                          autoComplete="off"
+                          className="h-7 w-36 shrink-0 text-[13px] sm:w-44"
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="text-fg-subtle text-[13px]">{t("ha.board.dialog.selectedHint")}</p>
+              </div>
             )}
 
             <div className="flex flex-wrap items-center gap-2">
@@ -260,10 +367,9 @@ export function CardEditorDialog({
               )}
             </div>
 
-            {type === "group" && (
-              <p className={cn("text-xs", overLimit ? "text-danger" : "text-fg-subtle")}>
-                {t("ha.board.dialog.selectedCount", { count: selected.length })}
-                {overLimit && ` — ${t("ha.board.dialog.maxEntities", { max: MAX_GROUP_ENTITIES })}`}
+            {overLimit && (
+              <p className="text-danger text-xs">
+                {t("ha.board.dialog.maxEntities", { max: MAX_GROUP_ENTITIES })}
               </p>
             )}
           </div>
