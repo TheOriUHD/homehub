@@ -16,8 +16,9 @@ export type LiveState =
 type StateListener = (state: LiveState) => void;
 
 /** Fetches a fresh signed WebSocket URL — called on every (re)connect,
- * because stream tokens only gate NEW connections. */
-export type WsUrlProvider = () => Promise<string>;
+ * because stream tokens only gate NEW connections. useSub asks for the
+ * low-resolution substream when the camera offers one. */
+export type WsUrlProvider = (useSub: boolean) => Promise<string>;
 
 const WEBRTC_TIMEOUT_MS = 5_000;
 const STALL_TIMEOUT_MS = 8_000;
@@ -28,6 +29,11 @@ const MSE_CODECS =
 export class LiveEngine {
   readonly video: HTMLVideoElement;
   private getWsUrl: WsUrlProvider;
+  /** Grid tiles prefer the substream; some cameras have a broken or absent
+   * substream, so after BOTH transports fail on sub the engine downgrades
+   * to the main stream before reporting an error. */
+  private preferSub: boolean;
+  private subDowngraded = false;
   private listeners = new Set<StateListener>();
   private state: LiveState = { phase: "connecting" };
 
@@ -45,8 +51,9 @@ export class LiveEngine {
   private attempts = 0;
   private stopped = false;
 
-  constructor(getWsUrl: WsUrlProvider) {
+  constructor(getWsUrl: WsUrlProvider, preferSub: boolean) {
     this.getWsUrl = getWsUrl;
+    this.preferSub = preferSub;
     this.video = document.createElement("video");
     // All three, property AND attribute, or iOS silently refuses playback.
     this.video.muted = true;
@@ -120,7 +127,7 @@ export class LiveEngine {
 
     let url: string;
     try {
-      url = await this.getWsUrl();
+      url = await this.getWsUrl(this.preferSub && !this.subDowngraded);
     } catch (err) {
       this.fail(err instanceof Error ? err.message : "could not get a stream token");
       return;
@@ -304,6 +311,16 @@ export class LiveEngine {
   private fail(reason: string) {
     if (this.stopped) return;
     this.teardownConnection();
+    // Both transports failed on the substream: try the camera's main
+    // stream before declaring the tile broken — substreams are an
+    // optimization, not a requirement.
+    if (this.preferSub && !this.subDowngraded) {
+      this.subDowngraded = true;
+      this.transport = "webrtc";
+      this.setState({ phase: "connecting" });
+      void this.connect();
+      return;
+    }
     this.attempts++;
     const retryInMs = Math.min(1_000 * 2 ** this.attempts, MAX_BACKOFF_MS);
     this.setState({ phase: "error", reason, retryInMs });
@@ -328,10 +345,10 @@ type PoolEntry = {
 const pool = new Map<string, PoolEntry>();
 const IDLE_RELEASE_MS = 3 * 60_000;
 
-export function acquireLive(key: string, container: HTMLElement, getWsUrl: WsUrlProvider): LiveEngine {
+export function acquireLive(key: string, container: HTMLElement, getWsUrl: WsUrlProvider, preferSub: boolean): LiveEngine {
   let entry = pool.get(key);
   if (!entry) {
-    entry = { engine: new LiveEngine(getWsUrl), refs: 0, idleTimer: null };
+    entry = { engine: new LiveEngine(getWsUrl, preferSub), refs: 0, idleTimer: null };
     pool.set(key, entry);
     // Attach FIRST, then connect (§5.5).
     container.appendChild(entry.engine.video);
