@@ -66,6 +66,102 @@ func (e AuditEntryOutcome) Valid() bool {
 	}
 }
 
+// Defines values for DnsInstanceStatus.
+const (
+	DnsInstanceStatusConnected   DnsInstanceStatus = "connected"
+	DnsInstanceStatusConnecting  DnsInstanceStatus = "connecting"
+	DnsInstanceStatusDegraded    DnsInstanceStatus = "degraded"
+	DnsInstanceStatusDisabled    DnsInstanceStatus = "disabled"
+	DnsInstanceStatusPending     DnsInstanceStatus = "pending"
+	DnsInstanceStatusUnreachable DnsInstanceStatus = "unreachable"
+)
+
+// Valid indicates whether the value is a known member of the DnsInstanceStatus enum.
+func (e DnsInstanceStatus) Valid() bool {
+	switch e {
+	case DnsInstanceStatusConnected:
+		return true
+	case DnsInstanceStatusConnecting:
+		return true
+	case DnsInstanceStatusDegraded:
+		return true
+	case DnsInstanceStatusDisabled:
+		return true
+	case DnsInstanceStatusPending:
+		return true
+	case DnsInstanceStatusUnreachable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DnsInstanceType.
+const (
+	Adguard DnsInstanceType = "adguard"
+	Pihole  DnsInstanceType = "pihole"
+)
+
+// Valid indicates whether the value is a known member of the DnsInstanceType enum.
+func (e DnsInstanceType) Valid() bool {
+	switch e {
+	case Adguard:
+		return true
+	case Pihole:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DnsListType.
+const (
+	DnsListTypeAllow      DnsListType = "allow"
+	DnsListTypeAllowRegex DnsListType = "allow_regex"
+	DnsListTypeCustom     DnsListType = "custom"
+	DnsListTypeDeny       DnsListType = "deny"
+	DnsListTypeDenyRegex  DnsListType = "deny_regex"
+)
+
+// Valid indicates whether the value is a known member of the DnsListType enum.
+func (e DnsListType) Valid() bool {
+	switch e {
+	case DnsListTypeAllow:
+		return true
+	case DnsListTypeAllowRegex:
+		return true
+	case DnsListTypeCustom:
+		return true
+	case DnsListTypeDeny:
+		return true
+	case DnsListTypeDenyRegex:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DnsQueryStatus.
+const (
+	DnsQueryStatusAllowed DnsQueryStatus = "allowed"
+	DnsQueryStatusBlocked DnsQueryStatus = "blocked"
+	DnsQueryStatusCached  DnsQueryStatus = "cached"
+)
+
+// Valid indicates whether the value is a known member of the DnsQueryStatus enum.
+func (e DnsQueryStatus) Valid() bool {
+	switch e {
+	case DnsQueryStatusAllowed:
+		return true
+	case DnsQueryStatusBlocked:
+		return true
+	case DnsQueryStatusCached:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GrantEffect.
 const (
 	GrantEffectAllow GrantEffect = "allow"
@@ -429,6 +525,27 @@ func (e ExportAuditParamsOutcome) Valid() bool {
 	}
 }
 
+// Defines values for DnsQueryLogParamsStatus.
+const (
+	DnsQueryLogParamsStatusAllowed DnsQueryLogParamsStatus = "allowed"
+	DnsQueryLogParamsStatusBlocked DnsQueryLogParamsStatus = "blocked"
+	DnsQueryLogParamsStatusCached  DnsQueryLogParamsStatus = "cached"
+)
+
+// Valid indicates whether the value is a known member of the DnsQueryLogParamsStatus enum.
+func (e DnsQueryLogParamsStatus) Valid() bool {
+	switch e {
+	case DnsQueryLogParamsStatusAllowed:
+		return true
+	case DnsQueryLogParamsStatusBlocked:
+		return true
+	case DnsQueryLogParamsStatusCached:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DockerContainerActionJSONBodyAction.
 const (
 	DockerContainerActionJSONBodyActionKill    DockerContainerActionJSONBodyAction = "kill"
@@ -631,6 +748,114 @@ type CreateUserResult struct {
 	// TempPassword Present when onboarding is temp_password — shown exactly once
 	TempPassword *string `json:"tempPassword,omitempty"`
 	User         User    `json:"user"`
+}
+
+// DnsBlocking defines model for DnsBlocking.
+type DnsBlocking struct {
+	Enabled bool       `json:"enabled"`
+	Until   *time.Time `json:"until,omitempty"`
+}
+
+// DnsCapabilities defines model for DnsCapabilities.
+type DnsCapabilities struct {
+	ClientCrud  bool `json:"clientCrud"`
+	CustomRules bool `json:"customRules"`
+	GroupCrud   bool `json:"groupCrud"`
+	ListComment bool `json:"listComment"`
+	RegexLists  bool `json:"regexLists"`
+}
+
+// DnsClient defines model for DnsClient.
+type DnsClient struct {
+	GroupIds    []string `json:"groupIds"`
+	Id          string   `json:"id"`
+	Identifiers []string `json:"identifiers"`
+	Name        string   `json:"name"`
+}
+
+// DnsCompareResult defines model for DnsCompareResult.
+type DnsCompareResult struct {
+	CommonCount int            `json:"commonCount"`
+	OnlyA       []DnsListEntry `json:"onlyA"`
+	OnlyB       []DnsListEntry `json:"onlyB"`
+}
+
+// DnsGroup defines model for DnsGroup.
+type DnsGroup struct {
+	Enabled bool   `json:"enabled"`
+	Id      string `json:"id"`
+	Name    string `json:"name"`
+}
+
+// DnsInstance defines model for DnsInstance.
+type DnsInstance struct {
+	Capabilities  DnsCapabilities    `json:"capabilities"`
+	Id            openapi_types.UUID `json:"id"`
+	Name          string             `json:"name"`
+	Stats         *DnsStats          `json:"stats,omitempty"`
+	Status        DnsInstanceStatus  `json:"status"`
+	StatusMessage string             `json:"statusMessage"`
+	Type          DnsInstanceType    `json:"type"`
+}
+
+// DnsInstanceStatus defines model for DnsInstance.Status.
+type DnsInstanceStatus string
+
+// DnsInstanceType defines model for DnsInstance.Type.
+type DnsInstanceType string
+
+// DnsListEntry defines model for DnsListEntry.
+type DnsListEntry struct {
+	Comment *string     `json:"comment,omitempty"`
+	Domain  string      `json:"domain"`
+	Enabled bool        `json:"enabled"`
+	Id      string      `json:"id"`
+	Type    DnsListType `json:"type"`
+}
+
+// DnsListInput defines model for DnsListInput.
+type DnsListInput struct {
+	Comment *string     `json:"comment,omitempty"`
+	Domain  string      `json:"domain"`
+	Type    DnsListType `json:"type"`
+}
+
+// DnsListType defines model for DnsListType.
+type DnsListType string
+
+// DnsQuery defines model for DnsQuery.
+type DnsQuery struct {
+	Client     string         `json:"client"`
+	ClientName *string        `json:"clientName,omitempty"`
+	Domain     string         `json:"domain"`
+	Reason     *string        `json:"reason,omitempty"`
+	Status     DnsQueryStatus `json:"status"`
+	Time       time.Time      `json:"time"`
+	Type       string         `json:"type"`
+}
+
+// DnsQueryStatus defines model for DnsQuery.Status.
+type DnsQueryStatus string
+
+// DnsStats defines model for DnsStats.
+type DnsStats struct {
+	BlockedPct     float32    `json:"blockedPct"`
+	BlockedToday   int64      `json:"blockedToday"`
+	ClientsSeen    int64      `json:"clientsSeen"`
+	DisabledUntil  *time.Time `json:"disabledUntil,omitempty"`
+	DomainsOnLists int64      `json:"domainsOnLists"`
+	Enabled        bool       `json:"enabled"`
+	QueriesToday   int64      `json:"queriesToday"`
+	Version        string     `json:"version"`
+}
+
+// DnsSyncResult defines model for DnsSyncResult.
+type DnsSyncResult struct {
+	Added  int `json:"added"`
+	Failed []struct {
+		Domain string `json:"domain"`
+		Error  string `json:"error"`
+	} `json:"failed"`
 }
 
 // DockerContainer defines model for DockerContainer.
@@ -1275,6 +1500,55 @@ type SetViewAsJSONBody struct {
 	RoleId *openapi_types.UUID `json:"roleId,omitempty"`
 }
 
+// DnsCompareParams defines parameters for DnsCompare.
+type DnsCompareParams struct {
+	A openapi_types.UUID `form:"a" json:"a"`
+	B openapi_types.UUID `form:"b" json:"b"`
+}
+
+// DnsSyncJSONBody defines parameters for DnsSync.
+type DnsSyncJSONBody struct {
+	Entries []DnsListInput     `json:"entries"`
+	From    openapi_types.UUID `json:"from"`
+	To      openapi_types.UUID `json:"to"`
+}
+
+// DnsSetBlockingJSONBody defines parameters for DnsSetBlocking.
+type DnsSetBlockingJSONBody struct {
+	Enabled bool `json:"enabled"`
+
+	// Seconds When disabling — automatically re-enable after this many seconds
+	Seconds *int `json:"seconds,omitempty"`
+}
+
+// DnsDeleteClientJSONBody defines parameters for DnsDeleteClient.
+type DnsDeleteClientJSONBody struct {
+	Id string `json:"id"`
+}
+
+// DnsDeleteGroupJSONBody defines parameters for DnsDeleteGroup.
+type DnsDeleteGroupJSONBody struct {
+	Id string `json:"id"`
+}
+
+// DnsRemoveListEntryJSONBody defines parameters for DnsRemoveListEntry.
+type DnsRemoveListEntryJSONBody struct {
+	Domain string      `json:"domain"`
+	Id     *string     `json:"id,omitempty"`
+	Type   DnsListType `json:"type"`
+}
+
+// DnsQueryLogParams defines parameters for DnsQueryLog.
+type DnsQueryLogParams struct {
+	Search *string                  `form:"search,omitempty" json:"search,omitempty"`
+	Client *string                  `form:"client,omitempty" json:"client,omitempty"`
+	Status *DnsQueryLogParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	Limit  *int                     `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// DnsQueryLogParamsStatus defines parameters for DnsQueryLog.
+type DnsQueryLogParamsStatus string
+
 // DockerRemoveContainerParams defines parameters for DockerRemoveContainer.
 type DockerRemoveContainerParams struct {
 	Force *bool `form:"force,omitempty" json:"force,omitempty"`
@@ -1582,6 +1856,30 @@ type DisableTotpJSONRequestBody DisableTotpJSONBody
 // SetViewAsJSONRequestBody defines body for SetViewAs for application/json ContentType.
 type SetViewAsJSONRequestBody SetViewAsJSONBody
 
+// DnsSyncJSONRequestBody defines body for DnsSync for application/json ContentType.
+type DnsSyncJSONRequestBody DnsSyncJSONBody
+
+// DnsSetBlockingJSONRequestBody defines body for DnsSetBlocking for application/json ContentType.
+type DnsSetBlockingJSONRequestBody DnsSetBlockingJSONBody
+
+// DnsUpsertClientJSONRequestBody defines body for DnsUpsertClient for application/json ContentType.
+type DnsUpsertClientJSONRequestBody = DnsClient
+
+// DnsDeleteClientJSONRequestBody defines body for DnsDeleteClient for application/json ContentType.
+type DnsDeleteClientJSONRequestBody DnsDeleteClientJSONBody
+
+// DnsUpsertGroupJSONRequestBody defines body for DnsUpsertGroup for application/json ContentType.
+type DnsUpsertGroupJSONRequestBody = DnsGroup
+
+// DnsDeleteGroupJSONRequestBody defines body for DnsDeleteGroup for application/json ContentType.
+type DnsDeleteGroupJSONRequestBody DnsDeleteGroupJSONBody
+
+// DnsAddListEntryJSONRequestBody defines body for DnsAddListEntry for application/json ContentType.
+type DnsAddListEntryJSONRequestBody = DnsListInput
+
+// DnsRemoveListEntryJSONRequestBody defines body for DnsRemoveListEntry for application/json ContentType.
+type DnsRemoveListEntryJSONRequestBody DnsRemoveListEntryJSONBody
+
 // DockerContainerActionJSONRequestBody defines body for DockerContainerAction for application/json ContentType.
 type DockerContainerActionJSONRequestBody DockerContainerActionJSONBody
 
@@ -1749,6 +2047,45 @@ type ServerInterface interface {
 	// SetViewAs Preview the app as a role (admins only)
 	// (PUT /auth/view-as)
 	SetViewAs(w http.ResponseWriter, r *http.Request)
+	// DnsCompare Compare list entries between two instances
+	// (GET /dns/compare)
+	DnsCompare(w http.ResponseWriter, r *http.Request, params DnsCompareParams)
+	// DnsListInstances All DNS instances with live stats
+	// (GET /dns/instances)
+	DnsListInstances(w http.ResponseWriter, r *http.Request)
+	// DnsSync Copy list entries from one instance to another
+	// (POST /dns/sync)
+	DnsSync(w http.ResponseWriter, r *http.Request)
+	// DnsSetBlocking Enable or disable blocking, optionally on a timer
+	// (POST /dns/{id}/blocking)
+	DnsSetBlocking(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DnsClients Clients and groups
+	// (GET /dns/{id}/clients)
+	DnsClients(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DnsUpsertClient Create or update a client
+	// (POST /dns/{id}/clients)
+	DnsUpsertClient(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DnsDeleteClient Delete a client
+	// (POST /dns/{id}/clients/delete)
+	DnsDeleteClient(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DnsUpsertGroup Create or update a group
+	// (POST /dns/{id}/groups)
+	DnsUpsertGroup(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DnsDeleteGroup Delete a group
+	// (POST /dns/{id}/groups/delete)
+	DnsDeleteGroup(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DnsLists Allow/deny/regex list entries
+	// (GET /dns/{id}/lists)
+	DnsLists(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DnsAddListEntry Add a list entry
+	// (POST /dns/{id}/lists)
+	DnsAddListEntry(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DnsRemoveListEntry Remove a list entry
+	// (POST /dns/{id}/lists/remove)
+	DnsRemoveListEntry(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DnsQueryLog Query log for one instance
+	// (GET /dns/{id}/queries)
+	DnsQueryLog(w http.ResponseWriter, r *http.Request, id IdParam, params DnsQueryLogParams)
 	// DockerListContainers All containers on the host
 	// (GET /docker/{id}/containers)
 	DockerListContainers(w http.ResponseWriter, r *http.Request, id IdParam)
@@ -2136,6 +2473,84 @@ func (_ Unimplemented) EnrollTotp(w http.ResponseWriter, r *http.Request) {
 // SetViewAs Preview the app as a role (admins only)
 // (PUT /auth/view-as)
 func (_ Unimplemented) SetViewAs(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsCompare Compare list entries between two instances
+// (GET /dns/compare)
+func (_ Unimplemented) DnsCompare(w http.ResponseWriter, r *http.Request, params DnsCompareParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsListInstances All DNS instances with live stats
+// (GET /dns/instances)
+func (_ Unimplemented) DnsListInstances(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsSync Copy list entries from one instance to another
+// (POST /dns/sync)
+func (_ Unimplemented) DnsSync(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsSetBlocking Enable or disable blocking, optionally on a timer
+// (POST /dns/{id}/blocking)
+func (_ Unimplemented) DnsSetBlocking(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsClients Clients and groups
+// (GET /dns/{id}/clients)
+func (_ Unimplemented) DnsClients(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsUpsertClient Create or update a client
+// (POST /dns/{id}/clients)
+func (_ Unimplemented) DnsUpsertClient(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsDeleteClient Delete a client
+// (POST /dns/{id}/clients/delete)
+func (_ Unimplemented) DnsDeleteClient(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsUpsertGroup Create or update a group
+// (POST /dns/{id}/groups)
+func (_ Unimplemented) DnsUpsertGroup(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsDeleteGroup Delete a group
+// (POST /dns/{id}/groups/delete)
+func (_ Unimplemented) DnsDeleteGroup(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsLists Allow/deny/regex list entries
+// (GET /dns/{id}/lists)
+func (_ Unimplemented) DnsLists(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsAddListEntry Add a list entry
+// (POST /dns/{id}/lists)
+func (_ Unimplemented) DnsAddListEntry(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsRemoveListEntry Remove a list entry
+// (POST /dns/{id}/lists/remove)
+func (_ Unimplemented) DnsRemoveListEntry(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DnsQueryLog Query log for one instance
+// (GET /dns/{id}/queries)
+func (_ Unimplemented) DnsQueryLog(w http.ResponseWriter, r *http.Request, id IdParam, params DnsQueryLogParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3187,6 +3602,395 @@ func (siw *ServerInterfaceWrapper) SetViewAs(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetViewAs(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsCompare operation middleware
+func (siw *ServerInterfaceWrapper) DnsCompare(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DnsCompareParams
+
+	// ------------- Required query parameter "a" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "a", r.URL.Query(), &params.A, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "a"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "a", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "b" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "b", r.URL.Query(), &params.B, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "b"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "b", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsCompare(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsListInstances operation middleware
+func (siw *ServerInterfaceWrapper) DnsListInstances(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsListInstances(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsSync operation middleware
+func (siw *ServerInterfaceWrapper) DnsSync(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsSync(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsSetBlocking operation middleware
+func (siw *ServerInterfaceWrapper) DnsSetBlocking(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsSetBlocking(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsClients operation middleware
+func (siw *ServerInterfaceWrapper) DnsClients(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsClients(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsUpsertClient operation middleware
+func (siw *ServerInterfaceWrapper) DnsUpsertClient(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsUpsertClient(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsDeleteClient operation middleware
+func (siw *ServerInterfaceWrapper) DnsDeleteClient(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsDeleteClient(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsUpsertGroup operation middleware
+func (siw *ServerInterfaceWrapper) DnsUpsertGroup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsUpsertGroup(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsDeleteGroup operation middleware
+func (siw *ServerInterfaceWrapper) DnsDeleteGroup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsDeleteGroup(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsLists operation middleware
+func (siw *ServerInterfaceWrapper) DnsLists(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsLists(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsAddListEntry operation middleware
+func (siw *ServerInterfaceWrapper) DnsAddListEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsAddListEntry(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsRemoveListEntry operation middleware
+func (siw *ServerInterfaceWrapper) DnsRemoveListEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsRemoveListEntry(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DnsQueryLog operation middleware
+func (siw *ServerInterfaceWrapper) DnsQueryLog(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DnsQueryLogParams
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "search", r.URL.Query(), &params.Search, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "search"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "client" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "client", r.URL.Query(), &params.Client, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "client"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "client", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DnsQueryLog(w, r, id, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5902,6 +6706,45 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/docker/{id}/registries/{registry}", wrapper.DockerDeleteRegistry)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/dns/instances", wrapper.DnsListInstances)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/dns/{id}/queries", wrapper.DnsQueryLog)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/dns/{id}/lists", wrapper.DnsLists)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/dns/{id}/lists", wrapper.DnsAddListEntry)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/dns/{id}/lists/remove", wrapper.DnsRemoveListEntry)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/dns/{id}/blocking", wrapper.DnsSetBlocking)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/dns/{id}/clients", wrapper.DnsClients)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/dns/{id}/clients", wrapper.DnsUpsertClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/dns/{id}/clients/delete", wrapper.DnsDeleteClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/dns/{id}/groups", wrapper.DnsUpsertGroup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/dns/{id}/groups/delete", wrapper.DnsDeleteGroup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/dns/compare", wrapper.DnsCompare)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/dns/sync", wrapper.DnsSync)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/resources/ssh", wrapper.DeleteSSHCredential)
 	})
 	r.Group(func(r chi.Router) {
@@ -6800,6 +7643,841 @@ func (response SetViewAs403JSONResponse) VisitSetViewAsResponse(w http.ResponseW
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsCompareRequestObject struct {
+	Params DnsCompareParams
+}
+
+type DnsCompareResponseObject interface {
+	VisitDnsCompareResponse(w http.ResponseWriter) error
+}
+
+type DnsCompare200JSONResponse DnsCompareResult
+
+func (response DnsCompare200JSONResponse) VisitDnsCompareResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsCompare403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DnsCompare403JSONResponse) VisitDnsCompareResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsCompare404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DnsCompare404JSONResponse) VisitDnsCompareResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsCompare502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DnsCompare502JSONResponse) VisitDnsCompareResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsListInstancesRequestObject struct {
+}
+
+type DnsListInstancesResponseObject interface {
+	VisitDnsListInstancesResponse(w http.ResponseWriter) error
+}
+
+type DnsListInstances200JSONResponse []DnsInstance
+
+func (response DnsListInstances200JSONResponse) VisitDnsListInstancesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsSyncRequestObject struct {
+	Body *DnsSyncJSONRequestBody
+}
+
+type DnsSyncResponseObject interface {
+	VisitDnsSyncResponse(w http.ResponseWriter) error
+}
+
+type DnsSync200JSONResponse DnsSyncResult
+
+func (response DnsSync200JSONResponse) VisitDnsSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsSync403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DnsSync403JSONResponse) VisitDnsSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsSync404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DnsSync404JSONResponse) VisitDnsSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsSetBlockingRequestObject struct {
+	Id   IdParam `json:"id"`
+	Body *DnsSetBlockingJSONRequestBody
+}
+
+type DnsSetBlockingResponseObject interface {
+	VisitDnsSetBlockingResponse(w http.ResponseWriter) error
+}
+
+type DnsSetBlocking200JSONResponse DnsBlocking
+
+func (response DnsSetBlocking200JSONResponse) VisitDnsSetBlockingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsSetBlocking403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DnsSetBlocking403JSONResponse) VisitDnsSetBlockingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsSetBlocking404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DnsSetBlocking404JSONResponse) VisitDnsSetBlockingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsSetBlocking502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DnsSetBlocking502JSONResponse) VisitDnsSetBlockingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsClientsRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type DnsClientsResponseObject interface {
+	VisitDnsClientsResponse(w http.ResponseWriter) error
+}
+
+type DnsClients200JSONResponse struct {
+	Capabilities DnsCapabilities `json:"capabilities"`
+	Clients      []DnsClient     `json:"clients"`
+	Groups       []DnsGroup      `json:"groups"`
+}
+
+func (response DnsClients200JSONResponse) VisitDnsClientsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsClients403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DnsClients403JSONResponse) VisitDnsClientsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsClients404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DnsClients404JSONResponse) VisitDnsClientsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsClients502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DnsClients502JSONResponse) VisitDnsClientsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsUpsertClientRequestObject struct {
+	Id   IdParam `json:"id"`
+	Body *DnsUpsertClientJSONRequestBody
+}
+
+type DnsUpsertClientResponseObject interface {
+	VisitDnsUpsertClientResponse(w http.ResponseWriter) error
+}
+
+type DnsUpsertClient204Response struct {
+}
+
+func (response DnsUpsertClient204Response) VisitDnsUpsertClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DnsUpsertClient400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DnsUpsertClient400JSONResponse) VisitDnsUpsertClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsUpsertClient403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DnsUpsertClient403JSONResponse) VisitDnsUpsertClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsUpsertClient404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DnsUpsertClient404JSONResponse) VisitDnsUpsertClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsUpsertClient502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DnsUpsertClient502JSONResponse) VisitDnsUpsertClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsDeleteClientRequestObject struct {
+	Id   IdParam `json:"id"`
+	Body *DnsDeleteClientJSONRequestBody
+}
+
+type DnsDeleteClientResponseObject interface {
+	VisitDnsDeleteClientResponse(w http.ResponseWriter) error
+}
+
+type DnsDeleteClient204Response struct {
+}
+
+func (response DnsDeleteClient204Response) VisitDnsDeleteClientResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DnsDeleteClient400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DnsDeleteClient400JSONResponse) VisitDnsDeleteClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsDeleteClient403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DnsDeleteClient403JSONResponse) VisitDnsDeleteClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsDeleteClient404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DnsDeleteClient404JSONResponse) VisitDnsDeleteClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsDeleteClient502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DnsDeleteClient502JSONResponse) VisitDnsDeleteClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsUpsertGroupRequestObject struct {
+	Id   IdParam `json:"id"`
+	Body *DnsUpsertGroupJSONRequestBody
+}
+
+type DnsUpsertGroupResponseObject interface {
+	VisitDnsUpsertGroupResponse(w http.ResponseWriter) error
+}
+
+type DnsUpsertGroup204Response struct {
+}
+
+func (response DnsUpsertGroup204Response) VisitDnsUpsertGroupResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DnsUpsertGroup400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DnsUpsertGroup400JSONResponse) VisitDnsUpsertGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsUpsertGroup403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DnsUpsertGroup403JSONResponse) VisitDnsUpsertGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsUpsertGroup404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DnsUpsertGroup404JSONResponse) VisitDnsUpsertGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsUpsertGroup502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DnsUpsertGroup502JSONResponse) VisitDnsUpsertGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsDeleteGroupRequestObject struct {
+	Id   IdParam `json:"id"`
+	Body *DnsDeleteGroupJSONRequestBody
+}
+
+type DnsDeleteGroupResponseObject interface {
+	VisitDnsDeleteGroupResponse(w http.ResponseWriter) error
+}
+
+type DnsDeleteGroup204Response struct {
+}
+
+func (response DnsDeleteGroup204Response) VisitDnsDeleteGroupResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DnsDeleteGroup400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DnsDeleteGroup400JSONResponse) VisitDnsDeleteGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsDeleteGroup403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DnsDeleteGroup403JSONResponse) VisitDnsDeleteGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsDeleteGroup404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DnsDeleteGroup404JSONResponse) VisitDnsDeleteGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsDeleteGroup502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DnsDeleteGroup502JSONResponse) VisitDnsDeleteGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsListsRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type DnsListsResponseObject interface {
+	VisitDnsListsResponse(w http.ResponseWriter) error
+}
+
+type DnsLists200JSONResponse []DnsListEntry
+
+func (response DnsLists200JSONResponse) VisitDnsListsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsLists403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DnsLists403JSONResponse) VisitDnsListsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsLists404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DnsLists404JSONResponse) VisitDnsListsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsLists502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DnsLists502JSONResponse) VisitDnsListsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsAddListEntryRequestObject struct {
+	Id   IdParam `json:"id"`
+	Body *DnsAddListEntryJSONRequestBody
+}
+
+type DnsAddListEntryResponseObject interface {
+	VisitDnsAddListEntryResponse(w http.ResponseWriter) error
+}
+
+type DnsAddListEntry204Response struct {
+}
+
+func (response DnsAddListEntry204Response) VisitDnsAddListEntryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DnsAddListEntry400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DnsAddListEntry400JSONResponse) VisitDnsAddListEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsAddListEntry403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DnsAddListEntry403JSONResponse) VisitDnsAddListEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsAddListEntry404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DnsAddListEntry404JSONResponse) VisitDnsAddListEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsAddListEntry502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DnsAddListEntry502JSONResponse) VisitDnsAddListEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsRemoveListEntryRequestObject struct {
+	Id   IdParam `json:"id"`
+	Body *DnsRemoveListEntryJSONRequestBody
+}
+
+type DnsRemoveListEntryResponseObject interface {
+	VisitDnsRemoveListEntryResponse(w http.ResponseWriter) error
+}
+
+type DnsRemoveListEntry204Response struct {
+}
+
+func (response DnsRemoveListEntry204Response) VisitDnsRemoveListEntryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DnsRemoveListEntry400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DnsRemoveListEntry400JSONResponse) VisitDnsRemoveListEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsRemoveListEntry403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DnsRemoveListEntry403JSONResponse) VisitDnsRemoveListEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsRemoveListEntry404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DnsRemoveListEntry404JSONResponse) VisitDnsRemoveListEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsRemoveListEntry502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DnsRemoveListEntry502JSONResponse) VisitDnsRemoveListEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsQueryLogRequestObject struct {
+	Id     IdParam `json:"id"`
+	Params DnsQueryLogParams
+}
+
+type DnsQueryLogResponseObject interface {
+	VisitDnsQueryLogResponse(w http.ResponseWriter) error
+}
+
+type DnsQueryLog200JSONResponse []DnsQuery
+
+func (response DnsQueryLog200JSONResponse) VisitDnsQueryLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsQueryLog403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DnsQueryLog403JSONResponse) VisitDnsQueryLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsQueryLog404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DnsQueryLog404JSONResponse) VisitDnsQueryLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DnsQueryLog502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DnsQueryLog502JSONResponse) VisitDnsQueryLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -11222,6 +12900,45 @@ type StrictServerInterface interface {
 	// SetViewAs Preview the app as a role (admins only)
 	// (PUT /auth/view-as)
 	SetViewAs(ctx context.Context, request SetViewAsRequestObject) (SetViewAsResponseObject, error)
+	// DnsCompare Compare list entries between two instances
+	// (GET /dns/compare)
+	DnsCompare(ctx context.Context, request DnsCompareRequestObject) (DnsCompareResponseObject, error)
+	// DnsListInstances All DNS instances with live stats
+	// (GET /dns/instances)
+	DnsListInstances(ctx context.Context, request DnsListInstancesRequestObject) (DnsListInstancesResponseObject, error)
+	// DnsSync Copy list entries from one instance to another
+	// (POST /dns/sync)
+	DnsSync(ctx context.Context, request DnsSyncRequestObject) (DnsSyncResponseObject, error)
+	// DnsSetBlocking Enable or disable blocking, optionally on a timer
+	// (POST /dns/{id}/blocking)
+	DnsSetBlocking(ctx context.Context, request DnsSetBlockingRequestObject) (DnsSetBlockingResponseObject, error)
+	// DnsClients Clients and groups
+	// (GET /dns/{id}/clients)
+	DnsClients(ctx context.Context, request DnsClientsRequestObject) (DnsClientsResponseObject, error)
+	// DnsUpsertClient Create or update a client
+	// (POST /dns/{id}/clients)
+	DnsUpsertClient(ctx context.Context, request DnsUpsertClientRequestObject) (DnsUpsertClientResponseObject, error)
+	// DnsDeleteClient Delete a client
+	// (POST /dns/{id}/clients/delete)
+	DnsDeleteClient(ctx context.Context, request DnsDeleteClientRequestObject) (DnsDeleteClientResponseObject, error)
+	// DnsUpsertGroup Create or update a group
+	// (POST /dns/{id}/groups)
+	DnsUpsertGroup(ctx context.Context, request DnsUpsertGroupRequestObject) (DnsUpsertGroupResponseObject, error)
+	// DnsDeleteGroup Delete a group
+	// (POST /dns/{id}/groups/delete)
+	DnsDeleteGroup(ctx context.Context, request DnsDeleteGroupRequestObject) (DnsDeleteGroupResponseObject, error)
+	// DnsLists Allow/deny/regex list entries
+	// (GET /dns/{id}/lists)
+	DnsLists(ctx context.Context, request DnsListsRequestObject) (DnsListsResponseObject, error)
+	// DnsAddListEntry Add a list entry
+	// (POST /dns/{id}/lists)
+	DnsAddListEntry(ctx context.Context, request DnsAddListEntryRequestObject) (DnsAddListEntryResponseObject, error)
+	// DnsRemoveListEntry Remove a list entry
+	// (POST /dns/{id}/lists/remove)
+	DnsRemoveListEntry(ctx context.Context, request DnsRemoveListEntryRequestObject) (DnsRemoveListEntryResponseObject, error)
+	// DnsQueryLog Query log for one instance
+	// (GET /dns/{id}/queries)
+	DnsQueryLog(ctx context.Context, request DnsQueryLogRequestObject) (DnsQueryLogResponseObject, error)
 	// DockerListContainers All containers on the host
 	// (GET /docker/{id}/containers)
 	DockerListContainers(ctx context.Context, request DockerListContainersRequestObject) (DockerListContainersResponseObject, error)
@@ -12191,6 +13908,397 @@ func (sh *strictHandler) SetViewAs(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SetViewAsResponseObject); ok {
 		if err := validResponse.VisitSetViewAsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsCompare operation middleware
+func (sh *strictHandler) DnsCompare(w http.ResponseWriter, r *http.Request, params DnsCompareParams) {
+	var request DnsCompareRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsCompare(ctx, request.(DnsCompareRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsCompare")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsCompareResponseObject); ok {
+		if err := validResponse.VisitDnsCompareResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsListInstances operation middleware
+func (sh *strictHandler) DnsListInstances(w http.ResponseWriter, r *http.Request) {
+	var request DnsListInstancesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsListInstances(ctx, request.(DnsListInstancesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsListInstances")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsListInstancesResponseObject); ok {
+		if err := validResponse.VisitDnsListInstancesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsSync operation middleware
+func (sh *strictHandler) DnsSync(w http.ResponseWriter, r *http.Request) {
+	var request DnsSyncRequestObject
+
+	var body DnsSyncJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsSync(ctx, request.(DnsSyncRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsSync")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsSyncResponseObject); ok {
+		if err := validResponse.VisitDnsSyncResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsSetBlocking operation middleware
+func (sh *strictHandler) DnsSetBlocking(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DnsSetBlockingRequestObject
+
+	request.Id = id
+
+	var body DnsSetBlockingJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsSetBlocking(ctx, request.(DnsSetBlockingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsSetBlocking")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsSetBlockingResponseObject); ok {
+		if err := validResponse.VisitDnsSetBlockingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsClients operation middleware
+func (sh *strictHandler) DnsClients(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DnsClientsRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsClients(ctx, request.(DnsClientsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsClients")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsClientsResponseObject); ok {
+		if err := validResponse.VisitDnsClientsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsUpsertClient operation middleware
+func (sh *strictHandler) DnsUpsertClient(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DnsUpsertClientRequestObject
+
+	request.Id = id
+
+	var body DnsUpsertClientJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsUpsertClient(ctx, request.(DnsUpsertClientRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsUpsertClient")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsUpsertClientResponseObject); ok {
+		if err := validResponse.VisitDnsUpsertClientResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsDeleteClient operation middleware
+func (sh *strictHandler) DnsDeleteClient(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DnsDeleteClientRequestObject
+
+	request.Id = id
+
+	var body DnsDeleteClientJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsDeleteClient(ctx, request.(DnsDeleteClientRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsDeleteClient")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsDeleteClientResponseObject); ok {
+		if err := validResponse.VisitDnsDeleteClientResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsUpsertGroup operation middleware
+func (sh *strictHandler) DnsUpsertGroup(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DnsUpsertGroupRequestObject
+
+	request.Id = id
+
+	var body DnsUpsertGroupJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsUpsertGroup(ctx, request.(DnsUpsertGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsUpsertGroup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsUpsertGroupResponseObject); ok {
+		if err := validResponse.VisitDnsUpsertGroupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsDeleteGroup operation middleware
+func (sh *strictHandler) DnsDeleteGroup(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DnsDeleteGroupRequestObject
+
+	request.Id = id
+
+	var body DnsDeleteGroupJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsDeleteGroup(ctx, request.(DnsDeleteGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsDeleteGroup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsDeleteGroupResponseObject); ok {
+		if err := validResponse.VisitDnsDeleteGroupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsLists operation middleware
+func (sh *strictHandler) DnsLists(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DnsListsRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsLists(ctx, request.(DnsListsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsLists")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsListsResponseObject); ok {
+		if err := validResponse.VisitDnsListsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsAddListEntry operation middleware
+func (sh *strictHandler) DnsAddListEntry(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DnsAddListEntryRequestObject
+
+	request.Id = id
+
+	var body DnsAddListEntryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsAddListEntry(ctx, request.(DnsAddListEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsAddListEntry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsAddListEntryResponseObject); ok {
+		if err := validResponse.VisitDnsAddListEntryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsRemoveListEntry operation middleware
+func (sh *strictHandler) DnsRemoveListEntry(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DnsRemoveListEntryRequestObject
+
+	request.Id = id
+
+	var body DnsRemoveListEntryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsRemoveListEntry(ctx, request.(DnsRemoveListEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsRemoveListEntry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsRemoveListEntryResponseObject); ok {
+		if err := validResponse.VisitDnsRemoveListEntryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DnsQueryLog operation middleware
+func (sh *strictHandler) DnsQueryLog(w http.ResponseWriter, r *http.Request, id IdParam, params DnsQueryLogParams) {
+	var request DnsQueryLogRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DnsQueryLog(ctx, request.(DnsQueryLogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DnsQueryLog")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DnsQueryLogResponseObject); ok {
+		if err := validResponse.VisitDnsQueryLogResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -14445,191 +16553,216 @@ func (sh *strictHandler) ListUserSessions(w http.ResponseWriter, r *http.Request
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"NGOjzx8///8AAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

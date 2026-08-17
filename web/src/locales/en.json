@@ -420,6 +420,8 @@
       "name": "Display name",
       "nameHintPve": "e.g. “Homelab cluster”",
       "nameHintDocker": "e.g. “NAS Docker”",
+      "nameHintPihole": "e.g. “Pi-hole primary”",
+      "nameHintAdguard": "e.g. “AdGuard Home”",
       "editTitle": "Edit {{name}}",
       "saveAnyway": "Save without testing"
     },
@@ -459,6 +461,25 @@
       "sshPassword": "SSH password",
       "sshKey": "Private key (PEM)",
       "secretKeep": "Leave empty to keep the stored value"
+    },
+    "pihole": {
+      "host": "Host",
+      "hostHint": "Hostname or IP of the Pi-hole web interface, e.g. pihole.lan or http://192.168.1.5:8080",
+      "password": "Password",
+      "passwordHint": "A v6 app password (Settings → Web Interface / API → App password), or the v5 API token from Settings → API",
+      "passwordKeep": "Leave empty to keep the stored password"
+    },
+    "adguard": {
+      "host": "Host",
+      "hostHint": "Hostname or IP of the AdGuard Home web interface — port 3000 is the default, e.g. 192.168.1.5:3000",
+      "username": "Username",
+      "usernameKeep": "Leave empty to keep the stored username",
+      "password": "Password",
+      "passwordKeep": "Leave empty to keep the stored password"
+    },
+    "dns": {
+      "insecureTls": "Skip TLS verification",
+      "insecureTlsHint": "Accept any certificate when connecting over HTTPS."
     }
   },
   "pve": {
@@ -830,6 +851,148 @@
     },
     "prune": {
       "result": "Reclaimed {{bytes}} · {{count}} deleted"
+    }
+  },
+  "dns": {
+    "title": "DNS",
+    "instancesSummary": "{{online}}/{{total}} instances connected",
+    "instance": "Instance",
+    "tabs": {
+      "overview": "Overview",
+      "queryLog": "Query log",
+      "lists": "Lists",
+      "clients": "Clients",
+      "sync": "Sync"
+    },
+    "empty": {
+      "title": "No DNS instances connected",
+      "body": "Connect a Pi-hole or AdGuard Home integration and network-wide ad blocking shows up here.",
+      "action": "Go to integrations"
+    },
+    "overview": {
+      "queriesToday": "Queries today",
+      "blockedToday": "Blocked today",
+      "blockedPct": "Blocked",
+      "instancesOnline": "Instances online",
+      "instanceSummary": "{{queries}} queries today · {{pct}} blocked",
+      "chartQueries": "Queries per minute",
+      "chartBlocked": "Blocked"
+    },
+    "blocking": {
+      "active": "Blocking active",
+      "disabled": "Blocking disabled",
+      "resumesIn": "resumes in {{time}}",
+      "disableFor": "Disable:",
+      "for5m": "5 min",
+      "for30m": "30 min",
+      "for1h": "1 hour",
+      "untilEnabled": "Until re-enabled",
+      "enable": "Enable",
+      "enabledToast": "Blocking enabled on {{name}}",
+      "disabledToast": "Blocking disabled on {{name}}"
+    },
+    "queryLog": {
+      "searchPlaceholder": "Filter by domain…",
+      "clientPlaceholder": "Client name or IP…",
+      "statusAll": "All statuses",
+      "status": {
+        "allowed": "Allowed",
+        "blocked": "Blocked",
+        "cached": "Cached"
+      },
+      "refresh": "Refresh",
+      "columns": {
+        "time": "Time",
+        "domain": "Domain",
+        "client": "Client",
+        "type": "Type",
+        "status": "Status",
+        "reason": "Reason"
+      },
+      "empty": {
+        "title": "No queries",
+        "body": "Nothing matches these filters — or this instance hasn’t logged any queries yet."
+      }
+    },
+    "lists": {
+      "domainPlaceholder": "Domain or pattern…",
+      "commentPlaceholder": "Comment (optional)",
+      "add": "Add",
+      "added": "“{{domain}}” added",
+      "removed": "“{{domain}}” removed",
+      "types": {
+        "allow": "Allow",
+        "deny": "Deny",
+        "allow_regex": "Allow regex",
+        "deny_regex": "Deny regex",
+        "custom": "Custom rule"
+      },
+      "sections": {
+        "allow": "Allow list",
+        "deny": "Deny list",
+        "allow_regex": "Allow regex",
+        "deny_regex": "Deny regex",
+        "custom": "Custom rules"
+      },
+      "entryCount_one": "{{count}} entry",
+      "entryCount_other": "{{count}} entries",
+      "sectionEmpty": "No entries.",
+      "removeConfirmTitle": "Remove “{{domain}}”?",
+      "removeConfirmBody": "The entry is removed from {{name}} immediately — matching queries are then judged by the remaining rules only.",
+      "empty": {
+        "title": "No list entries",
+        "body": "Allow and deny entries configured on this instance appear here."
+      }
+    },
+    "clients": {
+      "title": "Clients",
+      "count_one": "{{count}} client",
+      "count_other": "{{count}} clients",
+      "add": "Add client",
+      "columns": {
+        "client": "Client",
+        "identifiers": "Identifiers",
+        "groups": "Groups"
+      },
+      "unnamed": "Unnamed client",
+      "empty": {
+        "title": "No clients",
+        "body": "Clients configured on this instance appear here."
+      },
+      "readOnlyNote": "This Pi-hole runs the v5 API — clients and groups are read-only here. Upgrade to Pi-hole v6 to manage them from HomeHub.",
+      "editorTitleNew": "Add client",
+      "editorTitleEdit": "Edit {{name}}",
+      "name": "Name",
+      "identifiers": "Identifiers",
+      "identifiersHint": "One per line — IP, CIDR, MAC address, or hostname",
+      "groups": "Groups",
+      "saved": "Client saved",
+      "deleteConfirmTitle": "Remove client “{{name}}”?",
+      "deleteConfirmBody": "The client and its group assignments are removed from {{instance}}. Its queries then follow the default policy.",
+      "groupsTitle": "Groups",
+      "tagsTitle": "Tags",
+      "tagsHint": "Tags are defined and assigned to clients in AdGuard Home itself.",
+      "groupsEmpty": "No groups on this instance.",
+      "groupEnabled": "Group {{name}} enabled",
+      "groupDeleteConfirmTitle": "Delete group “{{name}}”?",
+      "groupDeleteConfirmBody": "Clients assigned to this group lose the assignment, and list entries scoped to it stop applying."
+    },
+    "sync": {
+      "instanceA": "Instance A",
+      "instanceB": "Instance B",
+      "onlyOn": "Only on {{name}}",
+      "inSync": "In sync",
+      "copyTo": "Copy selected → {{name}}",
+      "copied_one": "{{count}} entry copied",
+      "copied_other": "{{count}} entries copied",
+      "failedTitle_one": "{{count}} entry failed",
+      "failedTitle_other": "{{count}} entries failed",
+      "selectAll": "Select all",
+      "emptySide": "Nothing unique — every entry here also exists on {{name}}.",
+      "needTwo": {
+        "title": "Sync needs two instances",
+        "body": "Connect a second Pi-hole or AdGuard Home instance to compare and copy list entries between them."
+      }
     }
   }
 }

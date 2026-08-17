@@ -28,6 +28,12 @@ import { DockerModulePage } from "./pages/docker/module";
 import { DockerContainersPage } from "./pages/docker/containers";
 import { DockerContainerDetailPage } from "./pages/docker/container-detail";
 import { DockerImagesPage, DockerNetworksPage, DockerStacksPage, DockerVolumesPage } from "./pages/docker/misc";
+import { DnsModulePage } from "./pages/dns/module";
+import { DnsOverviewPage } from "./pages/dns/overview";
+import { DnsQueryLogPage } from "./pages/dns/querylog";
+import { DnsListsPage } from "./pages/dns/lists";
+import { DnsClientsPage } from "./pages/dns/clients";
+import { DnsSyncPage } from "./pages/dns/sync";
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -204,6 +210,42 @@ const dockerNetworksRoute = createRoute({
   component: DockerNetworksPage,
 });
 
+const dnsModuleRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/dns",
+  component: DnsModulePage,
+});
+
+const dnsOverviewRoute = createRoute({
+  getParentRoute: () => dnsModuleRoute,
+  path: "/",
+  component: DnsOverviewPage,
+});
+
+const dnsQueriesRoute = createRoute({
+  getParentRoute: () => dnsModuleRoute,
+  path: "/queries",
+  component: DnsQueryLogPage,
+});
+
+const dnsListsRoute = createRoute({
+  getParentRoute: () => dnsModuleRoute,
+  path: "/lists",
+  component: DnsListsPage,
+});
+
+const dnsClientsRoute = createRoute({
+  getParentRoute: () => dnsModuleRoute,
+  path: "/clients",
+  component: DnsClientsPage,
+});
+
+const dnsSyncRoute = createRoute({
+  getParentRoute: () => dnsModuleRoute,
+  path: "/sync",
+  component: DnsSyncPage,
+});
+
 const routeTree = rootRoute.addChildren([
   setupRoute,
   loginRoute,
@@ -234,6 +276,13 @@ const routeTree = rootRoute.addChildren([
       dockerImagesRoute,
       dockerVolumesRoute,
       dockerNetworksRoute,
+    ]),
+    dnsModuleRoute.addChildren([
+      dnsOverviewRoute,
+      dnsQueriesRoute,
+      dnsListsRoute,
+      dnsClientsRoute,
+      dnsSyncRoute,
     ]),
   ]),
 ]);

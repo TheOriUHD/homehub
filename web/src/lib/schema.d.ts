@@ -1476,6 +1476,201 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dns/instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * All DNS instances with live stats
+         * @description Spans every Pi-hole and AdGuard Home instance the caller may see; stats are fetched live and null when an instance is unreachable.
+         */
+        get: operations["dnsListInstances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dns/{id}/queries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Query log for one instance */
+        get: operations["dnsQueryLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dns/{id}/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Allow/deny/regex list entries */
+        get: operations["dnsLists"];
+        put?: never;
+        /** Add a list entry */
+        post: operations["dnsAddListEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dns/{id}/lists/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove a list entry */
+        post: operations["dnsRemoveListEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dns/{id}/blocking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enable or disable blocking, optionally on a timer */
+        post: operations["dnsSetBlocking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dns/{id}/clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Clients and groups */
+        get: operations["dnsClients"];
+        put?: never;
+        /** Create or update a client */
+        post: operations["dnsUpsertClient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dns/{id}/clients/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete a client */
+        post: operations["dnsDeleteClient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dns/{id}/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create or update a group */
+        post: operations["dnsUpsertGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dns/{id}/groups/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete a group */
+        post: operations["dnsDeleteGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dns/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare list entries between two instances
+         * @description Diffs normalized entries (custom rules excluded) so redundant resolvers don't drift.
+         */
+        get: operations["dnsCompare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dns/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy list entries from one instance to another */
+        post: operations["dnsSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/resources/ssh": {
         parameters: {
             query?: never;
@@ -1959,6 +2154,93 @@ export interface components {
         DockerRegistryCred: {
             registry: string;
             username: string;
+        };
+        /** @enum {string} */
+        DnsListType: "allow" | "deny" | "allow_regex" | "deny_regex" | "custom";
+        DnsCapabilities: {
+            groupCrud: boolean;
+            clientCrud: boolean;
+            regexLists: boolean;
+            customRules: boolean;
+            listComment: boolean;
+        };
+        DnsStats: {
+            /** Format: int64 */
+            queriesToday: number;
+            /** Format: int64 */
+            blockedToday: number;
+            blockedPct: number;
+            /** Format: int64 */
+            clientsSeen: number;
+            /** Format: int64 */
+            domainsOnLists: number;
+            enabled: boolean;
+            /** Format: date-time */
+            disabledUntil?: string | null;
+            version: string;
+        };
+        DnsBlocking: {
+            enabled: boolean;
+            /** Format: date-time */
+            until?: string | null;
+        };
+        DnsInstance: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            type: "pihole" | "adguard";
+            /** @enum {string} */
+            status: "pending" | "connecting" | "connected" | "degraded" | "unreachable" | "disabled";
+            statusMessage: string;
+            capabilities: components["schemas"]["DnsCapabilities"];
+            stats?: components["schemas"]["DnsStats"] | null;
+        };
+        DnsQuery: {
+            /** Format: date-time */
+            time: string;
+            domain: string;
+            client: string;
+            clientName?: string | null;
+            type: string;
+            /** @enum {string} */
+            status: "allowed" | "blocked" | "cached";
+            reason?: string | null;
+        };
+        DnsListEntry: {
+            id: string;
+            type: components["schemas"]["DnsListType"];
+            domain: string;
+            enabled: boolean;
+            comment?: string | null;
+        };
+        DnsListInput: {
+            type: components["schemas"]["DnsListType"];
+            domain: string;
+            comment?: string;
+        };
+        DnsClient: {
+            id: string;
+            name: string;
+            identifiers: string[];
+            groupIds: string[];
+        };
+        DnsGroup: {
+            id: string;
+            name: string;
+            enabled: boolean;
+        };
+        DnsCompareResult: {
+            onlyA: components["schemas"]["DnsListEntry"][];
+            onlyB: components["schemas"]["DnsListEntry"][];
+            commonCount: number;
+        };
+        DnsSyncResult: {
+            added: number;
+            failed: {
+                domain: string;
+                error: string;
+            }[];
         };
         MetricQueryResult: {
             points: {
@@ -4266,6 +4548,7 @@ export interface operations {
             };
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
         };
     };
     dockerListImages: {
@@ -4639,6 +4922,377 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    dnsListInstances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instances of both types */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsInstance"][];
+                };
+            };
+        };
+    };
+    dnsQueryLog: {
+        parameters: {
+            query?: {
+                search?: string;
+                client?: string;
+                status?: "allowed" | "blocked" | "cached";
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recent queries, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsQuery"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dnsLists: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Normalized entries (AdGuard custom rules appear verbatim as type custom) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsListEntry"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dnsAddListEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DnsListInput"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dnsRemoveListEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    type: components["schemas"]["DnsListType"];
+                    domain: string;
+                    id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dnsSetBlocking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                    /** @description When disabling — automatically re-enable after this many seconds */
+                    seconds?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Resulting blocking state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsBlocking"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dnsClients: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Clients, groups, and what this instance supports */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        clients: components["schemas"]["DnsClient"][];
+                        groups: components["schemas"]["DnsGroup"][];
+                        capabilities: components["schemas"]["DnsCapabilities"];
+                    };
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dnsUpsertClient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DnsClient"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dnsDeleteClient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dnsUpsertGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DnsGroup"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dnsDeleteGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dnsCompare: {
+        parameters: {
+            query: {
+                a: string;
+                b: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entries unique to each side */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsCompareResult"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dnsSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    from: string;
+                    /** Format: uuid */
+                    to: string;
+                    entries: components["schemas"]["DnsListInput"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Per-entry outcomes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsSyncResult"];
+                };
             };
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
