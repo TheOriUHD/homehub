@@ -21,7 +21,7 @@ export function backupTargetsQuery() {
  * useBackupsVisible probes GET /backups/targets; a 403 means the user can't
  * see backups at all, so navigation hides the entry entirely.
  */
-export function useBackupsVisible(): boolean {
-  const targets = useQuery(backupTargetsQuery());
+export function useBackupsVisible(enabled = true): boolean {
+  const targets = useQuery({ ...backupTargetsQuery(), enabled });
   return !(targets.isError && isApiError(targets.error) && targets.error.status === 403);
 }

@@ -75,6 +75,20 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Every hook must run on every render — these sit above the loading/auth
+  // returns (Rules of Hooks) and gate their fetches on a signed-in session
+  // instead of being skipped.
+  // Backups has no client-side grant shortcut — the entry hides when the
+  // server answers the targets probe with a 403.
+  const backupsVisible = useBackupsVisible(!!me);
+  // Connected systems the user may see — the server filters by permission.
+  const integrations = useQuery({
+    queryKey: ["integrations"],
+    queryFn: async () => unwrap(await api.GET("/integrations")),
+    staleTime: 30_000,
+    enabled: !!me,
+  });
+
   if (loading) {
     return (
       <div className="bg-bg flex min-h-full items-center justify-center">
@@ -85,9 +99,6 @@ export function AppShell() {
   if (!me) return <Navigate to="/login" />;
   if (me.user.mustChangePassword) return <Navigate to="/change-password" />;
 
-  // Backups has no client-side grant shortcut — the entry hides when the
-  // server answers the targets probe with a 403.
-  const backupsVisible = useBackupsVisible();
   const mainNav: NavItem[] = [
     { to: "/", label: t("nav.overview"), icon: Home },
     { to: "/health", label: t("nav.health"), icon: Activity, requires: RES.health },
@@ -110,12 +121,6 @@ export function AppShell() {
   const visible = (items: NavItem[]) => items.filter((i) => !i.requires || can(i.requires));
   const adminVisible = visible(adminNav);
 
-  // Connected systems the user may see — the server filters by permission.
-  const integrations = useQuery({
-    queryKey: ["integrations"],
-    queryFn: async () => unwrap(await api.GET("/integrations")),
-    staleTime: 30_000,
-  });
   const systems = (integrations.data ?? []).filter(
     (row) => row.enabled && (row.type === "proxmox" || row.type === "docker" || row.type === "homeassistant"),
   );
