@@ -57,6 +57,10 @@ import { DbConsolePage } from "./pages/db/console";
 import { DbSessionsPage } from "./pages/db/sessions";
 import { DbPerformancePage } from "./pages/db/performance";
 import { AmpModulePage } from "./pages/amp/module";
+import { TsModulePage } from "./pages/ts/module";
+import { TsDevicesPage } from "./pages/ts/devices";
+import { TsKeysPage } from "./pages/ts/keys";
+import { TsDnsPage } from "./pages/ts/dns";
 import { AmpOverviewPage } from "./pages/amp/overview";
 import { AmpInstancePage } from "./pages/amp/instance";
 import { TruenasModulePage } from "./pages/truenas/module";
@@ -211,6 +215,36 @@ const ampLandingRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/amp",
   component: () => <SystemTypeLanding type="amp" />,
+});
+
+const tsLandingRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/ts",
+  component: () => <SystemTypeLanding type="tailscale" />,
+});
+
+const tsModuleRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/ts/$instanceId",
+  component: TsModulePage,
+});
+
+const tsDevicesRoute = createRoute({
+  getParentRoute: () => tsModuleRoute,
+  path: "/",
+  component: TsDevicesPage,
+});
+
+const tsKeysRoute = createRoute({
+  getParentRoute: () => tsModuleRoute,
+  path: "/keys",
+  component: TsKeysPage,
+});
+
+const tsDnsRoute = createRoute({
+  getParentRoute: () => tsModuleRoute,
+  path: "/dns",
+  component: TsDnsPage,
 });
 
 const ampModuleRoute = createRoute({
@@ -538,6 +572,7 @@ const routeTree = rootRoute.addChildren([
     haLandingRoute,
     mcLandingRoute,
     ampLandingRoute,
+    tsLandingRoute,
     truenasLandingRoute,
     dockerHubRoute.addChildren([dockerAllContainersRoute, dockerHostsRoute]),
     pveModuleRoute.addChildren([
@@ -586,6 +621,7 @@ const routeTree = rootRoute.addChildren([
       truenasPerformanceRoute,
     ]),
     ampModuleRoute.addChildren([ampOverviewRoute, ampInstanceRoute]),
+    tsModuleRoute.addChildren([tsDevicesRoute, tsKeysRoute, tsDnsRoute]),
   ]),
 ]);
 

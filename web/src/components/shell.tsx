@@ -14,6 +14,7 @@ import {
   FileClock,
   Gamepad2,
   HardDrive,
+  Network,
   Home,
   House,
   KeyRound,
@@ -130,6 +131,7 @@ export function AppShell() {
   const haRows = rows.filter((row) => row.type === "homeassistant");
   const mcRows = rows.filter((row) => row.type === "minecraft");
   const ampRows = rows.filter((row) => row.type === "amp");
+  const tsRows = rows.filter((row) => row.type === "tailscale");
   const truenasRows = rows.filter((row) => row.type === "truenas");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
 
@@ -196,6 +198,15 @@ export function AppShell() {
           icon: Gamepad2,
           status: worstStatus(ampRows),
           prefix: "/amp",
+        }]
+      : []),
+    ...(tsRows.length > 0
+      ? [{
+          to: tsRows.length === 1 ? `/ts/${tsRows[0].id}` : "/ts",
+          label: t("systems.types.tailscale"),
+          icon: Network,
+          status: worstStatus(tsRows),
+          prefix: "/ts",
         }]
       : []),
     ...(truenasRows.length > 0

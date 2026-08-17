@@ -30,7 +30,8 @@
     "hide": "Hide",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "you": "you"
+    "you": "you",
+    "remove": "Remove"
   },
   "theme": {
     "toggle": "Toggle theme",
@@ -422,7 +423,8 @@
       "nameHintTruenas": "How this NAS appears in HomeHub",
       "nameHintMc": "How this server appears in HomeHub, e.g. \"Survival server\"",
       "secretKeep": "Leave empty to keep the stored value",
-      "nameHintAmp": "How this panel appears in HomeHub, e.g. “Game node”"
+      "nameHintAmp": "How this panel appears in HomeHub, e.g. “Game node”",
+      "nameHintTailscale": "How this tailnet appears in HomeHub, e.g. “Home tailnet”"
     },
     "pve": {
       "host": "Host",
@@ -529,6 +531,12 @@
       "password": "Password",
       "insecureTls": "Skip TLS verification",
       "insecureTlsHint": "Allow a self-signed certificate on the panel."
+    },
+    "tailscale": {
+      "tailnet": "Tailnet",
+      "tailnetHint": "Your tailnet name from the admin console, e.g. example.com — leave empty for the token's default",
+      "apiKey": "API access token",
+      "apiKeyHint": "Create one under Settings → Keys in the Tailscale admin console (starts with tskey-api-)"
     }
   },
   "systems": {
@@ -567,7 +575,8 @@
       "mysql": "MySQL / MariaDB",
       "mongodb": "MongoDB",
       "truenas": "TrueNAS",
-      "amp": "AMP (CubeCoders)"
+      "amp": "AMP (CubeCoders)",
+      "tailscale": "Tailscale"
     },
     "landing": {
       "pickInstance": "Choose an instance",
@@ -2342,6 +2351,91 @@
       "empty": "No console output yet.",
       "commandPlaceholder": "Run a server command — e.g. say hello",
       "commandAria": "Console command"
+    }
+  },
+  "ts": {
+    "unreachableBanner": "The Tailscale API is unreachable: {{message}}",
+    "tabs": {
+      "devices": "Devices",
+      "keys": "Auth keys",
+      "dns": "DNS"
+    },
+    "devices": {
+      "online": "devices online",
+      "updatesAvailable": "updates available",
+      "pendingApproval": "awaiting approval",
+      "emptyTitle": "No devices",
+      "emptyBody": "Devices appear here as they join the tailnet.",
+      "device": "Device",
+      "status": "Status",
+      "address": "Tailscale IP",
+      "version": "OS · Version",
+      "owner": "Owner / tags",
+      "routes": "Routes",
+      "onlineNow": "Online",
+      "unauthorized": "Needs approval",
+      "update": "Update",
+      "exitNode": "Exit node",
+      "subnets": "{{enabled}}/{{total}} subnets",
+      "authorize": "Approve device",
+      "editRoutes": "Edit routes",
+      "enableKeyExpiry": "Enable key expiry",
+      "disableKeyExpiry": "Disable key expiry",
+      "expireKey": "Expire key",
+      "remove": "Remove device",
+      "removeTitle": "Remove this device?",
+      "removeBody": "“{{name}}” is disconnected from the tailnet and must re-authenticate to return.",
+      "expireTitle": "Expire the node key?",
+      "expireBody": "“{{name}}” must re-authenticate to stay connected.",
+      "routesTitle": "Routes — {{name}}",
+      "exitNodeLabel": "Use as exit node",
+      "exitNodeHint": "Allow devices to route all their internet traffic through this machine.",
+      "subnetRoutes": "Subnet routes",
+      "actionFailed": "Action failed"
+    },
+    "keys": {
+      "create": "New auth key",
+      "emptyTitle": "No auth keys",
+      "emptyBody": "Auth keys let servers and containers join the tailnet without interactive login.",
+      "description": "Description",
+      "descriptionPlaceholder": "e.g. NAS bootstrap",
+      "properties": "Properties",
+      "createdCol": "Created",
+      "expires": "Expires",
+      "noDescription": "(no description)",
+      "revoked": "Revoked",
+      "expired": "Expired",
+      "reusable": "Reusable",
+      "ephemeral": "Ephemeral",
+      "preauthorized": "Pre-approved",
+      "revoke": "Revoke",
+      "revokeTitle": "Revoke this key?",
+      "revokeBody": "“{{name}}” stops working immediately. Devices already joined stay connected.",
+      "revokeFailed": "Couldn't revoke the key",
+      "createTitle": "New auth key",
+      "createFailed": "Couldn't create the key",
+      "expiryDays": "Expires after (days)",
+      "expiryHint": "1–365 days. The key stops minting devices after this.",
+      "reusableLabel": "Reusable",
+      "reusableHint": "Can register more than one device.",
+      "ephemeralLabel": "Ephemeral",
+      "ephemeralHint": "Devices vanish from the tailnet shortly after they disconnect — for containers and CI.",
+      "preauthorizedLabel": "Pre-approved",
+      "preauthorizedHint": "Devices skip manual approval when device approval is on.",
+      "createdTitle": "Auth key created",
+      "createdBody": "Copy the key now — this is the only time it is shown."
+    },
+    "dns": {
+      "nameservers": "Global nameservers",
+      "nameserversHint": "Resolvers every tailnet device uses.",
+      "addNameserver": "Add",
+      "magicDnsHint": "Devices get names like nas.tailnet.ts.net. Needs at least one nameserver.",
+      "searchPaths": "Search domains",
+      "searchPathsHint": "Domains appended to short hostnames.",
+      "addSearchPath": "Add",
+      "none": "None configured.",
+      "saved": "DNS settings saved",
+      "saveFailed": "Couldn't save DNS settings"
     }
   }
 }

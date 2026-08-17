@@ -226,6 +226,12 @@ type TruenasFormState = {
 
 type McFormState = { name: string };
 
+type TailscaleFormState = {
+  name: string;
+  tailnet: string;
+  apiKey: string;
+};
+
 type AmpFormState = {
   name: string;
   host: string;
@@ -258,6 +264,8 @@ const emptyTruenasForm: TruenasFormState = { name: "", host: "", apiKey: "", ins
 const emptyMcForm: McFormState = { name: "" };
 
 const emptyAmpForm: AmpFormState = { name: "", host: "", username: "", password: "", insecureTls: false };
+
+const emptyTailscaleForm: TailscaleFormState = { name: "", tailnet: "", apiKey: "" };
 
 function mysqlPayload(form: MysqlFormState): FormPayload {
   const secrets: Record<string, string> = {};
@@ -305,6 +313,16 @@ function ampComplete(form: AmpFormState, isNew: boolean): boolean {
   return Boolean(form.name.trim() && form.host.trim() && form.username.trim() && (form.password.trim() || !isNew));
 }
 
+function tailscalePayload(form: TailscaleFormState): FormPayload {
+  const secrets: Record<string, string> = {};
+  if (form.apiKey) secrets.apiKey = form.apiKey;
+  return { config: { tailnet: form.tailnet.trim() }, secrets };
+}
+
+function tailscaleComplete(form: TailscaleFormState, isNew: boolean): boolean {
+  return Boolean(form.name.trim() && (form.apiKey.trim() || !isNew));
+}
+
 function mysqlComplete(form: MysqlFormState, isNew: boolean): boolean {
   return Boolean(form.name.trim() && form.host.trim() && (form.username.trim() || !isNew));
 }
@@ -350,6 +368,7 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
   const [truenasForm, setTruenasForm] = useState<TruenasFormState>(emptyTruenasForm);
   const [mcForm, setMcForm] = useState<McFormState>(emptyMcForm);
   const [ampForm, setAmpForm] = useState<AmpFormState>(emptyAmpForm);
+  const [tailscaleForm, setTailscaleForm] = useState<TailscaleFormState>(emptyTailscaleForm);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const kind = type?.id ?? "";
@@ -375,6 +394,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return truenasPayload(truenasForm);
       case "amp":
         return ampPayload(ampForm);
+      case "tailscale":
+        return tailscalePayload(tailscaleForm);
       case "minecraft":
         return mcPayload();
       default:
@@ -401,6 +422,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return truenasForm.name;
       case "amp":
         return ampForm.name;
+      case "tailscale":
+        return tailscaleForm.name;
       case "minecraft":
         return mcForm.name;
       default:
@@ -452,6 +475,9 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
           break;
         case "amp":
           void navigate({ to: "/amp/$instanceId", params: { instanceId: created.id } });
+          break;
+        case "tailscale":
+          void navigate({ to: "/ts/$instanceId", params: { instanceId: created.id } });
           break;
         case "minecraft":
           // Straight to the pairing instructions and downloads.
@@ -510,6 +536,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return truenasComplete(truenasForm, true);
       case "amp":
         return ampComplete(ampForm, true);
+      case "tailscale":
+        return tailscaleComplete(tailscaleForm, true);
       case "minecraft":
         return mcComplete(mcForm);
       default:
@@ -539,6 +567,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return <TruenasForm form={truenasForm} setForm={setTruenasForm} isNew testResult={testResult} onFormChange={clearTest} />;
       case "amp":
         return <AmpForm form={ampForm} setForm={setAmpForm} isNew testResult={testResult} onFormChange={clearTest} />;
+      case "tailscale":
+        return <TailscaleForm form={tailscaleForm} setForm={setTailscaleForm} isNew testResult={testResult} onFormChange={clearTest} />;
       case "minecraft":
         return <McForm form={mcForm} setForm={setMcForm} />;
       default:
@@ -666,6 +696,11 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
     username: String(cfg.username ?? ""),
     insecureTls: Boolean(cfg.insecureTls),
   });
+  const [tailscaleForm, setTailscaleForm] = useState<TailscaleFormState>({
+    ...emptyTailscaleForm,
+    name: row.name,
+    tailnet: String(cfg.tailnet ?? ""),
+  });
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const editPayload = (): FormPayload => {
@@ -686,6 +721,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return truenasPayload(truenasForm);
       case "amp":
         return ampPayload(ampForm);
+      case "tailscale":
+        return tailscalePayload(tailscaleForm);
       case "minecraft":
         return mcPayload();
       default:
@@ -710,6 +747,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return truenasForm.name;
       case "amp":
         return ampForm.name;
+      case "tailscale":
+        return tailscaleForm.name;
       case "minecraft":
         return mcForm.name;
       default:
@@ -753,6 +792,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return truenasComplete(truenasForm, false);
       case "amp":
         return ampComplete(ampForm, false);
+      case "tailscale":
+        return tailscaleComplete(tailscaleForm, false);
       case "minecraft":
         return mcComplete(mcForm);
       default:
@@ -796,6 +837,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
               return <TruenasForm form={truenasForm} setForm={setTruenasForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
             case "amp":
               return <AmpForm form={ampForm} setForm={setAmpForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
+            case "tailscale":
+              return <TailscaleForm form={tailscaleForm} setForm={setTailscaleForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
             case "minecraft":
               return <McForm form={mcForm} setForm={setMcForm} />;
             case "proxmox":
@@ -1285,6 +1328,47 @@ function MongoForm({
           hint={t("integrations.dns.insecureTlsHint")}
         />
       )}
+      <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
+function TailscaleForm({
+  form,
+  setForm,
+  isNew,
+  testResult,
+  onFormChange,
+}: {
+  form: TailscaleFormState;
+  setForm: (fn: (prev: TailscaleFormState) => TailscaleFormState) => void;
+  isNew: boolean;
+  testResult: TestConnectionResult | null;
+  onFormChange: () => void;
+}) {
+  const { t } = useTranslation();
+  const update = (patch: Partial<TailscaleFormState>) => {
+    onFormChange();
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.form.name")} hint={t("integrations.form.nameHintTailscale")}>
+          {(p) => <Input {...p} autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.tailscale.tailnet")} hint={t("integrations.tailscale.tailnetHint")}>
+          {(p) => <Input {...p} placeholder="example.com" value={form.tailnet} onChange={(e) => update({ tailnet: e.target.value })} />}
+        </Field>
+      </div>
+      <Field
+        label={t("integrations.tailscale.apiKey")}
+        hint={isNew ? t("integrations.tailscale.apiKeyHint") : t("integrations.form.secretKeep")}
+      >
+        {(p) => (
+          <PasswordInput {...p} className="font-mono text-[13px]" value={form.apiKey} onChange={(e) => update({ apiKey: e.target.value })} />
+        )}
+      </Field>
       <TestResultNote result={testResult} />
     </div>
   );

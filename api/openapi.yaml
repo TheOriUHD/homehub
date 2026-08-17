@@ -3553,6 +3553,302 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /ts/instances:
+    get:
+      operationId: tsListInstances
+      summary: All Tailscale tailnets with device counts
+      tags: [tailscale]
+      responses:
+        "200":
+          description: Visible tailnets
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TsTailnet" }
+
+  /ts/{id}/devices:
+    get:
+      operationId: tsDevices
+      summary: Every device in the tailnet
+      description: The device inventory with connectivity, versions, tags, and subnet routes, filtered to devices the caller may view.
+      tags: [tailscale]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TsDevice" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /ts/{id}/devices/{deviceId}/authorized:
+    post:
+      operationId: tsSetAuthorized
+      summary: Authorize or deauthorize a device
+      description: Audited.
+      tags: [tailscale]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [authorized]
+              properties:
+                authorized: { type: boolean }
+      responses:
+        "204":
+          description: Applied
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /ts/{id}/devices/{deviceId}/routes:
+    post:
+      operationId: tsSetRoutes
+      summary: Replace a device's enabled subnet routes
+      description: Audited. Routes not in the device's advertised list may be pre-enabled.
+      tags: [tailscale]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [routes]
+              properties:
+                routes:
+                  type: array
+                  items: { type: string }
+      responses:
+        "204":
+          description: Applied
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /ts/{id}/devices/{deviceId}/key:
+    post:
+      operationId: tsSetKeyExpiry
+      summary: Enable or disable key expiry for a device
+      description: Audited.
+      tags: [tailscale]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [keyExpiryDisabled]
+              properties:
+                keyExpiryDisabled: { type: boolean }
+      responses:
+        "204":
+          description: Applied
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /ts/{id}/devices/{deviceId}/expire:
+    post:
+      operationId: tsExpireKey
+      summary: Expire a device's node key now
+      description: Forces the device to re-authenticate. Audited.
+      tags: [tailscale]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Expired
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /ts/{id}/devices/{deviceId}:
+    delete:
+      operationId: tsDeleteDevice
+      summary: Remove a device from the tailnet
+      description: Audited.
+      tags: [tailscale]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Removed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /ts/{id}/keys:
+    get:
+      operationId: tsKeys
+      summary: Auth keys in the tailnet
+      description: Key secrets are never included — they are shown exactly once, at creation.
+      tags: [tailscale]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TsKey" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+    post:
+      operationId: tsCreateKey
+      summary: Mint an auth key
+      description: The response carries the key secret exactly once. Audited.
+      tags: [tailscale]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description: { type: string, maxLength: 200 }
+                expiryDays: { type: integer, minimum: 1, maximum: 365 }
+                reusable: { type: boolean }
+                ephemeral: { type: boolean }
+                preauthorized: { type: boolean }
+                tags:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Created key, secret included once
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TsCreatedKey" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /ts/{id}/keys/{keyId}:
+    delete:
+      operationId: tsRevokeKey
+      summary: Revoke an auth key
+      description: Audited.
+      tags: [tailscale]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: keyId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Revoked
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /ts/{id}/dns:
+    get:
+      operationId: tsDns
+      summary: Tailnet DNS settings
+      tags: [tailscale]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: DNS settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TsDns" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+    put:
+      operationId: tsSetDns
+      summary: Replace tailnet DNS settings
+      description: Nameservers, MagicDNS, and search domains in one write. Audited.
+      tags: [tailscale]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TsDns" }
+      responses:
+        "204":
+          description: Applied
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /ha/instances:
     get:
       operationId: haListInstances
@@ -5642,6 +5938,89 @@ components:
         mcVersions:
           type: string
           description: Human-readable supported range, e.g. "1.16.5 – 1.21.x"
+
+    TsTailnet:
+      type: object
+      required: [id, name, status, statusMessage, deviceCount, onlineCount]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status:
+          type: string
+          enum: [pending, connecting, connected, degraded, unreachable, disabled]
+        statusMessage: { type: string }
+        deviceCount: { type: integer }
+        onlineCount: { type: integer }
+
+    TsDevice:
+      type: object
+      required: [id, name, hostname, user, addresses, os, clientVersion, updateAvailable, authorized, keyExpiryDisabled, online, external, tags, advertisedRoutes, enabledRoutes]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        hostname: { type: string }
+        user: { type: string }
+        addresses:
+          type: array
+          items: { type: string }
+        os: { type: string }
+        clientVersion: { type: string }
+        updateAvailable: { type: boolean }
+        authorized: { type: boolean }
+        keyExpiryDisabled: { type: boolean }
+        online: { type: boolean }
+        external: { type: boolean }
+        created: { type: string }
+        expires: { type: string }
+        lastSeen: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        advertisedRoutes:
+          type: array
+          items: { type: string }
+        enabledRoutes:
+          type: array
+          items: { type: string }
+
+    TsKey:
+      type: object
+      required: [id, description, invalid, reusable, ephemeral, preauthorized, tags]
+      properties:
+        id: { type: string }
+        description: { type: string }
+        created: { type: string }
+        expires: { type: string }
+        revoked: { type: string }
+        invalid: { type: boolean }
+        reusable: { type: boolean }
+        ephemeral: { type: boolean }
+        preauthorized: { type: boolean }
+        tags:
+          type: array
+          items: { type: string }
+
+    TsCreatedKey:
+      allOf:
+        - $ref: "#/components/schemas/TsKey"
+        - type: object
+          required: [key]
+          properties:
+            key:
+              type: string
+              description: The key secret — shown exactly once.
+
+    TsDns:
+      type: object
+      required: [nameservers, magicDns, searchPaths]
+      properties:
+        nameservers:
+          type: array
+          items: { type: string }
+        magicDns: { type: boolean }
+        searchPaths:
+          type: array
+          items: { type: string }
 
     AmpPanel:
       type: object
