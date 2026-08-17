@@ -56,3 +56,41 @@ export function useDbDatabases(instanceId: string) {
     staleTime: 30_000,
   });
 }
+
+/** useDbObjectSchema loads one table's or collection's structure. */
+export function useDbObjectSchema(instanceId: string, database: string, object: string) {
+  return useQuery({
+    queryKey: ["db", instanceId, "browse", database, object, "schema"],
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/db/{id}/databases/{database}/objects/{object}/schema", {
+          params: { path: { id: instanceId, database, object } },
+        }),
+      ),
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Data panes (console results, the browse grid, document lists) are a fixed
+ * dark surface in BOTH themes — like a terminal, not a themed card —
+ * mirroring the Minecraft console's palette.
+ */
+export const PANE = {
+  bg: "#101319",
+  chrome: "#161a22",
+  edge: "#262b36",
+  text: "#ccd2de",
+  dim: "#5b6272",
+  warn: "#fbbf24",
+  error: "#f87171",
+};
+
+/** prettyDocument re-indents an extended-JSON document for display. */
+export function prettyDocument(doc: string): string {
+  try {
+    return JSON.stringify(JSON.parse(doc), null, 2);
+  } catch {
+    return doc;
+  }
+}

@@ -179,7 +179,7 @@ func (s *Server) DbListObjects(ctx context.Context, req DbListObjectsRequestObje
 		}
 		for _, t := range tables {
 			engine := t.Engine
-			out = append(out, DbObject{Name: t.Name, Kind: Table, Engine: &engine, Rows: t.Rows, SizeBytes: t.SizeBytes})
+			out = append(out, DbObject{Name: t.Name, Kind: DbObjectKindTable, Engine: &engine, Rows: t.Rows, SizeBytes: t.SizeBytes})
 		}
 	case *mongodb.Conn:
 		colls, cerr := c.Collections(ctx, req.Database)
@@ -187,7 +187,7 @@ func (s *Server) DbListObjects(ctx context.Context, req DbListObjectsRequestObje
 			return DbListObjects502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", cerr.Error()))}, nil
 		}
 		for _, coll := range colls {
-			out = append(out, DbObject{Name: coll.Name, Kind: Collection, Rows: coll.Documents, SizeBytes: coll.SizeBytes})
+			out = append(out, DbObject{Name: coll.Name, Kind: DbObjectKindCollection, Rows: coll.Documents, SizeBytes: coll.SizeBytes})
 		}
 	}
 	return DbListObjects200JSONResponse(out), nil

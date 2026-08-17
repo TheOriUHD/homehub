@@ -51,6 +51,7 @@ import { DnsSyncPage } from "./pages/dns/sync";
 import { DbLandingPage } from "./pages/db/landing";
 import { DbModulePage } from "./pages/db/module";
 import { DbDatabasesPage } from "./pages/db/databases";
+import { DbBrowsePage } from "./pages/db/browse";
 import { DbConsolePage } from "./pages/db/console";
 import { DbSessionsPage } from "./pages/db/sessions";
 import { DbPerformancePage } from "./pages/db/performance";
@@ -403,6 +404,13 @@ const dbDatabasesRoute = createRoute({
   component: DbDatabasesPage,
 });
 
+// The Adminer-style data browser/editor for one table or collection.
+const dbBrowseRoute = createRoute({
+  getParentRoute: () => dbModuleRoute,
+  path: "/browse/$database/$object",
+  component: DbBrowsePage,
+});
+
 const dbConsoleRoute = createRoute({
   getParentRoute: () => dbModuleRoute,
   path: "/console",
@@ -477,6 +485,7 @@ const routeTree = rootRoute.addChildren([
     dbLandingRoute,
     dbModuleRoute.addChildren([
       dbDatabasesRoute,
+      dbBrowseRoute,
       dbConsoleRoute,
       dbSessionsRoute,
       dbPerformanceRoute,

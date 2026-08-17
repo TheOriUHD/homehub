@@ -98,7 +98,11 @@ export function DbModulePage() {
 
       <nav className="border-edge flex gap-1 overflow-x-auto border-b">
         {tabs.map((tab) => {
-          const active = tab.exact ? pathname === tab.to : pathname.startsWith(tab.to);
+          // The browse page is a child of the databases tab, so the exact
+          // match also claims /browse/… paths.
+          const active = tab.exact
+            ? pathname === tab.to || pathname.startsWith(`${tab.to}/browse/`)
+            : pathname.startsWith(tab.to);
           return (
             <Link
               key={tab.to}

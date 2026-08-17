@@ -1770,6 +1770,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/db/{id}/databases/{database}/objects/{object}/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Structure of a table or collection
+         * @description SQL columns with types, keys, and indexes, or a MongoDB collection's indexes and sampled keys.
+         */
+        get: operations["dbObjectSchema"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/db/{id}/databases/{database}/objects/{object}/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rows or documents, paginated
+         * @description A page of table rows (SQL) or documents (MongoDB) with total count. SQL supports sort plus structured column filters via query params; MongoDB accepts a JSON filter and a sort field.
+         */
+        get: operations["dbObjectData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/db/{id}/databases/{database}/objects/{object}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Insert a row or document
+         * @description Requires control on the database. SQL takes a column→value map (null for SQL NULL); MongoDB takes an extended-JSON document. Audited.
+         */
+        post: operations["dbInsertRow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update a row or document
+         * @description Requires control on the database. SQL identifies the row by primary key (or, keyless, by the original values sent in `identity`) and sets `values`; MongoDB replaces the document with the matching `_id`. One row/document only. Audited.
+         */
+        patch: operations["dbUpdateRow"];
+        trace?: never;
+    };
+    "/db/{id}/databases/{database}/objects/{object}/rows/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a row or document
+         * @description Requires control on the database. SQL deletes by identity (primary key or original values); MongoDB deletes by `_id`. One row/document only. Audited.
+         */
+        post: operations["dbDeleteRow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/db/{id}/databases/{database}/objects/{object}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Drop a table or collection
+         * @description Destructive. Requires control on the database and a confirm flag. Audited.
+         */
+        delete: operations["dbDropObject"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/db/{id}/databases/{database}/objects/{object}/truncate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Empty a table
+         * @description SQL only; removes all rows. Destructive. Requires control on the database and a confirm flag. Audited.
+         */
+        post: operations["dbTruncateObject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/db/{id}/query": {
         parameters: {
             query?: never;
@@ -3054,6 +3178,59 @@ export interface components {
             /** Format: date-time */
             until?: string | null;
         };
+        DbObjectSchema: {
+            /** @enum {string} */
+            kind: "table" | "collection";
+            /** @description SQL tables */
+            columns?: components["schemas"]["DbColumn"][];
+            primaryKey?: string[];
+            indexes?: components["schemas"]["DbIndex"][];
+            /** @description MongoDB — keys sampled from recent documents */
+            sampleKeys?: string[];
+            /** Format: int64 */
+            rowEstimate?: number;
+        };
+        DbColumn: {
+            name: string;
+            type: string;
+            nullable: boolean;
+            key?: string;
+            default?: string | null;
+            extra?: string;
+            isPrimaryKey: boolean;
+        };
+        DbIndex: {
+            name: string;
+            unique: boolean;
+            columns: string[];
+        };
+        DbDataPage: {
+            /** @enum {string} */
+            kind: "rows" | "documents";
+            /** @description SQL column order for the rows */
+            columns?: string[];
+            /** @description SQL rows; each cell is a string or null (SQL NULL) */
+            rows?: (string | null)[][];
+            /** @description MongoDB documents as extended JSON strings */
+            documents?: string[];
+            /** Format: int64 */
+            total: number;
+            limit: number;
+            offset?: number;
+            /** Format: double */
+            durationMs?: number;
+        };
+        /** @description Engine-tagged write payload. SQL insert uses `values` (column→string|null); SQL update/delete also send `identity` (original key values). MongoDB insert uses `document`; update/delete use `id` (the _id as extended JSON) and update also sends `document` (the full replacement). */
+        DbRowWrite: {
+            values?: {
+                [key: string]: string | null;
+            };
+            identity?: {
+                [key: string]: string | null;
+            };
+            document?: string;
+            id?: string;
+        };
         DbInstance: {
             /** Format: uuid */
             id: string;
@@ -3428,6 +3605,8 @@ export interface components {
         /** @description Home Assistant entity id, e.g. light.kitchen */
         haEntityId: string;
         dbNameParam: string;
+        /** @description Table name (SQL) or collection name (MongoDB) */
+        dbObjectParam: string;
         vmidParam: number;
         containerName: string;
     };
@@ -6554,6 +6733,236 @@ export interface operations {
                         documents: string[];
                     };
                 };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbObjectSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                database: components["parameters"]["dbNameParam"];
+                /** @description Table name (SQL) or collection name (MongoDB) */
+                object: components["parameters"]["dbObjectParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The structure */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DbObjectSchema"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbObjectData: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                /** @description SQL sort column */
+                orderBy?: string;
+                dir?: "asc" | "desc";
+                /** @description SQL structured filters as column:op:value triples (op one of eq,ne,lt,lte,gt,gte,like,is_null,not_null), repeatable; or a single MongoDB extended-JSON filter document */
+                filter?: string[];
+                /** @description MongoDB sort field */
+                sortField?: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                database: components["parameters"]["dbNameParam"];
+                /** @description Table name (SQL) or collection name (MongoDB) */
+                object: components["parameters"]["dbObjectParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DbDataPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbInsertRow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                database: components["parameters"]["dbNameParam"];
+                /** @description Table name (SQL) or collection name (MongoDB) */
+                object: components["parameters"]["dbObjectParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DbRowWrite"];
+            };
+        };
+        responses: {
+            /** @description Inserted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbUpdateRow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                database: components["parameters"]["dbNameParam"];
+                /** @description Table name (SQL) or collection name (MongoDB) */
+                object: components["parameters"]["dbObjectParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DbRowWrite"];
+            };
+        };
+        responses: {
+            /** @description Update result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        affected: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbDeleteRow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                database: components["parameters"]["dbNameParam"];
+                /** @description Table name (SQL) or collection name (MongoDB) */
+                object: components["parameters"]["dbObjectParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DbRowWrite"];
+            };
+        };
+        responses: {
+            /** @description Delete result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        affected: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbDropObject: {
+        parameters: {
+            query: {
+                confirm: boolean;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                database: components["parameters"]["dbNameParam"];
+                /** @description Table name (SQL) or collection name (MongoDB) */
+                object: components["parameters"]["dbObjectParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dropped */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbTruncateObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                database: components["parameters"]["dbNameParam"];
+                /** @description Table name (SQL) or collection name (MongoDB) */
+                object: components["parameters"]["dbObjectParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    confirm: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Emptied */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
