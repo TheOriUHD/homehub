@@ -1,6 +1,6 @@
 import { Link, Outlet, useParams, useRouterState } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { Database } from "lucide-react";
+import { AlertTriangle, Database } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useLiveInvalidate } from "@/lib/live";
 import { statusTone } from "@/lib/systems";
@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Card } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
-import { ErrorState } from "@/ui/states";
+import { EmptyState, ErrorState } from "@/ui/states";
 import { dbResource, engineBadgeLabel, engineLabel, useDbInstances } from "./shared";
 
 /**
@@ -37,7 +37,7 @@ export function DbModulePage() {
   if (!instance) {
     return (
       <Card>
-        <ErrorState error={new Error(t("errors.notFound.body"))} />
+        <EmptyState icon={AlertTriangle} title={t("errors.notFound.title")} body={t("errors.notFound.body")} />
       </Card>
     );
   }

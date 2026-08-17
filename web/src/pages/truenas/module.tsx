@@ -1,13 +1,13 @@
 import { Link, Outlet, useParams, useRouterState } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { HardDrive } from "lucide-react";
+import { AlertTriangle, HardDrive } from "lucide-react";
 import { useLiveInvalidate } from "@/lib/live";
 import { statusTone } from "@/lib/systems";
 import { cn, formatBytes } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Card } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
-import { ErrorState } from "@/ui/states";
+import { EmptyState, ErrorState } from "@/ui/states";
 import { useTruenasInstances, useTruenasOverview } from "./shared";
 
 /**
@@ -38,7 +38,7 @@ export function TruenasModulePage() {
   if (!instance) {
     return (
       <Card>
-        <ErrorState error={new Error(t("errors.notFound.body"))} />
+        <EmptyState icon={AlertTriangle} title={t("errors.notFound.title")} body={t("errors.notFound.body")} />
       </Card>
     );
   }

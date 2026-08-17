@@ -1,6 +1,6 @@
 import { Link, Outlet, useParams, useRouterState } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { Pickaxe } from "lucide-react";
+import { AlertTriangle, Pickaxe } from "lucide-react";
 import type { ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { capacityTextClass } from "@/lib/capacity";
@@ -12,7 +12,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { Card } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
 import { Sparkline } from "@/ui/sparkline";
-import { ErrorState } from "@/ui/states";
+import { EmptyState, ErrorState } from "@/ui/states";
 import { loaderLabel, mcResource, tpsTone, useMcLive, useMcOverview } from "./shared";
 
 export function McModulePage() {
@@ -40,7 +40,7 @@ export function McModulePage() {
   if (!instance) {
     return (
       <Card>
-        <ErrorState error={new Error(t("errors.notFound.body"))} />
+        <EmptyState icon={AlertTriangle} title={t("errors.notFound.title")} body={t("errors.notFound.body")} />
       </Card>
     );
   }
