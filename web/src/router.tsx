@@ -58,6 +58,9 @@ import { DbSessionsPage } from "./pages/db/sessions";
 import { DbPerformancePage } from "./pages/db/performance";
 import { AmpModulePage } from "./pages/amp/module";
 import { TsModulePage } from "./pages/ts/module";
+import { CaddyModulePage } from "./pages/caddy/module";
+import { CaddySitesPage } from "./pages/caddy/sites";
+import { CaddyServedPage } from "./pages/caddy/served";
 import { TsDevicesPage } from "./pages/ts/devices";
 import { TsKeysPage } from "./pages/ts/keys";
 import { TsDnsPage } from "./pages/ts/dns";
@@ -221,6 +224,30 @@ const tsLandingRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/ts",
   component: () => <SystemTypeLanding type="tailscale" />,
+});
+
+const caddyLandingRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/caddy",
+  component: () => <SystemTypeLanding type="caddy" />,
+});
+
+const caddyModuleRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/caddy/$instanceId",
+  component: CaddyModulePage,
+});
+
+const caddySitesRoute = createRoute({
+  getParentRoute: () => caddyModuleRoute,
+  path: "/",
+  component: CaddySitesPage,
+});
+
+const caddyServedRoute = createRoute({
+  getParentRoute: () => caddyModuleRoute,
+  path: "/served",
+  component: CaddyServedPage,
 });
 
 const tsModuleRoute = createRoute({
@@ -573,6 +600,7 @@ const routeTree = rootRoute.addChildren([
     mcLandingRoute,
     ampLandingRoute,
     tsLandingRoute,
+    caddyLandingRoute,
     truenasLandingRoute,
     dockerHubRoute.addChildren([dockerAllContainersRoute, dockerHostsRoute]),
     pveModuleRoute.addChildren([
@@ -622,6 +650,7 @@ const routeTree = rootRoute.addChildren([
     ]),
     ampModuleRoute.addChildren([ampOverviewRoute, ampInstanceRoute]),
     tsModuleRoute.addChildren([tsDevicesRoute, tsKeysRoute, tsDnsRoute]),
+    caddyModuleRoute.addChildren([caddySitesRoute, caddyServedRoute]),
   ]),
 ]);
 

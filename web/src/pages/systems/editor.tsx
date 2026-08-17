@@ -226,6 +226,8 @@ type TruenasFormState = {
 
 type McFormState = { name: string };
 
+type CaddyFormState = { name: string; baseUrl: string; code: string };
+
 type TailscaleFormState = {
   name: string;
   tailnet: string;
@@ -262,6 +264,8 @@ const emptyMongoForm: MongoFormState = {
 const emptyTruenasForm: TruenasFormState = { name: "", host: "", apiKey: "", insecureTls: false };
 
 const emptyMcForm: McFormState = { name: "" };
+
+const emptyCaddyForm: CaddyFormState = { name: "", baseUrl: "", code: "" };
 
 const emptyAmpForm: AmpFormState = { name: "", host: "", username: "", password: "", insecureTls: false };
 
@@ -307,6 +311,15 @@ function ampPayload(form: AmpFormState): FormPayload {
     config: { host: form.host, username: form.username, insecureTls: form.insecureTls },
     secrets,
   };
+}
+
+function caddyPayload(form: CaddyFormState): FormPayload {
+  return { config: { baseUrl: form.baseUrl }, secrets: {} };
+}
+
+function caddyComplete(form: CaddyFormState, isNew: boolean): boolean {
+  if (!isNew) return Boolean(form.name.trim() && form.baseUrl.trim());
+  return Boolean(form.name.trim() && form.baseUrl.trim() && form.code.replace(/\s/g, "").length === 6);
 }
 
 function ampComplete(form: AmpFormState, isNew: boolean): boolean {
@@ -369,6 +382,7 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
   const [mcForm, setMcForm] = useState<McFormState>(emptyMcForm);
   const [ampForm, setAmpForm] = useState<AmpFormState>(emptyAmpForm);
   const [tailscaleForm, setTailscaleForm] = useState<TailscaleFormState>(emptyTailscaleForm);
+  const [caddyForm, setCaddyForm] = useState<CaddyFormState>(emptyCaddyForm);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const kind = type?.id ?? "";
@@ -396,6 +410,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return ampPayload(ampForm);
       case "tailscale":
         return tailscalePayload(tailscaleForm);
+      case "caddy":
+        return caddyPayload(caddyForm);
       case "minecraft":
         return mcPayload();
       default:
@@ -424,14 +440,17 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return ampForm.name;
       case "tailscale":
         return tailscaleForm.name;
+      case "caddy":
+        return caddyForm.name;
       case "minecraft":
         return mcForm.name;
       default:
         return "";
     }
   };
-  // The Minecraft companion pairs after creation — there is nothing to test.
-  const needsTest = kind !== "minecraft";
+  // The Minecraft companion pairs after creation, and Caddy's pairing IS
+  // the connection test — neither has anything to pre-test.
+  const needsTest = kind !== "minecraft" && kind !== "caddy";
 
   const test = useMutation({
     mutationFn: async () =>
@@ -441,12 +460,24 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
   });
 
   const create = useMutation({
-    mutationFn: async () =>
-      unwrap(
+    mutationFn: async () => {
+      if (kind === "caddy") {
+        return unwrap(
+          await api.POST("/caddy/pair", {
+            body: {
+              name: caddyForm.name.trim(),
+              baseUrl: caddyForm.baseUrl.trim(),
+              code: caddyForm.code.replace(/\s/g, ""),
+            },
+          }),
+        );
+      }
+      return unwrap(
         await api.POST("/integrations", {
           body: { type: type!.id, name: formName(), ...payload()! },
         }),
-      ),
+      );
+    },
     onSuccess: (created: Integration) => {
       void queryClient.invalidateQueries({ queryKey: ["integrations"] });
       toast("success", t("systems.created", { name: created.name }));
@@ -478,6 +509,9 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
           break;
         case "tailscale":
           void navigate({ to: "/ts/$instanceId", params: { instanceId: created.id } });
+          break;
+        case "caddy":
+          void navigate({ to: "/caddy/$instanceId", params: { instanceId: created.id } });
           break;
         case "minecraft":
           // Straight to the pairing instructions and downloads.
@@ -538,6 +572,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return ampComplete(ampForm, true);
       case "tailscale":
         return tailscaleComplete(tailscaleForm, true);
+      case "caddy":
+        return caddyComplete(caddyForm, true);
       case "minecraft":
         return mcComplete(mcForm);
       default:
@@ -569,6 +605,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return <AmpForm form={ampForm} setForm={setAmpForm} isNew testResult={testResult} onFormChange={clearTest} />;
       case "tailscale":
         return <TailscaleForm form={tailscaleForm} setForm={setTailscaleForm} isNew testResult={testResult} onFormChange={clearTest} />;
+      case "caddy":
+        return <CaddyForm form={caddyForm} setForm={setCaddyForm} isNew onFormChange={clearTest} />;
       case "minecraft":
         return <McForm form={mcForm} setForm={setMcForm} />;
       default:
@@ -701,6 +739,11 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
     name: row.name,
     tailnet: String(cfg.tailnet ?? ""),
   });
+  const [caddyForm, setCaddyForm] = useState<CaddyFormState>({
+    ...emptyCaddyForm,
+    name: row.name,
+    baseUrl: String(cfg.baseUrl ?? ""),
+  });
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const editPayload = (): FormPayload => {
@@ -723,6 +766,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return ampPayload(ampForm);
       case "tailscale":
         return tailscalePayload(tailscaleForm);
+      case "caddy":
+        return caddyPayload(caddyForm);
       case "minecraft":
         return mcPayload();
       default:
@@ -749,6 +794,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return ampForm.name;
       case "tailscale":
         return tailscaleForm.name;
+      case "caddy":
+        return caddyForm.name;
       case "minecraft":
         return mcForm.name;
       default:
@@ -794,6 +841,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return ampComplete(ampForm, false);
       case "tailscale":
         return tailscaleComplete(tailscaleForm, false);
+      case "caddy":
+        return caddyComplete(caddyForm, false);
       case "minecraft":
         return mcComplete(mcForm);
       default:
@@ -839,6 +888,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
               return <AmpForm form={ampForm} setForm={setAmpForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
             case "tailscale":
               return <TailscaleForm form={tailscaleForm} setForm={setTailscaleForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
+            case "caddy":
+              return <CaddyForm form={caddyForm} setForm={setCaddyForm} isNew={false} onFormChange={clearTest} />;
             case "minecraft":
               return <McForm form={mcForm} setForm={setMcForm} />;
             case "proxmox":
@@ -1329,6 +1380,47 @@ function MongoForm({
         />
       )}
       <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
+function CaddyForm({
+  form,
+  setForm,
+  isNew,
+  onFormChange,
+}: {
+  form: CaddyFormState;
+  setForm: (fn: (prev: CaddyFormState) => CaddyFormState) => void;
+  isNew: boolean;
+  onFormChange: () => void;
+}) {
+  const { t } = useTranslation();
+  const update = (patch: Partial<CaddyFormState>) => {
+    onFormChange();
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.form.name")} hint={t("integrations.form.nameHintCaddy")}>
+          {(p) => <Input {...p} autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.caddy.baseUrl")} hint={t("integrations.caddy.baseUrlHint")}>
+          {(p) => <Input {...p} placeholder="10.0.0.2:9776" value={form.baseUrl} onChange={(e) => update({ baseUrl: e.target.value })} />}
+        </Field>
+      </div>
+      {isNew && (
+        <Field label={t("integrations.caddy.code")} hint={t("integrations.caddy.codeHint")}>
+          {(p) => (
+            <Input {...p} className="font-mono text-[15px] tracking-widest" placeholder="481 502" value={form.code} onChange={(e) => update({ code: e.target.value })} />
+          )}
+        </Field>
+      )}
+      {!isNew && <p className="text-fg-muted text-[13px]">{t("integrations.caddy.repairNote")}</p>}
+      <div className="bg-warning-soft text-warning-soft-fg rounded-lg px-3 py-2 text-[13px]">
+        {t("integrations.caddy.adminWarning")}
+      </div>
     </div>
   );
 }

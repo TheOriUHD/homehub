@@ -424,7 +424,8 @@
       "nameHintMc": "How this server appears in HomeHub, e.g. \"Survival server\"",
       "secretKeep": "Leave empty to keep the stored value",
       "nameHintAmp": "How this panel appears in HomeHub, e.g. “Game node”",
-      "nameHintTailscale": "How this tailnet appears in HomeHub, e.g. “Home tailnet”"
+      "nameHintTailscale": "How this tailnet appears in HomeHub, e.g. “Home tailnet”",
+      "nameHintCaddy": "How this proxy appears in HomeHub, e.g. “Edge proxy”"
     },
     "pve": {
       "host": "Host",
@@ -537,6 +538,14 @@
       "tailnetHint": "Your tailnet name from the admin console, e.g. example.com — leave empty for the token's default",
       "apiKey": "API access token",
       "apiKeyHint": "Create one under Settings → Keys in the Tailscale admin console (starts with tskey-api-)"
+    },
+    "caddy": {
+      "baseUrl": "Helper address",
+      "baseUrlHint": "Where caddy-reader listens on the Caddy host, e.g. 10.0.0.2:9776",
+      "code": "Pairing code",
+      "codeHint": "Run `sudo caddy-reader pair` on the Caddy host and type the six digits it prints. The code is single-use and expires in 15 minutes.",
+      "repairNote": "To replace the stored token, remove this system and pair it again with a fresh code.",
+      "adminWarning": "Do not point this at Caddy's admin API (port 2019) — it has no authentication and must never leave loopback. The helper is the only safe surface."
     }
   },
   "systems": {
@@ -576,7 +585,8 @@
       "mongodb": "MongoDB",
       "truenas": "TrueNAS",
       "amp": "AMP (CubeCoders)",
-      "tailscale": "Tailscale"
+      "tailscale": "Tailscale",
+      "caddy": "Caddy"
     },
     "landing": {
       "pickInstance": "Choose an instance",
@@ -2436,6 +2446,83 @@
       "none": "None configured.",
       "saved": "DNS settings saved",
       "saveFailed": "Couldn't save DNS settings"
+    }
+  },
+  "caddy": {
+    "subtitle": "Caddy reverse proxy",
+    "unreachableBanner": "The helper is unreachable: {{message}}",
+    "degradedBanner": "The helper is up but cannot reach Caddy: {{message}}",
+    "tabs": {
+      "sites": "Sites",
+      "served": "Running config"
+    },
+    "sites": {
+      "fileLabel": "Managing",
+      "add": "Add site",
+      "emptyTitle": "No sites yet",
+      "emptyBody": "Add a site and Caddy starts serving it — the change is validated by Caddy itself before anything touches disk.",
+      "refusedTitle": "This Caddyfile can't be managed",
+      "readOnlyBanner": "This helper is read-only, so sites can be listed but not changed. To allow edits, restart caddy-reader on the Caddy host with --writable.",
+      "domain": "Domain",
+      "upstream": "Upstream",
+      "options": "Options",
+      "dns": "DNS · {{provider}}",
+      "insecure": "insecure upstream",
+      "headers": "{{count}} header(s)",
+      "extraDirectives": "{{count}} extra directive(s)",
+      "remove": "Remove site",
+      "removeTitle": "Remove this site?",
+      "removeBody": "Caddy stops serving {{domain}} the moment the change is applied.",
+      "saved": "Saved. Caddy reloaded.",
+      "saveFailed": "The change was not applied",
+      "advancedTitle": "Advanced blocks",
+      "advancedBody": "Site blocks the editor doesn't model. They are preserved exactly as written — shown here so the list never lies about what the file contains.",
+      "globalTitle": "Global options",
+      "globalBody": "Applies to every site this Caddy serves."
+    },
+    "reasons": {
+      "noProxy": "no reverse_proxy",
+      "multiProxy": "more than one reverse_proxy",
+      "nestedBlock": "contains a nested block",
+      "tlsAdvanced": "tls block does more than a DNS challenge",
+      "transport": "unrecognised transport",
+      "matchers": "matchers or several upstreams",
+      "unknownOption": "unrecognised reverse_proxy option",
+      "other": "advanced"
+    },
+    "editor": {
+      "addTitle": "Add site",
+      "editTitle": "Edit {{domain}}",
+      "domain": "Domain",
+      "domainHint": "Just the domain — no scheme, no path",
+      "extraDomains": "Extra addresses",
+      "extraDomainsHint": "Comma-separated, served by the same block",
+      "scheme": "Upstream scheme",
+      "schemeHint": "Usually empty; https for a TLS upstream",
+      "host": "Upstream host",
+      "port": "Port",
+      "dnsProvider": "DNS challenge provider",
+      "dnsProviderHint": "For wildcard/internal certificates, e.g. cloudflare",
+      "dnsArgs": "DNS challenge arguments",
+      "dnsArgsHint": "Kept exactly as written — usually an {env.*} placeholder, never expanded",
+      "encode": "Compression",
+      "encodeHint": "Arguments to `encode`, e.g. gzip zstd — empty for none",
+      "insecure": "Skip upstream TLS verification",
+      "insecureHint": "For https upstreams with self-signed certificates.",
+      "headerUp": "Upstream headers (header_up)",
+      "addHeader": "Add header",
+      "unknownKept": "This block carries directives the editor doesn't model. They are kept exactly as written when you save:"
+    },
+    "served": {
+      "emptyTitle": "Nothing is being served",
+      "emptyBody": "The running config has no host-matched routes.",
+      "proxiedTitle": "Proxied domains",
+      "proxiedBody": "What the running config actually routes, read live from Caddy through the helper.",
+      "upstream": "Upstream",
+      "unresolvableTitle": "Proxied, destination unknowable",
+      "unresolvableBody": "These domains are proxied, but where they go can't be answered statically.",
+      "noProxyTitle": "Served without a proxy",
+      "noProxyBody": "Domains answered by something other than a reverse proxy — a file server, a redirect."
     }
   }
 }

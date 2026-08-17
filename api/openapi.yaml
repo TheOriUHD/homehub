@@ -3849,6 +3849,194 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /caddy/pair:
+    post:
+      operationId: caddyPair
+      summary: Pair a caddy-reader helper and create the integration
+      description: Redeems a six-digit pairing code server-side — the helper token never touches the browser — and creates the Caddy system in one step. Audited.
+      tags: [caddy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, baseUrl, code]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 120 }
+                baseUrl: { type: string, minLength: 1 }
+                code: { type: string, minLength: 6, maxLength: 7 }
+      responses:
+        "201":
+          description: Paired and created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Integration" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /caddy/{id}/repair:
+    post:
+      operationId: caddyRepair
+      summary: Re-pair an existing helper with a fresh code
+      description: Replaces the stored token. Audited.
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, minLength: 6, maxLength: 7 }
+      responses:
+        "204":
+          description: Re-paired
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /caddy/{id}/sites:
+    get:
+      operationId: caddySites
+      summary: The manager state, read live from the Caddyfile
+      description: No cache, ever — the Caddyfile is the source of truth. Editable entries, the blocks the splitter refused to model (shown with their reasons), the global options block, and whether the helper allows writes.
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Manager state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaddySitesState" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+    post:
+      operationId: caddyCreateSite
+      summary: Add a site
+      description: Caddy validates the resulting file before anything touches disk; a refused config is a non-event. Returns the whole re-listed state. Audited.
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CaddySiteInput" }
+      responses:
+        "200":
+          description: Saved and reloaded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaddySitesState" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /caddy/{id}/sites/{domain}:
+    put:
+      operationId: caddyUpdateSite
+      summary: Change the site serving a domain
+      description: Unknown directives in the block are carried across — changing a port never drops the line above it. Audited.
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: domain
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CaddySiteInput" }
+      responses:
+        "200":
+          description: Saved and reloaded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaddySitesState" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+    delete:
+      operationId: caddyRemoveSite
+      summary: Remove the site serving a domain
+      description: Audited.
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: domain
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Removed and reloaded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaddySitesState" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /caddy/{id}/served:
+    get:
+      operationId: caddyServed
+      summary: What the running config is actually serving
+      description: The helper's projected running config — which domain points at which upstream, domains that are proxied somewhere unknowable (with reasons), and domains served by something that is not a reverse proxy.
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Served domains
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaddyServed" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /ha/instances:
     get:
       operationId: haListInstances
@@ -5938,6 +6126,99 @@ components:
         mcVersions:
           type: string
           description: Human-readable supported range, e.g. "1.16.5 – 1.21.x"
+
+    CaddyHeaderUp:
+      type: object
+      required: [name, value]
+      properties:
+        name: { type: string }
+        value: { type: string }
+
+    CaddySiteInput:
+      type: object
+      required: [domain, upstreamHost]
+      properties:
+        domain: { type: string, minLength: 1 }
+        extraDomains:
+          type: array
+          items: { type: string }
+        upstreamScheme: { type: string }
+        upstreamHost: { type: string, minLength: 1 }
+        upstreamPort: { type: string }
+        dnsProvider: { type: string }
+        dnsArgs:
+          type: string
+          description: Kept verbatim — usually an {env.*} placeholder; never re-quoted or expanded.
+        encode: { type: string }
+        headerUp:
+          type: array
+          items: { $ref: "#/components/schemas/CaddyHeaderUp" }
+        insecureUpstream: { type: boolean }
+
+    CaddySite:
+      allOf:
+        - $ref: "#/components/schemas/CaddySiteInput"
+        - type: object
+          required: [unknownDirectives]
+          properties:
+            unknownDirectives:
+              type: array
+              items: { type: string }
+              description: Directives the model does not know, preserved verbatim and carried across edits.
+
+    CaddyRawSite:
+      type: object
+      required: [addresses, reason, raw]
+      properties:
+        addresses:
+          type: array
+          items: { type: string }
+        reason: { type: string }
+        raw: { type: string }
+
+    CaddySitesState:
+      type: object
+      required: [path, writable, entries, rawSites]
+      properties:
+        path: { type: string }
+        writable: { type: boolean }
+        refusal: { type: string }
+        global: { type: string }
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/CaddySite" }
+        rawSites:
+          type: array
+          items: { $ref: "#/components/schemas/CaddyRawSite" }
+
+    CaddyServed:
+      type: object
+      required: [upstreams, unresolvable, domainsWithoutProxy, warnings]
+      properties:
+        upstreams:
+          type: array
+          items:
+            type: object
+            required: [domain, host, dial]
+            properties:
+              domain: { type: string }
+              host: { type: string }
+              port: { type: string }
+              dial: { type: string }
+        unresolvable:
+          type: array
+          items:
+            type: object
+            required: [domain, reason]
+            properties:
+              domain: { type: string }
+              reason: { type: string }
+        domainsWithoutProxy:
+          type: array
+          items: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
 
     TsTailnet:
       type: object
