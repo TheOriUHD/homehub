@@ -38,7 +38,11 @@ export function VncViewer({
     setStatus({ kind: "connecting" });
     const rfb = new RFB(el, wsUrl, credential ? { credentials: { password: credential } } : undefined);
     rfb.scaleViewport = true;
-    rfb.resizeSession = true;
+    // Never ask the server to resize the session: QEMU answers by padding a
+    // fixed-mode display (e.g. a VGA text console) with dead space instead of
+    // letting the client scale it. Scale-to-fit with the aspect locked is
+    // what actually fills the pane.
+    rfb.resizeSession = false;
     // Let the wrapper's token background show through the letterbox area.
     rfb.background = "transparent";
 
