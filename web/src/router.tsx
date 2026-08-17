@@ -12,6 +12,7 @@ import { ChangePasswordPage } from "./pages/change-password";
 import { AppShell } from "./components/shell";
 import { OverviewPage } from "./pages/overview";
 import { HealthPage } from "./pages/health";
+import { AssistantPage } from "./pages/assistant";
 import { HistoryPage } from "./pages/history";
 import { AlertsPage } from "./pages/alerts";
 import { BackupsPage } from "./pages/backups";
@@ -122,6 +123,12 @@ const healthRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/health",
   component: HealthPage,
+});
+
+const assistantRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/assistant",
+  component: AssistantPage,
 });
 
 const historyRoute = createRoute({
@@ -597,6 +604,7 @@ const routeTree = rootRoute.addChildren([
   changePasswordRoute,
   shellRoute.addChildren([
     overviewRoute,
+    assistantRoute,
     healthRoute,
     historyRoute,
     alertsRoute,
