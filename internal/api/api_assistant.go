@@ -149,8 +149,14 @@ func (s *Server) AssistantChat(ctx context.Context, req AssistantChatRequestObje
 		return AssistantChat409JSONResponse(errBody("assistant_unconfigured", err.Error())), nil
 	}
 	svc := &assistant.Service{
-		Store:   s.store,
-		Toolbox: &assistant.Toolbox{Store: s.store, Metrics: s.metrics},
+		Store: s.store,
+		Toolbox: &assistant.Toolbox{
+			Store:   s.store,
+			Metrics: s.metrics,
+			Call: func(cctx context.Context, method, path string, body any) (int, []byte) {
+				return s.SelfCall(cctx, id, method, path, body)
+			},
+		},
 	}
 
 	message := strings.TrimSpace(req.Body.Message)

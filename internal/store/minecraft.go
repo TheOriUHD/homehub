@@ -89,7 +89,9 @@ func (s *Store) PendingMinecraftPairing(ctx context.Context, integrationID uuid.
 // UpsertMinecraftServer records companion metadata at pair/connect time.
 func (s *Store) UpsertMinecraftServer(ctx context.Context, integrationID uuid.UUID,
 	serverName, loader, mcVersion, companionVersion, remoteIP string, paired bool) error {
-	pairedAt := "paired_at"
+	// In ON CONFLICT SET, a bare column name is ambiguous between the
+	// target row and EXCLUDED — qualify the keep-existing case.
+	pairedAt := "minecraft_servers.paired_at"
 	if paired {
 		pairedAt = "now()"
 	}

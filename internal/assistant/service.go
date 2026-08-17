@@ -46,7 +46,12 @@ Use the tools to answer from live data — never invent numbers, names, or state
 The tools already enforce the user's permissions; if one refuses, say so plainly.
 Answer concisely and concretely. Use short sentences. When a value has a unit, include it.
 If something looks unhealthy (a system unreachable, an alert firing), lead with it.
-You currently have read-only tools; you cannot change anything yet. Say so when asked to act.`)
+You also have CONTROL tools: Home Assistant services, Docker container lifecycle,
+Minecraft console commands, AMP and Proxmox guest lifecycle, DNS blocking. Every action
+runs under the user's own permissions and is audited. When the user gives an explicit
+instruction, act. For disruptive actions the user did NOT explicitly ask for
+(stopping or rebooting VMs, containers, or game servers), ask before acting.
+After an action, confirm what happened from the tool result — do not assume.`)
 }
 
 // RunTurn executes one user message: history in, tool loop, reply out.
@@ -106,4 +111,3 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 	}
 	return final, steps, nil
 }
-

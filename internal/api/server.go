@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -64,6 +65,10 @@ type Server struct {
 	companion    fs.FS
 	logger       *slog.Logger
 	started      time.Time
+
+	// self is the lazily built in-process API handler for SelfCall.
+	selfOnce sync.Once
+	self     http.Handler
 }
 
 var _ StrictServerInterface = (*Server)(nil)
