@@ -35,7 +35,8 @@ import { DockerContainersPage } from "./pages/docker/containers";
 import { DockerContainerDetailPage } from "./pages/docker/container-detail";
 import { DockerImagesPage, DockerNetworksPage, DockerStacksPage, DockerVolumesPage } from "./pages/docker/misc";
 import { HaModulePage } from "./pages/ha/module";
-import { HaDashboardPage } from "./pages/ha/dashboard";
+import { HaBoardPage } from "./pages/ha/board";
+import { HaEntitiesPage } from "./pages/ha/entities";
 import { HaAutomationsPage } from "./pages/ha/automations";
 import { McModulePage } from "./pages/mc/module";
 import { McConsolePage } from "./pages/mc/console";
@@ -318,10 +319,18 @@ const haModuleRoute = createRoute({
   component: HaModulePage,
 });
 
-const haDashboardRoute = createRoute({
+// The index is the caller's personal board; the previous browse-everything
+// view lives at /entities. The automations deep link is unchanged.
+const haBoardRoute = createRoute({
   getParentRoute: () => haModuleRoute,
   path: "/",
-  component: HaDashboardPage,
+  component: HaBoardPage,
+});
+
+const haEntitiesRoute = createRoute({
+  getParentRoute: () => haModuleRoute,
+  path: "/entities",
+  component: HaEntitiesPage,
 });
 
 const haAutomationsRoute = createRoute({
@@ -519,7 +528,7 @@ const routeTree = rootRoute.addChildren([
       dockerVolumesRoute,
       dockerNetworksRoute,
     ]),
-    haModuleRoute.addChildren([haDashboardRoute, haAutomationsRoute]),
+    haModuleRoute.addChildren([haBoardRoute, haEntitiesRoute, haAutomationsRoute]),
     mcModuleRoute.addChildren([
       mcConsoleRoute,
       mcPlayersRoute,

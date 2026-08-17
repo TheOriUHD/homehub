@@ -13,12 +13,17 @@ import { EntityCard } from "./entity-card";
 import { EntityDetailDialog } from "./entity-detail";
 import { useHaEntities } from "./shared";
 
-/** Domains that live on the Automations tab, never on the dashboard. */
+/** Domains that live on the Automations tab, never in the browse grid. */
 const AUTOMATION_DOMAINS = ["automation", "scene", "script"];
 
-export function HaDashboardPage() {
+/**
+ * HaEntitiesPage is the browse-everything tab: every entity the caller may
+ * view, grouped by area, with search/area/domain filters. The personal
+ * dashboard (the module's index tab) is curated per user instead.
+ */
+export function HaEntitiesPage() {
   const { t } = useTranslation();
-  const { instanceId } = useParams({ from: "/shell/ha/$instanceId/" });
+  const { instanceId } = useParams({ from: "/shell/ha/$instanceId/entities" });
   const entities = useHaEntities(instanceId);
 
   const [search, setSearch] = useState("");

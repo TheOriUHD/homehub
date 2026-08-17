@@ -127,6 +127,41 @@ export function EntityCard({
   );
 }
 
+/**
+ * CompactEntityControl is the one-line control for dense rows (group cards on
+ * the personal board): the same primary control as the full card, with a small
+ * action button standing in for domains whose primary surface normally lives
+ * below the card header (scenes, scripts, buttons), and a state badge for
+ * media players.
+ */
+export function CompactEntityControl({ instanceId, entity }: { instanceId: string; entity: HaEntity }) {
+  const { t } = useTranslation();
+  const svc = useHaService(instanceId);
+  const call = (service: string, data?: Record<string, unknown>) =>
+    svc.mutate({ entityId: entity.entityId, service, data });
+  const unknown = isUnknownState(entity.state);
+
+  if (entity.domain === "scene" || entity.domain === "script") {
+    return (
+      <Button size="sm" loading={svc.isPending} onClick={() => call("turn_on")}>
+        {!svc.isPending && <Play className="size-3.5" />}
+        {entity.domain === "scene" ? t("ha.scene.activate") : t("ha.script.run")}
+      </Button>
+    );
+  }
+  if (entity.domain === "button" || entity.domain === "input_button") {
+    return (
+      <Button size="sm" loading={svc.isPending} onClick={() => call("press")}>
+        {t("ha.buttonEntity.press")}
+      </Button>
+    );
+  }
+  if (entity.domain === "media_player") {
+    return <Badge tone={unknown ? "neutral" : "info"}>{stateLabel(t, entity.state)}</Badge>;
+  }
+  return <PrimaryControl entity={entity} svc={svc} call={call} unknown={unknown} />;
+}
+
 /** The compact control in the card's top-right corner. */
 function PrimaryControl({
   entity,

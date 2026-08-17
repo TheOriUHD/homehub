@@ -40,6 +40,22 @@ export function useHaEntities(instanceId: string) {
   });
 }
 
+export const haDashboardKey = (instanceId: string) => ["ha", instanceId, "dashboard"] as const;
+
+/**
+ * useHaDashboard is the caller's OWN board layout for this instance — the
+ * server scopes it per user, so no user id appears in the key. Live entity
+ * state never lives here; cards only reference entity ids and resolve them
+ * against the entities query, which useHaLiveStates keeps patched.
+ */
+export function useHaDashboard(instanceId: string) {
+  return useQuery({
+    queryKey: haDashboardKey(instanceId),
+    queryFn: async () =>
+      unwrap(await api.GET("/ha/{id}/dashboard", { params: { path: { id: instanceId } } })),
+  });
+}
+
 /**
  * useHaLiveStates subscribes to the instance topic and patches the TanStack
  * cache directly on every "state" push — no refetch storms on a busy HA.
