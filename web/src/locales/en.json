@@ -40,6 +40,8 @@
   "nav": {
     "overview": "Overview",
     "health": "System health",
+    "history": "History",
+    "alerts": "Alerts",
     "systems": "Systems",
     "administration": "Administration",
     "users": "Users",
@@ -318,7 +320,17 @@
     "appUrlHint": "How users reach HomeHub, e.g. https://hub.example.com. Used for invite links and passkeys.",
     "sessionTtl": "Session lifetime (hours)",
     "sessionTtlHint": "Signed-in sessions roll forward on activity and expire after this long unused.",
-    "saved": "Settings saved"
+    "saved": "Settings saved",
+    "retention": {
+      "title": "Metric retention",
+      "intro": "How long collected metrics are kept at each resolution. Older data rolls up, then ages out.",
+      "raw": "Raw samples (hours)",
+      "rawHint": "Full-resolution samples, 6–720 hours. Powers the 1h and 6h views.",
+      "fiveMin": "5-minute rollups (days)",
+      "fiveMinHint": "5-minute averages, 1–365 days. Powers the 24h and 7d views.",
+      "hourly": "Hourly rollups (days)",
+      "hourlyHint": "Hourly averages, 7–3650 days. Powers the 30d view and beyond."
+    }
   },
   "account": {
     "title": "Account",
@@ -993,6 +1005,171 @@
         "title": "Sync needs two instances",
         "body": "Connect a second Pi-hole or AdGuard Home instance to compare and copy list entries between them."
       }
+    }
+  },
+  "history": {
+    "title": "History",
+    "subtitle": "Any metric, any timeframe — compared on one chart.",
+    "picker": {
+      "title": "Series",
+      "hint": "Pick up to {{max}} series to compare.",
+      "toggle": "Series ({{count}} selected)"
+    },
+    "timeframe": {
+      "1h": "1h",
+      "6h": "6h",
+      "24h": "24h",
+      "7d": "7d",
+      "30d": "30d"
+    },
+    "maxSeriesTitle": "That's the limit",
+    "maxSeriesBody": "Up to {{max}} series fit on one chart. Deselect one to add another.",
+    "emptyCatalog": {
+      "title": "No metrics yet",
+      "body": "Metrics appear here once connected systems start reporting. Check back in a few minutes."
+    },
+    "noSelection": {
+      "title": "Nothing selected",
+      "body": "Pick one or more series from the list to chart them here."
+    },
+    "noData": {
+      "title": "No data in this window",
+      "body": "The selected series have no samples in this timeframe. Try a wider window."
+    },
+    "partialError": "Some series failed to load.",
+    "scrub": {
+      "title": "State at a point in time",
+      "hint": "Hover the chart to read every series at one moment — click to pin it.",
+      "stateAt": "State at {{time}}",
+      "unpin": "Unpin",
+      "addAlert": "Add alert from this series"
+    }
+  },
+  "alerts": {
+    "title": "Alerts",
+    "subtitle": "Rules that watch your metrics and notify you when they cross a line.",
+    "add": "New alert",
+    "columns": {
+      "state": "State",
+      "series": "Series",
+      "condition": "Condition",
+      "severity": "Severity"
+    },
+    "state": {
+      "ok": "OK",
+      "firing": "Firing",
+      "unknown": "Unknown"
+    },
+    "severity": {
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error"
+    },
+    "conditionAbove": "{{metric}} above {{value}} for {{duration}}",
+    "conditionBelow": "{{metric}} below {{value}} for {{duration}}",
+    "toggleAria": "Toggle alert {{name}}",
+    "created": "Alert created",
+    "updated": "Alert updated",
+    "deleted": "Alert deleted",
+    "deleteConfirmTitle": "Delete alert “{{name}}”?",
+    "deleteConfirmBody": "The rule stops watching immediately. Past notifications are kept; no new ones will fire.",
+    "empty": {
+      "title": "No alerts yet",
+      "body": "Create a rule and HomeHub watches the metric for you — day and night. The easiest start: pick a series on the History page.",
+      "action": "Open History"
+    },
+    "editor": {
+      "createTitle": "New alert",
+      "editTitle": "Edit alert",
+      "intro": "Fires when the metric stays past the threshold for the sustained period.",
+      "namePlaceholder": "e.g. High CPU on pve1",
+      "resource": "Resource",
+      "resourcePlaceholder": "Pick a resource…",
+      "metric": "Metric",
+      "metricPlaceholder": "Pick a metric…",
+      "operator": "Condition",
+      "above": "Above",
+      "below": "Below",
+      "threshold": "Threshold",
+      "sustained": "Sustained for",
+      "sustainedHint": "Brief spikes shorter than this never fire."
+    }
+  },
+  "channels": {
+    "title": "Outbound channels",
+    "intro": "Where notifications go beyond the app — shared by alerts and events, chosen per user under Account.",
+    "add": "Add channel",
+    "pickType": "Where should notifications go?",
+    "editTitle": "Edit {{name}}",
+    "namePlaceholder": "e.g. Homelab Discord",
+    "secretKeep": "Leave empty to keep the stored value",
+    "test": "Test",
+    "testOk": "Test notification delivered",
+    "testFailed": "Delivery failed",
+    "toggleAria": "Toggle channel {{name}}",
+    "created": "Channel added",
+    "updated": "Channel saved",
+    "deleted": "Channel removed",
+    "deleteConfirmTitle": "Remove “{{name}}”?",
+    "deleteConfirmBody": "Notifications stop flowing through this channel, and users subscribed to it lose that delivery. Its stored secrets are deleted.",
+    "empty": {
+      "title": "No channels yet",
+      "body": "Add a channel so alerts and events can reach you outside the app."
+    },
+    "types": {
+      "webhook": "Webhook",
+      "email": "Email",
+      "ntfy": "ntfy",
+      "gotify": "Gotify",
+      "telegram": "Telegram",
+      "discord": "Discord"
+    },
+    "fields": {
+      "url": "URL",
+      "authHeader": "Auth header name",
+      "authHeaderHint": "e.g. Authorization or X-Api-Key — sent with every delivery",
+      "authValue": "Auth header value",
+      "smtpHost": "SMTP host",
+      "smtpPort": "Port",
+      "from": "From address",
+      "username": "SMTP username",
+      "password": "SMTP password",
+      "server": "Server",
+      "topic": "Topic",
+      "token": "Access token",
+      "chatId": "Chat ID",
+      "botToken": "Bot token",
+      "webhookUrl": "Webhook URL",
+      "webhookUrlHint": "Server settings → Integrations → Webhooks, then copy the URL"
+    },
+    "email": {
+      "note": "Mail is sent to each subscribed user's account email address."
+    },
+    "telegram": {
+      "note": "Create a bot with @BotFather to get the token, message the bot once, then read your chat id from https://api.telegram.org/bot<token>/getUpdates."
+    }
+  },
+  "notifPrefs": {
+    "title": "Notifications",
+    "intro": "Choose how each kind of event reaches you. The switch controls in-app delivery.",
+    "inapp": "In-app notification",
+    "inappAria": "In-app notifications for {{event}}",
+    "channels": "Channels",
+    "channelCount_one": "{{count}} channel",
+    "channelCount_other": "{{count}} channels",
+    "events": {
+      "integration": {
+        "unreachable": "Integration goes offline",
+        "recovered": "Integration recovers"
+      },
+      "alert": {
+        "firing": "Alert fires",
+        "resolved": "Alert resolves"
+      },
+      "docker": {
+        "job": "Docker job results"
+      },
+      "security": "Security events"
     }
   }
 }

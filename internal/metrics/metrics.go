@@ -22,18 +22,18 @@ type Sample struct {
 	Value    float64
 }
 
-// Retention defaults; admin-configurable in the history phase.
 const (
-	rawRetention  = 48 * time.Hour
-	fiveMinKeep   = 14 * 24 * time.Hour
-	hourKeep      = 400 * 24 * time.Hour
 	watermarkKey  = "metrics_rollup_watermark"
 	rollupLagSlop = 2 * time.Minute
 )
 
+// Retention is admin-configurable; the service reads it per maintenance run.
+type RetentionFunc func(ctx context.Context) (raw, fiveMin, hour time.Duration)
+
 type Service struct {
-	store  *store.Store
-	logger *slog.Logger
+	store     *store.Store
+	logger    *slog.Logger
+	retention RetentionFunc
 
 	mu     sync.Mutex
 	series map[seriesKey]int64
@@ -41,11 +41,12 @@ type Service struct {
 
 type seriesKey struct{ resource, metric string }
 
-func New(st *store.Store, logger *slog.Logger) *Service {
+func New(st *store.Store, retention RetentionFunc, logger *slog.Logger) *Service {
 	return &Service{
-		store:  st,
-		logger: logger.With("component", "metrics"),
-		series: map[seriesKey]int64{},
+		store:     st,
+		retention: retention,
+		logger:    logger.With("component", "metrics"),
+		series:    map[seriesKey]int64{},
 	}
 }
 
@@ -126,13 +127,14 @@ func (s *Service) Query(ctx context.Context, resource, metric string, from, to t
 // retention. Registered as the "metrics.maintenance" job, scheduled every
 // five minutes.
 func (s *Service) RunMaintenance(ctx context.Context) error {
+	rawKeep, fiveMinKeep, hourKeep := s.retention(ctx)
 	var watermark time.Time
 	found, err := s.store.GetSettingInto(ctx, watermarkKey, &watermark)
 	if err != nil {
 		return err
 	}
 	if !found || watermark.IsZero() {
-		watermark = time.Now().Add(-rawRetention)
+		watermark = time.Now().Add(-rawKeep)
 	}
 	// Only roll windows that are fully closed (with slop for late writers).
 	until := time.Now().Add(-rollupLagSlop).Truncate(5 * time.Minute)
@@ -151,7 +153,7 @@ func (s *Service) RunMaintenance(ctx context.Context) error {
 			return err
 		}
 	}
-	return s.store.PruneMetrics(ctx, rawRetention, fiveMinKeep, hourKeep)
+	return s.store.PruneMetrics(ctx, rawKeep, fiveMinKeep, hourKeep)
 }
 
 // WirePayload shapes a sample batch for WebSocket delivery.

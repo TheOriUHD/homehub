@@ -4,6 +4,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   Activity,
+  BellRing,
+  ChartSpline,
   Container,
   Eye,
   FileClock,
@@ -83,6 +85,10 @@ export function AppShell() {
   const mainNav: NavItem[] = [
     { to: "/", label: t("nav.overview"), icon: Home },
     { to: "/health", label: t("nav.health"), icon: Activity, requires: RES.health },
+    // History and Alerts are visible to everyone — their contents are already
+    // permission-filtered server-side.
+    { to: "/history", label: t("nav.history"), icon: ChartSpline },
+    { to: "/alerts", label: t("nav.alerts"), icon: BellRing },
   ];
   const adminNav: NavItem[] = [
     { to: "/admin/users", label: t("nav.users"), icon: Users, requires: RES.users },

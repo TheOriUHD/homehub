@@ -286,9 +286,13 @@ func (s *Server) GetSettings(ctx context.Context, _ GetSettingsRequestObject) (G
 	if !s.can(ctx, id, ResSettings, rbac.LevelView) {
 		return GetSettings403JSONResponse{forbidden()}, nil
 	}
+	rawHours, fiveMinDays, hourDays := s.settings.MetricsRetentionValues(ctx)
 	return GetSettings200JSONResponse(AppSettings{
-		AppUrl:          s.settings.AppURL(ctx),
-		SessionTtlHours: s.settings.SessionTTLHours(ctx),
+		AppUrl:                   s.settings.AppURL(ctx),
+		SessionTtlHours:          s.settings.SessionTTLHours(ctx),
+		MetricsRawRetentionHours: rawHours,
+		Metrics5mRetentionDays:   fiveMinDays,
+		Metrics1hRetentionDays:   hourDays,
 	}), nil
 }
 
@@ -314,9 +318,29 @@ func (s *Server) UpdateSettings(ctx context.Context, req UpdateSettingsRequestOb
 		}
 		changes["sessionTtlHours"] = *req.Body.SessionTtlHours
 	}
+	if req.Body.MetricsRawRetentionHours != nil || req.Body.Metrics5mRetentionDays != nil || req.Body.Metrics1hRetentionDays != nil {
+		rawHours, fiveMinDays, hourDays := s.settings.MetricsRetentionValues(ctx)
+		if req.Body.MetricsRawRetentionHours != nil {
+			rawHours = *req.Body.MetricsRawRetentionHours
+		}
+		if req.Body.Metrics5mRetentionDays != nil {
+			fiveMinDays = *req.Body.Metrics5mRetentionDays
+		}
+		if req.Body.Metrics1hRetentionDays != nil {
+			hourDays = *req.Body.Metrics1hRetentionDays
+		}
+		if err := s.settings.SetMetricsRetention(ctx, rawHours, fiveMinDays, hourDays); err != nil {
+			return UpdateSettings400JSONResponse{BadRequestJSONResponse(errBody("invalid_retention", err.Error()))}, nil
+		}
+		changes["metricsRetention"] = []int{rawHours, fiveMinDays, hourDays}
+	}
 	s.audit.Log(ctx, actorFor(id), "settings.update", ResSettings, "success", changes)
+	rawHours, fiveMinDays, hourDays := s.settings.MetricsRetentionValues(ctx)
 	return UpdateSettings200JSONResponse(AppSettings{
-		AppUrl:          s.settings.AppURL(ctx),
-		SessionTtlHours: s.settings.SessionTTLHours(ctx),
+		AppUrl:                   s.settings.AppURL(ctx),
+		SessionTtlHours:          s.settings.SessionTTLHours(ctx),
+		MetricsRawRetentionHours: rawHours,
+		Metrics5mRetentionDays:   fiveMinDays,
+		Metrics1hRetentionDays:   hourDays,
 	}), nil
 }
