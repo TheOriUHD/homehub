@@ -16,7 +16,7 @@ import (
 // authentication with the proxy ticket returned alongside the session.
 func OpenPVEVNC(client *pve.Client, node, kind string, vmid int, ticket pve.VNCProxyTicket) OpenFunc {
 	return func(ctx context.Context, conn *websocket.Conn) error {
-		upstream, err := client.DialVNCWebsocket(ctx, node, int64(ticket.Port), ticket.Ticket)
+		upstream, err := client.DialVNCWebsocket(ctx, node, kind, vmid, int64(ticket.Port), ticket.Ticket)
 		if err != nil {
 			return fmt.Errorf("connect to Proxmox console: %w", err)
 		}
@@ -32,7 +32,7 @@ func OpenPVEVNC(client *pve.Client, node, kind string, vmid int, ticket pve.VNCP
 // with raw output coming back.
 func OpenPVESerial(client *pve.Client, node, kind string, vmid int, ticket pve.TermProxyTicket) OpenFunc {
 	return func(ctx context.Context, conn *websocket.Conn) error {
-		upstream, err := client.DialVNCWebsocket(ctx, node, int64(ticket.Port), ticket.Ticket)
+		upstream, err := client.DialVNCWebsocket(ctx, node, kind, vmid, int64(ticket.Port), ticket.Ticket)
 		if err != nil {
 			return fmt.Errorf("connect to Proxmox serial console: %w", err)
 		}
