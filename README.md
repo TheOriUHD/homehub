@@ -1,9 +1,30 @@
 # HomeHub
 
 A single, self-hosted control plane for your homelab. HomeHub manages your
-connected systems natively — Proxmox, Docker, DNS, storage, game servers, and
-more arrive as in-app integrations, driven by each system's API and rendered
-in one coherent interface. No iframes, no link farms.
+connected systems natively — driven by each system's API and rendered in one
+coherent interface. No iframes, no link farms.
+
+## Integrations
+
+Everything is added and configured in the app, at runtime, with
+test-before-save and live health supervision. Multiple instances of every
+type are supported.
+
+**Proxmox VE** — cluster and node overview with live graphs, full VM/LXC
+lifecycle, migration, cloning, snapshots, raw hardware editing, vzdump
+(on-demand and scheduled), storage and task views, and native in-app
+consoles: noVNC display, serial terminal, and per-guest SSH shells with
+encrypted stored credentials.
+
+**Docker** — multiple hosts over the local socket, TCP with mutual TLS, or
+SSH. Unified container list with live updates from the event stream,
+lifecycle actions, live log streaming, in-container shells, per-container
+CPU/memory history, image management with registry update detection and
+private registry credentials, volumes, networks, and compose-stack views
+with pull-and-recreate redeploys.
+
+More integrations land as vertical slices — each ships complete or not at
+all.
 
 ## Quickstart
 

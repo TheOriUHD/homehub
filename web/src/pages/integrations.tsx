@@ -20,8 +20,9 @@ import { StatusDot } from "@/ui/badge";
 import { Dialog, DialogContent } from "@/ui/dialog";
 import { ConfirmDialog } from "@/ui/confirm";
 import { Field } from "@/ui/field";
-import { Input, PasswordInput } from "@/ui/input";
+import { Input, PasswordInput, Textarea } from "@/ui/input";
 import { Checkbox } from "@/ui/misc";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { SkeletonRows } from "@/ui/skeleton";
 import { useToast } from "@/ui/toast";
@@ -125,7 +126,7 @@ export function IntegrationsPage() {
                     {row.name}
                   </p>
                   <p className="text-fg-subtle mt-0.5 text-xs">
-                    {row.type === "proxmox" ? "Proxmox VE" : row.type} ·{" "}
+                    {row.type === "proxmox" ? "Proxmox VE" : row.type === "docker" ? "Docker" : row.type} ·{" "}
                     {t(`integrations.status.${row.status}`)} · {formatRelative(row.statusChangedAt)}
                   </p>
                 </div>
@@ -157,6 +158,15 @@ export function IntegrationsPage() {
                 {row.type === "proxmox" && row.enabled && (
                   <Link
                     to="/pve/$instanceId"
+                    params={{ instanceId: row.id }}
+                    className="text-accent text-[13px] font-medium hover:underline"
+                  >
+                    {t("integrations.openModule")} →
+                  </Link>
+                )}
+                {row.type === "docker" && row.enabled && (
+                  <Link
+                    to="/docker/$instanceId"
                     params={{ instanceId: row.id }}
                     className="text-accent text-[13px] font-medium hover:underline"
                   >
@@ -200,6 +210,104 @@ type PveFormState = {
   fingerprint: string;
 };
 
+type DockerTransport = "socket" | "tcp" | "ssh";
+
+type DockerFormState = {
+  name: string;
+  transport: DockerTransport;
+  socketPath: string;
+  host: string;
+  port: string;
+  username: string;
+  authType: "password" | "key";
+  tls: boolean;
+  caCert: string;
+  clientCert: string;
+  clientKey: string;
+  sshSecret: string;
+};
+
+const emptyPveForm: PveFormState = {
+  name: "",
+  host: "",
+  tokenId: "",
+  tokenSecret: "",
+  insecureTls: false,
+  fingerprint: "",
+};
+
+const emptyDockerForm: DockerFormState = {
+  name: "",
+  transport: "socket",
+  socketPath: "/var/run/docker.sock",
+  host: "",
+  port: "22",
+  username: "",
+  authType: "password",
+  tls: false,
+  caCert: "",
+  clientCert: "",
+  clientKey: "",
+  sshSecret: "",
+};
+
+type FormPayload = { config: Record<string, unknown>; secrets: Record<string, string> };
+
+function pvePayload(form: PveFormState): FormPayload {
+  const secrets: Record<string, string> = {};
+  if (form.tokenSecret) secrets.tokenSecret = form.tokenSecret;
+  return {
+    config: {
+      host: form.host,
+      tokenId: form.tokenId,
+      insecureTls: form.insecureTls,
+      fingerprint: form.fingerprint,
+    },
+    secrets,
+  };
+}
+
+// Empty secrets are omitted so a stored value survives an edit untouched.
+function dockerPayload(form: DockerFormState): FormPayload {
+  const secrets: Record<string, string> = {};
+  if (form.transport === "tcp" && form.tls) {
+    if (form.caCert) secrets.caCert = form.caCert;
+    if (form.clientCert) secrets.clientCert = form.clientCert;
+    if (form.clientKey) secrets.clientKey = form.clientKey;
+  }
+  if (form.transport === "ssh" && form.sshSecret) secrets.sshSecret = form.sshSecret;
+  return {
+    config: {
+      transport: form.transport,
+      socketPath: form.socketPath,
+      host: form.host,
+      port: Number(form.port) || 22,
+      username: form.username,
+      authType: form.authType,
+      tls: form.tls,
+    },
+    secrets,
+  };
+}
+
+function pveComplete(form: PveFormState, isNew: boolean): boolean {
+  return Boolean(
+    form.name.trim() && form.host.trim() && form.tokenId.trim() && (form.tokenSecret.trim() || !isNew),
+  );
+}
+
+function dockerComplete(form: DockerFormState, isNew: boolean): boolean {
+  if (!form.name.trim()) return false;
+  switch (form.transport) {
+    case "socket":
+      return true;
+    case "tcp":
+      return Boolean(form.host.trim());
+    case "ssh":
+      return Boolean(form.host.trim() && form.username.trim() && (form.sshSecret.trim() || !isNew));
+  }
+}
+
 function AddIntegrationDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -211,30 +319,16 @@ function AddIntegrationDialog({ onClose }: { onClose: () => void }) {
   });
 
   const [type, setType] = useState<IntegrationType | null>(null);
-  const [form, setForm] = useState<PveFormState>({
-    name: "",
-    host: "",
-    tokenId: "",
-    tokenSecret: "",
-    insecureTls: false,
-    fingerprint: "",
-  });
+  const [pveForm, setPveForm] = useState<PveFormState>(emptyPveForm);
+  const [dockerForm, setDockerForm] = useState<DockerFormState>(emptyDockerForm);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
-  const config = () => ({
-    host: form.host,
-    tokenId: form.tokenId,
-    insecureTls: form.insecureTls,
-    fingerprint: form.fingerprint,
-  });
+  const isDocker = type?.id === "docker";
+  const payload = () => (isDocker ? dockerPayload(dockerForm) : pvePayload(pveForm));
 
   const test = useMutation({
     mutationFn: async () =>
-      unwrap(
-        await api.POST("/integrations/test", {
-          body: { type: type!.id, config: config(), secrets: { tokenSecret: form.tokenSecret } },
-        }),
-      ),
+      unwrap(await api.POST("/integrations/test", { body: { type: type!.id, ...payload() } })),
     onSuccess: setTestResult,
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
@@ -243,12 +337,7 @@ function AddIntegrationDialog({ onClose }: { onClose: () => void }) {
     mutationFn: async () =>
       unwrap(
         await api.POST("/integrations", {
-          body: {
-            type: type!.id,
-            name: form.name,
-            config: config(),
-            secrets: { tokenSecret: form.tokenSecret },
-          },
+          body: { type: type!.id, name: isDocker ? dockerForm.name : pveForm.name, ...payload() },
         }),
       ),
     onSuccess: () => {
@@ -280,7 +369,7 @@ function AddIntegrationDialog({ onClose }: { onClose: () => void }) {
     );
   }
 
-  const complete = form.name.trim() && form.host.trim() && form.tokenId.trim() && form.tokenSecret.trim();
+  const complete = isDocker ? dockerComplete(dockerForm, true) : pveComplete(pveForm, true);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -306,7 +395,11 @@ function AddIntegrationDialog({ onClose }: { onClose: () => void }) {
           </>
         }
       >
-        <PveForm form={form} setForm={setForm} isNew testResult={testResult} onFormChange={() => setTestResult(null)} />
+        {isDocker ? (
+          <DockerForm form={dockerForm} setForm={setDockerForm} isNew testResult={testResult} onFormChange={() => setTestResult(null)} />
+        ) : (
+          <PveForm form={pveForm} setForm={setPveForm} isNew testResult={testResult} onFormChange={() => setTestResult(null)} />
+        )}
         {!testResult && <p className="text-fg-subtle mt-3 text-[13px]">{t("integrations.testFirst")}</p>}
       </DialogContent>
     </Dialog>
@@ -318,8 +411,9 @@ function EditIntegrationDialog({ row, onClose }: { row: Integration; onClose: ()
   const queryClient = useQueryClient();
   const toast = useToast();
 
+  const isDocker = row.type === "docker";
   const cfg = row.config as Record<string, unknown>;
-  const [form, setForm] = useState<PveFormState>({
+  const [pveForm, setPveForm] = useState<PveFormState>({
     name: row.name,
     host: String(cfg.host ?? ""),
     tokenId: String(cfg.tokenId ?? ""),
@@ -327,25 +421,26 @@ function EditIntegrationDialog({ row, onClose }: { row: Integration; onClose: ()
     insecureTls: Boolean(cfg.insecureTls),
     fingerprint: String(cfg.fingerprint ?? ""),
   });
+  const [dockerForm, setDockerForm] = useState<DockerFormState>({
+    ...emptyDockerForm,
+    name: row.name,
+    transport: cfg.transport === "tcp" || cfg.transport === "ssh" ? cfg.transport : "socket",
+    socketPath: String(cfg.socketPath ?? "") || "/var/run/docker.sock",
+    host: String(cfg.host ?? ""),
+    port: String(cfg.port ?? 22),
+    username: String(cfg.username ?? ""),
+    authType: cfg.authType === "key" ? "key" : "password",
+    tls: Boolean(cfg.tls),
+  });
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const save = useMutation({
     mutationFn: async () => {
-      const secrets: Record<string, string> = {};
-      if (form.tokenSecret) secrets.tokenSecret = form.tokenSecret;
+      const { config, secrets } = isDocker ? dockerPayload(dockerForm) : pvePayload(pveForm);
       return unwrap(
         await api.PATCH("/integrations/{id}", {
           params: { path: { id: row.id } },
-          body: {
-            name: form.name,
-            config: {
-              host: form.host,
-              tokenId: form.tokenId,
-              insecureTls: form.insecureTls,
-              fingerprint: form.fingerprint,
-            },
-            secrets,
-          },
+          body: { name: isDocker ? dockerForm.name : pveForm.name, config, secrets },
         }),
       );
     },
@@ -355,6 +450,8 @@ function EditIntegrationDialog({ row, onClose }: { row: Integration; onClose: ()
     },
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
+
+  const complete = isDocker ? dockerComplete(dockerForm, false) : pveComplete(pveForm, false);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -366,13 +463,17 @@ function EditIntegrationDialog({ row, onClose }: { row: Integration; onClose: ()
             <Button variant="ghost" onClick={onClose}>
               {t("common.cancel")}
             </Button>
-            <Button variant="primary" loading={save.isPending} onClick={() => save.mutate()}>
+            <Button variant="primary" disabled={!complete} loading={save.isPending} onClick={() => save.mutate()}>
               {t("common.save")}
             </Button>
           </>
         }
       >
-        <PveForm form={form} setForm={setForm} isNew={false} testResult={testResult} onFormChange={() => setTestResult(null)} />
+        {isDocker ? (
+          <DockerForm form={dockerForm} setForm={setDockerForm} isNew={false} testResult={testResult} onFormChange={() => setTestResult(null)} />
+        ) : (
+          <PveForm form={pveForm} setForm={setPveForm} isNew={false} testResult={testResult} onFormChange={() => setTestResult(null)} />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -432,17 +533,155 @@ function PveForm({
         hint={t("integrations.pve.insecureTlsHint")}
       />
 
-      {testResult && (
-        <div
-          role="status"
-          className={
-            "rounded-md px-3 py-2.5 text-[13px] " +
-            (testResult.ok ? "bg-success-soft text-success-soft-fg" : "bg-danger-soft text-danger-soft-fg")
-          }
-        >
-          {testResult.message}
-        </div>
+      <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
+function DockerForm({
+  form,
+  setForm,
+  isNew,
+  testResult,
+  onFormChange,
+}: {
+  form: DockerFormState;
+  setForm: (fn: (prev: DockerFormState) => DockerFormState) => void;
+  isNew: boolean;
+  testResult: TestConnectionResult | null;
+  onFormChange: () => void;
+}) {
+  const { t } = useTranslation();
+  const update = (patch: Partial<DockerFormState>) => {
+    onFormChange();
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+
+  const secretHint = isNew ? undefined : t("integrations.docker.secretKeep");
+  const pemClass = "font-mono text-xs";
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.form.name")} hint={t("integrations.form.nameHintDocker")}>
+          {(p) => <Input {...p} autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.docker.transport")}>
+          {() => (
+            <Select value={form.transport} onValueChange={(v) => update({ transport: v as DockerTransport })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="socket">{t("integrations.docker.transportSocket")}</SelectItem>
+                <SelectItem value="tcp">{t("integrations.docker.transportTcp")}</SelectItem>
+                <SelectItem value="ssh">{t("integrations.docker.transportSsh")}</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </Field>
+      </div>
+
+      {form.transport === "socket" && (
+        <Field label={t("integrations.docker.socketPath")} hint={t("integrations.docker.socketPathHint")}>
+          {(p) => (
+            <Input {...p} className="font-mono text-[13px]" placeholder="/var/run/docker.sock" value={form.socketPath} onChange={(e) => update({ socketPath: e.target.value })} />
+          )}
+        </Field>
       )}
+
+      {form.transport === "tcp" && (
+        <>
+          <Field label={t("integrations.docker.host")} hint={t("integrations.docker.hostHintTcp")}>
+            {(p) => <Input {...p} placeholder="192.168.1.20" value={form.host} onChange={(e) => update({ host: e.target.value })} />}
+          </Field>
+          <Checkbox
+            checked={form.tls}
+            onCheckedChange={(checked) => update({ tls: checked })}
+            label={t("integrations.docker.tls")}
+            hint={t("integrations.docker.tlsHint")}
+          />
+          {form.tls && (
+            <>
+              <Field label={t("integrations.docker.caCert")} hint={secretHint} optional={t("common.optional")}>
+                {(p) => (
+                  <Textarea {...p} className={pemClass} rows={4} placeholder="-----BEGIN CERTIFICATE-----" value={form.caCert} onChange={(e) => update({ caCert: e.target.value })} />
+                )}
+              </Field>
+              <Field label={t("integrations.docker.clientCert")} hint={secretHint} optional={t("common.optional")}>
+                {(p) => (
+                  <Textarea {...p} className={pemClass} rows={4} placeholder="-----BEGIN CERTIFICATE-----" value={form.clientCert} onChange={(e) => update({ clientCert: e.target.value })} />
+                )}
+              </Field>
+              <Field label={t("integrations.docker.clientKey")} hint={secretHint} optional={t("common.optional")}>
+                {(p) => (
+                  <Textarea {...p} className={pemClass} rows={4} placeholder="-----BEGIN PRIVATE KEY-----" value={form.clientKey} onChange={(e) => update({ clientKey: e.target.value })} />
+                )}
+              </Field>
+            </>
+          )}
+        </>
+      )}
+
+      {form.transport === "ssh" && (
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label={t("integrations.docker.host")} hint={t("integrations.docker.hostHintSsh")} className="col-span-2">
+              {(p) => <Input {...p} placeholder="192.168.1.20" value={form.host} onChange={(e) => update({ host: e.target.value })} />}
+            </Field>
+            <Field label={t("integrations.docker.port")}>
+              {(p) => <Input {...p} type="number" value={form.port} onChange={(e) => update({ port: e.target.value })} />}
+            </Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t("integrations.docker.username")}>
+              {(p) => <Input {...p} placeholder="root" value={form.username} onChange={(e) => update({ username: e.target.value })} />}
+            </Field>
+            <Field label={t("integrations.docker.authType")}>
+              {() => (
+                <Select value={form.authType} onValueChange={(v) => update({ authType: v as "password" | "key" })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="password">{t("integrations.docker.authPassword")}</SelectItem>
+                    <SelectItem value="key">{t("integrations.docker.authKey")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </Field>
+          </div>
+          <Field
+            label={form.authType === "password" ? t("integrations.docker.sshPassword") : t("integrations.docker.sshKey")}
+            hint={secretHint}
+          >
+            {(p) =>
+              form.authType === "password" ? (
+                <PasswordInput {...p} value={form.sshSecret} onChange={(e) => update({ sshSecret: e.target.value })} />
+              ) : (
+                <Textarea {...p} className={pemClass} rows={5} placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" value={form.sshSecret} onChange={(e) => update({ sshSecret: e.target.value })} />
+              )
+            }
+          </Field>
+        </>
+      )}
+
+      <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
+function TestResultNote({ result }: { result: TestConnectionResult | null }) {
+  if (!result) return null;
+  return (
+    <div
+      role="status"
+      className={
+        "rounded-md px-3 py-2.5 text-[13px] " +
+        (result.ok ? "bg-success-soft text-success-soft-fg" : "bg-danger-soft text-danger-soft-fg")
+      }
+    >
+      {result.message}
     </div>
   );
 }

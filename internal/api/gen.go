@@ -429,6 +429,36 @@ func (e ExportAuditParamsOutcome) Valid() bool {
 	}
 }
 
+// Defines values for DockerContainerActionJSONBodyAction.
+const (
+	DockerContainerActionJSONBodyActionKill    DockerContainerActionJSONBodyAction = "kill"
+	DockerContainerActionJSONBodyActionPause   DockerContainerActionJSONBodyAction = "pause"
+	DockerContainerActionJSONBodyActionRestart DockerContainerActionJSONBodyAction = "restart"
+	DockerContainerActionJSONBodyActionStart   DockerContainerActionJSONBodyAction = "start"
+	DockerContainerActionJSONBodyActionStop    DockerContainerActionJSONBodyAction = "stop"
+	DockerContainerActionJSONBodyActionUnpause DockerContainerActionJSONBodyAction = "unpause"
+)
+
+// Valid indicates whether the value is a known member of the DockerContainerActionJSONBodyAction enum.
+func (e DockerContainerActionJSONBodyAction) Valid() bool {
+	switch e {
+	case DockerContainerActionJSONBodyActionKill:
+		return true
+	case DockerContainerActionJSONBodyActionPause:
+		return true
+	case DockerContainerActionJSONBodyActionRestart:
+		return true
+	case DockerContainerActionJSONBodyActionStart:
+		return true
+	case DockerContainerActionJSONBodyActionStop:
+		return true
+	case DockerContainerActionJSONBodyActionUnpause:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PveBackupGuestJSONBodyCompress.
 const (
 	Gzip PveBackupGuestJSONBodyCompress = "gzip"
@@ -601,6 +631,106 @@ type CreateUserResult struct {
 	// TempPassword Present when onboarding is temp_password — shown exactly once
 	TempPassword *string `json:"tempPassword,omitempty"`
 	User         User    `json:"user"`
+}
+
+// DockerContainer defines model for DockerContainer.
+type DockerContainer struct {
+	ComposeProject *string   `json:"composeProject,omitempty"`
+	ComposeService *string   `json:"composeService,omitempty"`
+	Created        time.Time `json:"created"`
+	Id             string    `json:"id"`
+	Image          string    `json:"image"`
+	ImageId        *string   `json:"imageId,omitempty"`
+	Name           string    `json:"name"`
+	Ports          *[]struct {
+		Private int    `json:"private"`
+		Public  *int   `json:"public,omitempty"`
+		Type    string `json:"type"`
+	} `json:"ports,omitempty"`
+	State  string `json:"state"`
+	Status string `json:"status"`
+}
+
+// DockerContainerDetail defines model for DockerContainerDetail.
+type DockerContainerDetail struct {
+	Cmd        string            `json:"cmd"`
+	Container  DockerContainer   `json:"container"`
+	Entrypoint *string           `json:"entrypoint,omitempty"`
+	Env        []string          `json:"env"`
+	ExitCode   *int              `json:"exitCode,omitempty"`
+	Labels     map[string]string `json:"labels"`
+	Mounts     []struct {
+		Destination string  `json:"destination"`
+		Rw          bool    `json:"rw"`
+		Source      *string `json:"source,omitempty"`
+		Type        string  `json:"type"`
+	} `json:"mounts"`
+	Networks []struct {
+		IpAddress *string `json:"ipAddress,omitempty"`
+		Name      string  `json:"name"`
+	} `json:"networks"`
+	RestartPolicy *string    `json:"restartPolicy,omitempty"`
+	StartedAt     *time.Time `json:"startedAt,omitempty"`
+}
+
+// DockerImage defines model for DockerImage.
+type DockerImage struct {
+	Created   time.Time `json:"created"`
+	Dangling  bool      `json:"dangling"`
+	Id        string    `json:"id"`
+	InUse     bool      `json:"inUse"`
+	SizeBytes int64     `json:"sizeBytes"`
+	Tags      []string  `json:"tags"`
+}
+
+// DockerNetwork defines model for DockerNetwork.
+type DockerNetwork struct {
+	// Builtin bridge/host/none — cannot be removed
+	Builtin    bool   `json:"builtin"`
+	Containers int    `json:"containers"`
+	Driver     string `json:"driver"`
+	Id         string `json:"id"`
+	Name       string `json:"name"`
+	Scope      string `json:"scope"`
+}
+
+// DockerPruneResult defines model for DockerPruneResult.
+type DockerPruneResult struct {
+	Deleted        int   `json:"deleted"`
+	ReclaimedBytes int64 `json:"reclaimedBytes"`
+}
+
+// DockerRegistryCred defines model for DockerRegistryCred.
+type DockerRegistryCred struct {
+	Registry string `json:"registry"`
+	Username string `json:"username"`
+}
+
+// DockerStack defines model for DockerStack.
+type DockerStack struct {
+	Project  string `json:"project"`
+	Services []struct {
+		Containers []DockerContainer `json:"containers"`
+		Service    string            `json:"service"`
+	} `json:"services"`
+}
+
+// DockerUpdateCheck defines model for DockerUpdateCheck.
+type DockerUpdateCheck struct {
+	Results []struct {
+		Message         *string `json:"message,omitempty"`
+		Reference       string  `json:"reference"`
+		UpdateAvailable bool    `json:"updateAvailable"`
+	} `json:"results"`
+}
+
+// DockerVolume defines model for DockerVolume.
+type DockerVolume struct {
+	Created    *string `json:"created,omitempty"`
+	Driver     string  `json:"driver"`
+	InUse      bool    `json:"inUse"`
+	Mountpoint string  `json:"mountpoint"`
+	Name       string  `json:"name"`
 }
 
 // Error defines model for Error.
@@ -992,6 +1122,9 @@ type WebauthnChallenge struct {
 // WebauthnPayload Opaque WebAuthn protocol payload, passed to and from the browser credential API unmodified
 type WebauthnPayload map[string]interface{}
 
+// ContainerName defines model for containerName.
+type ContainerName = string
+
 // IdParam defines model for idParam.
 type IdParam = openapi_types.UUID
 
@@ -1006,6 +1139,11 @@ type Conflict = Error
 
 // Forbidden defines model for Forbidden.
 type Forbidden = Error
+
+// JobQueued defines model for JobQueued.
+type JobQueued struct {
+	JobId int64 `json:"jobId"`
+}
 
 // NotFound defines model for NotFound.
 type NotFound = Error
@@ -1135,6 +1273,66 @@ type DisableTotpJSONBody struct {
 // SetViewAsJSONBody defines parameters for SetViewAs.
 type SetViewAsJSONBody struct {
 	RoleId *openapi_types.UUID `json:"roleId,omitempty"`
+}
+
+// DockerRemoveContainerParams defines parameters for DockerRemoveContainer.
+type DockerRemoveContainerParams struct {
+	Force *bool `form:"force,omitempty" json:"force,omitempty"`
+
+	// Volumes Also remove anonymous volumes
+	Volumes *bool `form:"volumes,omitempty" json:"volumes,omitempty"`
+}
+
+// DockerContainerActionJSONBody defines parameters for DockerContainerAction.
+type DockerContainerActionJSONBody struct {
+	Action DockerContainerActionJSONBodyAction `json:"action"`
+}
+
+// DockerContainerActionJSONBodyAction defines parameters for DockerContainerAction.
+type DockerContainerActionJSONBodyAction string
+
+// DockerExecContainerJSONBody defines parameters for DockerExecContainer.
+type DockerExecContainerJSONBody struct {
+	// Command Command to run; defaults to bash with sh fallback
+	Command *string `json:"command,omitempty"`
+}
+
+// DockerContainerLogsJSONBody defines parameters for DockerContainerLogs.
+type DockerContainerLogsJSONBody struct {
+	Tail *int `json:"tail,omitempty"`
+}
+
+// DockerRecreateContainerJSONBody defines parameters for DockerRecreateContainer.
+type DockerRecreateContainerJSONBody struct {
+	Pull *bool `json:"pull,omitempty"`
+}
+
+// DockerPullImageJSONBody defines parameters for DockerPullImage.
+type DockerPullImageJSONBody struct {
+	Reference string `json:"reference"`
+}
+
+// DockerRemoveImageParams defines parameters for DockerRemoveImage.
+type DockerRemoveImageParams struct {
+	Force *bool `form:"force,omitempty" json:"force,omitempty"`
+}
+
+// DockerPutRegistryJSONBody defines parameters for DockerPutRegistry.
+type DockerPutRegistryJSONBody struct {
+	// Registry Registry host, e.g. ghcr.io or registry.example.com
+	Registry string `json:"registry"`
+	Secret   string `json:"secret"`
+	Username string `json:"username"`
+}
+
+// DockerRedeployStackJSONBody defines parameters for DockerRedeployStack.
+type DockerRedeployStackJSONBody struct {
+	Pull *bool `json:"pull,omitempty"`
+}
+
+// DockerRemoveVolumeParams defines parameters for DockerRemoveVolume.
+type DockerRemoveVolumeParams struct {
+	Force *bool `form:"force,omitempty" json:"force,omitempty"`
 }
 
 // CreateIntegrationJSONBody defines parameters for CreateIntegration.
@@ -1384,6 +1582,27 @@ type DisableTotpJSONRequestBody DisableTotpJSONBody
 // SetViewAsJSONRequestBody defines body for SetViewAs for application/json ContentType.
 type SetViewAsJSONRequestBody SetViewAsJSONBody
 
+// DockerContainerActionJSONRequestBody defines body for DockerContainerAction for application/json ContentType.
+type DockerContainerActionJSONRequestBody DockerContainerActionJSONBody
+
+// DockerExecContainerJSONRequestBody defines body for DockerExecContainer for application/json ContentType.
+type DockerExecContainerJSONRequestBody DockerExecContainerJSONBody
+
+// DockerContainerLogsJSONRequestBody defines body for DockerContainerLogs for application/json ContentType.
+type DockerContainerLogsJSONRequestBody DockerContainerLogsJSONBody
+
+// DockerRecreateContainerJSONRequestBody defines body for DockerRecreateContainer for application/json ContentType.
+type DockerRecreateContainerJSONRequestBody DockerRecreateContainerJSONBody
+
+// DockerPullImageJSONRequestBody defines body for DockerPullImage for application/json ContentType.
+type DockerPullImageJSONRequestBody DockerPullImageJSONBody
+
+// DockerPutRegistryJSONRequestBody defines body for DockerPutRegistry for application/json ContentType.
+type DockerPutRegistryJSONRequestBody DockerPutRegistryJSONBody
+
+// DockerRedeployStackJSONRequestBody defines body for DockerRedeployStack for application/json ContentType.
+type DockerRedeployStackJSONRequestBody DockerRedeployStackJSONBody
+
 // CreateIntegrationJSONRequestBody defines body for CreateIntegration for application/json ContentType.
 type CreateIntegrationJSONRequestBody CreateIntegrationJSONBody
 
@@ -1530,6 +1749,72 @@ type ServerInterface interface {
 	// SetViewAs Preview the app as a role (admins only)
 	// (PUT /auth/view-as)
 	SetViewAs(w http.ResponseWriter, r *http.Request)
+	// DockerListContainers All containers on the host
+	// (GET /docker/{id}/containers)
+	DockerListContainers(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DockerRemoveContainer Remove a container
+	// (DELETE /docker/{id}/containers/{name})
+	DockerRemoveContainer(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName, params DockerRemoveContainerParams)
+	// DockerGetContainer Container detail (inspect)
+	// (GET /docker/{id}/containers/{name})
+	DockerGetContainer(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName)
+	// DockerContainerAction Start, stop, restart, pause, unpause, or kill
+	// (POST /docker/{id}/containers/{name}/action)
+	DockerContainerAction(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName)
+	// DockerExecContainer Open an interactive shell in the container
+	// (POST /docker/{id}/containers/{name}/exec)
+	DockerExecContainer(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName)
+	// DockerContainerLogs Open a live log stream
+	// (POST /docker/{id}/containers/{name}/logs)
+	DockerContainerLogs(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName)
+	// DockerRecreateContainer Recreate a container with its exact configuration
+	// (POST /docker/{id}/containers/{name}/recreate)
+	DockerRecreateContainer(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName)
+	// DockerListImages Images on the host
+	// (GET /docker/{id}/images)
+	DockerListImages(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DockerCheckImageUpdates Check tagged images for newer registry digests
+	// (POST /docker/{id}/images/check-updates)
+	DockerCheckImageUpdates(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DockerPruneImages Remove dangling images
+	// (POST /docker/{id}/images/prune)
+	DockerPruneImages(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DockerPullImage Pull an image
+	// (POST /docker/{id}/images/pull)
+	DockerPullImage(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DockerRemoveImage Remove an image
+	// (DELETE /docker/{id}/images/{imageId})
+	DockerRemoveImage(w http.ResponseWriter, r *http.Request, id IdParam, imageId string, params DockerRemoveImageParams)
+	// DockerListNetworks Networks on the host
+	// (GET /docker/{id}/networks)
+	DockerListNetworks(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DockerRemoveNetwork Remove a network
+	// (DELETE /docker/{id}/networks/{networkId})
+	DockerRemoveNetwork(w http.ResponseWriter, r *http.Request, id IdParam, networkId string)
+	// DockerListRegistries Stored registry credentials
+	// (GET /docker/{id}/registries)
+	DockerListRegistries(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DockerPutRegistry Store credentials for a registry
+	// (PUT /docker/{id}/registries)
+	DockerPutRegistry(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DockerDeleteRegistry Remove stored registry credentials
+	// (DELETE /docker/{id}/registries/{registry})
+	DockerDeleteRegistry(w http.ResponseWriter, r *http.Request, id IdParam, registry string)
+	// DockerListStacks Compose stacks (grouped by project label)
+	// (GET /docker/{id}/stacks)
+	DockerListStacks(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DockerRedeployStack Redeploy a stack
+	// (POST /docker/{id}/stacks/{project}/redeploy)
+	DockerRedeployStack(w http.ResponseWriter, r *http.Request, id IdParam, project string)
+	// DockerListVolumes Volumes on the host
+	// (GET /docker/{id}/volumes)
+	DockerListVolumes(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DockerPruneVolumes Remove unused anonymous volumes
+	// (POST /docker/{id}/volumes/prune)
+	DockerPruneVolumes(w http.ResponseWriter, r *http.Request, id IdParam)
+	// DockerRemoveVolume Remove a volume
+	// (DELETE /docker/{id}/volumes/{name})
+	DockerRemoveVolume(w http.ResponseWriter, r *http.Request, id IdParam, name string, params DockerRemoveVolumeParams)
 	// GetHealth Application health
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -1851,6 +2136,138 @@ func (_ Unimplemented) EnrollTotp(w http.ResponseWriter, r *http.Request) {
 // SetViewAs Preview the app as a role (admins only)
 // (PUT /auth/view-as)
 func (_ Unimplemented) SetViewAs(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerListContainers All containers on the host
+// (GET /docker/{id}/containers)
+func (_ Unimplemented) DockerListContainers(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerRemoveContainer Remove a container
+// (DELETE /docker/{id}/containers/{name})
+func (_ Unimplemented) DockerRemoveContainer(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName, params DockerRemoveContainerParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerGetContainer Container detail (inspect)
+// (GET /docker/{id}/containers/{name})
+func (_ Unimplemented) DockerGetContainer(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerContainerAction Start, stop, restart, pause, unpause, or kill
+// (POST /docker/{id}/containers/{name}/action)
+func (_ Unimplemented) DockerContainerAction(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerExecContainer Open an interactive shell in the container
+// (POST /docker/{id}/containers/{name}/exec)
+func (_ Unimplemented) DockerExecContainer(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerContainerLogs Open a live log stream
+// (POST /docker/{id}/containers/{name}/logs)
+func (_ Unimplemented) DockerContainerLogs(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerRecreateContainer Recreate a container with its exact configuration
+// (POST /docker/{id}/containers/{name}/recreate)
+func (_ Unimplemented) DockerRecreateContainer(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerListImages Images on the host
+// (GET /docker/{id}/images)
+func (_ Unimplemented) DockerListImages(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerCheckImageUpdates Check tagged images for newer registry digests
+// (POST /docker/{id}/images/check-updates)
+func (_ Unimplemented) DockerCheckImageUpdates(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerPruneImages Remove dangling images
+// (POST /docker/{id}/images/prune)
+func (_ Unimplemented) DockerPruneImages(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerPullImage Pull an image
+// (POST /docker/{id}/images/pull)
+func (_ Unimplemented) DockerPullImage(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerRemoveImage Remove an image
+// (DELETE /docker/{id}/images/{imageId})
+func (_ Unimplemented) DockerRemoveImage(w http.ResponseWriter, r *http.Request, id IdParam, imageId string, params DockerRemoveImageParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerListNetworks Networks on the host
+// (GET /docker/{id}/networks)
+func (_ Unimplemented) DockerListNetworks(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerRemoveNetwork Remove a network
+// (DELETE /docker/{id}/networks/{networkId})
+func (_ Unimplemented) DockerRemoveNetwork(w http.ResponseWriter, r *http.Request, id IdParam, networkId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerListRegistries Stored registry credentials
+// (GET /docker/{id}/registries)
+func (_ Unimplemented) DockerListRegistries(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerPutRegistry Store credentials for a registry
+// (PUT /docker/{id}/registries)
+func (_ Unimplemented) DockerPutRegistry(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerDeleteRegistry Remove stored registry credentials
+// (DELETE /docker/{id}/registries/{registry})
+func (_ Unimplemented) DockerDeleteRegistry(w http.ResponseWriter, r *http.Request, id IdParam, registry string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerListStacks Compose stacks (grouped by project label)
+// (GET /docker/{id}/stacks)
+func (_ Unimplemented) DockerListStacks(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerRedeployStack Redeploy a stack
+// (POST /docker/{id}/stacks/{project}/redeploy)
+func (_ Unimplemented) DockerRedeployStack(w http.ResponseWriter, r *http.Request, id IdParam, project string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerListVolumes Volumes on the host
+// (GET /docker/{id}/volumes)
+func (_ Unimplemented) DockerListVolumes(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerPruneVolumes Remove unused anonymous volumes
+// (POST /docker/{id}/volumes/prune)
+func (_ Unimplemented) DockerPruneVolumes(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DockerRemoveVolume Remove a volume
+// (DELETE /docker/{id}/volumes/{name})
+func (_ Unimplemented) DockerRemoveVolume(w http.ResponseWriter, r *http.Request, id IdParam, name string, params DockerRemoveVolumeParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2770,6 +3187,738 @@ func (siw *ServerInterfaceWrapper) SetViewAs(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetViewAs(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerListContainers operation middleware
+func (siw *ServerInterfaceWrapper) DockerListContainers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerListContainers(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerRemoveContainer operation middleware
+func (siw *ServerInterfaceWrapper) DockerRemoveContainer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name ContainerName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", chi.URLParam(r, "name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DockerRemoveContainerParams
+
+	// ------------- Optional query parameter "force" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "force", r.URL.Query(), &params.Force, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "force"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "force", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "volumes" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "volumes", r.URL.Query(), &params.Volumes, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "volumes"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "volumes", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerRemoveContainer(w, r, id, name, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerGetContainer operation middleware
+func (siw *ServerInterfaceWrapper) DockerGetContainer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name ContainerName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", chi.URLParam(r, "name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerGetContainer(w, r, id, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerContainerAction operation middleware
+func (siw *ServerInterfaceWrapper) DockerContainerAction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name ContainerName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", chi.URLParam(r, "name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerContainerAction(w, r, id, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerExecContainer operation middleware
+func (siw *ServerInterfaceWrapper) DockerExecContainer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name ContainerName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", chi.URLParam(r, "name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerExecContainer(w, r, id, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerContainerLogs operation middleware
+func (siw *ServerInterfaceWrapper) DockerContainerLogs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name ContainerName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", chi.URLParam(r, "name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerContainerLogs(w, r, id, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerRecreateContainer operation middleware
+func (siw *ServerInterfaceWrapper) DockerRecreateContainer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name ContainerName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", chi.URLParam(r, "name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerRecreateContainer(w, r, id, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerListImages operation middleware
+func (siw *ServerInterfaceWrapper) DockerListImages(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerListImages(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerCheckImageUpdates operation middleware
+func (siw *ServerInterfaceWrapper) DockerCheckImageUpdates(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerCheckImageUpdates(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerPruneImages operation middleware
+func (siw *ServerInterfaceWrapper) DockerPruneImages(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerPruneImages(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerPullImage operation middleware
+func (siw *ServerInterfaceWrapper) DockerPullImage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerPullImage(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerRemoveImage operation middleware
+func (siw *ServerInterfaceWrapper) DockerRemoveImage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "imageId" -------------
+	var imageId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "imageId", chi.URLParam(r, "imageId"), &imageId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "imageId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DockerRemoveImageParams
+
+	// ------------- Optional query parameter "force" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "force", r.URL.Query(), &params.Force, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "force"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "force", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerRemoveImage(w, r, id, imageId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerListNetworks operation middleware
+func (siw *ServerInterfaceWrapper) DockerListNetworks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerListNetworks(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerRemoveNetwork operation middleware
+func (siw *ServerInterfaceWrapper) DockerRemoveNetwork(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "networkId" -------------
+	var networkId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "networkId", chi.URLParam(r, "networkId"), &networkId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "networkId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerRemoveNetwork(w, r, id, networkId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerListRegistries operation middleware
+func (siw *ServerInterfaceWrapper) DockerListRegistries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerListRegistries(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerPutRegistry operation middleware
+func (siw *ServerInterfaceWrapper) DockerPutRegistry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerPutRegistry(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerDeleteRegistry operation middleware
+func (siw *ServerInterfaceWrapper) DockerDeleteRegistry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "registry" -------------
+	var registry string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "registry", chi.URLParam(r, "registry"), &registry, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "registry", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerDeleteRegistry(w, r, id, registry)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerListStacks operation middleware
+func (siw *ServerInterfaceWrapper) DockerListStacks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerListStacks(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerRedeployStack operation middleware
+func (siw *ServerInterfaceWrapper) DockerRedeployStack(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "project", chi.URLParam(r, "project"), &project, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerRedeployStack(w, r, id, project)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerListVolumes operation middleware
+func (siw *ServerInterfaceWrapper) DockerListVolumes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerListVolumes(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerPruneVolumes operation middleware
+func (siw *ServerInterfaceWrapper) DockerPruneVolumes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerPruneVolumes(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DockerRemoveVolume operation middleware
+func (siw *ServerInterfaceWrapper) DockerRemoveVolume(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", chi.URLParam(r, "name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DockerRemoveVolumeParams
+
+	// ------------- Optional query parameter "force" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "force", r.URL.Query(), &params.Force, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "force"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "force", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DockerRemoveVolume(w, r, id, name, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4687,6 +5836,72 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/proxmox/{id}/backup-jobs/{jobId}", wrapper.PveUpdateBackupJob)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/docker/{id}/containers", wrapper.DockerListContainers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/docker/{id}/containers/{name}", wrapper.DockerRemoveContainer)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/docker/{id}/containers/{name}", wrapper.DockerGetContainer)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/docker/{id}/containers/{name}/action", wrapper.DockerContainerAction)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/docker/{id}/containers/{name}/recreate", wrapper.DockerRecreateContainer)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/docker/{id}/containers/{name}/exec", wrapper.DockerExecContainer)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/docker/{id}/containers/{name}/logs", wrapper.DockerContainerLogs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/docker/{id}/images", wrapper.DockerListImages)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/docker/{id}/images/pull", wrapper.DockerPullImage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/docker/{id}/images/check-updates", wrapper.DockerCheckImageUpdates)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/docker/{id}/images/prune", wrapper.DockerPruneImages)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/docker/{id}/images/{imageId}", wrapper.DockerRemoveImage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/docker/{id}/volumes", wrapper.DockerListVolumes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/docker/{id}/volumes/prune", wrapper.DockerPruneVolumes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/docker/{id}/volumes/{name}", wrapper.DockerRemoveVolume)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/docker/{id}/networks", wrapper.DockerListNetworks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/docker/{id}/networks/{networkId}", wrapper.DockerRemoveNetwork)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/docker/{id}/stacks", wrapper.DockerListStacks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/docker/{id}/stacks/{project}/redeploy", wrapper.DockerRedeployStack)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/docker/{id}/registries", wrapper.DockerListRegistries)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/docker/{id}/registries", wrapper.DockerPutRegistry)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/docker/{id}/registries/{registry}", wrapper.DockerDeleteRegistry)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/resources/ssh", wrapper.DeleteSSHCredential)
 	})
 	r.Group(func(r chi.Router) {
@@ -4707,6 +5922,10 @@ type BadRequestJSONResponse Error
 type ConflictJSONResponse Error
 
 type ForbiddenJSONResponse Error
+
+type JobQueuedJSONResponse struct {
+	JobId int64 `json:"jobId"`
+}
 
 type NotFoundJSONResponse Error
 
@@ -5581,6 +6800,1309 @@ func (response SetViewAs403JSONResponse) VisitSetViewAsResponse(w http.ResponseW
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListContainersRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type DockerListContainersResponseObject interface {
+	VisitDockerListContainersResponse(w http.ResponseWriter) error
+}
+
+type DockerListContainers200JSONResponse []DockerContainer
+
+func (response DockerListContainers200JSONResponse) VisitDockerListContainersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListContainers404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerListContainers404JSONResponse) VisitDockerListContainersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListContainers502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerListContainers502JSONResponse) VisitDockerListContainersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRemoveContainerRequestObject struct {
+	Id     IdParam       `json:"id"`
+	Name   ContainerName `json:"name"`
+	Params DockerRemoveContainerParams
+}
+
+type DockerRemoveContainerResponseObject interface {
+	VisitDockerRemoveContainerResponse(w http.ResponseWriter) error
+}
+
+type DockerRemoveContainer204Response struct {
+}
+
+func (response DockerRemoveContainer204Response) VisitDockerRemoveContainerResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DockerRemoveContainer403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerRemoveContainer403JSONResponse) VisitDockerRemoveContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRemoveContainer404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerRemoveContainer404JSONResponse) VisitDockerRemoveContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRemoveContainer502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerRemoveContainer502JSONResponse) VisitDockerRemoveContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerGetContainerRequestObject struct {
+	Id   IdParam       `json:"id"`
+	Name ContainerName `json:"name"`
+}
+
+type DockerGetContainerResponseObject interface {
+	VisitDockerGetContainerResponse(w http.ResponseWriter) error
+}
+
+type DockerGetContainer200JSONResponse DockerContainerDetail
+
+func (response DockerGetContainer200JSONResponse) VisitDockerGetContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerGetContainer403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerGetContainer403JSONResponse) VisitDockerGetContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerGetContainer404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerGetContainer404JSONResponse) VisitDockerGetContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerGetContainer502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerGetContainer502JSONResponse) VisitDockerGetContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerContainerActionRequestObject struct {
+	Id   IdParam       `json:"id"`
+	Name ContainerName `json:"name"`
+	Body *DockerContainerActionJSONRequestBody
+}
+
+type DockerContainerActionResponseObject interface {
+	VisitDockerContainerActionResponse(w http.ResponseWriter) error
+}
+
+type DockerContainerAction204Response struct {
+}
+
+func (response DockerContainerAction204Response) VisitDockerContainerActionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DockerContainerAction403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerContainerAction403JSONResponse) VisitDockerContainerActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerContainerAction404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerContainerAction404JSONResponse) VisitDockerContainerActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerContainerAction502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerContainerAction502JSONResponse) VisitDockerContainerActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerExecContainerRequestObject struct {
+	Id   IdParam       `json:"id"`
+	Name ContainerName `json:"name"`
+	Body *DockerExecContainerJSONRequestBody
+}
+
+type DockerExecContainerResponseObject interface {
+	VisitDockerExecContainerResponse(w http.ResponseWriter) error
+}
+
+type DockerExecContainer200JSONResponse TermSession
+
+func (response DockerExecContainer200JSONResponse) VisitDockerExecContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerExecContainer403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerExecContainer403JSONResponse) VisitDockerExecContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerExecContainer404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerExecContainer404JSONResponse) VisitDockerExecContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerExecContainer502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerExecContainer502JSONResponse) VisitDockerExecContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerContainerLogsRequestObject struct {
+	Id   IdParam       `json:"id"`
+	Name ContainerName `json:"name"`
+	Body *DockerContainerLogsJSONRequestBody
+}
+
+type DockerContainerLogsResponseObject interface {
+	VisitDockerContainerLogsResponse(w http.ResponseWriter) error
+}
+
+type DockerContainerLogs200JSONResponse TermSession
+
+func (response DockerContainerLogs200JSONResponse) VisitDockerContainerLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerContainerLogs403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerContainerLogs403JSONResponse) VisitDockerContainerLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerContainerLogs404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerContainerLogs404JSONResponse) VisitDockerContainerLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerContainerLogs502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerContainerLogs502JSONResponse) VisitDockerContainerLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRecreateContainerRequestObject struct {
+	Id   IdParam       `json:"id"`
+	Name ContainerName `json:"name"`
+	Body *DockerRecreateContainerJSONRequestBody
+}
+
+type DockerRecreateContainerResponseObject interface {
+	VisitDockerRecreateContainerResponse(w http.ResponseWriter) error
+}
+
+type DockerRecreateContainer202JSONResponse struct{ JobQueuedJSONResponse }
+
+func (response DockerRecreateContainer202JSONResponse) VisitDockerRecreateContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRecreateContainer403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerRecreateContainer403JSONResponse) VisitDockerRecreateContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRecreateContainer404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerRecreateContainer404JSONResponse) VisitDockerRecreateContainerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListImagesRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type DockerListImagesResponseObject interface {
+	VisitDockerListImagesResponse(w http.ResponseWriter) error
+}
+
+type DockerListImages200JSONResponse []DockerImage
+
+func (response DockerListImages200JSONResponse) VisitDockerListImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListImages403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerListImages403JSONResponse) VisitDockerListImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListImages404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerListImages404JSONResponse) VisitDockerListImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListImages502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerListImages502JSONResponse) VisitDockerListImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerCheckImageUpdatesRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type DockerCheckImageUpdatesResponseObject interface {
+	VisitDockerCheckImageUpdatesResponse(w http.ResponseWriter) error
+}
+
+type DockerCheckImageUpdates200JSONResponse DockerUpdateCheck
+
+func (response DockerCheckImageUpdates200JSONResponse) VisitDockerCheckImageUpdatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerCheckImageUpdates403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerCheckImageUpdates403JSONResponse) VisitDockerCheckImageUpdatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerCheckImageUpdates404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerCheckImageUpdates404JSONResponse) VisitDockerCheckImageUpdatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerCheckImageUpdates502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerCheckImageUpdates502JSONResponse) VisitDockerCheckImageUpdatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPruneImagesRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type DockerPruneImagesResponseObject interface {
+	VisitDockerPruneImagesResponse(w http.ResponseWriter) error
+}
+
+type DockerPruneImages200JSONResponse DockerPruneResult
+
+func (response DockerPruneImages200JSONResponse) VisitDockerPruneImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPruneImages403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerPruneImages403JSONResponse) VisitDockerPruneImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPruneImages404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerPruneImages404JSONResponse) VisitDockerPruneImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPruneImages502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerPruneImages502JSONResponse) VisitDockerPruneImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPullImageRequestObject struct {
+	Id   IdParam `json:"id"`
+	Body *DockerPullImageJSONRequestBody
+}
+
+type DockerPullImageResponseObject interface {
+	VisitDockerPullImageResponse(w http.ResponseWriter) error
+}
+
+type DockerPullImage202JSONResponse struct{ JobQueuedJSONResponse }
+
+func (response DockerPullImage202JSONResponse) VisitDockerPullImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPullImage403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerPullImage403JSONResponse) VisitDockerPullImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPullImage404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerPullImage404JSONResponse) VisitDockerPullImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRemoveImageRequestObject struct {
+	Id      IdParam `json:"id"`
+	ImageId string  `json:"imageId"`
+	Params  DockerRemoveImageParams
+}
+
+type DockerRemoveImageResponseObject interface {
+	VisitDockerRemoveImageResponse(w http.ResponseWriter) error
+}
+
+type DockerRemoveImage204Response struct {
+}
+
+func (response DockerRemoveImage204Response) VisitDockerRemoveImageResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DockerRemoveImage403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerRemoveImage403JSONResponse) VisitDockerRemoveImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRemoveImage404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerRemoveImage404JSONResponse) VisitDockerRemoveImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRemoveImage502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerRemoveImage502JSONResponse) VisitDockerRemoveImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListNetworksRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type DockerListNetworksResponseObject interface {
+	VisitDockerListNetworksResponse(w http.ResponseWriter) error
+}
+
+type DockerListNetworks200JSONResponse []DockerNetwork
+
+func (response DockerListNetworks200JSONResponse) VisitDockerListNetworksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListNetworks403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerListNetworks403JSONResponse) VisitDockerListNetworksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListNetworks404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerListNetworks404JSONResponse) VisitDockerListNetworksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListNetworks502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerListNetworks502JSONResponse) VisitDockerListNetworksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRemoveNetworkRequestObject struct {
+	Id        IdParam `json:"id"`
+	NetworkId string  `json:"networkId"`
+}
+
+type DockerRemoveNetworkResponseObject interface {
+	VisitDockerRemoveNetworkResponse(w http.ResponseWriter) error
+}
+
+type DockerRemoveNetwork204Response struct {
+}
+
+func (response DockerRemoveNetwork204Response) VisitDockerRemoveNetworkResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DockerRemoveNetwork403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerRemoveNetwork403JSONResponse) VisitDockerRemoveNetworkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRemoveNetwork404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerRemoveNetwork404JSONResponse) VisitDockerRemoveNetworkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRemoveNetwork502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerRemoveNetwork502JSONResponse) VisitDockerRemoveNetworkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListRegistriesRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type DockerListRegistriesResponseObject interface {
+	VisitDockerListRegistriesResponse(w http.ResponseWriter) error
+}
+
+type DockerListRegistries200JSONResponse []DockerRegistryCred
+
+func (response DockerListRegistries200JSONResponse) VisitDockerListRegistriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListRegistries403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerListRegistries403JSONResponse) VisitDockerListRegistriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListRegistries404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerListRegistries404JSONResponse) VisitDockerListRegistriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPutRegistryRequestObject struct {
+	Id   IdParam `json:"id"`
+	Body *DockerPutRegistryJSONRequestBody
+}
+
+type DockerPutRegistryResponseObject interface {
+	VisitDockerPutRegistryResponse(w http.ResponseWriter) error
+}
+
+type DockerPutRegistry204Response struct {
+}
+
+func (response DockerPutRegistry204Response) VisitDockerPutRegistryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DockerPutRegistry400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DockerPutRegistry400JSONResponse) VisitDockerPutRegistryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPutRegistry403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerPutRegistry403JSONResponse) VisitDockerPutRegistryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPutRegistry404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerPutRegistry404JSONResponse) VisitDockerPutRegistryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerDeleteRegistryRequestObject struct {
+	Id       IdParam `json:"id"`
+	Registry string  `json:"registry"`
+}
+
+type DockerDeleteRegistryResponseObject interface {
+	VisitDockerDeleteRegistryResponse(w http.ResponseWriter) error
+}
+
+type DockerDeleteRegistry204Response struct {
+}
+
+func (response DockerDeleteRegistry204Response) VisitDockerDeleteRegistryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DockerDeleteRegistry403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerDeleteRegistry403JSONResponse) VisitDockerDeleteRegistryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerDeleteRegistry404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerDeleteRegistry404JSONResponse) VisitDockerDeleteRegistryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListStacksRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type DockerListStacksResponseObject interface {
+	VisitDockerListStacksResponse(w http.ResponseWriter) error
+}
+
+type DockerListStacks200JSONResponse []DockerStack
+
+func (response DockerListStacks200JSONResponse) VisitDockerListStacksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListStacks403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerListStacks403JSONResponse) VisitDockerListStacksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListStacks404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerListStacks404JSONResponse) VisitDockerListStacksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListStacks502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerListStacks502JSONResponse) VisitDockerListStacksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRedeployStackRequestObject struct {
+	Id      IdParam `json:"id"`
+	Project string  `json:"project"`
+	Body    *DockerRedeployStackJSONRequestBody
+}
+
+type DockerRedeployStackResponseObject interface {
+	VisitDockerRedeployStackResponse(w http.ResponseWriter) error
+}
+
+type DockerRedeployStack202JSONResponse struct{ JobQueuedJSONResponse }
+
+func (response DockerRedeployStack202JSONResponse) VisitDockerRedeployStackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRedeployStack403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerRedeployStack403JSONResponse) VisitDockerRedeployStackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRedeployStack404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerRedeployStack404JSONResponse) VisitDockerRedeployStackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListVolumesRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type DockerListVolumesResponseObject interface {
+	VisitDockerListVolumesResponse(w http.ResponseWriter) error
+}
+
+type DockerListVolumes200JSONResponse []DockerVolume
+
+func (response DockerListVolumes200JSONResponse) VisitDockerListVolumesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListVolumes403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerListVolumes403JSONResponse) VisitDockerListVolumesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListVolumes404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerListVolumes404JSONResponse) VisitDockerListVolumesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerListVolumes502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerListVolumes502JSONResponse) VisitDockerListVolumesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPruneVolumesRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type DockerPruneVolumesResponseObject interface {
+	VisitDockerPruneVolumesResponse(w http.ResponseWriter) error
+}
+
+type DockerPruneVolumes200JSONResponse DockerPruneResult
+
+func (response DockerPruneVolumes200JSONResponse) VisitDockerPruneVolumesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPruneVolumes403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerPruneVolumes403JSONResponse) VisitDockerPruneVolumesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPruneVolumes404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerPruneVolumes404JSONResponse) VisitDockerPruneVolumesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerPruneVolumes502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerPruneVolumes502JSONResponse) VisitDockerPruneVolumesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRemoveVolumeRequestObject struct {
+	Id     IdParam `json:"id"`
+	Name   string  `json:"name"`
+	Params DockerRemoveVolumeParams
+}
+
+type DockerRemoveVolumeResponseObject interface {
+	VisitDockerRemoveVolumeResponse(w http.ResponseWriter) error
+}
+
+type DockerRemoveVolume204Response struct {
+}
+
+func (response DockerRemoveVolume204Response) VisitDockerRemoveVolumeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DockerRemoveVolume403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DockerRemoveVolume403JSONResponse) VisitDockerRemoveVolumeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRemoveVolume404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DockerRemoveVolume404JSONResponse) VisitDockerRemoveVolumeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DockerRemoveVolume502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response DockerRemoveVolume502JSONResponse) VisitDockerRemoveVolumeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -8700,6 +11222,72 @@ type StrictServerInterface interface {
 	// SetViewAs Preview the app as a role (admins only)
 	// (PUT /auth/view-as)
 	SetViewAs(ctx context.Context, request SetViewAsRequestObject) (SetViewAsResponseObject, error)
+	// DockerListContainers All containers on the host
+	// (GET /docker/{id}/containers)
+	DockerListContainers(ctx context.Context, request DockerListContainersRequestObject) (DockerListContainersResponseObject, error)
+	// DockerRemoveContainer Remove a container
+	// (DELETE /docker/{id}/containers/{name})
+	DockerRemoveContainer(ctx context.Context, request DockerRemoveContainerRequestObject) (DockerRemoveContainerResponseObject, error)
+	// DockerGetContainer Container detail (inspect)
+	// (GET /docker/{id}/containers/{name})
+	DockerGetContainer(ctx context.Context, request DockerGetContainerRequestObject) (DockerGetContainerResponseObject, error)
+	// DockerContainerAction Start, stop, restart, pause, unpause, or kill
+	// (POST /docker/{id}/containers/{name}/action)
+	DockerContainerAction(ctx context.Context, request DockerContainerActionRequestObject) (DockerContainerActionResponseObject, error)
+	// DockerExecContainer Open an interactive shell in the container
+	// (POST /docker/{id}/containers/{name}/exec)
+	DockerExecContainer(ctx context.Context, request DockerExecContainerRequestObject) (DockerExecContainerResponseObject, error)
+	// DockerContainerLogs Open a live log stream
+	// (POST /docker/{id}/containers/{name}/logs)
+	DockerContainerLogs(ctx context.Context, request DockerContainerLogsRequestObject) (DockerContainerLogsResponseObject, error)
+	// DockerRecreateContainer Recreate a container with its exact configuration
+	// (POST /docker/{id}/containers/{name}/recreate)
+	DockerRecreateContainer(ctx context.Context, request DockerRecreateContainerRequestObject) (DockerRecreateContainerResponseObject, error)
+	// DockerListImages Images on the host
+	// (GET /docker/{id}/images)
+	DockerListImages(ctx context.Context, request DockerListImagesRequestObject) (DockerListImagesResponseObject, error)
+	// DockerCheckImageUpdates Check tagged images for newer registry digests
+	// (POST /docker/{id}/images/check-updates)
+	DockerCheckImageUpdates(ctx context.Context, request DockerCheckImageUpdatesRequestObject) (DockerCheckImageUpdatesResponseObject, error)
+	// DockerPruneImages Remove dangling images
+	// (POST /docker/{id}/images/prune)
+	DockerPruneImages(ctx context.Context, request DockerPruneImagesRequestObject) (DockerPruneImagesResponseObject, error)
+	// DockerPullImage Pull an image
+	// (POST /docker/{id}/images/pull)
+	DockerPullImage(ctx context.Context, request DockerPullImageRequestObject) (DockerPullImageResponseObject, error)
+	// DockerRemoveImage Remove an image
+	// (DELETE /docker/{id}/images/{imageId})
+	DockerRemoveImage(ctx context.Context, request DockerRemoveImageRequestObject) (DockerRemoveImageResponseObject, error)
+	// DockerListNetworks Networks on the host
+	// (GET /docker/{id}/networks)
+	DockerListNetworks(ctx context.Context, request DockerListNetworksRequestObject) (DockerListNetworksResponseObject, error)
+	// DockerRemoveNetwork Remove a network
+	// (DELETE /docker/{id}/networks/{networkId})
+	DockerRemoveNetwork(ctx context.Context, request DockerRemoveNetworkRequestObject) (DockerRemoveNetworkResponseObject, error)
+	// DockerListRegistries Stored registry credentials
+	// (GET /docker/{id}/registries)
+	DockerListRegistries(ctx context.Context, request DockerListRegistriesRequestObject) (DockerListRegistriesResponseObject, error)
+	// DockerPutRegistry Store credentials for a registry
+	// (PUT /docker/{id}/registries)
+	DockerPutRegistry(ctx context.Context, request DockerPutRegistryRequestObject) (DockerPutRegistryResponseObject, error)
+	// DockerDeleteRegistry Remove stored registry credentials
+	// (DELETE /docker/{id}/registries/{registry})
+	DockerDeleteRegistry(ctx context.Context, request DockerDeleteRegistryRequestObject) (DockerDeleteRegistryResponseObject, error)
+	// DockerListStacks Compose stacks (grouped by project label)
+	// (GET /docker/{id}/stacks)
+	DockerListStacks(ctx context.Context, request DockerListStacksRequestObject) (DockerListStacksResponseObject, error)
+	// DockerRedeployStack Redeploy a stack
+	// (POST /docker/{id}/stacks/{project}/redeploy)
+	DockerRedeployStack(ctx context.Context, request DockerRedeployStackRequestObject) (DockerRedeployStackResponseObject, error)
+	// DockerListVolumes Volumes on the host
+	// (GET /docker/{id}/volumes)
+	DockerListVolumes(ctx context.Context, request DockerListVolumesRequestObject) (DockerListVolumesResponseObject, error)
+	// DockerPruneVolumes Remove unused anonymous volumes
+	// (POST /docker/{id}/volumes/prune)
+	DockerPruneVolumes(ctx context.Context, request DockerPruneVolumesRequestObject) (DockerPruneVolumesResponseObject, error)
+	// DockerRemoveVolume Remove a volume
+	// (DELETE /docker/{id}/volumes/{name})
+	DockerRemoveVolume(ctx context.Context, request DockerRemoveVolumeRequestObject) (DockerRemoveVolumeResponseObject, error)
 	// GetHealth Application health
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -9603,6 +12191,641 @@ func (sh *strictHandler) SetViewAs(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SetViewAsResponseObject); ok {
 		if err := validResponse.VisitSetViewAsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerListContainers operation middleware
+func (sh *strictHandler) DockerListContainers(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DockerListContainersRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerListContainers(ctx, request.(DockerListContainersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerListContainers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerListContainersResponseObject); ok {
+		if err := validResponse.VisitDockerListContainersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerRemoveContainer operation middleware
+func (sh *strictHandler) DockerRemoveContainer(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName, params DockerRemoveContainerParams) {
+	var request DockerRemoveContainerRequestObject
+
+	request.Id = id
+	request.Name = name
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerRemoveContainer(ctx, request.(DockerRemoveContainerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerRemoveContainer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerRemoveContainerResponseObject); ok {
+		if err := validResponse.VisitDockerRemoveContainerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerGetContainer operation middleware
+func (sh *strictHandler) DockerGetContainer(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName) {
+	var request DockerGetContainerRequestObject
+
+	request.Id = id
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerGetContainer(ctx, request.(DockerGetContainerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerGetContainer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerGetContainerResponseObject); ok {
+		if err := validResponse.VisitDockerGetContainerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerContainerAction operation middleware
+func (sh *strictHandler) DockerContainerAction(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName) {
+	var request DockerContainerActionRequestObject
+
+	request.Id = id
+	request.Name = name
+
+	var body DockerContainerActionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerContainerAction(ctx, request.(DockerContainerActionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerContainerAction")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerContainerActionResponseObject); ok {
+		if err := validResponse.VisitDockerContainerActionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerExecContainer operation middleware
+func (sh *strictHandler) DockerExecContainer(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName) {
+	var request DockerExecContainerRequestObject
+
+	request.Id = id
+	request.Name = name
+
+	var body DockerExecContainerJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerExecContainer(ctx, request.(DockerExecContainerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerExecContainer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerExecContainerResponseObject); ok {
+		if err := validResponse.VisitDockerExecContainerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerContainerLogs operation middleware
+func (sh *strictHandler) DockerContainerLogs(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName) {
+	var request DockerContainerLogsRequestObject
+
+	request.Id = id
+	request.Name = name
+
+	var body DockerContainerLogsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerContainerLogs(ctx, request.(DockerContainerLogsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerContainerLogs")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerContainerLogsResponseObject); ok {
+		if err := validResponse.VisitDockerContainerLogsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerRecreateContainer operation middleware
+func (sh *strictHandler) DockerRecreateContainer(w http.ResponseWriter, r *http.Request, id IdParam, name ContainerName) {
+	var request DockerRecreateContainerRequestObject
+
+	request.Id = id
+	request.Name = name
+
+	var body DockerRecreateContainerJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerRecreateContainer(ctx, request.(DockerRecreateContainerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerRecreateContainer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerRecreateContainerResponseObject); ok {
+		if err := validResponse.VisitDockerRecreateContainerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerListImages operation middleware
+func (sh *strictHandler) DockerListImages(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DockerListImagesRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerListImages(ctx, request.(DockerListImagesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerListImages")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerListImagesResponseObject); ok {
+		if err := validResponse.VisitDockerListImagesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerCheckImageUpdates operation middleware
+func (sh *strictHandler) DockerCheckImageUpdates(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DockerCheckImageUpdatesRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerCheckImageUpdates(ctx, request.(DockerCheckImageUpdatesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerCheckImageUpdates")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerCheckImageUpdatesResponseObject); ok {
+		if err := validResponse.VisitDockerCheckImageUpdatesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerPruneImages operation middleware
+func (sh *strictHandler) DockerPruneImages(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DockerPruneImagesRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerPruneImages(ctx, request.(DockerPruneImagesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerPruneImages")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerPruneImagesResponseObject); ok {
+		if err := validResponse.VisitDockerPruneImagesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerPullImage operation middleware
+func (sh *strictHandler) DockerPullImage(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DockerPullImageRequestObject
+
+	request.Id = id
+
+	var body DockerPullImageJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerPullImage(ctx, request.(DockerPullImageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerPullImage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerPullImageResponseObject); ok {
+		if err := validResponse.VisitDockerPullImageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerRemoveImage operation middleware
+func (sh *strictHandler) DockerRemoveImage(w http.ResponseWriter, r *http.Request, id IdParam, imageId string, params DockerRemoveImageParams) {
+	var request DockerRemoveImageRequestObject
+
+	request.Id = id
+	request.ImageId = imageId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerRemoveImage(ctx, request.(DockerRemoveImageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerRemoveImage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerRemoveImageResponseObject); ok {
+		if err := validResponse.VisitDockerRemoveImageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerListNetworks operation middleware
+func (sh *strictHandler) DockerListNetworks(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DockerListNetworksRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerListNetworks(ctx, request.(DockerListNetworksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerListNetworks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerListNetworksResponseObject); ok {
+		if err := validResponse.VisitDockerListNetworksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerRemoveNetwork operation middleware
+func (sh *strictHandler) DockerRemoveNetwork(w http.ResponseWriter, r *http.Request, id IdParam, networkId string) {
+	var request DockerRemoveNetworkRequestObject
+
+	request.Id = id
+	request.NetworkId = networkId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerRemoveNetwork(ctx, request.(DockerRemoveNetworkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerRemoveNetwork")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerRemoveNetworkResponseObject); ok {
+		if err := validResponse.VisitDockerRemoveNetworkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerListRegistries operation middleware
+func (sh *strictHandler) DockerListRegistries(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DockerListRegistriesRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerListRegistries(ctx, request.(DockerListRegistriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerListRegistries")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerListRegistriesResponseObject); ok {
+		if err := validResponse.VisitDockerListRegistriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerPutRegistry operation middleware
+func (sh *strictHandler) DockerPutRegistry(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DockerPutRegistryRequestObject
+
+	request.Id = id
+
+	var body DockerPutRegistryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerPutRegistry(ctx, request.(DockerPutRegistryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerPutRegistry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerPutRegistryResponseObject); ok {
+		if err := validResponse.VisitDockerPutRegistryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerDeleteRegistry operation middleware
+func (sh *strictHandler) DockerDeleteRegistry(w http.ResponseWriter, r *http.Request, id IdParam, registry string) {
+	var request DockerDeleteRegistryRequestObject
+
+	request.Id = id
+	request.Registry = registry
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerDeleteRegistry(ctx, request.(DockerDeleteRegistryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerDeleteRegistry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerDeleteRegistryResponseObject); ok {
+		if err := validResponse.VisitDockerDeleteRegistryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerListStacks operation middleware
+func (sh *strictHandler) DockerListStacks(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DockerListStacksRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerListStacks(ctx, request.(DockerListStacksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerListStacks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerListStacksResponseObject); ok {
+		if err := validResponse.VisitDockerListStacksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerRedeployStack operation middleware
+func (sh *strictHandler) DockerRedeployStack(w http.ResponseWriter, r *http.Request, id IdParam, project string) {
+	var request DockerRedeployStackRequestObject
+
+	request.Id = id
+	request.Project = project
+
+	var body DockerRedeployStackJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerRedeployStack(ctx, request.(DockerRedeployStackRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerRedeployStack")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerRedeployStackResponseObject); ok {
+		if err := validResponse.VisitDockerRedeployStackResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerListVolumes operation middleware
+func (sh *strictHandler) DockerListVolumes(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DockerListVolumesRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerListVolumes(ctx, request.(DockerListVolumesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerListVolumes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerListVolumesResponseObject); ok {
+		if err := validResponse.VisitDockerListVolumesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerPruneVolumes operation middleware
+func (sh *strictHandler) DockerPruneVolumes(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DockerPruneVolumesRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerPruneVolumes(ctx, request.(DockerPruneVolumesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerPruneVolumes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerPruneVolumesResponseObject); ok {
+		if err := validResponse.VisitDockerPruneVolumesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DockerRemoveVolume operation middleware
+func (sh *strictHandler) DockerRemoveVolume(w http.ResponseWriter, r *http.Request, id IdParam, name string, params DockerRemoveVolumeParams) {
+	var request DockerRemoveVolumeRequestObject
+
+	request.Id = id
+	request.Name = name
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DockerRemoveVolume(ctx, request.(DockerRemoveVolumeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DockerRemoveVolume")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DockerRemoveVolumeResponseObject); ok {
+		if err := validResponse.VisitDockerRemoveVolumeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -11222,160 +14445,191 @@ func (sh *strictHandler) ListUserSessions(w http.ResponseWriter, r *http.Request
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -22,6 +22,8 @@ services:
       HOMEHUB_DATABASE_URL: postgres://homehub:${POSTGRES_PASSWORD:-homehub}@db:5432/homehub?sslmode=disable
     volumes:
       - homehub-data:/data
+      # Uncomment to manage this host's Docker with the "socket" transport:
+      # - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       db:
         condition: service_healthy
