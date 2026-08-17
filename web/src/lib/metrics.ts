@@ -1,8 +1,22 @@
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, unwrap } from "./api";
+import { formatBytes } from "./utils";
 import { useLiveSamples, type LiveSample } from "./live";
 import type { SeriesPoint } from "@/components/time-series-chart";
+
+/**
+ * formatMetricValue renders a sample for humans based on the unit reported by
+ * /metrics/series — "fraction" (0..1 shown as %), "bytes", "per_min", and
+ * anything else as a plain number.
+ */
+export function formatMetricValue(unit: string, value: number): string {
+  if (unit === "fraction") return `${(value * 100).toFixed(value < 0.1 && value > 0 ? 1 : 0)}%`;
+  if (unit === "bytes") return formatBytes(value);
+  if (unit === "per_min") return `${Math.round(value).toLocaleString()}/min`;
+  if (Number.isInteger(value)) return value.toLocaleString();
+  return value.toFixed(Math.abs(value) < 10 ? 2 : 1);
+}
 
 /**
  * useMetricSeries loads an hour of history for one resource/metric and appends
