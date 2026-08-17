@@ -512,7 +512,9 @@
       "pihole": "Pi-hole",
       "adguard": "AdGuard Home",
       "homeassistant": "Home Assistant",
-      "minecraft": "Minecraft"
+      "minecraft": "Minecraft",
+      "mysql": "MySQL / MariaDB",
+      "mongodb": "MongoDB"
     },
     "landing": {
       "pickInstance": "Choose an instance",
@@ -1054,6 +1056,127 @@
       "needTwo": {
         "title": "Sync needs two instances",
         "body": "Connect a second Pi-hole or AdGuard Home instance to compare and copy list entries between them."
+      }
+    }
+  },
+  "db": {
+    "title": "Databases",
+    "instancesSummary": "{{online}}/{{total}} instances connected",
+    "empty": {
+      "title": "No database instances connected",
+      "body": "Connect a MySQL, MariaDB, or MongoDB integration and its databases show up here.",
+      "action": "Go to Systems"
+    },
+    "tabs": {
+      "databases": "Databases",
+      "console": "Console",
+      "sessions": "Sessions",
+      "performance": "Performance"
+    },
+    "chips": {
+      "connections": "{{current}}/{{max}} connections",
+      "ops": "{{ops}} ops/s",
+      "uptime": "up {{uptime}}",
+      "slowQueries_one": "{{count}} slow query",
+      "slowQueries_other": "{{count}} slow queries",
+      "memResident": "{{mb}} MB resident"
+    },
+    "databases": {
+      "columns": {
+        "name": "Database",
+        "size": "Size",
+        "objects": "Objects"
+      },
+      "browse": "Browse",
+      "collapse": "Collapse",
+      "dump": "Dump",
+      "empty": {
+        "title": "No databases visible",
+        "body": "This instance reports no databases you may see."
+      },
+      "objects": {
+        "columns": {
+          "name": "Name",
+          "kind": "Kind",
+          "engine": "Engine",
+          "rows": "Est. rows",
+          "size": "Size"
+        },
+        "kind": {
+          "table": "Table",
+          "collection": "Collection"
+        },
+        "peek": "Peek",
+        "empty": "No tables or collections in this database.",
+        "loadFailed": "Couldn't load this database's objects"
+      }
+    },
+    "peek": {
+      "title": "Peek: {{collection}}",
+      "description": "Newest documents from {{database}}.{{collection}}, rendered as extended JSON.",
+      "limit": "Limit",
+      "empty": "No documents returned.",
+      "denied": "You need control access to peek at documents."
+    },
+    "dump": {
+      "title": "Dump {{database}}",
+      "description": "Streams a full dump of “{{database}}” to a backup target. The job's outcome arrives as a notification.",
+      "target": "Backup target",
+      "targetPlaceholder": "Choose a target…",
+      "confirm": "Queue dump",
+      "queued": "Dump of “{{database}}” queued",
+      "failed": "Couldn't queue the dump"
+    },
+    "console": {
+      "scope": "Database scope",
+      "noScope": "No database scope",
+      "placeholder": "SELECT * FROM …",
+      "statementAria": "SQL statement",
+      "run": "Run",
+      "runHint": "Ctrl/⌘ + Enter runs the statement",
+      "historyHint": "↑ in an empty editor recalls earlier statements",
+      "warning": "Statements run with the connection's real privileges and every run is audited.",
+      "truncatedBanner": "Result truncated — showing the first {{count}} rows.",
+      "rows_one": "{{count}} row",
+      "rows_other": "{{count}} rows",
+      "rowsAffected_one": "{{count}} row affected",
+      "rowsAffected_other": "{{count}} rows affected",
+      "duration": "{{ms}} ms",
+      "idle": "Run a statement to see its results here.",
+      "runFailed": "Statement failed"
+    },
+    "sessions": {
+      "columns": {
+        "id": "ID",
+        "user": "User / client",
+        "database": "Database",
+        "command": "Command",
+        "time": "Time",
+        "state": "State",
+        "query": "Query"
+      },
+      "kill": "Kill",
+      "killConfirmTitle": "Kill session {{id}}?",
+      "killConfirmBody": "The connection is terminated immediately — whatever it was doing is aborted or rolled back.",
+      "killed": "Session {{id}} killed",
+      "killFailed": "Couldn't kill the session",
+      "showQuery": "Show query",
+      "hideQuery": "Hide query",
+      "empty": {
+        "title": "No active sessions",
+        "body": "Connections to this instance show up here."
+      }
+    },
+    "performance": {
+      "qps": "Queries per second",
+      "threadsConnected": "Threads connected",
+      "slowQueries": "Slow queries (total)",
+      "opsPerSec": "Operations per second",
+      "connections": "Connections",
+      "memResident": "Resident memory",
+      "empty": {
+        "title": "No performance data yet",
+        "body": "Charts appear once HomeHub has collected metrics for this instance."
       }
     }
   },

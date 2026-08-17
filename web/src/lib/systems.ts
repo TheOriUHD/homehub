@@ -1,7 +1,7 @@
 // Shared helpers for connected systems (integrations): status presentation,
 // per-type icons/labels, and the instance list every systems surface reads.
 import { useQuery } from "@tanstack/react-query";
-import { Boxes, Container, House, Pickaxe, Server, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Boxes, Container, Database, House, Pickaxe, Server, ShieldCheck, type LucideIcon } from "lucide-react";
 import { api, unwrap, type Integration } from "./api";
 
 /** RBAC resource guarding add/edit/remove/toggle of systems. */
@@ -18,7 +18,7 @@ export const statusTone = {
 } as const;
 
 /** Known system types, in display order. */
-export const SYSTEM_TYPES = ["proxmox", "docker", "pihole", "adguard", "homeassistant", "minecraft"] as const;
+export const SYSTEM_TYPES = ["proxmox", "docker", "pihole", "adguard", "homeassistant", "minecraft", "mysql", "mongodb"] as const;
 
 const typeIcons: Record<string, LucideIcon> = {
   proxmox: Server,
@@ -27,6 +27,8 @@ const typeIcons: Record<string, LucideIcon> = {
   adguard: ShieldCheck,
   homeassistant: House,
   minecraft: Pickaxe,
+  mysql: Database,
+  mongodb: Database,
 };
 
 export function systemTypeIcon(type: string): LucideIcon {

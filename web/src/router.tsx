@@ -48,6 +48,12 @@ import { DnsQueryLogPage } from "./pages/dns/querylog";
 import { DnsListsPage } from "./pages/dns/lists";
 import { DnsClientsPage } from "./pages/dns/clients";
 import { DnsSyncPage } from "./pages/dns/sync";
+import { DbLandingPage } from "./pages/db/landing";
+import { DbModulePage } from "./pages/db/module";
+import { DbDatabasesPage } from "./pages/db/databases";
+import { DbConsolePage } from "./pages/db/console";
+import { DbSessionsPage } from "./pages/db/sessions";
+import { DbPerformancePage } from "./pages/db/performance";
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -377,6 +383,44 @@ const dnsSyncRoute = createRoute({
   component: DnsSyncPage,
 });
 
+// The unified Databases module: MySQL/MariaDB and MongoDB instances behind
+// one entry. The static /db landing outranks $instanceId.
+const dbLandingRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/db",
+  component: DbLandingPage,
+});
+
+const dbModuleRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/db/$instanceId",
+  component: DbModulePage,
+});
+
+const dbDatabasesRoute = createRoute({
+  getParentRoute: () => dbModuleRoute,
+  path: "/",
+  component: DbDatabasesPage,
+});
+
+const dbConsoleRoute = createRoute({
+  getParentRoute: () => dbModuleRoute,
+  path: "/console",
+  component: DbConsolePage,
+});
+
+const dbSessionsRoute = createRoute({
+  getParentRoute: () => dbModuleRoute,
+  path: "/sessions",
+  component: DbSessionsPage,
+});
+
+const dbPerformanceRoute = createRoute({
+  getParentRoute: () => dbModuleRoute,
+  path: "/performance",
+  component: DbPerformancePage,
+});
+
 const routeTree = rootRoute.addChildren([
   setupRoute,
   loginRoute,
@@ -429,6 +473,13 @@ const routeTree = rootRoute.addChildren([
       dnsListsRoute,
       dnsClientsRoute,
       dnsSyncRoute,
+    ]),
+    dbLandingRoute,
+    dbModuleRoute.addChildren([
+      dbDatabasesRoute,
+      dbConsoleRoute,
+      dbSessionsRoute,
+      dbPerformanceRoute,
     ]),
   ]),
 ]);
