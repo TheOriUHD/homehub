@@ -2774,6 +2774,76 @@ paths:
           $ref: "#/components/responses/NotFound"
         "502":
           $ref: "#/components/responses/UpstreamError"
+    post:
+      operationId: dbCreateDatabase
+      summary: Create a database
+      description: SQL engines only (MongoDB databases materialize with their first collection). Requires control on the instance. Audited.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        "204":
+          description: Created
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /db/{id}/databases/{database}/objects/create:
+    post:
+      operationId: dbCreateObject
+      summary: Create a table or collection
+      description: The visual builder — SQL takes a typed column list (whitelisted types, PK and auto-increment flags), MongoDB takes just the collection name. Requires control on the database. Audited.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/dbNameParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 120 }
+                columns:
+                  type: array
+                  maxItems: 100
+                  items:
+                    type: object
+                    required: [name, type]
+                    properties:
+                      name: { type: string, minLength: 1, maxLength: 64 }
+                      type: { type: string, maxLength: 32 }
+                      nullable: { type: boolean, default: false }
+                      default: { type: string }
+                      primaryKey: { type: boolean, default: false }
+                      autoIncrement: { type: boolean, default: false }
+      responses:
+        "204":
+          description: Created
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
 
   /db/{id}/databases/{database}/objects:
     get:
@@ -3286,6 +3356,41 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/HaInstance" }
+
+  /ha/{id}/dashboard:
+    get:
+      operationId: haGetDashboard
+      summary: The caller's dashboard for this instance
+      description: Per-user board layout; empty card list until the user saves one.
+      tags: [homeassistant]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: The layout
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HaDashboard" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: haPutDashboard
+      summary: Save the caller's dashboard
+      tags: [homeassistant]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HaDashboard" }
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /ha/{id}/entities:
     get:
@@ -5106,6 +5211,12 @@ components:
           type: string
           enum: [pending, connecting, connected, degraded, unreachable, disabled]
         statusMessage: { type: string }
+        host:
+          type: string
+          description: The configured upstream address
+        connectionUser:
+          type: string
+          description: The username HomeHub connects with — shown beside the console so it is clear whose privileges statements run under
         stats:
           allOf:
             - $ref: "#/components/schemas/DbStats"
@@ -5328,12 +5439,32 @@ components:
           allOf:
             - $ref: "#/components/schemas/TruenasSystemInfo"
           nullable: true
+        memory:
+          allOf:
+            - $ref: "#/components/schemas/TruenasMemory"
+          nullable: true
+          description: RAM allocation for the dashboard dial; null when reporting data is unavailable
         pools:
           type: array
           items: { $ref: "#/components/schemas/TruenasPool" }
         disks:
           type: array
           items: { $ref: "#/components/schemas/TruenasDisk" }
+
+    TruenasMemory:
+      type: object
+      required: [totalBytes, arcBytes, servicesBytes, freeBytes]
+      properties:
+        totalBytes: { type: integer, format: int64 }
+        arcBytes:
+          type: integer
+          format: int64
+          description: ZFS cache (ARC)
+        servicesBytes:
+          type: integer
+          format: int64
+          description: Everything else in use
+        freeBytes: { type: integer, format: int64 }
 
     TruenasPool:
       type: object
@@ -5451,6 +5582,37 @@ components:
           additionalProperties: true
         lastChanged: { type: string, format: date-time }
         lastUpdated: { type: string, format: date-time }
+
+    HaDashboard:
+      type: object
+      required: [cards]
+      properties:
+        cards:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/HaDashboardCard" }
+
+    HaDashboardCard:
+      type: object
+      required: [id, type, entityIds]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 40
+        type:
+          type: string
+          enum: [entity, group]
+        title:
+          type: string
+          maxLength: 80
+        entityIds:
+          type: array
+          maxItems: 50
+          items: { type: string, maxLength: 120 }
+        size:
+          type: string
+          enum: [small, medium, large]
 
     HaServiceCall:
       type: object

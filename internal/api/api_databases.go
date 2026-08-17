@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -101,6 +102,17 @@ func (s *Server) DbListInstances(ctx context.Context, _ DbListInstancesRequestOb
 			Engine:        DbInstanceEngine(row.Type),
 			Status:        DbInstanceStatus(row.Status),
 			StatusMessage: row.StatusMessage,
+		}
+		// The connection identity (never the password) — shown beside the
+		// console so it is clear whose privileges statements run under.
+		cfg := map[string]any{}
+		_ = json.Unmarshal(row.Config, &cfg)
+		if host, _ := cfg["host"].(string); host != "" {
+			instance.Host = &host
+		}
+		if userRaw, verr := s.vault.Open(ctx, "integration:"+row.ID.String(), "username"); verr == nil {
+			user := string(userRaw)
+			instance.ConnectionUser = &user
 		}
 		if conn, cerr := s.integrations.Connection(row.ID); cerr == nil {
 			sctx, cancel := context.WithTimeout(ctx, 10*time.Second)

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	networktypes "github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	imagetypes "github.com/docker/docker/api/types/image"
-	networktypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/google/uuid"
 

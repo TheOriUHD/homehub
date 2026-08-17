@@ -198,6 +198,15 @@ func (c *Conn) DeleteDocument(ctx context.Context, database, collection, idJSON 
 	return res.DeletedCount, nil
 }
 
+// CreateCollection creates an empty collection (which also materializes the
+// database when it is new).
+func (c *Conn) CreateCollection(ctx context.Context, database, collection string) error {
+	if collection == "" || len(collection) > 120 {
+		return errors.New("collection name must be 1–120 characters")
+	}
+	return c.client.Database(database).CreateCollection(ctx, collection)
+}
+
 // DropCollection removes a collection.
 func (c *Conn) DropCollection(ctx context.Context, database, collection string) error {
 	return c.client.Database(database).Collection(collection).Drop(ctx)
