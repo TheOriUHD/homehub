@@ -844,6 +844,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/proxmox/{id}/guests/{vmid}/agent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * QEMU guest agent report
+         * @description Hostname, OS, and network interfaces as the guest agent reports them. `available` is false (with a reason) when the agent is not installed, not running, or the guest is an LXC container.
+         */
+        get: operations["pveGuestAgent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/proxmox/{id}/guests/{vmid}/config": {
         parameters: {
             query?: never;
@@ -3136,6 +3156,23 @@ export interface components {
             snaptime?: string | null;
             vmstate: boolean;
         };
+        PveGuestAgent: {
+            available: boolean;
+            /** @description Why the agent is unavailable, when it is */
+            reason?: string;
+            hostname?: string;
+            os?: string;
+            interfaces: {
+                name: string;
+                mac?: string;
+                addresses: {
+                    address: string;
+                    /** @enum {string} */
+                    type: "ipv4" | "ipv6";
+                    prefix?: number;
+                }[];
+            }[];
+        };
         PveTask: {
             upid: string;
             node: string;
@@ -3687,8 +3724,13 @@ export interface components {
             id: string;
             /** @enum {string} */
             type: "entity" | "group";
+            /** @description Custom display name — replaces the entity's own name on entity cards, heads the card on group cards */
             title?: string;
             entityIds: string[];
+            /** @description Per-entity display-name overrides for group rows (entity id → custom name) */
+            labels?: {
+                [key: string]: string;
+            };
             /** @enum {string} */
             size?: "small" | "medium" | "large";
         };
@@ -5408,6 +5450,31 @@ export interface operations {
         responses: {
             200: components["responses"]["TaskStarted"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveGuestAgent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The agent report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PveGuestAgent"];
+                };
+            };
             404: components["responses"]["NotFound"];
             502: components["responses"]["UpstreamError"];
         };
