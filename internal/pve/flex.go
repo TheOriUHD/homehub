@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -115,4 +116,51 @@ func flexScalar(raw []byte) (s string, done bool, err error) {
 		return strings.TrimSpace(str), false, nil
 	}
 	return t, false, nil
+}
+
+// FlexPropString is a string that also decodes from a JSON object or number:
+// newer Proxmox versions return structured objects for properties older ones
+// (and the property-string config format) express as strings — e.g.
+// prune-backups arrives as {"keep-last": 3} or "keep-last=3". Objects
+// canonicalize to "key=value" pairs, sorted for stability.
+type FlexPropString string
+
+// String returns the canonical string form.
+func (f FlexPropString) String() string { return string(f) }
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (f *FlexPropString) UnmarshalJSON(b []byte) error {
+	trimmed := strings.TrimSpace(string(b))
+	if strings.HasPrefix(trimmed, "{") {
+		var obj map[string]any
+		if err := json.Unmarshal(b, &obj); err != nil {
+			return err
+		}
+		keys := make([]string, 0, len(obj))
+		for k := range obj {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		parts := make([]string, 0, len(keys))
+		for _, k := range keys {
+			switch v := obj[k].(type) {
+			case float64:
+				parts = append(parts, fmt.Sprintf("%s=%v", k, strconv.FormatFloat(v, 'f', -1, 64)))
+			case bool:
+				parts = append(parts, fmt.Sprintf("%s=%t", k, v))
+			default:
+				parts = append(parts, fmt.Sprintf("%s=%v", k, v))
+			}
+		}
+		*f = FlexPropString(strings.Join(parts, ","))
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		// numbers and other scalars render as-is
+		*f = FlexPropString(strings.Trim(trimmed, `"`))
+		return nil
+	}
+	*f = FlexPropString(s)
+	return nil
 }

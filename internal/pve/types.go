@@ -151,7 +151,7 @@ type BackupJob struct {
 	NextRun  FlexInt64 `json:"next-run"`
 	Comment  string    `json:"comment"`
 	MailTo   string    `json:"mailto"`
-	Prune    string    `json:"prune-backups"`
+	Prune    FlexPropString `json:"prune-backups"`
 }
 
 // BackupJobSpec is the writable subset of a vzdump backup job for

@@ -2,10 +2,12 @@ package pve
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 // GuestStatus returns the current runtime status of a VM or container.
@@ -197,4 +199,86 @@ func (c *Client) Vzdump(ctx context.Context, node string, vmid int, storage, mod
 	var upid string
 	err := c.do(ctx, http.MethodPost, joinPath("nodes", node, "vzdump"), nil, form, &upid)
 	return upid, err
+}
+
+// AgentInterface is one NIC as the QEMU guest agent reports it.
+type AgentInterface struct {
+	Name            string `json:"name"`
+	HardwareAddress string `json:"hardware-address"`
+	IPAddresses     []struct {
+		Address string `json:"ip-address"`
+		Type    string `json:"ip-address-type"` // ipv4 | ipv6
+		Prefix  int    `json:"prefix"`
+	} `json:"ip-addresses"`
+}
+
+// agentUnavailable matches the errors PVE returns when the guest agent is
+// not installed, not running, or the guest is stopped.
+func agentUnavailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "guest agent is not running") ||
+		strings.Contains(msg, "No QEMU guest agent") ||
+		strings.Contains(msg, "not running") ||
+		strings.Contains(msg, "guest-ping")
+}
+
+// ErrAgentUnavailable reports that the QEMU guest agent cannot answer —
+// callers render "agent not available" instead of an upstream error.
+var ErrAgentUnavailable = errors.New("qemu guest agent unavailable")
+
+// AgentNetworkInterfaces queries the guest agent for NICs and addresses.
+// QEMU guests only.
+func (c *Client) AgentNetworkInterfaces(ctx context.Context, node string, vmid int) ([]AgentInterface, error) {
+	var out struct {
+		Result []AgentInterface `json:"result"`
+	}
+	err := c.get(ctx, fmt.Sprintf("/nodes/%s/qemu/%d/agent/network-get-interfaces", node, vmid), nil, &out)
+	if err != nil {
+		if agentUnavailable(err) {
+			return nil, ErrAgentUnavailable
+		}
+		return nil, err
+	}
+	return out.Result, nil
+}
+
+// AgentHostname asks the guest agent for the guest's own hostname.
+func (c *Client) AgentHostname(ctx context.Context, node string, vmid int) (string, error) {
+	var out struct {
+		Result struct {
+			HostName string `json:"host-name"`
+		} `json:"result"`
+	}
+	err := c.get(ctx, fmt.Sprintf("/nodes/%s/qemu/%d/agent/get-host-name", node, vmid), nil, &out)
+	if err != nil {
+		if agentUnavailable(err) {
+			return "", ErrAgentUnavailable
+		}
+		return "", err
+	}
+	return out.Result.HostName, nil
+}
+
+// AgentOSInfo asks the guest agent for the guest OS description.
+func (c *Client) AgentOSInfo(ctx context.Context, node string, vmid int) (string, error) {
+	var out struct {
+		Result struct {
+			PrettyName string `json:"pretty-name"`
+			Name       string `json:"name"`
+		} `json:"result"`
+	}
+	err := c.get(ctx, fmt.Sprintf("/nodes/%s/qemu/%d/agent/get-osinfo", node, vmid), nil, &out)
+	if err != nil {
+		if agentUnavailable(err) {
+			return "", ErrAgentUnavailable
+		}
+		return "", err
+	}
+	if out.Result.PrettyName != "" {
+		return out.Result.PrettyName, nil
+	}
+	return out.Result.Name, nil
 }

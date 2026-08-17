@@ -207,6 +207,16 @@ func (s *Server) HaPutDashboard(ctx context.Context, req HaPutDashboardRequestOb
 		if len(card.EntityIds) == 0 || len(card.EntityIds) > 50 {
 			return HaPutDashboard400JSONResponse{BadRequestJSONResponse(errBody("bad_card", "each card needs 1–50 entities"))}, nil
 		}
+		if card.Labels != nil {
+			if len(*card.Labels) > 50 {
+				return HaPutDashboard400JSONResponse{BadRequestJSONResponse(errBody("bad_card", "too many renames on one card"))}, nil
+			}
+			for _, label := range *card.Labels {
+				if len(label) > 80 {
+					return HaPutDashboard400JSONResponse{BadRequestJSONResponse(errBody("bad_card", "renames are limited to 80 characters"))}, nil
+				}
+			}
+		}
 	}
 	raw, err := json.Marshal(board)
 	if err != nil {

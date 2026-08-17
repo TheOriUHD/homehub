@@ -434,3 +434,79 @@ func taskPrefix(kind string) string {
 	}
 	return "vz"
 }
+
+// ---- QEMU guest agent ------------------------------------------------------
+
+// agentGuest resolves a running QEMU guest whose config enables the agent,
+// mirroring real PVE's errors otherwise.
+func (s *Server) agentGuest(w http.ResponseWriter, r *http.Request) *guest {
+	kind, nodeName, vmid := chi.URLParam(r, "kind"), chi.URLParam(r, "node"), pathVmid(r)
+	g, err := s.findGuest(kind, nodeName, vmid)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "%v", err)
+		return nil
+	}
+	if g.kind != "qemu" {
+		writeErr(w, http.StatusInternalServerError, "guest agent is only available for QEMU guests")
+		return nil
+	}
+	if g.status != "running" {
+		writeErr(w, http.StatusInternalServerError, "VM %d is not running", g.vmid)
+		return nil
+	}
+	if enabled, ok := g.config["agent"]; !ok || enabled == 0 || enabled == "0" {
+		writeErr(w, http.StatusInternalServerError, "No QEMU guest agent configured")
+		return nil
+	}
+	return g
+}
+
+func (s *Server) getAgentInterfaces(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	g := s.agentGuest(w, r)
+	if g == nil {
+		return
+	}
+	// Deterministic fixture addresses derived from the vmid.
+	writeJSON(w, http.StatusOK, j{"data": j{"result": []j{
+		{
+			"name":             "lo",
+			"hardware-address": "00:00:00:00:00:00",
+			"ip-addresses": []j{
+				{"ip-address": "127.0.0.1", "ip-address-type": "ipv4", "prefix": 8},
+			},
+		},
+		{
+			"name":             "eth0",
+			"hardware-address": fmt.Sprintf("bc:24:11:00:%02x:%02x", g.vmid/256, g.vmid%256),
+			"ip-addresses": []j{
+				{"ip-address": fmt.Sprintf("192.168.20.%d", 100+g.vmid%100), "ip-address-type": "ipv4", "prefix": 24},
+				{"ip-address": fmt.Sprintf("fe80::be24:11ff:fe00:%x", g.vmid), "ip-address-type": "ipv6", "prefix": 64},
+			},
+		},
+	}}})
+}
+
+func (s *Server) getAgentHostname(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	g := s.agentGuest(w, r)
+	if g == nil {
+		return
+	}
+	writeJSON(w, http.StatusOK, j{"data": j{"result": j{"host-name": g.name}}})
+}
+
+func (s *Server) getAgentOSInfo(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	g := s.agentGuest(w, r)
+	if g == nil {
+		return
+	}
+	writeJSON(w, http.StatusOK, j{"data": j{"result": j{
+		"name": "Debian GNU/Linux", "pretty-name": "Debian GNU/Linux 13 (trixie)",
+		"version": "13", "kernel-release": "6.12.0-1-amd64",
+	}}})
+}
