@@ -60,6 +60,7 @@ import { DbPerformancePage } from "./pages/db/performance";
 import { AmpModulePage } from "./pages/amp/module";
 import { TsModulePage } from "./pages/ts/module";
 import { CaddyModulePage } from "./pages/caddy/module";
+import { NvrModulePage } from "./pages/nvr/module";
 import { CaddySitesPage } from "./pages/caddy/sites";
 import { CaddyServedPage } from "./pages/caddy/served";
 import { TsDevicesPage } from "./pages/ts/devices";
@@ -231,6 +232,18 @@ const caddyLandingRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/caddy",
   component: () => <SystemTypeLanding type="caddy" />,
+});
+
+const nvrLandingRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/nvr",
+  component: () => <SystemTypeLanding type="aperture" />,
+});
+
+const nvrModuleRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/nvr/$instanceId",
+  component: NvrModulePage,
 });
 
 const caddyModuleRoute = createRoute({
@@ -602,6 +615,7 @@ const routeTree = rootRoute.addChildren([
     ampLandingRoute,
     tsLandingRoute,
     caddyLandingRoute,
+    nvrLandingRoute,
     truenasLandingRoute,
     dockerHubRoute.addChildren([dockerAllContainersRoute, dockerHostsRoute]),
     pveModuleRoute.addChildren([
@@ -652,6 +666,7 @@ const routeTree = rootRoute.addChildren([
     ampModuleRoute.addChildren([ampOverviewRoute, ampInstanceRoute]),
     tsModuleRoute.addChildren([tsDevicesRoute, tsKeysRoute, tsDnsRoute]),
     caddyModuleRoute.addChildren([caddySitesRoute, caddyServedRoute]),
+    nvrModuleRoute,
   ]),
 ]);
 

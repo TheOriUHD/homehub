@@ -4037,6 +4037,48 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /nvr/{id}/overview:
+    get:
+      operationId: apertureOverview
+      summary: Cameras with health and storage, plus system throughput
+      description: Served from HomeHub's backend cache (Aperture has no CORS and a per-token rate budget). Cameras are filtered to what the caller may view; RTSP credentials never leave the backend.
+      tags: [aperture]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApertureOverview" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /nvr/{id}/cameras/{cameraId}/stream-token:
+    post:
+      operationId: apertureStreamToken
+      summary: Mint a short-lived live-stream grant for one camera
+      description: Exchanges HomeHub's long-lived token for a five-minute, single-camera token and returns the absolute WebSocket URL the browser connects to — directly to Aperture, never proxied.
+      tags: [aperture]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: cameraId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Stream grant
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApertureStreamGrant" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /ha/instances:
     get:
       operationId: haListInstances
@@ -6126,6 +6168,60 @@ components:
         mcVersions:
           type: string
           description: Human-readable supported range, e.g. "1.16.5 – 1.21.x"
+
+    ApertureCamera:
+      type: object
+      required: [id, name, enabled, recordMode, sortOrder, recordingOk, liveOk, coveragePercent, watchdogStale, restartsToday]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        enabled: { type: boolean }
+        recordMode: { type: string }
+        sortOrder: { type: integer }
+        recordingOk: { type: boolean }
+        liveOk: { type: boolean }
+        coveragePercent: { type: integer }
+        watchdogStale: { type: boolean }
+        restartsToday: { type: integer }
+        lastSegmentTs:
+          type: integer
+          format: int64
+          description: Epoch milliseconds.
+        storageBytes: { type: integer, format: int64 }
+        oldestTs:
+          type: integer
+          format: int64
+          description: Epoch milliseconds — start of this camera's retained history.
+        newestTs: { type: integer, format: int64 }
+
+    ApertureOverview:
+      type: object
+      required: [baseUrl, cameras, bitrate]
+      properties:
+        baseUrl:
+          type: string
+          description: The Aperture origin, for the link out.
+        cameras:
+          type: array
+          items: { $ref: "#/components/schemas/ApertureCamera" }
+        capBytes: { type: integer, format: int64 }
+        bitrate:
+          type: array
+          items:
+            type: object
+            required: [ts, bps]
+            properties:
+              ts: { type: integer, format: int64 }
+              bps: { type: integer, format: int64 }
+
+    ApertureStreamGrant:
+      type: object
+      required: [wsUrl, hasSub]
+      properties:
+        wsUrl:
+          type: string
+          description: Absolute wss:// URL with the short-lived token embedded.
+        hasSub: { type: boolean }
 
     CaddyHeaderUp:
       type: object

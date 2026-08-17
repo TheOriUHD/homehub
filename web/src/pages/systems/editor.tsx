@@ -228,6 +228,8 @@ type McFormState = { name: string };
 
 type CaddyFormState = { name: string; baseUrl: string; code: string };
 
+type ApertureFormState = { name: string; baseUrl: string; apiKey: string };
+
 type TailscaleFormState = {
   name: string;
   tailnet: string;
@@ -266,6 +268,8 @@ const emptyTruenasForm: TruenasFormState = { name: "", host: "", apiKey: "", ins
 const emptyMcForm: McFormState = { name: "" };
 
 const emptyCaddyForm: CaddyFormState = { name: "", baseUrl: "", code: "" };
+
+const emptyApertureForm: ApertureFormState = { name: "", baseUrl: "", apiKey: "" };
 
 const emptyAmpForm: AmpFormState = { name: "", host: "", username: "", password: "", insecureTls: false };
 
@@ -311,6 +315,16 @@ function ampPayload(form: AmpFormState): FormPayload {
     config: { host: form.host, username: form.username, insecureTls: form.insecureTls },
     secrets,
   };
+}
+
+function aperturePayload(form: ApertureFormState): FormPayload {
+  const secrets: Record<string, string> = {};
+  if (form.apiKey) secrets.apiKey = form.apiKey;
+  return { config: { baseUrl: form.baseUrl }, secrets };
+}
+
+function apertureComplete(form: ApertureFormState, isNew: boolean): boolean {
+  return Boolean(form.name.trim() && form.baseUrl.trim() && (form.apiKey.trim() || !isNew));
 }
 
 function caddyPayload(form: CaddyFormState): FormPayload {
@@ -383,6 +397,7 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
   const [ampForm, setAmpForm] = useState<AmpFormState>(emptyAmpForm);
   const [tailscaleForm, setTailscaleForm] = useState<TailscaleFormState>(emptyTailscaleForm);
   const [caddyForm, setCaddyForm] = useState<CaddyFormState>(emptyCaddyForm);
+  const [apertureForm, setApertureForm] = useState<ApertureFormState>(emptyApertureForm);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const kind = type?.id ?? "";
@@ -412,6 +427,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return tailscalePayload(tailscaleForm);
       case "caddy":
         return caddyPayload(caddyForm);
+      case "aperture":
+        return aperturePayload(apertureForm);
       case "minecraft":
         return mcPayload();
       default:
@@ -442,6 +459,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return tailscaleForm.name;
       case "caddy":
         return caddyForm.name;
+      case "aperture":
+        return apertureForm.name;
       case "minecraft":
         return mcForm.name;
       default:
@@ -513,6 +532,9 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         case "caddy":
           void navigate({ to: "/caddy/$instanceId", params: { instanceId: created.id } });
           break;
+        case "aperture":
+          void navigate({ to: "/nvr/$instanceId", params: { instanceId: created.id } });
+          break;
         case "minecraft":
           // Straight to the pairing instructions and downloads.
           void navigate({ to: "/mc/$instanceId/setup", params: { instanceId: created.id } });
@@ -574,6 +596,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return tailscaleComplete(tailscaleForm, true);
       case "caddy":
         return caddyComplete(caddyForm, true);
+      case "aperture":
+        return apertureComplete(apertureForm, true);
       case "minecraft":
         return mcComplete(mcForm);
       default:
@@ -607,6 +631,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return <TailscaleForm form={tailscaleForm} setForm={setTailscaleForm} isNew testResult={testResult} onFormChange={clearTest} />;
       case "caddy":
         return <CaddyForm form={caddyForm} setForm={setCaddyForm} isNew onFormChange={clearTest} />;
+      case "aperture":
+        return <ApertureForm form={apertureForm} setForm={setApertureForm} isNew testResult={testResult} onFormChange={clearTest} />;
       case "minecraft":
         return <McForm form={mcForm} setForm={setMcForm} />;
       default:
@@ -744,6 +770,11 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
     name: row.name,
     baseUrl: String(cfg.baseUrl ?? ""),
   });
+  const [apertureForm, setApertureForm] = useState<ApertureFormState>({
+    ...emptyApertureForm,
+    name: row.name,
+    baseUrl: String(cfg.baseUrl ?? ""),
+  });
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const editPayload = (): FormPayload => {
@@ -768,6 +799,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return tailscalePayload(tailscaleForm);
       case "caddy":
         return caddyPayload(caddyForm);
+      case "aperture":
+        return aperturePayload(apertureForm);
       case "minecraft":
         return mcPayload();
       default:
@@ -796,6 +829,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return tailscaleForm.name;
       case "caddy":
         return caddyForm.name;
+      case "aperture":
+        return apertureForm.name;
       case "minecraft":
         return mcForm.name;
       default:
@@ -843,6 +878,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return tailscaleComplete(tailscaleForm, false);
       case "caddy":
         return caddyComplete(caddyForm, false);
+      case "aperture":
+        return apertureComplete(apertureForm, false);
       case "minecraft":
         return mcComplete(mcForm);
       default:
@@ -890,6 +927,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
               return <TailscaleForm form={tailscaleForm} setForm={setTailscaleForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
             case "caddy":
               return <CaddyForm form={caddyForm} setForm={setCaddyForm} isNew={false} onFormChange={clearTest} />;
+            case "aperture":
+              return <ApertureForm form={apertureForm} setForm={setApertureForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
             case "minecraft":
               return <McForm form={mcForm} setForm={setMcForm} />;
             case "proxmox":
@@ -1379,6 +1418,47 @@ function MongoForm({
           hint={t("integrations.dns.insecureTlsHint")}
         />
       )}
+      <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
+function ApertureForm({
+  form,
+  setForm,
+  isNew,
+  testResult,
+  onFormChange,
+}: {
+  form: ApertureFormState;
+  setForm: (fn: (prev: ApertureFormState) => ApertureFormState) => void;
+  isNew: boolean;
+  testResult: TestConnectionResult | null;
+  onFormChange: () => void;
+}) {
+  const { t } = useTranslation();
+  const update = (patch: Partial<ApertureFormState>) => {
+    onFormChange();
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.form.name")} hint={t("integrations.form.nameHintAperture")}>
+          {(p) => <Input {...p} autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.aperture.baseUrl")} hint={t("integrations.aperture.baseUrlHint")}>
+          {(p) => <Input {...p} placeholder="https://aperture.example.com" value={form.baseUrl} onChange={(e) => update({ baseUrl: e.target.value })} />}
+        </Field>
+      </div>
+      <Field
+        label={t("integrations.aperture.apiKey")}
+        hint={isNew ? t("integrations.aperture.apiKeyHint") : t("integrations.form.secretKeep")}
+      >
+        {(p) => (
+          <PasswordInput {...p} className="font-mono text-[13px]" value={form.apiKey} onChange={(e) => update({ apiKey: e.target.value })} />
+        )}
+      </Field>
       <TestResultNote result={testResult} />
     </div>
   );

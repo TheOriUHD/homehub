@@ -2567,6 +2567,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/nvr/{id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cameras with health and storage, plus system throughput
+         * @description Served from HomeHub's backend cache (Aperture has no CORS and a per-token rate budget). Cameras are filtered to what the caller may view; RTSP credentials never leave the backend.
+         */
+        get: operations["apertureOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/nvr/{id}/cameras/{cameraId}/stream-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a short-lived live-stream grant for one camera
+         * @description Exchanges HomeHub's long-lived token for a five-minute, single-camera token and returns the absolute WebSocket URL the browser connects to — directly to Aperture, never proxied.
+         */
+        post: operations["apertureStreamToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ha/instances": {
         parameters: {
             query?: never;
@@ -4023,6 +4063,50 @@ export interface components {
             sizeBytes: number;
             /** @description Human-readable supported range, e.g. "1.16.5 – 1.21.x" */
             mcVersions: string;
+        };
+        ApertureCamera: {
+            id: string;
+            name: string;
+            enabled: boolean;
+            recordMode: string;
+            sortOrder: number;
+            recordingOk: boolean;
+            liveOk: boolean;
+            coveragePercent: number;
+            watchdogStale: boolean;
+            restartsToday: number;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds.
+             */
+            lastSegmentTs?: number;
+            /** Format: int64 */
+            storageBytes?: number;
+            /**
+             * Format: int64
+             * @description Epoch milliseconds — start of this camera's retained history.
+             */
+            oldestTs?: number;
+            /** Format: int64 */
+            newestTs?: number;
+        };
+        ApertureOverview: {
+            /** @description The Aperture origin, for the link out. */
+            baseUrl: string;
+            cameras: components["schemas"]["ApertureCamera"][];
+            /** Format: int64 */
+            capBytes?: number;
+            bitrate: {
+                /** Format: int64 */
+                ts: number;
+                /** Format: int64 */
+                bps: number;
+            }[];
+        };
+        ApertureStreamGrant: {
+            /** @description Absolute wss:// URL with the short-lived token embedded. */
+            wsUrl: string;
+            hasSub: boolean;
         };
         CaddyHeaderUp: {
             name: string;
@@ -8949,6 +9033,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaddyServed"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    apertureOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApertureOverview"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    apertureStreamToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                cameraId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stream grant */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApertureStreamGrant"];
                 };
             };
             404: components["responses"]["NotFound"];

@@ -29,6 +29,7 @@ import (
 	"homehub/internal/integration"
 	"homehub/internal/integrations/adguard"
 	"homehub/internal/integrations/amp"
+	"homehub/internal/integrations/aperture"
 	"homehub/internal/integrations/caddy"
 	"homehub/internal/integrations/dbsql"
 	"homehub/internal/integrations/docker"
@@ -126,6 +127,7 @@ func Run(ctx context.Context) error {
 	manager.Register(amp.Driver{})
 	manager.Register(tailscale.Driver{})
 	manager.Register(caddy.Driver{})
+	manager.Register(aperture.Driver{})
 	mcRegistry := minecraft.NewRegistry(st, v, logger)
 	mcRegistry.Publish = func(instanceID uuid.UUID, event string, data any) {
 		hub.Publish("integration:"+minecraft.TypeID+"/"+instanceID.String(),
