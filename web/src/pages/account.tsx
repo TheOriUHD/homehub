@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { startRegistration } from "@simplewebauthn/browser";
 import QRCode from "qrcode";
-import { Fingerprint, Laptop, ShieldCheck, Smartphone } from "lucide-react";
-import { api, unwrap, isApiError, type SessionInfo } from "@/lib/api";
+import { Bell, ChevronDown, Fingerprint, Laptop, ShieldCheck, Smartphone } from "lucide-react";
+import { api, unwrap, isApiError, type NotificationPrefs, type SessionInfo } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatRelative } from "@/lib/utils";
 import { Card, CardBody, CardHeader } from "@/ui/card";
@@ -14,8 +14,12 @@ import { Field } from "@/ui/field";
 import { Badge } from "@/ui/badge";
 import { Dialog, DialogContent } from "@/ui/dialog";
 import { ConfirmDialog } from "@/ui/confirm";
-import { Secret } from "@/ui/misc";
+import { Checkbox, Secret } from "@/ui/misc";
+import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
+import { Switch } from "@/ui/switch";
+import { ErrorState } from "@/ui/states";
 import { SkeletonRows } from "@/ui/skeleton";
+import { Tooltip } from "@/ui/tooltip";
 import { useToast } from "@/ui/toast";
 
 export function AccountPage() {
@@ -30,6 +34,7 @@ export function AccountPage() {
         <div className="space-y-4">
           <PasswordCard />
           <TotpCard />
+          <NotificationPrefsCard />
         </div>
         <div className="space-y-4">
           <PasskeysCard />
@@ -441,6 +446,130 @@ function PasskeysCard() {
         loading={remove.isPending}
         onConfirm={() => removing && remove.mutate(removing.id)}
       />
+    </Card>
+  );
+}
+
+// ---- notification preferences ----------------------------------------------
+
+/**
+ * NotificationPrefsCard lets the user choose, per event type, whether it lands
+ * in-app and through which outbound channels. Saves are optimistic — the UI
+ * flips immediately and rolls back with a toast if the server disagrees.
+ */
+function NotificationPrefsCard() {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const prefs = useQuery({
+    queryKey: ["notification-prefs"],
+    queryFn: async () => unwrap(await api.GET("/notification-prefs")),
+  });
+
+  const put = useMutation({
+    mutationFn: async (body: { eventType: string; inapp: boolean; channelIds: string[] }) =>
+      unwrap(await api.PUT("/notification-prefs", { body })),
+    onMutate: async (body) => {
+      await queryClient.cancelQueries({ queryKey: ["notification-prefs"] });
+      const prev = queryClient.getQueryData<NotificationPrefs>(["notification-prefs"]);
+      queryClient.setQueryData<NotificationPrefs>(["notification-prefs"], (cur) =>
+        cur
+          ? { ...cur, prefs: [...cur.prefs.filter((p) => p.eventType !== body.eventType), body] }
+          : cur,
+      );
+      return { prev };
+    },
+    onError: (err, _body, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["notification-prefs"], ctx.prev);
+      toast("error", isApiError(err) ? err.message : t("common.unknownError"));
+    },
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: ["notification-prefs"] }),
+  });
+
+  const data = prefs.data;
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="flex items-center gap-2">
+            <Bell className="text-fg-subtle size-4" />
+            {t("notifPrefs.title")}
+          </span>
+        }
+        description={t("notifPrefs.intro")}
+      />
+      <CardBody className="px-0 py-0">
+        {prefs.isLoading ? (
+          <SkeletonRows rows={3} className="p-5" />
+        ) : prefs.isError ? (
+          <ErrorState error={prefs.error} onRetry={() => void prefs.refetch()} />
+        ) : (
+          <ul>
+            {(data?.eventTypes ?? []).map((eventType) => {
+              const pref = data?.prefs.find((p) => p.eventType === eventType) ?? {
+                eventType,
+                inapp: true,
+                channelIds: [],
+              };
+              const channels = data?.channels ?? [];
+              return (
+                <li
+                  key={eventType}
+                  className="border-edge flex items-center gap-3 border-b px-5 py-3 last:border-b-0"
+                >
+                  <p className="text-fg min-w-0 flex-1 text-sm">
+                    {t(`notifPrefs.events.${eventType}`, { defaultValue: eventType })}
+                  </p>
+                  {channels.length > 0 && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="sm" variant="ghost">
+                          {pref.channelIds.length > 0
+                            ? t("notifPrefs.channelCount", { count: pref.channelIds.length })
+                            : t("notifPrefs.channels")}
+                          <ChevronDown className="size-3.5" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="space-y-2.5">
+                        <p className="text-fg-subtle text-xs font-semibold uppercase">
+                          {t("notifPrefs.channels")}
+                        </p>
+                        {channels.map((channel) => (
+                          <Checkbox
+                            key={channel.id}
+                            checked={pref.channelIds.includes(channel.id)}
+                            onCheckedChange={(checked) => {
+                              const channelIds = checked
+                                ? [...pref.channelIds, channel.id]
+                                : pref.channelIds.filter((id) => id !== channel.id);
+                              put.mutate({ eventType, inapp: pref.inapp, channelIds });
+                            }}
+                            label={channel.name}
+                            hint={t(`channels.types.${channel.type}`, { defaultValue: channel.type })}
+                          />
+                        ))}
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                  <Tooltip label={t("notifPrefs.inapp")}>
+                    <Switch
+                      checked={pref.inapp}
+                      aria-label={t("notifPrefs.inappAria", {
+                        event: t(`notifPrefs.events.${eventType}`, { defaultValue: eventType }),
+                      })}
+                      onCheckedChange={(inapp) =>
+                        put.mutate({ eventType, inapp, channelIds: pref.channelIds })
+                      }
+                    />
+                  </Tooltip>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardBody>
     </Card>
   );
 }

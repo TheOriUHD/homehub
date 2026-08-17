@@ -11,6 +11,8 @@ import { ChangePasswordPage } from "./pages/change-password";
 import { AppShell } from "./components/shell";
 import { OverviewPage } from "./pages/overview";
 import { HealthPage } from "./pages/health";
+import { HistoryPage } from "./pages/history";
+import { AlertsPage } from "./pages/alerts";
 import { AccountPage } from "./pages/account";
 import { UsersPage } from "./pages/users";
 import { UserDetailPage } from "./pages/user-detail";
@@ -82,6 +84,18 @@ const healthRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/health",
   component: HealthPage,
+});
+
+const historyRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/history",
+  component: HistoryPage,
+});
+
+const alertsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/alerts",
+  component: AlertsPage,
 });
 
 const accountRoute = createRoute({
@@ -254,6 +268,8 @@ const routeTree = rootRoute.addChildren([
   shellRoute.addChildren([
     overviewRoute,
     healthRoute,
+    historyRoute,
+    alertsRoute,
     accountRoute,
     usersRoute,
     userDetailRoute,

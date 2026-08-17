@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/TheOriUHD/homehub/internal/alerting"
 	"github.com/TheOriUHD/homehub/internal/api"
 	"github.com/TheOriUHD/homehub/internal/audit"
 	"github.com/TheOriUHD/homehub/internal/auth"
@@ -28,6 +29,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/integrations/proxmox"
 	"github.com/TheOriUHD/homehub/internal/jobs"
 	"github.com/TheOriUHD/homehub/internal/metrics"
+	"github.com/TheOriUHD/homehub/internal/notify"
 	"github.com/TheOriUHD/homehub/internal/rbac"
 	"github.com/TheOriUHD/homehub/internal/settings"
 	"github.com/TheOriUHD/homehub/internal/store"
@@ -77,18 +79,35 @@ func Run(ctx context.Context) error {
 		return authorizeTopic(ctx, engine, userID, viewAsRole, topic)
 	})
 
-	metricsSvc := metrics.New(st, logger)
+	metricsSvc := metrics.New(st, settingsSvc.MetricsRetention, logger)
 	jobEngine.Register("metrics.maintenance", func(ctx context.Context, _ json.RawMessage) error {
 		return metricsSvc.RunMaintenance(ctx)
 	})
 	termMgr := term.NewManager()
+
+	notifySvc := notify.New(st, hub, v, logger)
+	notifySvc.SetEnqueue(func(ctx context.Context, payload notify.DeliveryPayload) {
+		if _, err := jobEngine.Enqueue(ctx, "notify.deliver", payload); err != nil {
+			logger.Error("enqueue channel delivery", "error", err)
+		}
+	})
+	jobEngine.Register("notify.deliver", notifySvc.Deliver)
+
+	evaluator := alerting.NewEvaluator(st, notifySvc,
+		func(ctx context.Context, userID uuid.UUID, resource string) bool {
+			ok, err := engine.VisibleUnder(ctx, rbac.Principal{UserID: userID}, resource)
+			return err == nil && ok
+		}, logger)
+	jobEngine.Register("alerts.evaluate", func(ctx context.Context, _ json.RawMessage) error {
+		return evaluator.Run(ctx)
+	})
 
 	manager := integration.NewManager(st, v, metricsSvc, hub, logger)
 	manager.Register(proxmox.Driver{})
 	manager.Register(docker.Driver{})
 	manager.Register(pihole.Driver{})
 	manager.Register(adguard.Driver{})
-	manager.StatusChanged = statusNotifier(st, engine, hub, logger)
+	manager.StatusChanged = statusNotifier(engine, notifySvc)
 
 	docker.RegisterJobs(func(kind string, fn func(ctx context.Context, payload json.RawMessage) error) {
 		jobEngine.Register(kind, fn)
@@ -121,22 +140,7 @@ func Run(ctx context.Context) error {
 			return docker.EncodeRegistryAuth(username, string(secret), host)
 		},
 		Notify: func(ctx context.Context, userID uuid.UUID, severity, title, body, resource string) {
-			n, err := st.InsertNotification(ctx, &store.Notification{
-				UserID:    userID,
-				Severity:  severity,
-				Title:     title,
-				Body:      body,
-				Resource:  resource,
-				EventType: "docker.job",
-			})
-			if err != nil {
-				logger.Error("insert docker job notification", "error", err)
-				return
-			}
-			hub.PublishUser(userID, "notifications", map[string]any{
-				"id": n.ID, "ts": n.TS, "severity": n.Severity, "title": n.Title,
-				"body": n.Body, "resource": n.Resource, "eventType": n.EventType, "read": false,
-			})
+			notifySvc.Notify(ctx, userID, severity, title, body, resource, "docker.job")
 		},
 	})
 
@@ -216,7 +220,7 @@ func authorizeTopic(ctx context.Context, engine *rbac.Engine, userID uuid.UUID, 
 // user who can see the instance. The reconnect loop cycles
 // connecting→unreachable on every retry, so notifications key off the last
 // *notified* state per instance — one alert per outage, one per recovery.
-func statusNotifier(st *store.Store, engine *rbac.Engine, hub *ws.Hub, logger *slog.Logger) func(integration.Instance, integration.Status, integration.Status, string) {
+func statusNotifier(engine *rbac.Engine, notifySvc *notify.Service) func(integration.Instance, integration.Status, integration.Status, string) {
 	var mu sync.Mutex
 	lastNotified := map[uuid.UUID]integration.Status{}
 
@@ -235,7 +239,7 @@ func statusNotifier(st *store.Store, engine *rbac.Engine, hub *ws.Hub, logger *s
 		if !shouldNotify {
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		severity, title := "error", inst.Name+" is unreachable"
@@ -246,37 +250,11 @@ func statusNotifier(st *store.Store, engine *rbac.Engine, hub *ws.Hub, logger *s
 			body = ""
 			eventType = "integration.recovered"
 		}
-
-		users, err := st.ListUsers(ctx)
-		if err != nil {
-			logger.Error("notify integration status: list users", "error", err)
-			return
-		}
-		for _, user := range users {
-			if user.Status != "active" {
-				continue
-			}
-			visible, err := engine.VisibleUnder(ctx, rbac.Principal{UserID: user.ID}, inst.ResourcePath())
-			if err != nil || !visible {
-				continue
-			}
-			n, err := st.InsertNotification(ctx, &store.Notification{
-				UserID:    user.ID,
-				Severity:  severity,
-				Title:     title,
-				Body:      body,
-				Resource:  inst.ResourcePath(),
-				EventType: eventType,
-			})
-			if err != nil {
-				logger.Error("insert integration notification", "error", err)
-				continue
-			}
-			hub.PublishUser(user.ID, "notifications", map[string]any{
-				"id": n.ID, "ts": n.TS, "severity": n.Severity, "title": n.Title,
-				"body": n.Body, "resource": n.Resource, "eventType": n.EventType, "read": false,
-			})
-		}
+		notifySvc.NotifyResourceViewers(ctx, inst.ResourcePath(),
+			func(ctx context.Context, userID uuid.UUID) bool {
+				ok, err := engine.VisibleUnder(ctx, rbac.Principal{UserID: userID}, inst.ResourcePath())
+				return err == nil && ok
+			}, severity, title, body, eventType)
 	}
 }
 
@@ -314,5 +292,12 @@ func ensureMaintenanceSchedule(ctx context.Context, st *store.Store) error {
 	if err != nil {
 		return err
 	}
-	return st.EnsureSchedule(ctx, "Metric rollups", "metrics.maintenance", map[string]any{}, "*/5 * * * *", next)
+	if err := st.EnsureSchedule(ctx, "Metric rollups", "metrics.maintenance", map[string]any{}, "*/5 * * * *", next); err != nil {
+		return err
+	}
+	next, err = jobs.NextRun("* * * * *", time.Now())
+	if err != nil {
+		return err
+	}
+	return st.EnsureSchedule(ctx, "Alert evaluation", "alerts.evaluate", map[string]any{}, "* * * * *", next)
 }

@@ -15,11 +15,59 @@ import (
 )
 
 const (
-	keyAppURL     = "app_url"
-	keySessionTTL = "session_ttl_hours"
+	keyAppURL           = "app_url"
+	keySessionTTL       = "session_ttl_hours"
+	keyMetricsRawHours  = "metrics_raw_retention_hours"
+	keyMetrics5mDays    = "metrics_5m_retention_days"
+	keyMetrics1hDays    = "metrics_1h_retention_days"
 
 	defaultSessionTTLHours = 720 // 30 days, rolling
+	defaultRawHours        = 48
+	default5mDays          = 14
+	default1hDays          = 400
 )
+
+// MetricsRetention returns the three retention tiers.
+func (s *Service) MetricsRetention(ctx context.Context) (raw, fiveMin, hour time.Duration) {
+	rawHours, fiveMinDays, hourDays := defaultRawHours, default5mDays, default1hDays
+	s.get(ctx, keyMetricsRawHours, &rawHours)
+	s.get(ctx, keyMetrics5mDays, &fiveMinDays)
+	s.get(ctx, keyMetrics1hDays, &hourDays)
+	return time.Duration(rawHours) * time.Hour,
+		time.Duration(fiveMinDays) * 24 * time.Hour,
+		time.Duration(hourDays) * 24 * time.Hour
+}
+
+// MetricsRetentionValues returns the raw numbers for the settings API.
+func (s *Service) MetricsRetentionValues(ctx context.Context) (rawHours, fiveMinDays, hourDays int) {
+	rawHours, fiveMinDays, hourDays = defaultRawHours, default5mDays, default1hDays
+	s.get(ctx, keyMetricsRawHours, &rawHours)
+	s.get(ctx, keyMetrics5mDays, &fiveMinDays)
+	s.get(ctx, keyMetrics1hDays, &hourDays)
+	return
+}
+
+// SetMetricsRetention validates and stores the retention tiers.
+func (s *Service) SetMetricsRetention(ctx context.Context, rawHours, fiveMinDays, hourDays int) error {
+	if rawHours < 6 || rawHours > 720 {
+		return fmt.Errorf("raw sample retention must be between 6 and 720 hours")
+	}
+	if fiveMinDays < 1 || fiveMinDays > 365 {
+		return fmt.Errorf("5-minute rollup retention must be between 1 and 365 days")
+	}
+	if hourDays < 7 || hourDays > 3650 {
+		return fmt.Errorf("hourly rollup retention must be between 7 and 3650 days")
+	}
+	for key, value := range map[string]int{
+		keyMetricsRawHours: rawHours, keyMetrics5mDays: fiveMinDays, keyMetrics1hDays: hourDays,
+	} {
+		if err := s.store.SetSetting(ctx, key, value); err != nil {
+			return err
+		}
+	}
+	s.invalidate()
+	return nil
+}
 
 type Service struct {
 	store *store.Store
