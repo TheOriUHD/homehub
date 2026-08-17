@@ -12,7 +12,7 @@ import { ErrorState } from "@/ui/states";
 import { Skeleton } from "@/ui/skeleton";
 import { useToast } from "@/ui/toast";
 import { TimeSeriesChart } from "@/components/time-series-chart";
-import { statusTone } from "@/pages/integrations";
+import { statusTone } from "@/lib/systems";
 import { dnsResource, dnsTypeLabel, useDnsInstances } from "./module";
 
 function formatPct(fraction: number): string {

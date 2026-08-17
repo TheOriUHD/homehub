@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
   Activity,
   BellRing,
+  Boxes,
   ChartSpline,
   Container,
   DatabaseBackup,
@@ -16,7 +17,6 @@ import {
   LogOut,
   Menu,
   Moon,
-  Plug,
   Search,
   Server,
   Settings,
@@ -26,11 +26,11 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { RES } from "@/lib/perms";
 import { api, unwrap } from "@/lib/api";
+import { SYSTEMS_RES, useIntegrations, worstStatus } from "@/lib/systems";
 import { useTheme } from "@/lib/theme";
 import { useBackupsVisible } from "@/pages/backups/shared";
 import { LogoMark, Wordmark } from "./logo";
@@ -82,12 +82,7 @@ export function AppShell() {
   // server answers the targets probe with a 403.
   const backupsVisible = useBackupsVisible(!!me);
   // Connected systems the user may see — the server filters by permission.
-  const integrations = useQuery({
-    queryKey: ["integrations"],
-    queryFn: async () => unwrap(await api.GET("/integrations")),
-    staleTime: 30_000,
-    enabled: !!me,
-  });
+  const integrations = useIntegrations(!!me);
 
   if (loading) {
     return (
@@ -113,7 +108,6 @@ export function AppShell() {
   const adminNav: NavItem[] = [
     { to: "/admin/users", label: t("nav.users"), icon: Users, requires: RES.users },
     { to: "/admin/roles", label: t("nav.roles"), icon: Shield, requires: RES.roles },
-    { to: "/admin/integrations", label: t("integrations.title"), icon: Plug, requires: "system/integrations" },
     { to: "/admin/audit", label: t("nav.audit"), icon: FileClock, requires: RES.audit },
     { to: "/admin/settings", label: t("nav.settings"), icon: Settings, requires: RES.settings },
   ];
@@ -121,19 +115,55 @@ export function AppShell() {
   const visible = (items: NavItem[]) => items.filter((i) => !i.requires || can(i.requires));
   const adminVisible = visible(adminNav);
 
-  const systems = (integrations.data ?? []).filter(
-    (row) => row.enabled && (row.type === "proxmox" || row.type === "docker" || row.type === "homeassistant"),
-  );
-  // DNS is one module spanning all Pi-hole/AdGuard instances — a single nav
-  // entry whose dot aggregates the worst instance status.
-  const dnsInstances = (integrations.data ?? []).filter(
-    (row) => row.enabled && (row.type === "pihole" || row.type === "adguard"),
-  );
-  const dnsStatus = dnsInstances.some((row) => row.status === "unreachable")
-    ? "unreachable"
-    : dnsInstances.some((row) => row.status === "degraded" || row.status === "connecting")
-      ? "degraded"
-      : "connected";
+  // One SYSTEMS entry per type present — the dot aggregates the worst
+  // instance status. Types with no unified module link straight to the
+  // instance when there is exactly one, else to the per-type landing.
+  const rows = (integrations.data ?? []).filter((row) => row.enabled);
+  const pveRows = rows.filter((row) => row.type === "proxmox");
+  const dockerRows = rows.filter((row) => row.type === "docker");
+  const dnsRows = rows.filter((row) => row.type === "pihole" || row.type === "adguard");
+  const haRows = rows.filter((row) => row.type === "homeassistant");
+  const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
+
+  type TypeEntry = NavItem & { status: string; prefix: string };
+  const typeEntries: TypeEntry[] = [
+    ...(pveRows.length > 0
+      ? [{
+          to: pveRows.length === 1 ? `/pve/${pveRows[0].id}` : "/pve",
+          label: t("systems.types.proxmox"),
+          icon: Server,
+          status: worstStatus(pveRows),
+          prefix: "/pve",
+        }]
+      : []),
+    ...(dockerRows.length > 0
+      ? [{
+          to: "/docker",
+          label: t("systems.types.docker"),
+          icon: Container,
+          status: worstStatus(dockerRows),
+          prefix: "/docker",
+        }]
+      : []),
+    ...(dnsRows.length > 0
+      ? [{
+          to: "/dns",
+          label: t("dns.title"),
+          icon: ShieldCheck,
+          status: worstStatus(dnsRows),
+          prefix: "/dns",
+        }]
+      : []),
+    ...(haRows.length > 0
+      ? [{
+          to: haRows.length === 1 ? `/ha/${haRows[0].id}` : "/ha",
+          label: t("systems.types.homeassistant"),
+          icon: House,
+          status: worstStatus(haRows),
+          prefix: "/ha",
+        }]
+      : []),
+  ];
 
   const initials = me.user.displayName
     .split(/\s+/)
@@ -155,37 +185,24 @@ export function AppShell() {
             <SidebarLink key={item.to} item={item} active={pathname === item.to} />
           ))}
         </div>
-        {(systems.length > 0 || dnsInstances.length > 0) && (
+        {systemsVisible && (
           <div>
             <p className="text-fg-subtle mb-1.5 px-2.5 text-[11px] font-semibold tracking-wider uppercase">
               {t("nav.systems")}
             </p>
             <div className="space-y-0.5">
-              {systems.map((system) => {
-                const base =
-                  system.type === "docker"
-                    ? `/docker/${system.id}`
-                    : system.type === "homeassistant"
-                      ? `/ha/${system.id}`
-                      : `/pve/${system.id}`;
-                const icon =
-                  system.type === "docker" ? Container : system.type === "homeassistant" ? House : Server;
-                return (
-                  <SidebarLink
-                    key={system.id}
-                    item={{ to: base, label: system.name, icon }}
-                    active={pathname.startsWith(base)}
-                    status={system.status}
-                  />
-                );
-              })}
-              {dnsInstances.length > 0 && (
+              <SidebarLink
+                item={{ to: "/systems", label: t("nav.systems"), icon: Boxes }}
+                active={pathname.startsWith("/systems")}
+              />
+              {typeEntries.map((entry) => (
                 <SidebarLink
-                  item={{ to: "/dns", label: t("dns.title"), icon: ShieldCheck }}
-                  active={pathname.startsWith("/dns")}
-                  status={dnsStatus}
+                  key={entry.prefix}
+                  item={entry}
+                  active={pathname.startsWith(entry.prefix)}
+                  status={entry.status}
                 />
-              )}
+              ))}
             </div>
           </div>
         )}

@@ -2,6 +2,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  Navigate,
   Outlet,
 } from "@tanstack/react-router";
 import { SetupPage } from "./pages/setup";
@@ -21,13 +22,15 @@ import { RolesPage } from "./pages/roles";
 import { AuditPage } from "./pages/audit";
 import { AppSettingsPage } from "./pages/app-settings";
 import { NotFoundPage } from "./pages/not-found";
-import { IntegrationsPage } from "./pages/integrations";
+import { SystemsPage } from "./pages/systems";
+import { SystemTypeLanding } from "./pages/systems/type-landing";
 import { PveModulePage } from "./pages/pve/module";
 import { PveSummaryPage } from "./pages/pve/summary";
 import { PveGuestsPage } from "./pages/pve/guests";
 import { PveGuestDetailPage } from "./pages/pve/guest-detail";
 import { PveBackupsPage, PveStoragePage, PveTasksPage } from "./pages/pve/misc";
 import { DockerModulePage } from "./pages/docker/module";
+import { DockerAllContainersPage, DockerHostsPage, DockerHubPage } from "./pages/docker/unified";
 import { DockerContainersPage } from "./pages/docker/containers";
 import { DockerContainerDetailPage } from "./pages/docker/container-detail";
 import { DockerImagesPage, DockerNetworksPage, DockerStacksPage, DockerVolumesPage } from "./pages/docker/misc";
@@ -144,10 +147,30 @@ const appSettingsRoute = createRoute({
   component: AppSettingsPage,
 });
 
-const integrationsRoute = createRoute({
+const systemsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/systems",
+  component: SystemsPage,
+});
+
+// The old admin page moved to /systems — keep saved links working.
+const integrationsRedirectRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/admin/integrations",
-  component: IntegrationsPage,
+  component: () => <Navigate to="/systems" replace />,
+});
+
+// Types without a unified module get a minimal per-type landing.
+const pveLandingRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/pve",
+  component: () => <SystemTypeLanding type="proxmox" />,
+});
+
+const haLandingRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/ha",
+  component: () => <SystemTypeLanding type="homeassistant" />,
 });
 
 const pveModuleRoute = createRoute({
@@ -192,6 +215,26 @@ const pveBackupsRoute = createRoute({
   component: PveBackupsPage,
 });
 
+// The unified Docker module: all hosts' containers in one place. Static
+// segments outrank $instanceId, so /docker and /docker/hosts resolve here.
+const dockerHubRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/docker",
+  component: DockerHubPage,
+});
+
+const dockerAllContainersRoute = createRoute({
+  getParentRoute: () => dockerHubRoute,
+  path: "/",
+  component: DockerAllContainersPage,
+});
+
+const dockerHostsRoute = createRoute({
+  getParentRoute: () => dockerHubRoute,
+  path: "/hosts",
+  component: DockerHostsPage,
+});
+
 const dockerModuleRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/docker/$instanceId",
@@ -208,6 +251,11 @@ const dockerContainerDetailRoute = createRoute({
   getParentRoute: () => dockerModuleRoute,
   path: "/containers/$name",
   component: DockerContainerDetailPage,
+  // ?tab= lets the unified containers table deep-link logs/shell.
+  validateSearch: (search: Record<string, unknown>): { tab?: "inspect" | "logs" | "shell" } => {
+    const tab = search.tab;
+    return tab === "inspect" || tab === "logs" || tab === "shell" ? { tab } : {};
+  },
 });
 
 const dockerStacksRoute = createRoute({
@@ -305,7 +353,11 @@ const routeTree = rootRoute.addChildren([
     rolesRoute,
     auditRoute,
     appSettingsRoute,
-    integrationsRoute,
+    systemsRoute,
+    integrationsRedirectRoute,
+    pveLandingRoute,
+    haLandingRoute,
+    dockerHubRoute.addChildren([dockerAllContainersRoute, dockerHostsRoute]),
     pveModuleRoute.addChildren([
       pveSummaryRoute,
       pveGuestsRoute,

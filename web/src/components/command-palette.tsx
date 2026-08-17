@@ -1,11 +1,12 @@
 import { Command } from "cmdk";
 import { useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   Activity,
   BellRing,
+  Boxes,
   ChartSpline,
+  Container,
   DatabaseBackup,
   FileClock,
   Home,
@@ -13,15 +14,17 @@ import {
   KeyRound,
   LogOut,
   Moon,
+  Server,
   Settings,
   Shield,
+  ShieldCheck,
   Sun,
   UserPlus,
   Users,
 } from "lucide-react";
-import { api, unwrap } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { RES } from "@/lib/perms";
+import { SYSTEMS_RES, useIntegrations } from "@/lib/systems";
 import { useTheme } from "@/lib/theme";
 import { useBackupsVisible } from "@/pages/backups/shared";
 import { Dialog } from "@/ui/dialog";
@@ -52,15 +55,35 @@ export function CommandPalette({
   const backupsVisible = useBackupsVisible();
 
   // Shares the sidebar's integrations cache; the server already filters by
-  // permission, so every listed instance is navigable.
-  const integrations = useQuery({
-    queryKey: ["integrations"],
-    queryFn: async () => unwrap(await api.GET("/integrations")),
-    staleTime: 30_000,
-  });
-  const haInstances = (integrations.data ?? []).filter(
-    (row) => row.enabled && row.type === "homeassistant",
-  );
+  // permission, so every listed entry is navigable. Type entries mirror the
+  // sidebar's SYSTEMS section.
+  const integrations = useIntegrations();
+  const rows = (integrations.data ?? []).filter((row) => row.enabled);
+  const pveRows = rows.filter((row) => row.type === "proxmox");
+  const dockerRows = rows.filter((row) => row.type === "docker");
+  const dnsRows = rows.filter((row) => row.type === "pihole" || row.type === "adguard");
+  const haRows = rows.filter((row) => row.type === "homeassistant");
+  const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
+
+  const systemEntries = [
+    ...(systemsVisible ? [{ label: t("nav.systems"), icon: Boxes, to: "/systems" }] : []),
+    ...(pveRows.length > 0
+      ? [{
+          label: t("systems.types.proxmox"),
+          icon: Server,
+          to: pveRows.length === 1 ? `/pve/${pveRows[0].id}` : "/pve",
+        }]
+      : []),
+    ...(dockerRows.length > 0 ? [{ label: t("systems.types.docker"), icon: Container, to: "/docker" }] : []),
+    ...(dnsRows.length > 0 ? [{ label: t("dns.title"), icon: ShieldCheck, to: "/dns" }] : []),
+    ...(haRows.length > 0
+      ? [{
+          label: t("systems.types.homeassistant"),
+          icon: House,
+          to: haRows.length === 1 ? `/ha/${haRows[0].id}` : "/ha",
+        }]
+      : []),
+  ];
 
   const pages = [
     { label: t("nav.overview"), icon: Home, to: "/" },
@@ -104,13 +127,9 @@ export function CommandPalette({
                     {p.label}
                   </PaletteItem>
                 ))}
-                {haInstances.map((instance) => (
-                  <PaletteItem
-                    key={instance.id}
-                    icon={<House className="size-4" />}
-                    onSelect={() => go(`/ha/${instance.id}`)}
-                  >
-                    {instance.name}
+                {systemEntries.map((entry) => (
+                  <PaletteItem key={entry.to} icon={<entry.icon className="size-4" />} onSelect={() => go(entry.to)}>
+                    {entry.label}
                   </PaletteItem>
                 ))}
               </Command.Group>

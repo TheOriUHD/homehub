@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
@@ -50,6 +50,7 @@ type TabKey = "overview" | "inspect" | "logs" | "shell";
 export function DockerContainerDetailPage() {
   const { t } = useTranslation();
   const { instanceId, name } = useParams({ from: "/shell/docker/$instanceId/containers/$name" });
+  const { tab: initialTab } = useSearch({ from: "/shell/docker/$instanceId/containers/$name" });
   const navigate = useNavigate();
   const { can } = useAuth();
   const queryClient = useQueryClient();
@@ -63,7 +64,7 @@ export function DockerContainerDetailPage() {
   });
   useLiveInvalidate(`integration:docker/${instanceId}`, containerKeys, ["containers-changed"]);
 
-  const [tab, setTab] = useState<TabKey>("overview");
+  const [tab, setTab] = useState<TabKey>(initialTab ?? "overview");
   const containerRes = `docker/${instanceId}/container/${name}`;
   const canControl = can(containerRes, "control");
   const canDelete = can(containerRes, "delete");
