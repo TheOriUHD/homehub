@@ -416,7 +416,12 @@
       "nameHintDocker": "e.g. “NAS Docker”",
       "nameHintPihole": "e.g. “Pi-hole primary”",
       "nameHintAdguard": "e.g. “AdGuard Home”",
-      "nameHintHa": "e.g. “Home”"
+      "nameHintHa": "e.g. “Home”",
+      "nameHintMysql": "How this server appears in HomeHub, e.g. \"MariaDB main\"",
+      "nameHintMongo": "How this server appears in HomeHub, e.g. \"MongoDB media\"",
+      "nameHintTruenas": "How this NAS appears in HomeHub",
+      "nameHintMc": "How this server appears in HomeHub, e.g. \"Survival server\"",
+      "secretKeep": "Leave empty to keep the stored value"
     },
     "pve": {
       "host": "Host",
@@ -480,6 +485,40 @@
       "token": "Long-lived access token",
       "tokenHint": "Create one under your Home Assistant profile → Security → Long-lived access tokens",
       "tokenKeep": "Leave empty to keep the stored token"
+    },
+    "mysql": {
+      "host": "Host",
+      "hostHint": "Address and port — 3306 is the default",
+      "username": "Username",
+      "usernameHint": "A monitoring user with PROCESS and SELECT works best; full features need broader rights",
+      "password": "Password",
+      "tls": "Use TLS",
+      "tlsHint": "Encrypt the connection to the server"
+    },
+    "mongodb": {
+      "host": "Host",
+      "hostHint": "Address and port — 27017 is the default",
+      "username": "Username",
+      "usernameHint": "Leave empty only if the server allows anonymous access",
+      "password": "Password",
+      "authSource": "Auth database",
+      "authSourceHint": "Where the user is defined — admin by default",
+      "tls": "Use TLS",
+      "tlsHint": "Encrypt the connection to the server"
+    },
+    "truenas": {
+      "host": "Host",
+      "hostHint": "The TrueNAS web address, e.g. truenas.lan or https://192.168.1.8",
+      "apiKey": "API key",
+      "apiKeyHint": "Create one in TrueNAS under Credentials → API Keys",
+      "insecureTls": "Skip TLS verification",
+      "insecureTlsHint": "Needed for the self-signed certificate TrueNAS ships with"
+    },
+    "minecraft": {
+      "howTitle": "How pairing works",
+      "step1": "Create the instance — you land on its Setup tab.",
+      "step2": "Download the companion for your server type (Paper/Spigot, Velocity, Fabric, or Forge) and drop it in the server's plugins or mods folder.",
+      "step3": "Pair with the 6-digit code from the Setup tab — either in homehub-companion.properties or with /homehub pair from the server console. The server connects outward; no ports to open."
     }
   },
   "systems": {
@@ -505,7 +544,8 @@
     },
     "wizard": {
       "title": "Add system",
-      "intro": "What do you want to connect?"
+      "intro": "What do you want to connect?",
+      "noForm": "This system type has no setup form yet."
     },
     "types": {
       "proxmox": "Proxmox VE",
