@@ -1296,9 +1296,11 @@ function ConsoleTab({
           </Button>
         </div>
         {/* Fill the rest of the viewport instead of a fixed height, so the
-            console uses the whole screen below the chrome above it. */}
+            console uses the whole screen below the chrome above it. The VNC
+            stage draws its own border hugging the scaled display, so only
+            the terminal keeps the outer frame. */}
         <div
-          className="border-edge overflow-hidden rounded-lg border"
+          className={session.mode === "vnc" ? undefined : "border-edge overflow-hidden rounded-lg border"}
           style={{ height: "max(480px, calc(100vh - 21rem))" }}
         >
           <Suspense fallback={<PageLoader className="h-full" />}>

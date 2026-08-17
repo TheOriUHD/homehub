@@ -28,9 +28,55 @@ export function VncViewer({
   className?: string;
 }) {
   const { t } = useTranslation();
+  const rootRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<VncStatus>({ kind: "connecting" });
   const [attempt, setAttempt] = useState(0);
+
+  // Fit the stage (the box noVNC renders into) to the remote framebuffer's
+  // aspect ratio within the available area, so the visible display always
+  // fills its border exactly — no letterbox inside the pane.
+  useEffect(() => {
+    const root = rootRef.current;
+    const stage = containerRef.current;
+    if (!root || !stage) return;
+
+    const fit = () => {
+      const canvas = stage.querySelector("canvas");
+      const fbW = canvas?.width ?? 0;
+      const fbH = canvas?.height ?? 0;
+      const availW = root.clientWidth;
+      const availH = root.clientHeight;
+      if (!fbW || !fbH || !availW || !availH) {
+        stage.style.width = "100%";
+        stage.style.height = "100%";
+        return;
+      }
+      const scale = Math.min(availW / fbW, availH / fbH);
+      stage.style.width = `${Math.floor(fbW * scale)}px`;
+      stage.style.height = `${Math.floor(fbH * scale)}px`;
+    };
+
+    // The framebuffer size lives on the canvas element's width/height
+    // attributes; QEMU can change it mid-session on guest mode switches.
+    const attrObserver = new MutationObserver(fit);
+    const domObserver = new MutationObserver(() => {
+      const canvas = stage.querySelector("canvas");
+      if (canvas) {
+        attrObserver.observe(canvas, { attributes: true, attributeFilter: ["width", "height"] });
+        fit();
+      }
+    });
+    domObserver.observe(stage, { childList: true, subtree: true });
+    const resizeObserver = new ResizeObserver(fit);
+    resizeObserver.observe(root);
+    fit();
+    return () => {
+      attrObserver.disconnect();
+      domObserver.disconnect();
+      resizeObserver.disconnect();
+    };
+  }, [attempt]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -83,8 +129,16 @@ export function VncViewer({
         : t("term.vncDisconnected");
 
   return (
-    <div className={cn("bg-bg-subtle relative h-full min-h-0 w-full overflow-hidden", className)}>
-      <div ref={containerRef} className="absolute inset-0" />
+    <div
+      ref={rootRef}
+      className={cn("relative flex h-full min-h-0 w-full items-center justify-center overflow-hidden", className)}
+    >
+      {/* The stage hugs the scaled display; the border travels with it. */}
+      <div
+        ref={containerRef}
+        className="border-edge overflow-hidden rounded-lg border bg-black"
+        style={{ width: "100%", height: "100%" }}
+      />
 
       {status.kind === "connecting" && (
         <div
