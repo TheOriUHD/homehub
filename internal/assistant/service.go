@@ -51,7 +51,14 @@ Minecraft console commands, AMP and Proxmox guest lifecycle, DNS blocking. Every
 runs under the user's own permissions and is audited. When the user gives an explicit
 instruction, act. For disruptive actions the user did NOT explicitly ask for
 (stopping or rebooting VMs, containers, or game servers), ask before acting.
-After an action, confirm what happened from the tool result — do not assume.`)
+After an action, confirm what happened from the tool result — do not assume; if a tool
+result shows an error or a failed console reaction, say the action failed and why.
+You do NOT have: SSH or shell access, file access, or lifecycle control of standalone
+Minecraft servers (only AMP instances, Docker containers, and Proxmox guests can be
+started/stopped). When a request needs a capability you lack, say so plainly and
+suggest where the user can do it — never offer to attempt it anyway.
+When a command needs an in-game or device name you don't know, look it up with the
+detail tools before asking the user.`)
 }
 
 // RunTurn executes one user message: history in, tool loop, reply out.
