@@ -4990,6 +4990,10 @@ paths:
                   tools:
                     type: array
                     items: { type: string }
+                  steps:
+                    type: array
+                    description: Tool invocations this turn, inputs included — the UI builds action chips from these.
+                    items: { $ref: "#/components/schemas/AssistantStep" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
@@ -5022,6 +5026,9 @@ paths:
                     tools:
                       type: array
                       items: { type: string }
+                    steps:
+                      type: array
+                      items: { $ref: "#/components/schemas/AssistantStep" }
                     ts: { type: string, format: date-time }
     delete:
       operationId: clearAssistantHistory
@@ -5446,6 +5453,16 @@ components:
               name: { type: string }
               status: { type: string, enum: [connected, degraded, unreachable] }
               lastError: { type: string, nullable: true }
+
+    AssistantStep:
+      type: object
+      required: [tool]
+      properties:
+        tool: { type: string }
+        input:
+          type: object
+          additionalProperties: true
+        isError: { type: boolean }
 
     AppSettings:
       type: object

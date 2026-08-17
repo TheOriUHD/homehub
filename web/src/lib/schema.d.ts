@@ -3464,6 +3464,13 @@ export interface components {
                 lastError?: string | null;
             }[];
         };
+        AssistantStep: {
+            tool: string;
+            input?: {
+                [key: string]: unknown;
+            };
+            isError?: boolean;
+        };
         AppSettings: {
             /** @description External base URL, used for invite links and passkey origin validation */
             appUrl: string;
@@ -10279,6 +10286,8 @@ export interface operations {
                     "application/json": {
                         reply: string;
                         tools: string[];
+                        /** @description Tool invocations this turn, inputs included — the UI builds action chips from these. */
+                        steps?: components["schemas"]["AssistantStep"][];
                     };
                 };
             };
@@ -10317,6 +10326,7 @@ export interface operations {
                         role: "user" | "assistant";
                         content: string;
                         tools?: string[];
+                        steps?: components["schemas"]["AssistantStep"][];
                         /** Format: date-time */
                         ts: string;
                     }[];

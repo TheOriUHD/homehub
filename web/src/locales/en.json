@@ -2695,6 +2695,19 @@
     "apiKeyOptionalHint": "Local runtimes usually need no key — leave empty unless yours requires one.",
     "apiKeyPlaceholder": "sk-…",
     "groupCloud": "Cloud",
-    "groupLocal": "Local / self-hosted"
+    "groupLocal": "Local / self-hosted",
+    "widgetSubtitle": "Your homelab, on call",
+    "openWidget": "Open assistant",
+    "openFull": "Open full page",
+    "chips": {
+      "tapHint": "tap a chip to control",
+      "devices": "{{count}} devices",
+      "toggle": "Toggle {{name}}",
+      "brightness": "Brightness",
+      "controlFailed": "Control failed",
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart"
+    }
   }
 }

@@ -174,7 +174,31 @@ func (s *Server) AssistantChat(ctx context.Context, req AssistantChatRequestObje
 		return AssistantChat502JSONResponse{UpstreamErrorJSONResponse(errBody("assistant_failed", err.Error()))}, nil
 	}
 	s.audit.Log(ctx, actorFor(id), "assistant.chat", "system/settings", "success", map[string]any{"tools": toolNames})
-	return AssistantChat200JSONResponse{Reply: reply, Tools: toolNames}, nil
+	out := AssistantChat200JSONResponse{Reply: reply, Tools: toolNames}
+	if apiSteps := stepsToAPI(steps); len(apiSteps) > 0 {
+		out.Steps = &apiSteps
+	}
+	return out, nil
+}
+
+// stepsToAPI maps service step info to the wire shape.
+func stepsToAPI(steps []assistant.StepInfo) []AssistantStep {
+	out := make([]AssistantStep, 0, len(steps))
+	for _, step := range steps {
+		entry := AssistantStep{Tool: step.Tool}
+		if len(step.Input) > 0 {
+			var input map[string]interface{}
+			if json.Unmarshal(step.Input, &input) == nil {
+				entry.Input = &input
+			}
+		}
+		if step.IsError {
+			v := true
+			entry.IsError = &v
+		}
+		out = append(out, entry)
+	}
+	return out
 }
 
 func (s *Server) GetAssistantHistory(ctx context.Context, _ GetAssistantHistoryRequestObject) (GetAssistantHistoryResponseObject, error) {
@@ -192,6 +216,7 @@ func (s *Server) GetAssistantHistory(ctx context.Context, _ GetAssistantHistoryR
 			Content string                                     `json:"content"`
 			Id      int64                                      `json:"id"`
 			Role    GetAssistantHistory200JSONResponseBodyRole `json:"role"`
+			Steps   *[]AssistantStep                           `json:"steps,omitempty"`
 			Tools   *[]string                                  `json:"tools,omitempty"`
 			Ts      time.Time                                  `json:"ts"`
 		}{
@@ -202,6 +227,9 @@ func (s *Server) GetAssistantHistory(ctx context.Context, _ GetAssistantHistoryR
 		}
 		if names := toolNamesFromTrace(row.ToolTrace); len(names) > 0 {
 			item.Tools = &names
+		}
+		if steps := stepsFromTrace(row.ToolTrace); len(steps) > 0 {
+			item.Steps = &steps
 		}
 		out = append(out, item)
 	}
@@ -217,6 +245,18 @@ func (s *Server) ClearAssistantHistory(ctx context.Context, _ ClearAssistantHist
 		return nil, err
 	}
 	return ClearAssistantHistory204Response{}, nil
+}
+
+// stepsFromTrace rehydrates full steps (with inputs) from a stored trace.
+func stepsFromTrace(trace json.RawMessage) []AssistantStep {
+	if len(trace) == 0 {
+		return nil
+	}
+	var steps []assistant.StepInfo
+	if json.Unmarshal(trace, &steps) != nil {
+		return nil
+	}
+	return stepsToAPI(steps)
 }
 
 // toolNamesFromTrace extracts the tool names from a stored trace.
