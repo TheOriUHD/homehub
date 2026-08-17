@@ -24,6 +24,10 @@ import { PveSummaryPage } from "./pages/pve/summary";
 import { PveGuestsPage } from "./pages/pve/guests";
 import { PveGuestDetailPage } from "./pages/pve/guest-detail";
 import { PveBackupsPage, PveStoragePage, PveTasksPage } from "./pages/pve/misc";
+import { DockerModulePage } from "./pages/docker/module";
+import { DockerContainersPage } from "./pages/docker/containers";
+import { DockerContainerDetailPage } from "./pages/docker/container-detail";
+import { DockerImagesPage, DockerNetworksPage, DockerStacksPage, DockerVolumesPage } from "./pages/docker/misc";
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -158,6 +162,48 @@ const pveBackupsRoute = createRoute({
   component: PveBackupsPage,
 });
 
+const dockerModuleRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/docker/$instanceId",
+  component: DockerModulePage,
+});
+
+const dockerContainersRoute = createRoute({
+  getParentRoute: () => dockerModuleRoute,
+  path: "/",
+  component: DockerContainersPage,
+});
+
+const dockerContainerDetailRoute = createRoute({
+  getParentRoute: () => dockerModuleRoute,
+  path: "/containers/$name",
+  component: DockerContainerDetailPage,
+});
+
+const dockerStacksRoute = createRoute({
+  getParentRoute: () => dockerModuleRoute,
+  path: "/stacks",
+  component: DockerStacksPage,
+});
+
+const dockerImagesRoute = createRoute({
+  getParentRoute: () => dockerModuleRoute,
+  path: "/images",
+  component: DockerImagesPage,
+});
+
+const dockerVolumesRoute = createRoute({
+  getParentRoute: () => dockerModuleRoute,
+  path: "/volumes",
+  component: DockerVolumesPage,
+});
+
+const dockerNetworksRoute = createRoute({
+  getParentRoute: () => dockerModuleRoute,
+  path: "/networks",
+  component: DockerNetworksPage,
+});
+
 const routeTree = rootRoute.addChildren([
   setupRoute,
   loginRoute,
@@ -180,6 +226,14 @@ const routeTree = rootRoute.addChildren([
       pveStorageRoute,
       pveTasksRoute,
       pveBackupsRoute,
+    ]),
+    dockerModuleRoute.addChildren([
+      dockerContainersRoute,
+      dockerContainerDetailRoute,
+      dockerStacksRoute,
+      dockerImagesRoute,
+      dockerVolumesRoute,
+      dockerNetworksRoute,
     ]),
   ]),
 ]);
