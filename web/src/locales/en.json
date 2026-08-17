@@ -1827,7 +1827,10 @@
       "propertiesLabel": "homehub-companion.properties",
       "commandLabel": "…or from the server console",
       "step4": "Start (or restart) the server",
-      "step4Body": "The companion pairs, then reconnects automatically from here on — nothing else to do."
+      "step4Body": "The companion pairs, then reconnects automatically from here on — nothing else to do.",
+      "back": "Back to console",
+      "modeInGame": "In-game",
+      "modeConsole": "Console"
     },
     "performance": {
       "tps": "TPS",
@@ -1838,6 +1841,15 @@
         "title": "No performance data yet",
         "body": "Charts appear once the companion starts reporting TPS, players, and memory."
       }
+    },
+    "landing": {
+      "title": "Minecraft",
+      "subtitle": "Every server with its live players, tick rate, and memory.",
+      "serversConnected": "servers connected",
+      "playersOnline": "players online",
+      "emptyTitle": "No servers yet",
+      "emptyBody": "Add a Minecraft server under Administration → Systems and pair its companion.",
+      "notPairedMeta": "not paired yet"
     }
   },
   "history": {

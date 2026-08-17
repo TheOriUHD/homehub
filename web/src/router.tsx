@@ -39,6 +39,7 @@ import { HaBoardPage } from "./pages/ha/board";
 import { HaEntitiesPage } from "./pages/ha/entities";
 import { HaAutomationsPage } from "./pages/ha/automations";
 import { McModulePage } from "./pages/mc/module";
+import { McLandingPage } from "./pages/mc/landing";
 import { McConsolePage } from "./pages/mc/console";
 import { McPlayersPage } from "./pages/mc/players";
 import { McSetupPage } from "./pages/mc/setup";
@@ -205,7 +206,7 @@ const haLandingRoute = createRoute({
 const mcLandingRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/mc",
-  component: () => <SystemTypeLanding type="minecraft" />,
+  component: McLandingPage,
 });
 
 const truenasLandingRoute = createRoute({

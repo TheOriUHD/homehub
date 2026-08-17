@@ -1,7 +1,9 @@
-import { Link, Outlet, useParams, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, Pickaxe } from "lucide-react";
+import { AlertTriangle, MoreHorizontal, Pickaxe, Wrench } from "lucide-react";
 import type { ReactNode } from "react";
+import { Button } from "@/ui/button";
+import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "@/ui/dropdown";
 import { useAuth } from "@/lib/auth";
 import { capacityTextClass } from "@/lib/capacity";
 import { useLiveInvalidate } from "@/lib/live";
@@ -19,6 +21,7 @@ export function McModulePage() {
   const { t } = useTranslation();
   const { instanceId } = useParams({ from: "/shell/mc/$instanceId" });
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
   const { can } = useAuth();
 
   const integrations = useIntegrations();
@@ -47,10 +50,11 @@ export function McModulePage() {
 
   const canConfigure = can(mcResource(instanceId), "configure");
   const base = `/mc/${instanceId}`;
+  // Setup is deliberately NOT a tab — it's a one-time admin task, reached
+  // through the header's overflow menu instead of taking permanent space.
   const tabs = [
     { to: base, label: t("mc.tabs.console"), exact: true },
     { to: `${base}/players`, label: t("mc.tabs.players") },
-    ...(canConfigure ? [{ to: `${base}/setup`, label: t("mc.tabs.setup") }] : []),
     { to: `${base}/performance`, label: t("mc.tabs.performance") },
   ];
 
@@ -113,6 +117,24 @@ export function McModulePage() {
               />
             )}
           </div>
+        )}
+
+        {canConfigure && (
+          <Dropdown>
+            <DropdownTrigger asChild>
+              <Button size="sm" variant="ghost" aria-label={t("common.actions")}>
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownTrigger>
+            <DropdownContent align="end">
+              <DropdownItem
+                onSelect={() => void navigate({ to: "/mc/$instanceId/setup", params: { instanceId } })}
+              >
+                <Wrench className="size-3.5" />
+                {t("mc.tabs.setup")}
+              </DropdownItem>
+            </DropdownContent>
+          </Dropdown>
         )}
       </div>
 
