@@ -31,6 +31,9 @@ import { DockerModulePage } from "./pages/docker/module";
 import { DockerContainersPage } from "./pages/docker/containers";
 import { DockerContainerDetailPage } from "./pages/docker/container-detail";
 import { DockerImagesPage, DockerNetworksPage, DockerStacksPage, DockerVolumesPage } from "./pages/docker/misc";
+import { HaModulePage } from "./pages/ha/module";
+import { HaDashboardPage } from "./pages/ha/dashboard";
+import { HaAutomationsPage } from "./pages/ha/automations";
 import { DnsModulePage } from "./pages/dns/module";
 import { DnsOverviewPage } from "./pages/dns/overview";
 import { DnsQueryLogPage } from "./pages/dns/querylog";
@@ -231,6 +234,24 @@ const dockerNetworksRoute = createRoute({
   component: DockerNetworksPage,
 });
 
+const haModuleRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/ha/$instanceId",
+  component: HaModulePage,
+});
+
+const haDashboardRoute = createRoute({
+  getParentRoute: () => haModuleRoute,
+  path: "/",
+  component: HaDashboardPage,
+});
+
+const haAutomationsRoute = createRoute({
+  getParentRoute: () => haModuleRoute,
+  path: "/automations",
+  component: HaAutomationsPage,
+});
+
 const dnsModuleRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/dns",
@@ -301,6 +322,7 @@ const routeTree = rootRoute.addChildren([
       dockerVolumesRoute,
       dockerNetworksRoute,
     ]),
+    haModuleRoute.addChildren([haDashboardRoute, haAutomationsRoute]),
     dnsModuleRoute.addChildren([
       dnsOverviewRoute,
       dnsQueriesRoute,

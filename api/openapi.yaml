@@ -2739,6 +2739,98 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /ha/instances:
+    get:
+      operationId: haListInstances
+      summary: All Home Assistant instances
+      description: Every enabled Home Assistant instance the caller may see, with live overview data when connected.
+      tags: [homeassistant]
+      responses:
+        "200":
+          description: Visible instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/HaInstance" }
+
+  /ha/{id}/entities:
+    get:
+      operationId: haListEntities
+      summary: Entities with live state
+      description: The joined registry + state view, filtered to entities the caller may view. Areas the caller cannot see any entity in are absent from the area list.
+      tags: [homeassistant]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: domain
+          in: query
+          description: Restrict to one domain, e.g. light
+          schema: { type: string }
+      responses:
+        "200":
+          description: Entities and the areas they resolve to
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entities, areas]
+                properties:
+                  entities:
+                    type: array
+                    items: { $ref: "#/components/schemas/HaEntity" }
+                  areas:
+                    type: array
+                    items: { $ref: "#/components/schemas/HaArea" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /ha/{id}/entities/{entityId}:
+    get:
+      operationId: haGetEntity
+      summary: One entity
+      tags: [homeassistant]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/haEntityId"
+      responses:
+        "200":
+          description: The entity
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HaEntity" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /ha/{id}/entities/{entityId}/service:
+    post:
+      operationId: haCallService
+      summary: Call a service on an entity
+      description: Invokes a service in the entity's own domain (light.turn_on, climate.set_temperature, automation.trigger, …). Requires control on the entity; the upstream service error is surfaced verbatim on failure.
+      tags: [homeassistant]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/haEntityId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HaServiceCall" }
+      responses:
+        "204":
+          description: Service call accepted by Home Assistant
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /backups/targets:
     get:
       operationId: listBackupTargets
@@ -3341,6 +3433,12 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    haEntityId:
+      name: entityId
+      in: path
+      required: true
+      description: Home Assistant entity id, e.g. light.kitchen
+      schema: { type: string, pattern: "^[a-z0-9_]+\\.[a-z0-9_]+$" }
     vmidParam:
       name: vmid
       in: path
@@ -4226,6 +4324,72 @@ components:
       properties:
         enabled: { type: boolean }
         until: { type: string, format: date-time, nullable: true }
+
+    HaInstance:
+      type: object
+      required: [id, name, status, statusMessage, entityCount]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status:
+          type: string
+          enum: [pending, connecting, connected, degraded, unreachable, disabled]
+        statusMessage: { type: string }
+        entityCount:
+          type: integer
+          description: Entities visible to the caller, 0 while disconnected
+        info:
+          allOf:
+            - $ref: "#/components/schemas/HaInfo"
+          nullable: true
+
+    HaInfo:
+      type: object
+      required: [version, locationName]
+      properties:
+        version: { type: string }
+        locationName: { type: string }
+        timeZone: { type: string }
+        country: { type: string }
+
+    HaArea:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+
+    HaEntity:
+      type: object
+      required: [entityId, domain, objectId, name, state, attributes, lastChanged, lastUpdated]
+      properties:
+        entityId: { type: string }
+        domain: { type: string }
+        objectId: { type: string }
+        name: { type: string }
+        areaId: { type: string }
+        category:
+          type: string
+          description: config or diagnostic for registry-categorized entities, absent for primary entities
+        state: { type: string }
+        attributes:
+          type: object
+          additionalProperties: true
+        lastChanged: { type: string, format: date-time }
+        lastUpdated: { type: string, format: date-time }
+
+    HaServiceCall:
+      type: object
+      required: [service]
+      properties:
+        service:
+          type: string
+          pattern: "^[a-z0-9_]+$"
+          description: Service name within the entity's domain, e.g. turn_on
+        data:
+          type: object
+          additionalProperties: true
+          description: 'Service data, e.g. {"brightness": 200}'
 
     DnsInstance:
       type: object

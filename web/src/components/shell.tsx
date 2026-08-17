@@ -11,6 +11,7 @@ import {
   Eye,
   FileClock,
   Home,
+  House,
   KeyRound,
   LogOut,
   Menu,
@@ -116,7 +117,7 @@ export function AppShell() {
     staleTime: 30_000,
   });
   const systems = (integrations.data ?? []).filter(
-    (row) => row.enabled && (row.type === "proxmox" || row.type === "docker"),
+    (row) => row.enabled && (row.type === "proxmox" || row.type === "docker" || row.type === "homeassistant"),
   );
   // DNS is one module spanning all Pi-hole/AdGuard instances — a single nav
   // entry whose dot aggregates the worst instance status.
@@ -156,11 +157,18 @@ export function AppShell() {
             </p>
             <div className="space-y-0.5">
               {systems.map((system) => {
-                const base = system.type === "docker" ? `/docker/${system.id}` : `/pve/${system.id}`;
+                const base =
+                  system.type === "docker"
+                    ? `/docker/${system.id}`
+                    : system.type === "homeassistant"
+                      ? `/ha/${system.id}`
+                      : `/pve/${system.id}`;
+                const icon =
+                  system.type === "docker" ? Container : system.type === "homeassistant" ? House : Server;
                 return (
                   <SidebarLink
                     key={system.id}
-                    item={{ to: base, label: system.name, icon: system.type === "docker" ? Container : Server }}
+                    item={{ to: base, label: system.name, icon }}
                     active={pathname.startsWith(base)}
                     status={system.status}
                   />

@@ -67,7 +67,7 @@ type Deps struct {
 	// Secret reads a named secret for this instance from the vault.
 	Secret func(ctx context.Context, name string) (string, error)
 	// Publish emits an event on the instance's WS topic
-	// ("integration:<id>"); payloads must be JSON-marshalable.
+	// ("integration:<type>/<id>"); payloads must be JSON-marshalable.
 	Publish func(event string, data any)
 }
 
