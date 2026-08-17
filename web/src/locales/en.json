@@ -517,7 +517,9 @@
       "apiKey": "API key",
       "apiKeyHint": "Create one in TrueNAS under Credentials → API Keys",
       "insecureTls": "Skip TLS verification",
-      "insecureTlsHint": "Needed for the self-signed certificate TrueNAS ships with"
+      "insecureTlsHint": "Needed for the self-signed certificate TrueNAS ships with",
+      "username": "NAS username (recommended on 25.x)",
+      "usernameHint": "The account the API key belongs to. With it, HomeHub uses the modern WebSocket API instead of the deprecated REST API your NAS alerts about."
     },
     "minecraft": {
       "howTitle": "How pairing works",

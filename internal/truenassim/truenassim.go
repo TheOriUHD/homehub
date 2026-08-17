@@ -9,6 +9,8 @@
 package truenassim
 
 import (
+	"github.com/coder/websocket"
+
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -49,7 +51,110 @@ func Handler(apiKey string) http.Handler {
 	mux.HandleFunc("/api/v2.0/replication", auth(s.replication))
 	mux.HandleFunc("/api/v2.0/alert/list", auth(s.alerts))
 	mux.HandleFunc("/api/v2.0/reporting/get_data", auth(s.reporting))
+	// The 25.x JSON-RPC WebSocket API — user-linked keys log in with the
+	// owning username ("simuser") via auth.login_ex.
+	mux.HandleFunc("/api/current", s.wsAPI)
 	return mux
+}
+
+// WSUsername is the account the sim's API key belongs to.
+const WSUsername = "simuser"
+
+// wsAPI is the JSON-RPC 2.0 endpoint mirroring TrueNAS 25.x behavior:
+// every method except auth.* answers ENOTAUTHENTICATED until login_ex
+// succeeds with the right username + key.
+func (s *state) wsAPI(w http.ResponseWriter, r *http.Request) {
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: []string{"*"}})
+	if err != nil {
+		return
+	}
+	ctx := r.Context()
+	defer conn.Close(websocket.StatusNormalClosure, "")
+	conn.SetReadLimit(8 << 20)
+	authed := false
+
+	reply := func(id json.RawMessage, result any) {
+		raw, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": json.RawMessage(id), "result": result})
+		_ = conn.Write(ctx, websocket.MessageText, raw)
+	}
+	replyErr := func(id json.RawMessage, errname, reason string) {
+		raw, _ := json.Marshal(map[string]any{
+			"jsonrpc": "2.0", "id": json.RawMessage(id),
+			"error": map[string]any{"code": -32001, "message": "Method call error",
+				"data": map[string]any{"errname": errname, "reason": reason}},
+		})
+		_ = conn.Write(ctx, websocket.MessageText, raw)
+	}
+
+	for {
+		_, raw, err := conn.Read(ctx)
+		if err != nil {
+			return
+		}
+		var req struct {
+			ID     json.RawMessage   `json:"id"`
+			Method string            `json:"method"`
+			Params []json.RawMessage `json:"params"`
+		}
+		if json.Unmarshal(raw, &req) != nil {
+			continue
+		}
+		switch req.Method {
+		case "auth.login_ex":
+			var arg struct {
+				Mechanism string `json:"mechanism"`
+				Username  string `json:"username"`
+				APIKey    string `json:"api_key"`
+			}
+			if len(req.Params) > 0 {
+				_ = json.Unmarshal(req.Params[0], &arg)
+			}
+			if arg.Mechanism == "API_KEY_PLAIN" && arg.Username == WSUsername && arg.APIKey == s.apiKey {
+				authed = true
+				reply(req.ID, map[string]any{"response_type": "SUCCESS"})
+			} else {
+				reply(req.ID, map[string]any{"response_type": "AUTH_ERR"})
+			}
+		case "auth.login_with_api_key":
+			// User-linked keys refuse the bare login, like real 25.x.
+			reply(req.ID, false)
+		default:
+			if !authed {
+				replyErr(req.ID, "ENOTAUTHENTICATED", "[ENOTAUTHENTICATED] Not authenticated")
+				continue
+			}
+			switch req.Method {
+			case "system.info":
+				reply(req.ID, s.info)
+			case "pool.query":
+				reply(req.ID, s.poolList)
+			case "pool.dataset.query":
+				reply(req.ID, s.dsList)
+			case "disk.query":
+				reply(req.ID, s.diskList)
+			case "sharing.smb.query":
+				reply(req.ID, s.smbList)
+			case "sharing.nfs.query":
+				reply(req.ID, s.nfsList)
+			case "iscsi.target.query":
+				reply(req.ID, s.iscsiList)
+			case "pool.snapshot.query":
+				reply(req.ID, s.snapList)
+			case "alert.list":
+				reply(req.ID, s.alertList)
+			case "replication.query":
+				reply(req.ID, s.repList)
+			case "reporting.netdata_get_data":
+				const gib = float64(int64(1) << 30)
+				reply(req.ID, []map[string]any{
+					{"name": "memory", "legend": []string{"time", "available"}, "data": [][]float64{{1755400000, 21 * gib}}},
+					{"name": "arcsize", "legend": []string{"time", "arc_size"}, "data": [][]float64{{1755400000, 24 * gib}}},
+				})
+			default:
+				replyErr(req.ID, "ENOMETHOD", "Method does not exist")
+			}
+		}
+	}
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

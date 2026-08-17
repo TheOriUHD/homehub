@@ -2,6 +2,7 @@ package truenas
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"strconv"
 	"strings"
@@ -191,11 +192,29 @@ type NormShare struct {
 type Conn struct {
 	inst   integration.Instance
 	client *client
+	// ws is non-nil when a username is configured — the preferred 25.x
+	// JSON-RPC transport; REST stays as the fallback and legacy path.
+	ws *wsClient
+}
+
+// fetch reads one resource over the preferred transport: the WebSocket
+// JSON-RPC API when configured (25.x deprecates REST and alerts on its
+// use), the REST shim otherwise. Auth failures on the socket are surfaced,
+// not silently downgraded — the operator asked for that transport.
+func (c *Conn) fetch(ctx context.Context, wsMethod string, wsParams []any, restVerb, restPath string, restBody, out any) error {
+	if c.ws != nil {
+		err := c.ws.call(ctx, wsMethod, wsParams, out)
+		if err == nil || errors.Is(err, errWsAuth) {
+			return err
+		}
+		// Transport-level trouble: keep the page alive via REST this once.
+	}
+	return c.client.call(ctx, restVerb, restPath, restBody, out)
 }
 
 func (c *Conn) Info(ctx context.Context) (*SystemInfo, error) {
 	var info SystemInfo
-	if err := c.client.call(ctx, "GET", "/system/info", nil, &info); err != nil {
+	if err := c.fetch(ctx, "system.info", nil, "GET", "/system/info", nil, &info); err != nil {
 		return nil, err
 	}
 	return &info, nil
@@ -203,7 +222,7 @@ func (c *Conn) Info(ctx context.Context) (*SystemInfo, error) {
 
 func (c *Conn) Pools(ctx context.Context) ([]NormPool, error) {
 	var pools []Pool
-	if err := c.client.call(ctx, "GET", "/pool", nil, &pools); err != nil {
+	if err := c.fetch(ctx, "pool.query", nil, "GET", "/pool", nil, &pools); err != nil {
 		return nil, err
 	}
 	out := make([]NormPool, 0, len(pools))
@@ -224,7 +243,7 @@ func (c *Conn) Pools(ctx context.Context) ([]NormPool, error) {
 
 func (c *Conn) Datasets(ctx context.Context) ([]NormDataset, error) {
 	var datasets []Dataset
-	if err := c.client.call(ctx, "GET", "/pool/dataset", nil, &datasets); err != nil {
+	if err := c.fetch(ctx, "pool.dataset.query", nil, "GET", "/pool/dataset", nil, &datasets); err != nil {
 		return nil, err
 	}
 	out := make([]NormDataset, 0, len(datasets))
@@ -241,7 +260,7 @@ func (c *Conn) Datasets(ctx context.Context) ([]NormDataset, error) {
 
 func (c *Conn) Disks(ctx context.Context) ([]Disk, error) {
 	var disks []Disk
-	if err := c.client.call(ctx, "GET", "/disk", nil, &disks); err != nil {
+	if err := c.fetch(ctx, "disk.query", nil, "GET", "/disk", nil, &disks); err != nil {
 		return nil, err
 	}
 	sort.Slice(disks, func(i, j int) bool { return disks[i].Name < disks[j].Name })
@@ -251,13 +270,13 @@ func (c *Conn) Disks(ctx context.Context) ([]Disk, error) {
 func (c *Conn) Shares(ctx context.Context) ([]NormShare, error) {
 	out := []NormShare{}
 	var smb []SMBShare
-	if err := c.client.call(ctx, "GET", "/sharing/smb", nil, &smb); err == nil {
+	if err := c.fetch(ctx, "sharing.smb.query", nil, "GET", "/sharing/smb", nil, &smb); err == nil {
 		for _, s := range smb {
 			out = append(out, NormShare{Type: "smb", Name: s.Name, Path: s.Path, Enabled: s.Enabled, Comment: s.Comment})
 		}
 	}
 	var nfs []NFSShare
-	if err := c.client.call(ctx, "GET", "/sharing/nfs", nil, &nfs); err == nil {
+	if err := c.fetch(ctx, "sharing.nfs.query", nil, "GET", "/sharing/nfs", nil, &nfs); err == nil {
 		for _, s := range nfs {
 			path := s.Path
 			if path == "" && len(s.Paths) > 0 {
@@ -268,7 +287,7 @@ func (c *Conn) Shares(ctx context.Context) ([]NormShare, error) {
 		}
 	}
 	var targets []ISCSITarget
-	if err := c.client.call(ctx, "GET", "/iscsi/target", nil, &targets); err == nil {
+	if err := c.fetch(ctx, "iscsi.target.query", nil, "GET", "/iscsi/target", nil, &targets); err == nil {
 		for _, t := range targets {
 			name := t.Name
 			if t.Alias != "" {
@@ -282,7 +301,7 @@ func (c *Conn) Shares(ctx context.Context) ([]NormShare, error) {
 
 func (c *Conn) Snapshots(ctx context.Context, limit int) ([]Snapshot, error) {
 	var snaps []Snapshot
-	if err := c.client.call(ctx, "GET", "/pool/snapshot", nil, &snaps); err != nil {
+	if err := c.fetch(ctx, "pool.snapshot.query", nil, "GET", "/pool/snapshot", nil, &snaps); err != nil {
 		return nil, err
 	}
 	sort.Slice(snaps, func(i, j int) bool { return snaps[i].Created.Date > snaps[j].Created.Date })
@@ -294,15 +313,39 @@ func (c *Conn) Snapshots(ctx context.Context, limit int) ([]Snapshot, error) {
 
 func (c *Conn) Alerts(ctx context.Context) ([]Alert, error) {
 	var alerts []Alert
-	if err := c.client.call(ctx, "GET", "/alert/list", nil, &alerts); err != nil {
+	if err := c.fetch(ctx, "alert.list", nil, "GET", "/alert/list", nil, &alerts); err != nil {
 		return nil, err
+	}
+	// TrueNAS embeds HTML (<br>, links) in alert texts; the UI wants prose.
+	for i := range alerts {
+		alerts[i].Formatted = stripHTML(alerts[i].Formatted)
 	}
 	return alerts, nil
 }
 
+// stripHTML flattens the markup TrueNAS puts into alert messages.
+func stripHTML(s string) string {
+	s = strings.ReplaceAll(s, "<br>", " ")
+	s = strings.ReplaceAll(s, "<br/>", " ")
+	s = strings.ReplaceAll(s, "<br />", " ")
+	var b strings.Builder
+	inTag := false
+	for _, r := range s {
+		switch {
+		case r == '<':
+			inTag = true
+		case r == '>':
+			inTag = false
+		case !inTag:
+			b.WriteRune(r)
+		}
+	}
+	return strings.Join(strings.Fields(b.String()), " ")
+}
+
 func (c *Conn) Replications(ctx context.Context) ([]Replication, error) {
 	var reps []Replication
-	if err := c.client.call(ctx, "GET", "/replication", nil, &reps); err != nil {
+	if err := c.fetch(ctx, "replication.query", nil, "GET", "/replication", nil, &reps); err != nil {
 		return nil, err
 	}
 	return reps, nil
@@ -363,20 +406,29 @@ func (c *Conn) Memory(ctx context.Context) (*MemoryStats, error) {
 		return nil, err
 	}
 	graphsParam := []map[string]string{{"name": "memory"}, {"name": "arcsize"}}
-	// TrueNAS 25.x renamed the query field and requires page >= 1; older
-	// releases only accept the reporting_query form. Try new, fall back.
 	var graphs []reportingData
-	newBody := map[string]any{
-		"graphs": graphsParam,
-		"query":  map[string]any{"unit": "HOUR", "page": 1},
-	}
-	if err := c.client.call(ctx, "POST", "/reporting/get_data", newBody, &graphs); err != nil {
-		legacyBody := map[string]any{
-			"graphs":          graphsParam,
-			"reporting_query": map[string]any{"unit": "HOUR", "page": 0},
+	fetched := false
+	if c.ws != nil {
+		if err := c.ws.call(ctx, "reporting.netdata_get_data",
+			[]any{graphsParam, map[string]any{"unit": "HOUR", "page": 1}}, &graphs); err == nil {
+			fetched = true
 		}
-		if lerr := c.client.call(ctx, "POST", "/reporting/get_data", legacyBody, &graphs); lerr != nil {
-			return nil, err
+	}
+	if !fetched {
+		// TrueNAS 25.x renamed the query field and requires page >= 1;
+		// older releases only accept the reporting_query form.
+		newBody := map[string]any{
+			"graphs": graphsParam,
+			"query":  map[string]any{"unit": "HOUR", "page": 1},
+		}
+		if err := c.client.call(ctx, "POST", "/reporting/get_data", newBody, &graphs); err != nil {
+			legacyBody := map[string]any{
+				"graphs":          graphsParam,
+				"reporting_query": map[string]any{"unit": "HOUR", "page": 0},
+			}
+			if lerr := c.client.call(ctx, "POST", "/reporting/get_data", legacyBody, &graphs); lerr != nil {
+				return nil, err
+			}
 		}
 	}
 	stats := &MemoryStats{TotalBytes: info.PhysicalMem}
