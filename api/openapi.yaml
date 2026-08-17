@@ -4900,6 +4900,55 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 
+  /prefs/{key}:
+    get:
+      operationId: getUserPref
+      summary: The caller's saved preference document for one surface
+      tags: [account]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64, pattern: "^[a-z][a-z0-9-]*$" }
+      responses:
+        "200":
+          description: The stored document, or null when never saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [value]
+                properties:
+                  value:
+                    type: object
+                    additionalProperties: true
+                    nullable: true
+    put:
+      operationId: putUserPref
+      summary: Save the caller's preference document for one surface
+      tags: [account]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64, pattern: "^[a-z][a-z0-9-]*$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
   /metrics/query:
     get:
       operationId: queryMetrics

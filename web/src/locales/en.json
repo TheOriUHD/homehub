@@ -172,6 +172,23 @@
       "backupFailed": "Failed",
       "backupNever": "Never",
       "details": "System health"
+    },
+    "customize": "Customize",
+    "customizeTitle": "Customize overview",
+    "customizeBody": "Choose which cards appear on your overview and pin the ones that matter most. Saved to your account.",
+    "showCard": "Show {{name}}",
+    "cardNames": {
+      "hub": "HomeHub vitals",
+      "nvr": "Cameras",
+      "pve": "Proxmox nodes",
+      "mc": "Minecraft servers",
+      "nas": "Storage",
+      "ts": "Tailnet",
+      "dns": "DNS filtering",
+      "docker": "Containers",
+      "amp": "AMP servers",
+      "caddy": "Caddy sites",
+      "db": "Databases"
     }
   },
   "health": {

@@ -3172,6 +3172,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/prefs/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's saved preference document for one surface */
+        get: operations["getUserPref"];
+        /** Save the caller's preference document for one surface */
+        put: operations["putUserPref"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/metrics/query": {
         parameters: {
             query?: never;
@@ -10080,6 +10098,61 @@ export interface operations {
                     eventType: string;
                     inapp: boolean;
                     channelIds: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    getUserPref: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stored document, or null when never saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        value: {
+                            [key: string]: unknown;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    putUserPref: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    value: {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
