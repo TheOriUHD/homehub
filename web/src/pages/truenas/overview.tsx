@@ -218,6 +218,9 @@ function dialArcPath(startDeg: number, endDeg: number): string {
 
 function MemoryCard({ memory }: { memory: TruenasMemory | null | undefined }) {
   const { t } = useTranslation();
+  // Hovering a segment swaps the dial's center readout to that segment —
+  // the legend list this replaces. Native <title>s stay for non-pointer use.
+  const [hovered, setHovered] = useState<string | null>(null);
 
   const segments = memory
     ? MEMORY_SEGMENTS.map((s) => ({ key: s.key, color: s.color, bytes: s.pick(memory) })).filter(
@@ -257,16 +260,19 @@ function MemoryCard({ memory }: { memory: TruenasMemory | null | undefined }) {
     segments: arcs.map(segmentLabel).join(", "),
   });
 
+  const hoveredArc = arcs.find((a) => a.key === hovered) ?? null;
+
   return (
     <Card className="flex flex-col">
       <CardHeader title={t("truenas.overview.memory.title")} />
-      <CardBody className="flex flex-1 flex-wrap content-center items-center justify-center gap-x-5 gap-y-3">
-        <div className="relative size-[160px] shrink-0">
+      <CardBody className="flex flex-1 items-center justify-center">
+        <div className="relative aspect-square w-full max-w-[230px]">
           <svg
             viewBox={`0 0 ${DIAL_SIZE} ${DIAL_SIZE}`}
             className="size-full"
             role="img"
             aria-label={dialLabel}
+            onMouseLeave={() => setHovered(null)}
           >
             {arcs.length === 1 ? (
               <circle
@@ -275,7 +281,9 @@ function MemoryCard({ memory }: { memory: TruenasMemory | null | undefined }) {
                 r={DIAL_RADIUS}
                 fill="none"
                 stroke={arcs[0].color}
-                strokeWidth={DIAL_STROKE}
+                strokeWidth={hovered === arcs[0].key ? DIAL_STROKE + 3 : DIAL_STROKE}
+                className="transition-all duration-150"
+                onMouseEnter={() => setHovered(arcs[0].key)}
               >
                 <title>{segmentLabel(arcs[0])}</title>
               </circle>
@@ -286,14 +294,18 @@ function MemoryCard({ memory }: { memory: TruenasMemory | null | undefined }) {
                 const half = DIAL_GAP_DEG / 2;
                 const a0 = a.start + half;
                 const a1 = Math.max(a.start + a.sweep - half, a0 + 0.5);
+                const active = hovered === a.key;
                 return (
                   <path
                     key={a.key}
                     d={dialArcPath(a0, a1)}
                     fill="none"
                     stroke={a.color}
-                    strokeWidth={DIAL_STROKE}
+                    strokeWidth={active ? DIAL_STROKE + 3 : DIAL_STROKE}
                     strokeLinecap="butt"
+                    opacity={hovered !== null && !active ? 0.35 : 1}
+                    className="cursor-pointer transition-all duration-150"
+                    onMouseEnter={() => setHovered(a.key)}
                   >
                     <title>{segmentLabel(a)}</title>
                   </path>
@@ -301,31 +313,34 @@ function MemoryCard({ memory }: { memory: TruenasMemory | null | undefined }) {
               })
             )}
           </svg>
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-fg text-xl font-semibold tracking-tight">
-              {formatBytes(total)}
-            </span>
-            <span className="text-fg-subtle text-xs">{t("truenas.overview.memory.total")}</span>
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+            {hoveredArc ? (
+              <>
+                <span className="flex items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="size-2.5 shrink-0 rounded-full"
+                    style={{ background: hoveredArc.color }}
+                  />
+                  <span className="text-fg-muted text-[12.5px] font-medium">
+                    {t(`truenas.overview.memory.${hoveredArc.key}`)}
+                  </span>
+                </span>
+                <span className="text-fg text-xl font-semibold tracking-tight">
+                  {formatBytes(hoveredArc.bytes)}
+                </span>
+                <span className="text-fg-subtle text-xs tabular-nums">{hoveredArc.pct}%</span>
+              </>
+            ) : (
+              <>
+                <span className="text-fg text-xl font-semibold tracking-tight">
+                  {formatBytes(total)}
+                </span>
+                <span className="text-fg-subtle text-xs">{t("truenas.overview.memory.total")}</span>
+              </>
+            )}
           </div>
         </div>
-
-        <ul className="min-w-36 max-w-full space-y-2">
-          {arcs.map((a) => (
-            <li key={a.key} className="flex items-center gap-2 text-[13px]">
-              <span
-                aria-hidden
-                className="size-2.5 shrink-0 rounded-full"
-                style={{ background: a.color }}
-              />
-              <span className="text-fg-muted min-w-0 flex-1 truncate">
-                {t(`truenas.overview.memory.${a.key}`)}
-              </span>
-              <span className="text-fg shrink-0 font-medium tabular-nums">
-                {formatBytes(a.bytes)}
-              </span>
-            </li>
-          ))}
-        </ul>
       </CardBody>
     </Card>
   );
