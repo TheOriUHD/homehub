@@ -8,6 +8,7 @@ import {
   Boxes,
   ChartSpline,
   Container,
+  Database,
   DatabaseBackup,
   Eye,
   FileClock,
@@ -123,6 +124,7 @@ export function AppShell() {
   const pveRows = rows.filter((row) => row.type === "proxmox");
   const dockerRows = rows.filter((row) => row.type === "docker");
   const dnsRows = rows.filter((row) => row.type === "pihole" || row.type === "adguard");
+  const dbRows = rows.filter((row) => row.type === "mysql" || row.type === "mongodb");
   const haRows = rows.filter((row) => row.type === "homeassistant");
   const mcRows = rows.filter((row) => row.type === "minecraft");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
@@ -154,6 +156,15 @@ export function AppShell() {
           icon: ShieldCheck,
           status: worstStatus(dnsRows),
           prefix: "/dns",
+        }]
+      : []),
+    ...(dbRows.length > 0
+      ? [{
+          to: "/db",
+          label: t("db.title"),
+          icon: Database,
+          status: worstStatus(dbRows),
+          prefix: "/db",
         }]
       : []),
     ...(haRows.length > 0

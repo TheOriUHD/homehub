@@ -7,6 +7,7 @@ import {
   Boxes,
   ChartSpline,
   Container,
+  Database,
   DatabaseBackup,
   FileClock,
   Home,
@@ -63,6 +64,7 @@ export function CommandPalette({
   const pveRows = rows.filter((row) => row.type === "proxmox");
   const dockerRows = rows.filter((row) => row.type === "docker");
   const dnsRows = rows.filter((row) => row.type === "pihole" || row.type === "adguard");
+  const dbRows = rows.filter((row) => row.type === "mysql" || row.type === "mongodb");
   const haRows = rows.filter((row) => row.type === "homeassistant");
   const mcRows = rows.filter((row) => row.type === "minecraft");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
@@ -78,6 +80,7 @@ export function CommandPalette({
       : []),
     ...(dockerRows.length > 0 ? [{ label: t("systems.types.docker"), icon: Container, to: "/docker" }] : []),
     ...(dnsRows.length > 0 ? [{ label: t("dns.title"), icon: ShieldCheck, to: "/dns" }] : []),
+    ...(dbRows.length > 0 ? [{ label: t("db.title"), icon: Database, to: "/db" }] : []),
     ...(haRows.length > 0
       ? [{
           label: t("systems.types.homeassistant"),
