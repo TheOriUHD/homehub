@@ -61,6 +61,12 @@ export type Channel = ApiSchemas["Channel"];
 export type ChannelInput = ApiSchemas["ChannelInput"];
 export type ChannelRef = ApiSchemas["ChannelRef"];
 export type NotificationPrefs = ApiSchemas["NotificationPrefs"];
+export type BackupTarget = ApiSchemas["BackupTarget"];
+export type BackupTargetInput = ApiSchemas["BackupTargetInput"];
+export type BackupArchive = ApiSchemas["BackupArchive"];
+export type BackupManifest = ApiSchemas["BackupManifest"];
+export type BackupRun = ApiSchemas["BackupRun"];
+export type BackupSchedule = ApiSchemas["BackupSchedule"];
 
 export const api = createClient<paths>({ baseUrl: "/api" });
 

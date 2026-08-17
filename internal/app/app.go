@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/api"
 	"github.com/TheOriUHD/homehub/internal/audit"
 	"github.com/TheOriUHD/homehub/internal/auth"
+	"github.com/TheOriUHD/homehub/internal/backup"
 	"github.com/TheOriUHD/homehub/internal/config"
 	"github.com/TheOriUHD/homehub/internal/db"
 	"github.com/TheOriUHD/homehub/internal/httpserver"
@@ -144,8 +146,45 @@ func Run(ctx context.Context) error {
 		},
 	})
 
+	backupSvc := backup.NewService(st, v, cfg.DatabaseURL, cfg.DataDir, logger)
+	if n, err := st.SweepStaleBackupRuns(ctx); err != nil {
+		logger.Error("sweeping stale backup runs failed", "error", err)
+	} else if n > 0 {
+		logger.Warn("marked interrupted backup runs as failed", "count", n)
+	}
+	backupSvc.RequestRestart = func() {
+		logger.Warn("restart requested after restore")
+		_ = syscall.Kill(os.Getpid(), syscall.SIGTERM)
+	}
+	jobEngine.Register("backup.app", func(ctx context.Context, payload json.RawMessage) error {
+		var p backup.JobPayload
+		if err := json.Unmarshal(payload, &p); err != nil {
+			return err
+		}
+		archive, err := backupSvc.RunAppBackup(ctx, p.TargetID)
+		if p.UserID != uuid.Nil {
+			if err != nil {
+				notifySvc.Notify(ctx, p.UserID, "error", "Backup failed", err.Error(), api.ResBackups, "security")
+			} else {
+				notifySvc.Notify(ctx, p.UserID, "success", "Backup completed", archive, api.ResBackups, "security")
+			}
+		}
+		return err
+	})
+	jobEngine.Register("backup.restore", func(ctx context.Context, payload json.RawMessage) error {
+		var p backup.JobPayload
+		if err := json.Unmarshal(payload, &p); err != nil {
+			return err
+		}
+		err := backupSvc.Restore(ctx, p.TargetID, p.Path)
+		if err != nil && p.UserID != uuid.Nil {
+			notifySvc.Notify(ctx, p.UserID, "error", "Restore failed", err.Error(), api.ResBackups, "security")
+		}
+		return err
+	})
+
 	apiServer := api.NewServer(st, authSvc, engine, auditSvc, settingsSvc, jobEngine, hub, v,
-		manager, metricsSvc, termMgr, logger)
+		manager, metricsSvc, termMgr, backupSvc, logger)
 	handler := httpserver.Handler(httpserver.Deps{
 		Logger:   logger,
 		Auth:     authSvc,
