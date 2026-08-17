@@ -4,6 +4,9 @@ import { useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { KeyRound, Plus, Trash2 } from "lucide-react";
 import { api, isApiError, unwrap, type TsCreatedKey, type TsKey } from "@/lib/api";
+import { useIntegrations } from "@/lib/systems";
+import { Switch } from "@/ui/switch";
+import { CardBody } from "@/ui/card";
 import { useAuth } from "@/lib/auth";
 import { formatRelative } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
@@ -46,6 +49,7 @@ export function TsKeysPage() {
 
   return (
     <div className="space-y-4">
+      <AutoRenewCard instanceId={instanceId} configurable={configurable} />
       {configurable && (
         <div className="flex justify-end">
           <Button size="sm" onClick={() => setCreateOpen(true)}>
@@ -296,5 +300,55 @@ function CreatedKeyDialog({ createdKey, onClose }: { createdKey: TsCreatedKey; o
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * AutoRenewCard toggles automatic renewal of the API access token HomeHub
+ * itself uses — an info notification each day of the final week, and a
+ * self-rotation one day before expiry. Stored on the integration config.
+ */
+function AutoRenewCard({ instanceId, configurable }: { instanceId: string; configurable: boolean }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const integrations = useIntegrations();
+  const row = integrations.data?.find((r) => r.id === instanceId);
+  const enabled = Boolean((row?.config as Record<string, unknown> | undefined)?.autoRenewKey);
+
+  const save = useMutation({
+    mutationFn: async (next: boolean) => {
+      unwrap(
+        await api.PATCH("/integrations/{id}", {
+          params: { path: { id: instanceId } },
+          body: { config: { ...(row?.config as Record<string, unknown>), autoRenewKey: next } },
+        }),
+      );
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["integrations"] });
+      toast("success", t("ts.keys.autoRenewSaved"));
+    },
+    onError: (err) =>
+      toast("error", t("common.unknownError"), isApiError(err) ? err.message : undefined),
+  });
+
+  if (!row) return null;
+
+  return (
+    <Card>
+      <CardBody className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-fg text-[14px] font-medium">{t("ts.keys.autoRenewTitle")}</p>
+          <p className="text-fg-muted text-[13px]">{t("ts.keys.autoRenewBody")}</p>
+        </div>
+        <Switch
+          checked={enabled}
+          onCheckedChange={(next) => save.mutate(next)}
+          disabled={!configurable || save.isPending}
+          aria-label={t("ts.keys.autoRenewTitle")}
+        />
+      </CardBody>
+    </Card>
   );
 }

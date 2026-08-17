@@ -261,8 +261,10 @@ func normalizeInstance(i Instance) NormInstance {
 
 const (
 	consolePollInterval = 2 * time.Second
-	consoleIdleStop     = 3 * time.Minute
-	consoleMaxLines     = 5000
+	// consoleIdlePoll keeps history accumulating cheaply between viewers.
+	consoleIdlePoll = 15 * time.Second
+	consoleIdleStop = 3 * time.Minute
+	consoleMaxLines = 5000
 )
 
 type Conn struct {
@@ -517,16 +519,18 @@ func (c *Conn) consoleLoop(instanceID string, state *consoleState) {
 			state.mu.Unlock()
 			return
 		case <-ticker.C:
+			// Never stop while the connection lives — the ring IS the
+			// console history (AMP's API hands out no scrollback), so it
+			// must keep accumulating. Without viewers, poll gently.
 			state.mu.Lock()
 			idle := time.Since(state.lastRead) > consoleIdleStop
-			if idle {
-				state.running = false
-			}
 			state.mu.Unlock()
 			if idle {
-				return
+				ticker.Reset(consoleIdlePoll)
+			} else {
+				ticker.Reset(consolePollInterval)
 			}
-			pctx, cancel := context.WithTimeout(c.ctx, consolePollInterval*4)
+			pctx, cancel := context.WithTimeout(c.ctx, consoleIdlePoll)
 			err := c.pollConsole(pctx, instanceID, state)
 			cancel()
 			if err != nil && c.ctx.Err() == nil {
