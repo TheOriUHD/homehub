@@ -4912,13 +4912,28 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [enabled, provider, model, keySet, canConfigure]
+                required: [enabled, provider, model, baseUrl, keySet, canConfigure, providers]
                 properties:
                   enabled: { type: boolean }
                   provider: { type: string }
                   model: { type: string }
+                  baseUrl: { type: string }
                   keySet: { type: boolean }
                   canConfigure: { type: boolean }
+                  providers:
+                    type: array
+                    description: The selectable provider catalog with per-provider defaults.
+                    items:
+                      type: object
+                      required: [id, label, kind, requiresKey, defaultModel]
+                      properties:
+                        id: { type: string }
+                        label: { type: string }
+                        kind: { type: string, enum: [cloud, local] }
+                        requiresKey: { type: boolean }
+                        defaultModel: { type: string }
+                        defaultBaseUrl: { type: string }
+                        modelHint: { type: string }
 
   /assistant/settings:
     put:
@@ -4935,8 +4950,9 @@ paths:
               required: [enabled, provider, model]
               properties:
                 enabled: { type: boolean }
-                provider: { type: string, enum: [anthropic] }
-                model: { type: string, minLength: 1, maxLength: 120 }
+                provider: { type: string, minLength: 1, maxLength: 40 }
+                model: { type: string, minLength: 1, maxLength: 200 }
+                baseUrl: { type: string, maxLength: 300 }
                 apiKey: { type: string, maxLength: 512 }
       responses:
         "204":

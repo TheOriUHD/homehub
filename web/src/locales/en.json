@@ -2661,7 +2661,7 @@
   },
   "assistant": {
     "title": "Assistant",
-    "subtitle": "Answers from your systems' live data · {{model}}",
+    "subtitle": "Answers from your systems' live data · {{provider}} · {{model}}",
     "disabledSubtitle": "Not enabled",
     "settings": "Settings",
     "settingsTitle": "Assistant settings",
@@ -2672,11 +2672,11 @@
     "enable": "Enabled",
     "enableHint": "Turns the assistant on for everyone. Each user only ever sees what their own permissions allow.",
     "provider": "AI provider",
-    "providerHint": "More providers later — Anthropic first.",
+    "providerHint": "Cloud APIs or a model running on your own hardware — anything OpenAI-compatible works.",
     "model": "Model",
-    "modelHint": "An Anthropic model name, e.g. claude-sonnet-5.",
+    "modelHint": "The model name your provider expects.",
     "apiKey": "API key",
-    "apiKeyHint": "From console.anthropic.com. Stored encrypted in the vault, never shown again.",
+    "apiKeyHint": "Stored encrypted in the vault, never shown again.",
     "apiKeySetHint": "A key is stored. Enter a new one to replace it, or leave empty to keep it.",
     "scopeNote": "The assistant currently has read-only tools: systems, alerts, metrics, notifications and (with permission) the audit log. It cannot change anything.",
     "saved": "Assistant settings saved",
@@ -2689,6 +2689,12 @@
     "placeholder": "Ask about your systems…",
     "send": "Send",
     "thinking": "Looking at your systems…",
-    "failed": "The assistant could not answer"
+    "failed": "The assistant could not answer",
+    "baseUrl": "Endpoint URL",
+    "baseUrlHint": "Where the API lives. Prefilled with the runtime's usual address — change it if yours runs elsewhere.",
+    "apiKeyOptionalHint": "Local runtimes usually need no key — leave empty unless yours requires one.",
+    "apiKeyPlaceholder": "sk-…",
+    "groupCloud": "Cloud",
+    "groupLocal": "Local / self-hosted"
   }
 }

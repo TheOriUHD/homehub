@@ -23,6 +23,7 @@ const (
 	keyAssistantEnabled  = "assistant_enabled"
 	keyAssistantProvider = "assistant_provider"
 	keyAssistantModel    = "assistant_model"
+	keyAssistantBaseURL  = "assistant_base_url"
 
 	defaultSessionTTLHours = 720 // 30 days, rolling
 	defaultRawHours        = 48
@@ -160,19 +161,18 @@ func (s *Service) get(ctx context.Context, key string, dst any) {
 
 // Assistant returns the assistant configuration (API key lives in the
 // vault, not here). Defaults: disabled, Anthropic, the current Sonnet.
-func (s *Service) Assistant(ctx context.Context) (enabled bool, provider, model string) {
+// Provider validity is the assistant registry's business, not ours.
+func (s *Service) Assistant(ctx context.Context) (enabled bool, provider, model, baseURL string) {
 	provider, model = "anthropic", "claude-sonnet-5"
 	s.get(ctx, keyAssistantEnabled, &enabled)
 	s.get(ctx, keyAssistantProvider, &provider)
 	s.get(ctx, keyAssistantModel, &model)
+	s.get(ctx, keyAssistantBaseURL, &baseURL)
 	return
 }
 
-// SetAssistant validates and stores the assistant configuration.
-func (s *Service) SetAssistant(ctx context.Context, enabled bool, provider, model string) error {
-	if provider != "anthropic" {
-		return fmt.Errorf("unknown AI provider %q — only anthropic is supported right now", provider)
-	}
+// SetAssistant stores the assistant configuration.
+func (s *Service) SetAssistant(ctx context.Context, enabled bool, provider, model, baseURL string) error {
 	if strings.TrimSpace(model) == "" {
 		return fmt.Errorf("the model name cannot be empty")
 	}
@@ -183,6 +183,9 @@ func (s *Service) SetAssistant(ctx context.Context, enabled bool, provider, mode
 		return err
 	}
 	if err := s.store.SetSetting(ctx, keyAssistantModel, strings.TrimSpace(model)); err != nil {
+		return err
+	}
+	if err := s.store.SetSetting(ctx, keyAssistantBaseURL, strings.TrimSpace(baseURL)); err != nil {
 		return err
 	}
 	s.invalidate()

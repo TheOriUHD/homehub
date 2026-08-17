@@ -30,14 +30,42 @@ func (s *Server) GetAssistant(ctx context.Context, _ GetAssistantRequestObject) 
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	enabled, provider, model := s.settings.Assistant(ctx)
-	return GetAssistant200JSONResponse{
+	enabled, provider, model, baseURL := s.settings.Assistant(ctx)
+	out := GetAssistant200JSONResponse{
 		Enabled:      enabled,
 		Provider:     provider,
 		Model:        model,
+		BaseUrl:      baseURL,
 		KeySet:       s.assistantKeySet(ctx),
 		CanConfigure: s.can(ctx, id, ResSettings, rbac.LevelConfigure),
-	}, nil
+	}
+	for _, info := range assistant.Providers {
+		entry := struct {
+			DefaultBaseUrl *string                                      `json:"defaultBaseUrl,omitempty"`
+			DefaultModel   string                                       `json:"defaultModel"`
+			Id             string                                       `json:"id"`
+			Kind           GetAssistant200JSONResponseBodyProvidersKind `json:"kind"`
+			Label          string                                       `json:"label"`
+			ModelHint      *string                                      `json:"modelHint,omitempty"`
+			RequiresKey    bool                                         `json:"requiresKey"`
+		}{
+			DefaultModel: info.DefaultModel,
+			Id:           info.ID,
+			Kind:         GetAssistant200JSONResponseBodyProvidersKind(info.Kind),
+			Label:        info.Label,
+			RequiresKey:  info.RequiresKey,
+		}
+		if info.DefaultBaseURL != "" {
+			u := info.DefaultBaseURL
+			entry.DefaultBaseUrl = &u
+		}
+		if info.ModelHint != "" {
+			h := info.ModelHint
+			entry.ModelHint = &h
+		}
+		out.Providers = append(out.Providers, entry)
+	}
+	return out, nil
 }
 
 func (s *Server) PutAssistantSettings(ctx context.Context, req PutAssistantSettingsRequestObject) (PutAssistantSettingsResponseObject, error) {
@@ -58,14 +86,23 @@ func (s *Server) PutAssistantSettings(ctx context.Context, req PutAssistantSetti
 			return nil, err
 		}
 	}
-	if req.Body.Enabled && !s.assistantKeySet(ctx) {
+	info := assistant.ProviderByID(req.Body.Provider)
+	if info == nil {
+		return PutAssistantSettings400JSONResponse{BadRequestJSONResponse(errBody("invalid_settings", "unknown AI provider"))}, nil
+	}
+	if req.Body.Enabled && info.RequiresKey && !s.assistantKeySet(ctx) {
 		return PutAssistantSettings400JSONResponse{BadRequestJSONResponse(errBody("no_api_key", "enter an API key before enabling the assistant"))}, nil
 	}
-	if err := s.settings.SetAssistant(ctx, req.Body.Enabled, string(req.Body.Provider), req.Body.Model); err != nil {
+	baseURL := ""
+	if req.Body.BaseUrl != nil {
+		baseURL = strings.TrimSpace(*req.Body.BaseUrl)
+	}
+	if err := s.settings.SetAssistant(ctx, req.Body.Enabled, req.Body.Provider, req.Body.Model, baseURL); err != nil {
 		return PutAssistantSettings400JSONResponse{BadRequestJSONResponse(errBody("invalid_settings", err.Error()))}, nil
 	}
 	s.audit.Log(ctx, actorFor(id), "assistant.configure", ResSettings, "success", map[string]any{
-		"enabled": req.Body.Enabled, "model": req.Body.Model, "keyChanged": strings.TrimSpace(apiKey) != "",
+		"enabled": req.Body.Enabled, "provider": req.Body.Provider, "model": req.Body.Model,
+		"keyChanged": strings.TrimSpace(apiKey) != "",
 	})
 	return PutAssistantSettings204Response{}, nil
 }
@@ -88,20 +125,26 @@ func (s *Server) AssistantChat(ctx context.Context, req AssistantChatRequestObje
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	enabled, providerName, model := s.settings.Assistant(ctx)
+	enabled, providerName, model, baseURL := s.settings.Assistant(ctx)
 	if !enabled {
 		return AssistantChat409JSONResponse(errBody("assistant_disabled", "the assistant is not enabled — an administrator can turn it on in its settings")), nil
 	}
-	keyRaw, err := s.vault.Open(ctx, assistantVaultScope, assistantVaultKey)
-	if err != nil {
-		if errors.Is(err, vault.ErrNotFound) || errors.Is(err, store.ErrNotFound) {
-			return AssistantChat409JSONResponse(errBody("assistant_unconfigured", "the assistant has no API key configured")), nil
-		}
+	info := assistant.ProviderByID(providerName)
+	if info == nil {
+		return AssistantChat409JSONResponse(errBody("assistant_unconfigured", "the configured AI provider no longer exists")), nil
+	}
+	apiKey := ""
+	if keyRaw, err := s.vault.Open(ctx, assistantVaultScope, assistantVaultKey); err == nil {
+		apiKey = string(keyRaw)
+	} else if !errors.Is(err, vault.ErrNotFound) && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
+	if info.RequiresKey && apiKey == "" {
+		return AssistantChat409JSONResponse(errBody("assistant_unconfigured", "the assistant has no API key configured")), nil
+	}
 
-	cfg := assistant.Config{Provider: providerName, Model: model, APIKey: string(keyRaw)}
-	provider, err := assistant.NewProvider(cfg)
+	cfg := assistant.Config{Provider: providerName, Model: model, APIKey: apiKey, BaseURL: baseURL}
+	provider, err := assistant.NewProviderFor(cfg)
 	if err != nil {
 		return AssistantChat409JSONResponse(errBody("assistant_unconfigured", err.Error())), nil
 	}

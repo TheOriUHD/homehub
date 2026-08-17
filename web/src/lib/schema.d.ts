@@ -10206,8 +10206,20 @@ export interface operations {
                         enabled: boolean;
                         provider: string;
                         model: string;
+                        baseUrl: string;
                         keySet: boolean;
                         canConfigure: boolean;
+                        /** @description The selectable provider catalog with per-provider defaults. */
+                        providers: {
+                            id: string;
+                            label: string;
+                            /** @enum {string} */
+                            kind: "cloud" | "local";
+                            requiresKey: boolean;
+                            defaultModel: string;
+                            defaultBaseUrl?: string;
+                            modelHint?: string;
+                        }[];
                     };
                 };
             };
@@ -10224,9 +10236,9 @@ export interface operations {
             content: {
                 "application/json": {
                     enabled: boolean;
-                    /** @enum {string} */
-                    provider: "anthropic";
+                    provider: string;
                     model: string;
+                    baseUrl?: string;
                     apiKey?: string;
                 };
             };
