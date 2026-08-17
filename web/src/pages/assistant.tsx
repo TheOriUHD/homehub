@@ -12,6 +12,7 @@ import { Dialog, DialogContent } from "@/ui/dialog";
 import { Field } from "@/ui/field";
 import { Input } from "@/ui/input";
 import { PageLoader } from "@/ui/misc";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { Switch } from "@/ui/switch";
 import { useToast } from "@/ui/toast";
@@ -50,7 +51,12 @@ export function AssistantPage() {
         <div className="min-w-0 flex-1">
           <h1 className="text-fg text-xl font-semibold tracking-tight">{t("assistant.title")}</h1>
           <p className="text-fg-muted text-sm">
-            {info.enabled ? t("assistant.subtitle", { model: info.model }) : t("assistant.disabledSubtitle")}
+            {info.enabled
+              ? t("assistant.subtitle", {
+                  model: info.model,
+                  provider: info.providers.find((p) => p.id === info.provider)?.label ?? info.provider,
+                })
+              : t("assistant.disabledSubtitle")}
           </p>
         </div>
         {info.canConfigure && (
@@ -243,19 +249,50 @@ function MessageBubble({ item }: { item: HistoryItem }) {
   );
 }
 
+type ProviderInfo = {
+  id: string;
+  label: string;
+  kind: "cloud" | "local";
+  requiresKey: boolean;
+  defaultModel: string;
+  defaultBaseUrl?: string;
+  modelHint?: string;
+};
+
 function AssistantSettingsDialog({
   info,
   onClose,
 }: {
-  info: { enabled: boolean; provider: string; model: string; keySet: boolean };
+  info: {
+    enabled: boolean;
+    provider: string;
+    model: string;
+    baseUrl: string;
+    keySet: boolean;
+    providers: ProviderInfo[];
+  };
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [enabled, setEnabled] = useState(info.enabled);
+  const [provider, setProvider] = useState(info.provider);
   const [model, setModel] = useState(info.model);
+  const [baseUrl, setBaseUrl] = useState(info.baseUrl);
   const [apiKey, setApiKey] = useState("");
+
+  const selected = info.providers.find((p) => p.id === provider);
+  // Switching providers adopts that provider's defaults — the common case
+  // is trying a different runtime, not carrying a model name across.
+  const pickProvider = (id: string) => {
+    setProvider(id);
+    const next = info.providers.find((p) => p.id === id);
+    if (next) {
+      setModel(next.defaultModel);
+      setBaseUrl(next.defaultBaseUrl ?? "");
+    }
+  };
 
   const save = useMutation({
     mutationFn: async () => {
@@ -263,8 +300,9 @@ function AssistantSettingsDialog({
         await api.PUT("/assistant/settings", {
           body: {
             enabled,
-            provider: "anthropic",
+            provider,
             model: model.trim(),
+            baseUrl: baseUrl.trim() || undefined,
             apiKey: apiKey.trim() || undefined,
           },
         }),
@@ -303,20 +341,66 @@ function AssistantSettingsDialog({
             <Switch checked={enabled} onCheckedChange={setEnabled} aria-label={t("assistant.enable")} />
           </div>
           <Field label={t("assistant.provider")} hint={t("assistant.providerHint")}>
-            {(p) => <Input {...p} value="Anthropic" disabled />}
+            {(p) => (
+              <Select value={provider} onValueChange={pickProvider}>
+                <SelectTrigger id={p.id} aria-describedby={p["aria-describedby"]}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <p className="text-fg-subtle px-2 pt-1.5 pb-1 text-[10.5px] font-semibold tracking-wide uppercase">
+                    {t("assistant.groupCloud")}
+                  </p>
+                  {info.providers
+                    .filter((entry) => entry.kind === "cloud")
+                    .map((entry) => (
+                      <SelectItem key={entry.id} value={entry.id}>
+                        {entry.label}
+                      </SelectItem>
+                    ))}
+                  <p className="text-fg-subtle px-2 pt-2 pb-1 text-[10.5px] font-semibold tracking-wide uppercase">
+                    {t("assistant.groupLocal")}
+                  </p>
+                  {info.providers
+                    .filter((entry) => entry.kind === "local")
+                    .map((entry) => (
+                      <SelectItem key={entry.id} value={entry.id}>
+                        {entry.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            )}
           </Field>
-          <Field label={t("assistant.model")} hint={t("assistant.modelHint")}>
+          <Field label={t("assistant.model")} hint={selected?.modelHint || t("assistant.modelHint")}>
             {(p) => <Input {...p} value={model} onChange={(e) => setModel(e.target.value)} />}
           </Field>
+          {(selected?.kind === "local" || selected?.defaultBaseUrl) && (
+            <Field label={t("assistant.baseUrl")} hint={t("assistant.baseUrlHint")}>
+              {(p) => (
+                <Input
+                  {...p}
+                  placeholder={selected?.defaultBaseUrl}
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                />
+              )}
+            </Field>
+          )}
           <Field
             label={t("assistant.apiKey")}
-            hint={info.keySet ? t("assistant.apiKeySetHint") : t("assistant.apiKeyHint")}
+            hint={
+              selected && !selected.requiresKey
+                ? t("assistant.apiKeyOptionalHint")
+                : info.keySet
+                  ? t("assistant.apiKeySetHint")
+                  : t("assistant.apiKeyHint")
+            }
           >
             {(p) => (
               <Input
                 {...p}
                 type="password"
-                placeholder={info.keySet ? "••••••••" : "sk-ant-…"}
+                placeholder={info.keySet ? "••••••••" : t("assistant.apiKeyPlaceholder")}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
               />

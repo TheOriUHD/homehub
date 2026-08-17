@@ -3,7 +3,6 @@ package assistant
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"homehub/internal/store"
@@ -23,6 +22,7 @@ type Config struct {
 	Provider string
 	Model    string
 	APIKey   string
+	BaseURL  string
 }
 
 // StepInfo records one tool invocation for the transparency trace.
@@ -107,12 +107,3 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 	return final, steps, nil
 }
 
-// NewProvider builds the provider for a config.
-func NewProvider(cfg Config) (Provider, error) {
-	switch cfg.Provider {
-	case "anthropic":
-		return &AnthropicProvider{APIKey: cfg.APIKey}, nil
-	default:
-		return nil, fmt.Errorf("unknown AI provider %q", cfg.Provider)
-	}
-}
