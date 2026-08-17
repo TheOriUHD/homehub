@@ -1,13 +1,17 @@
 import { Link, Outlet, useParams, useRouterState } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { Pickaxe, Users } from "lucide-react";
+import { Pickaxe } from "lucide-react";
+import type { ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
+import { capacityTextClass } from "@/lib/capacity";
 import { useLiveInvalidate } from "@/lib/live";
+import { useMetricSeries } from "@/lib/metrics";
 import { statusTone, useIntegrations } from "@/lib/systems";
 import { cn } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Card } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
+import { Sparkline } from "@/ui/sparkline";
 import { ErrorState } from "@/ui/states";
 import { loaderLabel, mcResource, tpsTone, useMcLive, useMcOverview } from "./shared";
 
@@ -81,23 +85,32 @@ export function McModulePage() {
         </div>
 
         {status && (
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-stretch gap-2">
             {typeof status.tps === "number" && (
-              <Badge tone={tpsTone(status.tps)}>{t("mc.chips.tps", { tps: status.tps.toFixed(1) })}</Badge>
+              <HeaderStat
+                label={t("mc.stats.tps")}
+                value={status.tps.toFixed(1)}
+                valueClass={capacityTextClass[tpsTone(status.tps)]}
+              >
+                {data?.loader !== "velocity" && <HeaderTpsSparkline instanceId={instanceId} />}
+              </HeaderStat>
             )}
-            <Badge tone="neutral">
-              <Users aria-hidden className="size-3" />
-              {t("mc.chips.players", { online: status.playersOnline, max: status.playersMax })}
-            </Badge>
+            <HeaderStat
+              label={t("mc.stats.players")}
+              value={t("mc.chips.players", { online: status.playersOnline, max: status.playersMax })}
+            />
             {typeof status.heapUsedMb === "number" && (
-              <Badge tone="neutral">
-                {typeof status.heapMaxMb === "number"
-                  ? t("mc.chips.heap", {
-                      used: Math.round(status.heapUsedMb),
-                      max: Math.round(status.heapMaxMb),
-                    })
-                  : t("mc.chips.heapNoMax", { used: Math.round(status.heapUsedMb) })}
-              </Badge>
+              <HeaderStat
+                label={t("mc.stats.heap")}
+                value={
+                  typeof status.heapMaxMb === "number"
+                    ? t("mc.stats.heapValue", {
+                        used: Math.round(status.heapUsedMb),
+                        max: Math.round(status.heapMaxMb),
+                      })
+                    : t("mc.stats.heapValueNoMax", { used: Math.round(status.heapUsedMb) })
+                }
+              />
             )}
           </div>
         )}
@@ -124,6 +137,47 @@ export function McModulePage() {
       </nav>
 
       <Outlet />
+    </div>
+  );
+}
+
+/** One compact header stat: tiny uppercase label over the live value. */
+function HeaderStat({
+  label,
+  value,
+  valueClass,
+  children,
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="bg-bg-subtle flex items-center gap-3 rounded-lg px-3 py-1.5">
+      <div className="min-w-0">
+        <p className="text-fg-subtle text-[10px] font-semibold tracking-wide uppercase">{label}</p>
+        <p className={cn("text-[13px] leading-tight font-semibold tabular-nums", valueClass ?? "text-fg")}>
+          {value}
+        </p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The last hour of TPS as a header-scale sparkline beside the live number.
+ * Renders nothing until the series has at least two samples; never mounted
+ * for proxy loaders (Velocity has no tick loop, so no TPS).
+ */
+function HeaderTpsSparkline({ instanceId }: { instanceId: string }) {
+  const resource = mcResource(instanceId);
+  const points = useMetricSeries(`metrics:${resource}`, resource, "tps");
+  if (points.length < 2) return null;
+  return (
+    <div className="w-[110px] shrink-0">
+      <Sparkline points={points} height={36} />
     </div>
   );
 }

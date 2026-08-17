@@ -4,14 +4,18 @@ import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-route
 import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
+  ArrowUpRight,
   Boxes,
   Container,
   FileText,
   Play,
   RotateCcw,
+  Server,
   Square,
   SquareTerminal,
 } from "lucide-react";
+import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import { api, unwrap, isApiError, type DockerContainer, type Integration } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLiveInvalidate } from "@/lib/live";
@@ -170,6 +174,23 @@ export function DockerAllContainersPage() {
   const loading = hosts.length > 0 && results.every((r) => r.isLoading);
   const failedHosts = hosts.filter((_, i) => results[i]?.isError);
 
+  // Fleet counters for the tile row. Container sums settle once every
+  // per-host list has answered; partial sums would flicker upward.
+  const hostsOnline = hosts.filter((h) => h.status === "connected").length;
+  const settled = results.every((r) => !r.isPending);
+  const totalContainers = results.reduce((sum, r) => sum + (r.data?.length ?? 0), 0);
+  const runningContainers = results.reduce(
+    (sum, r) => sum + (r.data?.filter((c) => c.state === "running").length ?? 0),
+    0,
+  );
+  const stoppedContainers = results.reduce(
+    (sum, r) => sum + (r.data?.filter((c) => c.state === "exited" || c.state === "dead").length ?? 0),
+    0,
+  );
+  const unreachableCount = hosts.filter(
+    (h, i) => h.status === "unreachable" || results[i]?.isError,
+  ).length;
+
   const rows = useMemo(() => {
     const merged: MergedRow[] = [];
     hosts.forEach((host, i) => {
@@ -217,6 +238,53 @@ export function DockerAllContainersPage() {
 
   return (
     <div className="space-y-4">
+      <div
+        className={cn(
+          "grid gap-4 sm:grid-cols-2",
+          unreachableCount > 0 ? "lg:grid-cols-4" : "lg:grid-cols-3",
+        )}
+      >
+        <StatTile
+          icon={Server}
+          label={t("docker.unified.stats.hostsOnline")}
+          value={
+            <span className="flex items-baseline gap-1.5">
+              {hostsOnline}/{hosts.length}
+              <StatusDot
+                tone={hostsOnline === hosts.length ? "success" : hostsOnline > 0 ? "warning" : "danger"}
+              />
+            </span>
+          }
+        />
+        <StatTile
+          icon={Play}
+          label={t("docker.unified.stats.running")}
+          value={
+            settled ? (
+              <span>
+                {runningContainers}
+                <span className="text-fg-muted text-sm font-medium">/{totalContainers}</span>
+              </span>
+            ) : (
+              "—"
+            )
+          }
+        />
+        <StatTile
+          icon={Square}
+          label={t("docker.unified.stats.stopped")}
+          value={settled ? stoppedContainers.toLocaleString() : "—"}
+        />
+        {unreachableCount > 0 && (
+          <StatTile
+            icon={AlertTriangle}
+            tone="danger"
+            label={t("docker.unified.stats.unreachable")}
+            value={unreachableCount.toLocaleString()}
+          />
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <Input
           placeholder={t("docker.containers.searchPlaceholder")}
@@ -407,40 +475,178 @@ export function DockerAllContainersPage() {
 // ---- hosts overview --------------------------------------------------------
 
 export function DockerHostsPage() {
-  const { t } = useTranslation();
   const { hosts } = useDockerHosts();
   const results = useHostContainers(hosts);
 
   return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {hosts.map((host, i) => {
-        const containers = results[i]?.data;
-        const running = containers?.filter((c) => c.state === "running").length ?? 0;
-        return (
-          <Link key={host.id} to="/docker/$instanceId" params={{ instanceId: host.id }} className="block">
-            <Card className="hover:border-accent flex flex-col p-4 transition-colors">
-              <p className="text-fg flex items-center gap-2 text-sm font-semibold">
-                <Container className="text-fg-subtle size-4 shrink-0" />
-                <span className="truncate">{host.name}</span>
-                <Badge tone={statusTone[host.status]} className="ml-auto">
-                  <StatusDot tone={statusTone[host.status]} pulse={host.status !== "connected"} />
-                  {t(`integrations.status.${host.status}`)}
-                </Badge>
-              </p>
-              {host.statusMessage && (
-                <p className="text-danger-soft-fg mt-2 text-[13px]">{host.statusMessage}</p>
-              )}
-              <p className="text-fg-subtle mt-2 text-[13px]">
-                {containers
-                  ? t("docker.unified.containerCount", { running, total: containers.length })
-                  : results[i]?.isError
-                    ? t("docker.unified.countUnavailable")
-                    : t("common.loading")}
-              </p>
-            </Card>
-          </Link>
-        );
-      })}
+    <div className="grid items-start gap-4 md:grid-cols-2">
+      {hosts.map((host, i) => (
+        <HostCard
+          key={host.id}
+          host={host}
+          containers={results[i]?.data}
+          failed={Boolean(results[i]?.isError)}
+        />
+      ))}
     </div>
+  );
+}
+
+/**
+ * One host's dashboard card in the fleet-card language: icon tile, name with
+ * a status dot, the endpoint it talks to, a running/total bar with per-state
+ * chips, and the quick action into the per-host module. Unreachable hosts
+ * stay on the board — dimmed, with the reported error.
+ */
+function HostCard({
+  host,
+  containers,
+  failed,
+}: {
+  host: Integration;
+  containers: DockerContainer[] | undefined;
+  failed: boolean;
+}) {
+  const { t } = useTranslation();
+  const offline = host.status !== "connected";
+  const list = containers ?? [];
+  const running = list.filter((c) => c.state === "running").length;
+
+  // The endpoint this host is reached over, straight from the stored config —
+  // a TCP address, or the local socket.
+  const endpoint =
+    typeof host.config.host === "string" && host.config.host
+      ? host.config.host
+      : host.config.transport === "socket"
+        ? t("docker.unified.socket")
+        : null;
+
+  // Non-running states as toned chips; the bar already tells the running story.
+  const stateCounts = CONTAINER_STATES.filter((s) => s !== "running")
+    .map((state) => [state, list.filter((c) => c.state === state).length] as const)
+    .filter(([, n]) => n > 0);
+
+  return (
+    <Card className={cn("flex flex-col", offline && "opacity-75")}>
+      <div className="flex items-start gap-3 p-4 pb-0">
+        <span className="bg-accent-soft text-accent-soft-fg flex size-9 shrink-0 items-center justify-center rounded-lg">
+          <Container className="size-4.5" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-fg flex items-center gap-2 text-sm font-semibold">
+            <Link
+              to="/docker/$instanceId"
+              params={{ instanceId: host.id }}
+              className="hover:text-accent truncate transition-colors"
+            >
+              {host.name}
+            </Link>
+            <StatusDot tone={statusTone[host.status]} pulse={offline} />
+          </p>
+          <p className="text-fg-muted truncate text-xs">
+            {t("systems.types.docker")}
+            {endpoint && <span className="text-fg-subtle font-mono"> · {endpoint}</span>}
+          </p>
+        </div>
+      </div>
+
+      {offline ? (
+        <div className="p-4">
+          <div
+            className="bg-danger-soft text-danger-soft-fg flex items-start gap-2.5 rounded-lg px-3.5 py-2.5 text-[13px]"
+            role="alert"
+          >
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span>
+              {t(`integrations.status.${host.status}`)}
+              {host.statusMessage && ` — ${host.statusMessage}`}
+            </span>
+          </div>
+        </div>
+      ) : failed ? (
+        <div className="p-4">
+          <div
+            className="bg-warning-soft text-warning-soft-fg flex items-start gap-2.5 rounded-lg px-3.5 py-2.5 text-[13px]"
+            role="alert"
+          >
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            {t("docker.unified.countUnavailable")}
+          </div>
+        </div>
+      ) : (
+        <div className="px-4 pt-3.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-fg-subtle text-[11px] font-semibold tracking-wide uppercase">
+              {t("docker.unified.tabs.containers")}
+            </p>
+            <p className="text-fg text-sm font-semibold tabular-nums">
+              {containers ? (
+                <>
+                  {running}
+                  <span className="text-fg-muted font-medium">/{list.length}</span>
+                </>
+              ) : (
+                "—"
+              )}
+            </p>
+          </div>
+          <div className="bg-bg-subtle mt-1.5 h-1.5 w-full overflow-hidden rounded-full">
+            <div
+              className="bg-accent h-full rounded-full transition-[width]"
+              style={{ width: `${list.length > 0 ? (running / list.length) * 100 : 0}%` }}
+            />
+          </div>
+          {stateCounts.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {stateCounts.map(([state, n]) => (
+                <Badge key={state} tone={containerStateTone[state] ?? "neutral"}>
+                  {t("docker.unified.stateCount", { n, state: containerStateLabel(t, state) })}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="border-edge mt-4 flex items-center gap-1 border-t px-2 py-1.5">
+        <Link
+          to="/docker/$instanceId"
+          params={{ instanceId: host.id }}
+          className="text-fg-muted hover:text-fg hover:bg-surface-hover flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors"
+        >
+          <ArrowUpRight className="size-3.5" aria-hidden />
+          {t("docker.unified.open")}
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  tone = "accent",
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: ReactNode;
+  tone?: "accent" | "danger";
+}) {
+  return (
+    <Card className="flex items-center gap-3.5 p-4">
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-lg",
+          tone === "danger" ? "bg-danger-soft text-danger-soft-fg" : "bg-accent-soft text-accent-soft-fg",
+        )}
+      >
+        <Icon className="size-4" aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-fg-subtle text-[11px] font-semibold tracking-wide uppercase">{label}</p>
+        <div className="text-fg mt-0.5 truncate text-lg font-semibold tracking-tight">{value}</div>
+      </div>
+    </Card>
   );
 }
