@@ -36,6 +36,19 @@ with trigger and enable/disable, and sensor history recorded into the
 metrics engine for graphs and alerting. Permissions scope down to a single
 entity or a whole domain.
 
+**Databases** — MySQL, MariaDB, and MongoDB under one module: live server
+stats and history, a database and table/collection browser with a full
+Adminer-style data editor (paginated rows with per-column filters, add /
+edit / delete, truncate and drop behind confirmation; MongoDB document
+insert / replace / delete), an audited SQL console, live sessions with
+kill, and dumps to any backup target. Permissions scope to a single
+database.
+
+**TrueNAS** — storage at a glance: pools with capacity and health,
+datasets and zvols, disks with type and SMART temperature, SMB / NFS /
+iSCSI shares, snapshots, and system alerts, with capacity and temperature
+history. Permissions scope to a single pool.
+
 **Minecraft** — servers connect through the HomeHub Companion plugin
 (Paper/Spigot, with Velocity, Fabric, and Forge builds), downloaded from
 inside the app and paired with a 6-digit code — the server dials out, so
