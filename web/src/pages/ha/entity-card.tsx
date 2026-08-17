@@ -3,14 +3,23 @@ import { useTranslation } from "react-i18next";
 import {
   ArrowDown,
   ArrowUp,
+  ChevronDown,
+  Droplets,
+  Fan,
+  Flame,
   Lock,
   LockOpen,
   Minus,
   Pause,
   Play,
   Plus,
+  Power,
+  RefreshCw,
+  Snowflake,
   Square,
+  SunSnow,
   Undo2,
+  type LucideIcon,
 } from "lucide-react";
 import type { HaEntity } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -19,13 +28,14 @@ import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
 import { Slider } from "@/ui/slider";
 import { Switch } from "@/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
 import {
   attrNum,
   attrStr,
   attrStrArr,
   isUnknownState,
   lightSupportsBrightness,
+  lightSupportsColor,
+  lightSupportsColorTemp,
   useHaService,
 } from "./shared";
 
@@ -78,15 +88,19 @@ type ServiceMutation = ReturnType<typeof useHaService>;
 /**
  * EntityCard renders one entity with its domain-appropriate control. Controls
  * are never permission-probed client-side — a 403 from the service call is
- * toasted by useHaService instead.
+ * toasted by useHaService instead. `displayName` is a board-level rename: it
+ * replaces the entity's own name, and the entity id stays visible as the mono
+ * subtitle so the underlying truth is never hidden.
  */
 export function EntityCard({
   instanceId,
   entity,
+  displayName,
   onOpenDetail,
 }: {
   instanceId: string;
   entity: HaEntity;
+  displayName?: string;
   onOpenDetail: (entity: HaEntity) => void;
 }) {
   const svc = useHaService(instanceId);
@@ -97,6 +111,7 @@ export function EntityCard({
 
   const domain = entity.domain;
   const isSensor = domain === "sensor";
+  const renamed = displayName !== undefined && displayName !== "";
 
   return (
     <Card
@@ -113,10 +128,12 @@ export function EntityCard({
           className="group min-w-0 cursor-pointer text-left"
         >
           <p className="text-fg group-hover:text-accent truncate text-sm font-medium transition-colors">
-            {entity.name}
+            {renamed ? displayName : entity.name}
           </p>
           <p className="text-fg-subtle truncate font-mono text-[11px]">
-            {isSensor ? (attrStr(entity, "device_class")?.replace(/_/g, " ") ?? entity.entityId) : entity.entityId}
+            {isSensor && !renamed
+              ? (attrStr(entity, "device_class")?.replace(/_/g, " ") ?? entity.entityId)
+              : entity.entityId}
           </p>
         </button>
         <PrimaryControl entity={entity} svc={svc} call={call} unknown={unknown} />
@@ -257,17 +274,8 @@ function SecondaryControls({
   const { t } = useTranslation();
   const domain = entity.domain;
 
-  if (domain === "light" && lightSupportsBrightness(entity)) {
-    return (
-      <Slider
-        value={attrNum(entity, "brightness") ?? 0}
-        min={0}
-        max={255}
-        disabled={svc.isPending || unknown}
-        aria-label={t("ha.light.brightness")}
-        onValueCommit={(brightness) => call("turn_on", { brightness })}
-      />
-    );
+  if (domain === "light") {
+    return <LightControls entity={entity} svc={svc} call={call} unknown={unknown} />;
   }
 
   if (domain === "climate") return <ClimateControls entity={entity} svc={svc} call={call} unknown={unknown} />;
@@ -421,7 +429,195 @@ function SecondaryControls({
   return null;
 }
 
-/** Current temperature, target stepper, and HVAC mode select. */
+/** Reads the light's current color as a #rrggbb hex, defaulting to warm white. */
+function lightHexColor(entity: HaEntity): string {
+  const v = entity.attributes["rgb_color"];
+  if (Array.isArray(v) && v.length >= 3 && v.slice(0, 3).every((n) => typeof n === "number")) {
+    return (
+      "#" +
+      (v.slice(0, 3) as number[])
+        .map((n) => Math.min(255, Math.max(0, Math.round(n))).toString(16).padStart(2, "0"))
+        .join("")
+    );
+  }
+  return "#ffd8a8";
+}
+
+/**
+ * LightControls is the collapsible section under a light card: brightness,
+ * color temperature, and color — each only when the light supports it. It is
+ * collapsed by default and the expansion is view state, never persisted. When
+ * both color and temperature exist, a small segmented toggle picks which one
+ * is shown.
+ */
+function LightControls({
+  entity,
+  svc,
+  call,
+  unknown,
+}: {
+  entity: HaEntity;
+  svc: ServiceMutation;
+  call: (service: string, data?: Record<string, unknown>) => void;
+  unknown: boolean;
+}) {
+  const { t } = useTranslation();
+  const hasBrightness = lightSupportsBrightness(entity);
+  const hasColor = lightSupportsColor(entity);
+  const hasTemp = lightSupportsColorTemp(entity);
+
+  const [expanded, setExpanded] = useState(false);
+  // Which pane shows when the light does both; seeded from the current mode.
+  const [pane, setPane] = useState<"color" | "temp">(() =>
+    attrStr(entity, "color_mode") === "color_temp" ? "temp" : "color",
+  );
+  // Color drafts settle briefly before committing — the native picker fires
+  // continuously while dragging, and one turn_on per swatch is plenty.
+  const [colorDraft, setColorDraft] = useState<string | null>(null);
+  useEffect(() => {
+    if (colorDraft == null) return;
+    const id = window.setTimeout(() => {
+      const rgb = [1, 3, 5].map((i) => parseInt(colorDraft.slice(i, i + 2), 16));
+      if (rgb.every((n) => Number.isFinite(n))) call("turn_on", { rgb_color: rgb });
+      setColorDraft(null);
+    }, 400);
+    return () => window.clearTimeout(id);
+    // call is stable enough for this lifetime; re-arm only when the draft moves.
+  }, [colorDraft]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!hasBrightness && !hasColor && !hasTemp) return null;
+
+  const brightness = attrNum(entity, "brightness") ?? 0;
+  const pct = Math.round((brightness / 255) * 100);
+  const on = entity.state === "on";
+
+  const tempMin = attrNum(entity, "min_color_temp_kelvin") ?? 2000;
+  const tempMax = attrNum(entity, "max_color_temp_kelvin") ?? 6500;
+  const tempNow = attrNum(entity, "color_temp_kelvin") ?? Math.round((tempMin + tempMax) / 2);
+
+  const showTempPane = hasTemp && (!hasColor || pane === "temp");
+  const showColorPane = hasColor && (!hasTemp || pane === "color");
+
+  return (
+    <div className="space-y-2.5">
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((v) => !v)}
+        className="text-fg-subtle hover:text-fg flex w-full cursor-pointer items-center justify-between gap-2 text-xs font-medium transition-colors"
+      >
+        <span>
+          {t("ha.light.controls")}
+          {on && hasBrightness && <span className="text-fg-muted"> · {pct}%</span>}
+        </span>
+        <ChevronDown
+          className={cn("size-3.5 transition-transform duration-150", expanded && "rotate-180")}
+          aria-hidden
+        />
+      </button>
+
+      {expanded && (
+        <div className="space-y-2.5">
+          {hasBrightness && (
+            <div className="space-y-1">
+              <p className="text-fg-subtle text-[11px]">{t("ha.light.brightness")}</p>
+              <Slider
+                value={brightness}
+                min={0}
+                max={255}
+                disabled={svc.isPending || unknown}
+                aria-label={t("ha.light.brightness")}
+                onValueCommit={(b) => call("turn_on", { brightness: b })}
+              />
+            </div>
+          )}
+
+          {hasColor && hasTemp && (
+            <div
+              className="border-edge bg-bg-subtle/60 flex rounded-md border p-0.5"
+              role="group"
+              aria-label={t("ha.light.colorMode")}
+            >
+              {(["color", "temp"] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  aria-pressed={pane === p}
+                  onClick={() => setPane(p)}
+                  className={cn(
+                    "h-6 flex-1 cursor-pointer rounded-[5px] text-[11px] font-medium transition-colors",
+                    pane === p
+                      ? "bg-surface text-fg shadow-1"
+                      : "text-fg-muted hover:text-fg",
+                  )}
+                >
+                  {p === "color" ? t("ha.light.color") : t("ha.light.colorTemp")}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {showTempPane && (
+            <div className="space-y-1">
+              <div className="flex items-baseline justify-between">
+                <p className="text-fg-subtle text-[11px]">{t("ha.light.colorTemp")}</p>
+                <p className="text-fg-muted text-[11px] tabular-nums">{tempNow} K</p>
+              </div>
+              <Slider
+                value={tempNow}
+                min={tempMin}
+                max={tempMax}
+                step={50}
+                disabled={svc.isPending || unknown}
+                aria-label={t("ha.light.colorTemp")}
+                onValueCommit={(k) => call("turn_on", { color_temp_kelvin: k })}
+              />
+            </div>
+          )}
+
+          {showColorPane && (
+            <div className="space-y-1">
+              <p className="text-fg-subtle text-[11px]">{t("ha.light.color")}</p>
+              <input
+                type="color"
+                value={colorDraft ?? lightHexColor(entity)}
+                disabled={unknown}
+                aria-label={t("ha.light.color")}
+                onChange={(e) => setColorDraft(e.target.value)}
+                className="border-edge bg-surface h-8 w-full cursor-pointer rounded-md border p-1 disabled:pointer-events-none disabled:opacity-55"
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Icons for the HVAC segmented control; unmapped modes fall back to text. */
+const HVAC_MODE_ICONS: Record<string, LucideIcon> = {
+  off: Power,
+  heat: Flame,
+  cool: Snowflake,
+  heat_cool: SunSnow,
+  auto: RefreshCw,
+  dry: Droplets,
+  fan_only: Fan,
+};
+
+/** Tone for the hvac_action line: heating warm, cooling cool, idle subtle. */
+function hvacActionClass(action: string): string {
+  if (action === "heating" || action === "preheating") return "text-warning";
+  if (action === "cooling") return "text-info";
+  return "text-fg-subtle";
+}
+
+/**
+ * ClimateControls is a proper thermostat: large current temperature with the
+ * live hvac_action underneath, a big debounced target stepper honoring the
+ * entity's min/max/step, and the instance's hvac modes as an icon segmented
+ * control (only modes the entity reports are offered).
+ */
 function ClimateControls({
   entity,
   svc,
@@ -440,6 +636,7 @@ function ClimateControls({
   const max = attrNum(entity, "max_temp") ?? 35;
   const step = attrNum(entity, "target_temp_step") ?? 0.5;
   const hvacModes = attrStrArr(entity, "hvac_modes");
+  const action = attrStr(entity, "hvac_action");
 
   // Stepper clicks accumulate into a draft, committed once after a short
   // settle — rapid taps become one set_temperature call.
@@ -462,62 +659,84 @@ function ClimateControls({
   };
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-fg text-2xl font-semibold tracking-tight">
+        <div className="min-w-0">
+          <p className="text-fg text-3xl font-semibold tracking-tight">
             {current !== undefined ? `${current}°` : "—"}
           </p>
-          <p className="text-fg-subtle text-[11px]">{t("ha.climate.currentTemp")}</p>
+          <p className={cn("text-[11px] font-medium", action ? hvacActionClass(action) : "text-fg-subtle")}>
+            {action
+              ? t(`ha.hvacAction.${action}`, { defaultValue: action.replace(/_/g, " ") })
+              : t("ha.climate.currentTemp")}
+          </p>
         </div>
         {target !== undefined && (
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             <Button
               size="icon"
-              className="size-7"
+              className="size-9 rounded-full"
               disabled={unknown}
               aria-label={t("ha.climate.decrease")}
               onClick={() => adjust(-1)}
             >
-              <Minus className="size-3.5" />
+              <Minus className="size-4" />
             </Button>
-            <span
-              className={cn(
-                "text-fg w-14 text-center text-sm font-semibold tabular-nums",
-                (draft != null || svc.isPending) && "text-fg-muted",
-              )}
-            >
-              {shownTarget}°
-            </span>
+            <div className="w-16 text-center">
+              <p
+                className={cn(
+                  "text-fg text-lg leading-tight font-semibold tabular-nums",
+                  (draft != null || svc.isPending) && "text-fg-muted",
+                )}
+              >
+                {shownTarget}°
+              </p>
+              <p className="text-fg-subtle text-[10px]">{t("ha.climate.target")}</p>
+            </div>
             <Button
               size="icon"
-              className="size-7"
+              className="size-9 rounded-full"
               disabled={unknown}
               aria-label={t("ha.climate.increase")}
               onClick={() => adjust(1)}
             >
-              <Plus className="size-3.5" />
+              <Plus className="size-4" />
             </Button>
           </div>
         )}
       </div>
       {hvacModes.length > 0 && (
-        <Select
-          value={hvacModes.includes(entity.state) ? entity.state : undefined}
-          onValueChange={(mode) => call("set_hvac_mode", { hvac_mode: mode })}
-          disabled={svc.isPending}
+        <div
+          className="border-edge bg-bg-subtle/60 flex rounded-lg border p-0.5"
+          role="group"
+          aria-label={t("ha.climate.hvacMode")}
         >
-          <SelectTrigger className="h-7 text-[13px]" aria-label={t("ha.climate.hvacMode")}>
-            <SelectValue placeholder={t("ha.climate.hvacMode")} />
-          </SelectTrigger>
-          <SelectContent>
-            {hvacModes.map((mode) => (
-              <SelectItem key={mode} value={mode}>
-                {t(`ha.hvacMode.${mode}`, { defaultValue: mode.replace(/_/g, " ") })}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {hvacModes.map((mode) => {
+            const Icon = HVAC_MODE_ICONS[mode];
+            const active = entity.state === mode;
+            const label = t(`ha.hvacMode.${mode}`, { defaultValue: mode.replace(/_/g, " ") });
+            return (
+              <button
+                key={mode}
+                type="button"
+                title={label}
+                aria-label={label}
+                aria-pressed={active}
+                disabled={svc.isPending || unknown}
+                onClick={() => call("set_hvac_mode", { hvac_mode: mode })}
+                className={cn(
+                  "flex h-7 flex-1 cursor-pointer items-center justify-center rounded-md transition-colors",
+                  "disabled:pointer-events-none disabled:opacity-55",
+                  active
+                    ? "bg-accent-soft text-accent-soft-fg"
+                    : "text-fg-muted hover:bg-surface-hover hover:text-fg",
+                )}
+              >
+                {Icon ? <Icon className="size-4" aria-hidden /> : <span className="px-1 text-[11px]">{label}</span>}
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );

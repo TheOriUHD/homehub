@@ -1479,10 +1479,24 @@
         "groupTitle": "Title",
         "groupTitlePlaceholder": "e.g. Living room",
         "titleHint": "Shown as the card's header.",
+        "displayName": "Display name",
+        "displayNameHint": "Replaces the entity's name on this card. Leave empty to keep the original.",
+        "displayNamePlaceholder": "Entity's own name",
         "selectedCount_one": "{{count}} entity selected",
         "selectedCount_other": "{{count}} entities selected",
+        "selectedHint": "Reorder with the arrows; type a name to rename a row on this card.",
+        "renamePlaceholder": "Rename…",
+        "renameRow": "Rename {{name}}",
+        "moveUp": "Move {{name}} up",
+        "moveDown": "Move {{name}} down",
         "maxEntities": "A group holds at most {{max}} entities.",
         "save": "Save card"
+      },
+      "summary": {
+        "lightsOn": "{{on}} of {{total}} on",
+        "avgTemp": "Avg {{temp}}°",
+        "mixed_one": "{{count}} entity · {{active}} active",
+        "mixed_other": "{{count}} entities · {{active}} active"
       }
     },
     "searchPlaceholder": "Search entities…",
@@ -1504,7 +1518,11 @@
       "unavailable": "Unavailable"
     },
     "light": {
-      "brightness": "Brightness"
+      "brightness": "Brightness",
+      "controls": "Controls",
+      "color": "Color",
+      "colorTemp": "Temperature",
+      "colorMode": "Color mode"
     },
     "cover": {
       "open": "Open",
@@ -1541,9 +1559,20 @@
     },
     "climate": {
       "currentTemp": "Current",
+      "target": "Target",
       "decrease": "Lower target temperature",
       "increase": "Raise target temperature",
       "hvacMode": "Mode"
+    },
+    "hvacAction": {
+      "heating": "Heating",
+      "cooling": "Cooling",
+      "idle": "Idle",
+      "off": "Off",
+      "drying": "Drying",
+      "fan": "Fan",
+      "preheating": "Preheating",
+      "defrosting": "Defrosting"
     },
     "hvacMode": {
       "off": "Off",

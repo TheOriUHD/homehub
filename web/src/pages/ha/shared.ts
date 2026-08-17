@@ -136,9 +136,20 @@ export function attrStrArr(entity: HaEntity, key: string): string[] {
 /** Color modes that imply a brightness channel (everything but on/off). */
 const BRIGHTNESS_MODES = ["brightness", "color_temp", "hs", "rgb", "rgbw", "rgbww", "xy", "white"];
 
+/** Color modes that mean the light renders an actual color. */
+const COLOR_MODES = ["hs", "rgb", "rgbw", "rgbww", "xy"];
+
 export function lightSupportsBrightness(entity: HaEntity): boolean {
   if ("brightness" in entity.attributes) return true;
   return attrStrArr(entity, "supported_color_modes").some((m) => BRIGHTNESS_MODES.includes(m));
+}
+
+export function lightSupportsColor(entity: HaEntity): boolean {
+  return attrStrArr(entity, "supported_color_modes").some((m) => COLOR_MODES.includes(m));
+}
+
+export function lightSupportsColorTemp(entity: HaEntity): boolean {
+  return attrStrArr(entity, "supported_color_modes").includes("color_temp");
 }
 
 /** States HA reports when it has no usable value. */

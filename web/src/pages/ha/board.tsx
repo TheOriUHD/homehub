@@ -22,7 +22,8 @@ import { useToast } from "@/ui/toast";
 import { CompactEntityControl, EntityCard } from "./entity-card";
 import { EntityDetailDialog } from "./entity-detail";
 import { CardEditorDialog } from "./card-editor";
-import { haDashboardKey, useHaDashboard, useHaEntities } from "./shared";
+import { cardLabels } from "./card-labels";
+import { attrNum, haDashboardKey, useHaDashboard, useHaEntities } from "./shared";
 
 /** Server-enforced board limit, mirrored so the UI never offers a doomed add. */
 const MAX_CARDS = 100;
@@ -337,9 +338,86 @@ function BoardCard({
     <EntityCard
       instanceId={instanceId}
       entity={entity}
+      displayName={card.title}
       onOpenDetail={(e) => onOpenDetail(e.entityId)}
     />
   );
+}
+
+/** States that read as "doing something" for the mixed-group summary. */
+const ACTIVE_STATES = new Set([
+  "on",
+  "open",
+  "opening",
+  "playing",
+  "heat",
+  "cool",
+  "heat_cool",
+  "auto",
+  "dry",
+  "fan_only",
+  "heating",
+  "cooling",
+  "unlocked",
+  "cleaning",
+  "active",
+]);
+
+/** Domains where "active vs. not" is a meaningful distinction. */
+const ACTIVE_DOMAINS = new Set([
+  "light",
+  "switch",
+  "fan",
+  "input_boolean",
+  "media_player",
+  "climate",
+  "cover",
+  "lock",
+  "vacuum",
+  "humidifier",
+  "siren",
+  "binary_sensor",
+]);
+
+/**
+ * groupSummary is the live line in a group header, shaped by what the group
+ * actually holds: all lights → "x of n on", all climate → average current
+ * temperature, anything with active-capable entities → "n entities · m
+ * active", pure passive content → the plain count. Unresolved ids (RBAC-hidden
+ * or removed) count toward the total but never toward activity.
+ */
+function groupSummary(
+  t: ReturnType<typeof useTranslation>["t"],
+  card: HaDashboardCard,
+  byId: Map<string, HaEntity>,
+): string {
+  const total = card.entityIds.length;
+  const resolved = card.entityIds
+    .map((id) => byId.get(id))
+    .filter((e): e is HaEntity => e !== undefined);
+  if (resolved.length === 0) return t("ha.entityCount", { count: total });
+
+  if (resolved.every((e) => e.domain === "light")) {
+    const on = resolved.filter((e) => e.state === "on").length;
+    return t("ha.board.summary.lightsOn", { on, total });
+  }
+
+  if (resolved.every((e) => e.domain === "climate")) {
+    const temps = resolved
+      .map((e) => attrNum(e, "current_temperature"))
+      .filter((v): v is number => v !== undefined);
+    if (temps.length > 0) {
+      const avg = Math.round((temps.reduce((a, b) => a + b, 0) / temps.length) * 10) / 10;
+      return t("ha.board.summary.avgTemp", { temp: avg });
+    }
+  }
+
+  if (resolved.some((e) => ACTIVE_DOMAINS.has(e.domain))) {
+    const active = resolved.filter((e) => ACTIVE_STATES.has(e.state)).length;
+    return t("ha.board.summary.mixed", { count: total, active });
+  }
+
+  return t("ha.entityCount", { count: total });
 }
 
 /** A titled compact list: one row per entity, name + primary control. */
@@ -355,15 +433,14 @@ function GroupCard({
   onOpenDetail: (entityId: string) => void;
 }) {
   const { t } = useTranslation();
+  const labels = cardLabels(card);
   return (
     <Card className="flex h-full flex-col overflow-hidden">
       <div className="border-edge flex items-baseline justify-between gap-3 border-b px-4 py-2.5">
         <p className="text-fg min-w-0 truncate text-sm font-semibold">
           {card.title || t("ha.board.groupUntitled")}
         </p>
-        <span className="text-fg-subtle shrink-0 text-xs">
-          {t("ha.entityCount", { count: card.entityIds.length })}
-        </span>
+        <span className="text-fg-subtle shrink-0 text-xs">{groupSummary(t, card, byId)}</span>
       </div>
       <ul className="divide-edge max-h-80 min-h-0 flex-1 divide-y overflow-y-auto">
         {card.entityIds.map((id) => {
@@ -378,7 +455,7 @@ function GroupCard({
                     className="group min-w-0 cursor-pointer text-left"
                   >
                     <p className="text-fg group-hover:text-accent truncate text-[13px] font-medium transition-colors">
-                      {entity.name}
+                      {labels?.[id] || entity.name}
                     </p>
                   </button>
                   <CompactEntityControl instanceId={instanceId} entity={entity} />
