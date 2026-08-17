@@ -7,6 +7,7 @@ import {
   BellRing,
   ChartSpline,
   Container,
+  DatabaseBackup,
   Eye,
   FileClock,
   Home,
@@ -30,6 +31,7 @@ import { useAuth } from "@/lib/auth";
 import { RES } from "@/lib/perms";
 import { api, unwrap } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { useBackupsVisible } from "@/pages/backups/shared";
 import { LogoMark, Wordmark } from "./logo";
 import { NotificationsBell } from "./notifications";
 import { CommandPalette } from "./command-palette";
@@ -82,6 +84,9 @@ export function AppShell() {
   if (!me) return <Navigate to="/login" />;
   if (me.user.mustChangePassword) return <Navigate to="/change-password" />;
 
+  // Backups has no client-side grant shortcut — the entry hides when the
+  // server answers the targets probe with a 403.
+  const backupsVisible = useBackupsVisible();
   const mainNav: NavItem[] = [
     { to: "/", label: t("nav.overview"), icon: Home },
     { to: "/health", label: t("nav.health"), icon: Activity, requires: RES.health },
@@ -89,6 +94,9 @@ export function AppShell() {
     // permission-filtered server-side.
     { to: "/history", label: t("nav.history"), icon: ChartSpline },
     { to: "/alerts", label: t("nav.alerts"), icon: BellRing },
+    ...(backupsVisible
+      ? [{ to: "/backups", label: t("nav.backups"), icon: DatabaseBackup }]
+      : []),
   ];
   const adminNav: NavItem[] = [
     { to: "/admin/users", label: t("nav.users"), icon: Users, requires: RES.users },
