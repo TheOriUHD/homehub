@@ -114,10 +114,16 @@ public final class HomeHubCompanionPlugin extends JavaPlugin implements Listener
                         String message = null;
                         try {
                             ok = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
-                            if (!ok) message = "unknown or failed command";
+                            if (!ok) {
+                                message = "unknown or failed command";
+                                // Print into the console stream like a real
+                                // console would, so every viewer sees it.
+                                getLogger().warning("Unknown command '" + command + "'");
+                            }
                         } catch (Throwable t) {
                             ok = false;
                             message = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
+                            getLogger().warning("Command '" + command + "' failed: " + message);
                         }
                         c.sendCmdResult(id, ok, message);
                     }

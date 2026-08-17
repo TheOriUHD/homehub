@@ -125,6 +125,9 @@ func Run(ctx context.Context) error {
 		hub.Publish("integration:"+minecraft.TypeID+"/"+instanceID.String(),
 			map[string]any{"event": event, "data": data})
 	}
+	// Companion connects/disconnects nudge the supervisor so the status
+	// badge follows within a second instead of the next poll or backoff.
+	mcRegistry.StatusChanged = manager.Kick
 	manager.Register(minecraft.Driver{Registry: mcRegistry})
 	manager.StatusChanged = statusNotifier(engine, notifySvc)
 

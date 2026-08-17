@@ -414,6 +414,11 @@ function CommandBar({ instanceId }: { instanceId: string }) {
   const indexRef = useRef<number | null>(null);
   const draftRef = useRef("");
 
+  // A rejected command is console feedback, not an application error: a real
+  // console prints "unknown command" and moves on. Only transport failures
+  // (permissions, companion gone) toast.
+  const [feedback, setFeedback] = useState<string | null>(null);
+
   const send = useMutation({
     mutationFn: async (command: string) =>
       unwrap(
@@ -423,11 +428,8 @@ function CommandBar({ instanceId }: { instanceId: string }) {
         }),
       ),
     onSuccess: (res) => {
-      if (!res.ok) {
-        toast("error", t("mc.console.commandFailed"), res.message || undefined);
-        return;
-      }
       setValue("");
+      setFeedback(res.ok ? null : res.message || t("mc.console.commandRejected"));
     },
     onError: (err) =>
       toast(
@@ -479,10 +481,19 @@ function CommandBar({ instanceId }: { instanceId: string }) {
   };
 
   return (
-    <div
-      className="flex items-center gap-1.5 border-t px-3"
-      style={{ borderColor: PANE.edge, background: PANE.chrome }}
-    >
+    <div style={{ background: PANE.chrome }}>
+      {feedback && (
+        <p
+          className="border-t px-3 py-1 font-mono text-[12px]"
+          style={{ borderColor: PANE.edge, color: "var(--hh-warning)" }}
+        >
+          ! {feedback}
+        </p>
+      )}
+      <div
+        className="flex items-center gap-1.5 border-t px-3"
+        style={{ borderColor: PANE.edge }}
+      >
       {send.isPending ? (
         <Loader2 aria-hidden className="size-4 shrink-0 animate-spin" style={{ color: PANE.dim }} />
       ) : (
@@ -490,7 +501,10 @@ function CommandBar({ instanceId }: { instanceId: string }) {
       )}
       <input
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => {
+          setFeedback(null);
+          setValue(e.target.value);
+        }}
         onKeyDown={onKeyDown}
         readOnly={send.isPending}
         placeholder={t("mc.console.commandPlaceholder")}
@@ -505,6 +519,7 @@ function CommandBar({ instanceId }: { instanceId: string }) {
         )}
         style={{ color: PANE.accentText, caretColor: PANE.accentText }}
       />
+      </div>
     </div>
   );
 }

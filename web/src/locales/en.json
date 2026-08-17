@@ -1757,7 +1757,8 @@
       "empty": "No console output captured yet. It appears live once the companion connects.",
       "commandPlaceholder": "Run a server command — e.g. list, say hello",
       "commandAria": "Console command",
-      "commandFailed": "Command failed"
+      "commandFailed": "Command failed",
+      "commandRejected": "The server rejected the command"
     },
     "players": {
       "onlineTitle": "Online players",
