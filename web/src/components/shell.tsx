@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   Activity,
@@ -29,6 +29,7 @@ import {
   Settings,
   Shield,
   ShieldCheck,
+  Sparkles,
   Sun,
   Users,
   X,
@@ -88,6 +89,14 @@ export function AppShell() {
   // Backups has no client-side grant shortcut — the entry hides when the
   // server answers the targets probe with a 403.
   const backupsVisible = useBackupsVisible(!!me);
+  const assistantState = useQuery({
+    queryKey: ["assistant"],
+    queryFn: async () => unwrap(await api.GET("/assistant")),
+    enabled: !!me,
+  });
+  const assistantVisible = Boolean(
+    assistantState.data && (assistantState.data.enabled || assistantState.data.canConfigure),
+  );
   // Connected systems the user may see — the server filters by permission.
   const integrations = useIntegrations(!!me);
 
@@ -103,6 +112,9 @@ export function AppShell() {
 
   const mainNav: NavItem[] = [
     { to: "/", label: t("nav.overview"), icon: Home },
+    // The assistant entry appears when it's enabled, or for admins who
+    // could enable it.
+    ...(assistantVisible ? [{ to: "/assistant", label: t("nav.assistant"), icon: Sparkles }] : []),
     { to: "/health", label: t("nav.health"), icon: Activity, requires: RES.health },
     // History and Alerts are visible to everyone — their contents are already
     // permission-filtered server-side.

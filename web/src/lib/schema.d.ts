@@ -3172,6 +3172,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assistant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Assistant availability and configuration */
+        get: operations["getAssistant"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assistant/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Configure the assistant
+         * @description Requires configure on system/settings. An empty apiKey keeps the stored one. Audited.
+         */
+        put: operations["putAssistantSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assistant/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send one message to the assistant
+         * @description Runs the tool loop under the caller's own permissions and returns the final reply. Audited with the tools used.
+         */
+        post: operations["assistantChat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assistant/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's conversation history */
+        get: operations["getAssistantHistory"];
+        put?: never;
+        post?: never;
+        /** Clear the caller's conversation */
+        delete: operations["clearAssistantHistory"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/prefs/{key}": {
         parameters: {
             query?: never;
@@ -10110,6 +10185,149 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
+        };
+    };
+    getAssistant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assistant state. keySet says whether an API key is stored (never the key). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        enabled: boolean;
+                        provider: string;
+                        model: string;
+                        keySet: boolean;
+                        canConfigure: boolean;
+                    };
+                };
+            };
+        };
+    };
+    putAssistantSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                    /** @enum {string} */
+                    provider: "anthropic";
+                    model: string;
+                    apiKey?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    assistantChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    message: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The assistant's reply */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reply: string;
+                        tools: string[];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description Assistant disabled or not configured */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    getAssistantHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Messages, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        id: number;
+                        /** @enum {string} */
+                        role: "user" | "assistant";
+                        content: string;
+                        tools?: string[];
+                        /** Format: date-time */
+                        ts: string;
+                    }[];
+                };
+            };
+        };
+    };
+    clearAssistantHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cleared */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     getUserPref: {
