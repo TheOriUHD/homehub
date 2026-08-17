@@ -12,6 +12,7 @@ import {
   DatabaseBackup,
   Eye,
   FileClock,
+  Gamepad2,
   HardDrive,
   Home,
   House,
@@ -128,6 +129,7 @@ export function AppShell() {
   const dbRows = rows.filter((row) => row.type === "mysql" || row.type === "mongodb");
   const haRows = rows.filter((row) => row.type === "homeassistant");
   const mcRows = rows.filter((row) => row.type === "minecraft");
+  const ampRows = rows.filter((row) => row.type === "amp");
   const truenasRows = rows.filter((row) => row.type === "truenas");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
 
@@ -185,6 +187,15 @@ export function AppShell() {
           icon: Pickaxe,
           status: worstStatus(mcRows),
           prefix: "/mc",
+        }]
+      : []),
+    ...(ampRows.length > 0
+      ? [{
+          to: ampRows.length === 1 ? `/amp/${ampRows[0].id}` : "/amp",
+          label: t("systems.types.amp"),
+          icon: Gamepad2,
+          status: worstStatus(ampRows),
+          prefix: "/amp",
         }]
       : []),
     ...(truenasRows.length > 0

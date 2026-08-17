@@ -15,7 +15,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 
-type LandingType = "proxmox" | "homeassistant" | "minecraft" | "truenas";
+type LandingType = "proxmox" | "homeassistant" | "minecraft" | "amp" | "truenas";
 
 /** InstanceLink wraps a card in the typed route for its module. */
 function InstanceLink({ row, children }: { row: Integration; children: React.ReactNode }) {
@@ -30,6 +30,13 @@ function InstanceLink({ row, children }: { row: Integration; children: React.Rea
   if (row.type === "minecraft") {
     return (
       <Link to="/mc/$instanceId" params={{ instanceId: row.id }} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  if (row.type === "amp") {
+    return (
+      <Link to="/amp/$instanceId" params={{ instanceId: row.id }} className={className}>
         {children}
       </Link>
     );

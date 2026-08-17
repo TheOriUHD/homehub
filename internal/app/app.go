@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/TheOriUHD/homehub/companion"
 	"github.com/TheOriUHD/homehub/internal/alerting"
 	"github.com/TheOriUHD/homehub/internal/api"
 	"github.com/TheOriUHD/homehub/internal/audit"
@@ -23,18 +24,19 @@ import (
 	"github.com/TheOriUHD/homehub/internal/backup"
 	"github.com/TheOriUHD/homehub/internal/config"
 	"github.com/TheOriUHD/homehub/internal/db"
+	"github.com/TheOriUHD/homehub/internal/dbdump"
 	"github.com/TheOriUHD/homehub/internal/httpserver"
 	"github.com/TheOriUHD/homehub/internal/integration"
 	"github.com/TheOriUHD/homehub/internal/integrations/adguard"
-	"github.com/TheOriUHD/homehub/internal/dbdump"
+	"github.com/TheOriUHD/homehub/internal/integrations/amp"
 	"github.com/TheOriUHD/homehub/internal/integrations/dbsql"
+	"github.com/TheOriUHD/homehub/internal/integrations/docker"
 	"github.com/TheOriUHD/homehub/internal/integrations/homeassistant"
 	"github.com/TheOriUHD/homehub/internal/integrations/minecraft"
 	"github.com/TheOriUHD/homehub/internal/integrations/mongodb"
-	"github.com/TheOriUHD/homehub/internal/integrations/truenas"
-	"github.com/TheOriUHD/homehub/internal/integrations/docker"
 	"github.com/TheOriUHD/homehub/internal/integrations/pihole"
 	"github.com/TheOriUHD/homehub/internal/integrations/proxmox"
+	"github.com/TheOriUHD/homehub/internal/integrations/truenas"
 	"github.com/TheOriUHD/homehub/internal/jobs"
 	"github.com/TheOriUHD/homehub/internal/metrics"
 	"github.com/TheOriUHD/homehub/internal/notify"
@@ -45,7 +47,6 @@ import (
 	"github.com/TheOriUHD/homehub/internal/vault"
 	"github.com/TheOriUHD/homehub/internal/version"
 	"github.com/TheOriUHD/homehub/internal/ws"
-	"github.com/TheOriUHD/homehub/companion"
 	"github.com/TheOriUHD/homehub/web"
 )
 
@@ -120,6 +121,7 @@ func Run(ctx context.Context) error {
 	manager.Register(dbsql.Driver{})
 	manager.Register(mongodb.Driver{})
 	manager.Register(truenas.Driver{})
+	manager.Register(amp.Driver{})
 	mcRegistry := minecraft.NewRegistry(st, v, logger)
 	mcRegistry.Publish = func(instanceID uuid.UUID, event string, data any) {
 		hub.Publish("integration:"+minecraft.TypeID+"/"+instanceID.String(),
