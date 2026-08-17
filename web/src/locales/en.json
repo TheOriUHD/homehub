@@ -421,7 +421,8 @@
       "nameHintMongo": "How this server appears in HomeHub, e.g. \"MongoDB media\"",
       "nameHintTruenas": "How this NAS appears in HomeHub",
       "nameHintMc": "How this server appears in HomeHub, e.g. \"Survival server\"",
-      "secretKeep": "Leave empty to keep the stored value"
+      "secretKeep": "Leave empty to keep the stored value",
+      "nameHintAmp": "How this panel appears in HomeHub, e.g. “Game node”"
     },
     "pve": {
       "host": "Host",
@@ -519,6 +520,15 @@
       "step1": "Create the instance — you land on its Setup tab.",
       "step2": "Download the companion for your server type (Paper/Spigot, Velocity, Fabric, or Forge) and drop it in the server's plugins or mods folder.",
       "step3": "Pair with the 6-digit code from the Setup tab — either in homehub-companion.properties or with /homehub pair from the server console. The server connects outward; no ports to open."
+    },
+    "amp": {
+      "host": "Panel address",
+      "hostHint": "Host and port of the ADS controller, e.g. amp.lan:8080 or https://panel.example.com",
+      "username": "Username",
+      "usernameHint": "A dedicated AMP user is best — HomeHub gets exactly its permissions",
+      "password": "Password",
+      "insecureTls": "Skip TLS verification",
+      "insecureTlsHint": "Allow a self-signed certificate on the panel."
     }
   },
   "systems": {
@@ -556,7 +566,8 @@
       "minecraft": "Minecraft",
       "mysql": "MySQL / MariaDB",
       "mongodb": "MongoDB",
-      "truenas": "TrueNAS"
+      "truenas": "TrueNAS",
+      "amp": "AMP (CubeCoders)"
     },
     "landing": {
       "pickInstance": "Choose an instance",
@@ -2272,6 +2283,65 @@
         "title": "No history yet",
         "body": "Capacity and temperature history appears here once the metrics engine has collected a few samples."
       }
+    }
+  },
+  "amp": {
+    "subtitle": "CubeCoders AMP",
+    "unreachableBanner": "The panel is unreachable: {{message}}",
+    "overview": {
+      "serversRunning": "servers running",
+      "playersOnline": "players online",
+      "targetOnline": "Online",
+      "targetOffline": "Offline",
+      "cores": "{{count}} cores",
+      "ram": "{{gb}} GB RAM",
+      "players": "Players",
+      "memory": "Memory",
+      "emptyTitle": "No game servers",
+      "emptyBody": "This panel has no instances yet. Create them in AMP and they appear here."
+    },
+    "state": {
+      "undefined": "Unknown",
+      "stopped": "Stopped",
+      "preStart": "Pre-start",
+      "configuring": "Configuring",
+      "starting": "Starting",
+      "running": "Running",
+      "restarting": "Restarting",
+      "stopping": "Stopping",
+      "preparingForSleep": "Preparing for sleep",
+      "sleeping": "Sleeping",
+      "waiting": "Waiting",
+      "installing": "Installing",
+      "updating": "Updating",
+      "awaitingInput": "Awaiting input",
+      "failed": "Failed",
+      "suspended": "Suspended",
+      "maintenance": "Maintenance",
+      "indeterminate": "Indeterminate"
+    },
+    "instance": {
+      "back": "All servers",
+      "uptime": "Uptime",
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart",
+      "kill": "Kill",
+      "update": "Update application",
+      "moreActions": "More actions",
+      "lifecycleStart": "Start instance",
+      "lifecycleStop": "Stop instance",
+      "lifecycleRestart": "Restart instance",
+      "killTitle": "Kill the process?",
+      "killBody": "“{{name}}” is terminated immediately without saving. Use Stop for a graceful shutdown.",
+      "actionFailed": "Action failed"
+    },
+    "console": {
+      "loading": "Loading console…",
+      "loadFailed": "The console couldn't be loaded.",
+      "empty": "No console output yet.",
+      "commandPlaceholder": "Run a server command — e.g. say hello",
+      "commandAria": "Console command"
     }
   }
 }

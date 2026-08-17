@@ -16,3 +16,4 @@ companion/.gradle/
 companion/**/build/
 companion/dist/
 companion/**/.gradle/
+/homehub

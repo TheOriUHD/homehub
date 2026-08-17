@@ -3362,6 +3362,197 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /amp/instances:
+    get:
+      operationId: ampListInstances
+      summary: All AMP panels with instance counts
+      tags: [amp]
+      responses:
+        "200":
+          description: Visible panels
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AmpPanel" }
+
+  /amp/{id}/overview:
+    get:
+      operationId: ampOverview
+      summary: Targets and game-server instances with live state and metrics
+      description: The panel dashboard — every ADS target with its platform, and every instance with state, players, CPU, and memory. Instances are filtered to what the caller may view.
+      tags: [amp]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AmpOverview" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /amp/{id}/instances/{instanceId}/status:
+    get:
+      operationId: ampInstanceStatus
+      summary: Live state, uptime, and metrics for one instance
+      tags: [amp]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: instanceId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AmpInstanceStatus" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /amp/{id}/instances/{instanceId}/console:
+    get:
+      operationId: ampConsole
+      summary: Console scrollback
+      description: Lines after a sequence number, oldest first. Reading starts a live poller against the instance; fresh lines also push on the WS topic's console events.
+      tags: [amp]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: instanceId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: after
+          in: query
+          description: Return lines with seq greater than this; -1 (default) starts at the oldest held line
+          schema: { type: integer, format: int64, default: -1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 5000, default: 1000 }
+      responses:
+        "200":
+          description: Console lines
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AmpConsole" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /amp/{id}/instances/{instanceId}/command:
+    post:
+      operationId: ampCommand
+      summary: Send a console command
+      description: Dispatches the command to the instance's console. AMP gives no per-command verdict — success or failure appears in the console stream. Audited.
+      tags: [amp]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: instanceId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [command]
+              properties:
+                command:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        "204":
+          description: Dispatched
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /amp/{id}/instances/{instanceId}/app:
+    post:
+      operationId: ampAppAction
+      summary: Control the application inside an instance
+      description: Start, stop, restart, kill, or update the game server the instance runs. Audited.
+      tags: [amp]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: instanceId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [start, stop, restart, kill, update]
+      responses:
+        "204":
+          description: Accepted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /amp/{id}/instances/{instanceId}/lifecycle:
+    post:
+      operationId: ampInstanceAction
+      summary: Control the instance itself through the controller
+      description: Start, stop, or restart the whole AMP instance (the container/process, not just the application). Audited.
+      tags: [amp]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: instanceId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [start, stop, restart]
+      responses:
+        "204":
+          description: Accepted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /ha/instances:
     get:
       operationId: haListInstances
@@ -5451,6 +5642,98 @@ components:
         mcVersions:
           type: string
           description: Human-readable supported range, e.g. "1.16.5 – 1.21.x"
+
+    AmpPanel:
+      type: object
+      required: [id, name, status, statusMessage, instanceCount, runningCount]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status:
+          type: string
+          enum: [pending, connecting, connected, degraded, unreachable, disabled]
+        statusMessage: { type: string }
+        instanceCount: { type: integer }
+        runningCount: { type: integer }
+
+    AmpOverview:
+      type: object
+      required: [targets]
+      properties:
+        targets:
+          type: array
+          items: { $ref: "#/components/schemas/AmpTarget" }
+
+    AmpTarget:
+      type: object
+      required: [instanceId, friendlyName, state, online, instances]
+      properties:
+        instanceId: { type: string }
+        friendlyName: { type: string }
+        description: { type: string }
+        state: { type: string }
+        online: { type: boolean }
+        platform: { type: string }
+        cpuModel: { type: string }
+        cores: { type: integer }
+        ramMb: { type: integer }
+        instances:
+          type: array
+          items: { $ref: "#/components/schemas/AmpServerInstance" }
+
+    AmpServerInstance:
+      type: object
+      required: [id, name, friendlyName, module, moduleName, running, suspended, state]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        friendlyName: { type: string }
+        description: { type: string }
+        module: { type: string }
+        moduleName: { type: string }
+        running: { type: boolean }
+        suspended: { type: boolean }
+        state: { type: string }
+        ip: { type: string }
+        port: { type: integer }
+        diskUsageMb: { type: integer, format: int64 }
+        cpuPercent: { type: number, format: double }
+        memUsedMb: { type: number, format: double }
+        memMaxMb: { type: number, format: double }
+        players: { type: integer }
+        maxPlayers: { type: integer }
+
+    AmpInstanceStatus:
+      type: object
+      required: [state, uptime]
+      properties:
+        state: { type: string }
+        uptime: { type: string }
+        cpuPercent: { type: number, format: double }
+        memUsedMb: { type: number, format: double }
+        memMaxMb: { type: number, format: double }
+        players: { type: integer }
+        maxPlayers: { type: integer }
+
+    AmpConsole:
+      type: object
+      required: [lines, oldestSeq, nextSeq]
+      properties:
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/AmpConsoleLine" }
+        oldestSeq: { type: integer, format: int64 }
+        nextSeq: { type: integer, format: int64 }
+
+    AmpConsoleLine:
+      type: object
+      required: [seq, ts, type, contents]
+      properties:
+        seq: { type: integer, format: int64 }
+        ts: { type: integer, format: int64 }
+        type: { type: string }
+        source: { type: string }
+        contents: { type: string }
 
     TruenasInstance:
       type: object

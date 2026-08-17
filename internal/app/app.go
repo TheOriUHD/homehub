@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"homehub/companion"
 	"homehub/internal/alerting"
 	"homehub/internal/api"
 	"homehub/internal/audit"
@@ -23,18 +24,19 @@ import (
 	"homehub/internal/backup"
 	"homehub/internal/config"
 	"homehub/internal/db"
+	"homehub/internal/dbdump"
 	"homehub/internal/httpserver"
 	"homehub/internal/integration"
 	"homehub/internal/integrations/adguard"
-	"homehub/internal/dbdump"
+	"homehub/internal/integrations/amp"
 	"homehub/internal/integrations/dbsql"
+	"homehub/internal/integrations/docker"
 	"homehub/internal/integrations/homeassistant"
 	"homehub/internal/integrations/minecraft"
 	"homehub/internal/integrations/mongodb"
-	"homehub/internal/integrations/truenas"
-	"homehub/internal/integrations/docker"
 	"homehub/internal/integrations/pihole"
 	"homehub/internal/integrations/proxmox"
+	"homehub/internal/integrations/truenas"
 	"homehub/internal/jobs"
 	"homehub/internal/metrics"
 	"homehub/internal/notify"
@@ -45,7 +47,6 @@ import (
 	"homehub/internal/vault"
 	"homehub/internal/version"
 	"homehub/internal/ws"
-	"homehub/companion"
 	"homehub/web"
 )
 
@@ -120,6 +121,7 @@ func Run(ctx context.Context) error {
 	manager.Register(dbsql.Driver{})
 	manager.Register(mongodb.Driver{})
 	manager.Register(truenas.Driver{})
+	manager.Register(amp.Driver{})
 	mcRegistry := minecraft.NewRegistry(st, v, logger)
 	mcRegistry.Publish = func(instanceID uuid.UUID, event string, data any) {
 		hub.Publish("integration:"+minecraft.TypeID+"/"+instanceID.String(),

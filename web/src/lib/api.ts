@@ -102,6 +102,13 @@ export type TruenasShare = ApiSchemas["TruenasShare"];
 export type TruenasSnapshot = ApiSchemas["TruenasSnapshot"];
 export type TruenasAlert = ApiSchemas["TruenasAlert"];
 
+export type AmpPanel = ApiSchemas["AmpPanel"];
+export type AmpOverview = ApiSchemas["AmpOverview"];
+export type AmpTarget = ApiSchemas["AmpTarget"];
+export type AmpServerInstance = ApiSchemas["AmpServerInstance"];
+export type AmpInstanceStatus = ApiSchemas["AmpInstanceStatus"];
+export type AmpConsoleLine = ApiSchemas["AmpConsoleLine"];
+
 export const api = createClient<paths>({ baseUrl: "/api" });
 
 /**

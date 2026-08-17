@@ -56,6 +56,9 @@ import { DbBrowsePage } from "./pages/db/browse";
 import { DbConsolePage } from "./pages/db/console";
 import { DbSessionsPage } from "./pages/db/sessions";
 import { DbPerformancePage } from "./pages/db/performance";
+import { AmpModulePage } from "./pages/amp/module";
+import { AmpOverviewPage } from "./pages/amp/overview";
+import { AmpInstancePage } from "./pages/amp/instance";
 import { TruenasModulePage } from "./pages/truenas/module";
 import { TruenasOverviewPage } from "./pages/truenas/overview";
 import { TruenasDatasetsPage } from "./pages/truenas/datasets";
@@ -202,6 +205,30 @@ const truenasLandingRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/truenas",
   component: () => <SystemTypeLanding type="truenas" />,
+});
+
+const ampLandingRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/amp",
+  component: () => <SystemTypeLanding type="amp" />,
+});
+
+const ampModuleRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/amp/$instanceId",
+  component: AmpModulePage,
+});
+
+const ampOverviewRoute = createRoute({
+  getParentRoute: () => ampModuleRoute,
+  path: "/",
+  component: AmpOverviewPage,
+});
+
+const ampInstanceRoute = createRoute({
+  getParentRoute: () => ampModuleRoute,
+  path: "/i/$serverId",
+  component: AmpInstancePage,
 });
 
 const pveModuleRoute = createRoute({
@@ -510,6 +537,7 @@ const routeTree = rootRoute.addChildren([
     pveLandingRoute,
     haLandingRoute,
     mcLandingRoute,
+    ampLandingRoute,
     truenasLandingRoute,
     dockerHubRoute.addChildren([dockerAllContainersRoute, dockerHostsRoute]),
     pveModuleRoute.addChildren([
@@ -557,6 +585,7 @@ const routeTree = rootRoute.addChildren([
       truenasSnapshotsRoute,
       truenasPerformanceRoute,
     ]),
+    ampModuleRoute.addChildren([ampOverviewRoute, ampInstanceRoute]),
   ]),
 ]);
 

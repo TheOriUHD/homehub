@@ -2123,6 +2123,140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/amp/instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All AMP panels with instance counts */
+        get: operations["ampListInstances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/amp/{id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Targets and game-server instances with live state and metrics
+         * @description The panel dashboard — every ADS target with its platform, and every instance with state, players, CPU, and memory. Instances are filtered to what the caller may view.
+         */
+        get: operations["ampOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/amp/{id}/instances/{instanceId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live state, uptime, and metrics for one instance */
+        get: operations["ampInstanceStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/amp/{id}/instances/{instanceId}/console": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Console scrollback
+         * @description Lines after a sequence number, oldest first. Reading starts a live poller against the instance; fresh lines also push on the WS topic's console events.
+         */
+        get: operations["ampConsole"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/amp/{id}/instances/{instanceId}/command": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a console command
+         * @description Dispatches the command to the instance's console. AMP gives no per-command verdict — success or failure appears in the console stream. Audited.
+         */
+        post: operations["ampCommand"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/amp/{id}/instances/{instanceId}/app": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Control the application inside an instance
+         * @description Start, stop, restart, kill, or update the game server the instance runs. Audited.
+         */
+        post: operations["ampAppAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/amp/{id}/instances/{instanceId}/lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Control the instance itself through the controller
+         * @description Start, stop, or restart the whole AMP instance (the container/process, not just the application). Audited.
+         */
+        post: operations["ampInstanceAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ha/instances": {
         parameters: {
             query?: never;
@@ -3579,6 +3713,82 @@ export interface components {
             sizeBytes: number;
             /** @description Human-readable supported range, e.g. "1.16.5 – 1.21.x" */
             mcVersions: string;
+        };
+        AmpPanel: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            status: "pending" | "connecting" | "connected" | "degraded" | "unreachable" | "disabled";
+            statusMessage: string;
+            instanceCount: number;
+            runningCount: number;
+        };
+        AmpOverview: {
+            targets: components["schemas"]["AmpTarget"][];
+        };
+        AmpTarget: {
+            instanceId: string;
+            friendlyName: string;
+            description?: string;
+            state: string;
+            online: boolean;
+            platform?: string;
+            cpuModel?: string;
+            cores?: number;
+            ramMb?: number;
+            instances: components["schemas"]["AmpServerInstance"][];
+        };
+        AmpServerInstance: {
+            id: string;
+            name: string;
+            friendlyName: string;
+            description?: string;
+            module: string;
+            moduleName: string;
+            running: boolean;
+            suspended: boolean;
+            state: string;
+            ip?: string;
+            port?: number;
+            /** Format: int64 */
+            diskUsageMb?: number;
+            /** Format: double */
+            cpuPercent?: number;
+            /** Format: double */
+            memUsedMb?: number;
+            /** Format: double */
+            memMaxMb?: number;
+            players?: number;
+            maxPlayers?: number;
+        };
+        AmpInstanceStatus: {
+            state: string;
+            uptime: string;
+            /** Format: double */
+            cpuPercent?: number;
+            /** Format: double */
+            memUsedMb?: number;
+            /** Format: double */
+            memMaxMb?: number;
+            players?: number;
+            maxPlayers?: number;
+        };
+        AmpConsole: {
+            lines: components["schemas"]["AmpConsoleLine"][];
+            /** Format: int64 */
+            oldestSeq: number;
+            /** Format: int64 */
+            nextSeq: number;
+        };
+        AmpConsoleLine: {
+            /** Format: int64 */
+            seq: number;
+            /** Format: int64 */
+            ts: number;
+            type: string;
+            source?: string;
+            contents: string;
         };
         TruenasInstance: {
             /** Format: uuid */
@@ -7618,6 +7828,199 @@ export interface operations {
                     "application/json": components["schemas"]["TruenasAlert"][];
                 };
             };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    ampListInstances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Visible panels */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmpPanel"][];
+                };
+            };
+        };
+    };
+    ampOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmpOverview"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    ampInstanceStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmpInstanceStatus"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    ampConsole: {
+        parameters: {
+            query?: {
+                /** @description Return lines with seq greater than this; -1 (default) starts at the oldest held line */
+                after?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Console lines */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmpConsole"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    ampCommand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    command: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Dispatched */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    ampAppAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    action: "start" | "stop" | "restart" | "kill" | "update";
+                };
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    ampInstanceAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    action: "start" | "stop" | "restart";
+                };
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             502: components["responses"]["UpstreamError"];
         };

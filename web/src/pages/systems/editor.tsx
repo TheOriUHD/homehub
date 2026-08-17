@@ -226,6 +226,14 @@ type TruenasFormState = {
 
 type McFormState = { name: string };
 
+type AmpFormState = {
+  name: string;
+  host: string;
+  username: string;
+  password: string;
+  insecureTls: boolean;
+};
+
 const emptyMysqlForm: MysqlFormState = {
   name: "",
   host: "",
@@ -248,6 +256,8 @@ const emptyMongoForm: MongoFormState = {
 const emptyTruenasForm: TruenasFormState = { name: "", host: "", apiKey: "", insecureTls: false };
 
 const emptyMcForm: McFormState = { name: "" };
+
+const emptyAmpForm: AmpFormState = { name: "", host: "", username: "", password: "", insecureTls: false };
 
 function mysqlPayload(form: MysqlFormState): FormPayload {
   const secrets: Record<string, string> = {};
@@ -280,6 +290,19 @@ function truenasPayload(form: TruenasFormState): FormPayload {
 
 function mcPayload(): FormPayload {
   return { config: {}, secrets: {} };
+}
+
+function ampPayload(form: AmpFormState): FormPayload {
+  const secrets: Record<string, string> = {};
+  if (form.password) secrets.password = form.password;
+  return {
+    config: { host: form.host, username: form.username, insecureTls: form.insecureTls },
+    secrets,
+  };
+}
+
+function ampComplete(form: AmpFormState, isNew: boolean): boolean {
+  return Boolean(form.name.trim() && form.host.trim() && form.username.trim() && (form.password.trim() || !isNew));
 }
 
 function mysqlComplete(form: MysqlFormState, isNew: boolean): boolean {
@@ -326,6 +349,7 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
   const [mongoForm, setMongoForm] = useState<MongoFormState>(emptyMongoForm);
   const [truenasForm, setTruenasForm] = useState<TruenasFormState>(emptyTruenasForm);
   const [mcForm, setMcForm] = useState<McFormState>(emptyMcForm);
+  const [ampForm, setAmpForm] = useState<AmpFormState>(emptyAmpForm);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const kind = type?.id ?? "";
@@ -349,6 +373,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return mongoPayload(mongoForm);
       case "truenas":
         return truenasPayload(truenasForm);
+      case "amp":
+        return ampPayload(ampForm);
       case "minecraft":
         return mcPayload();
       default:
@@ -373,6 +399,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return mongoForm.name;
       case "truenas":
         return truenasForm.name;
+      case "amp":
+        return ampForm.name;
       case "minecraft":
         return mcForm.name;
       default:
@@ -421,6 +449,9 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
           break;
         case "truenas":
           void navigate({ to: "/truenas/$instanceId", params: { instanceId: created.id } });
+          break;
+        case "amp":
+          void navigate({ to: "/amp/$instanceId", params: { instanceId: created.id } });
           break;
         case "minecraft":
           // Straight to the pairing instructions and downloads.
@@ -477,6 +508,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return mongoComplete(mongoForm, true);
       case "truenas":
         return truenasComplete(truenasForm, true);
+      case "amp":
+        return ampComplete(ampForm, true);
       case "minecraft":
         return mcComplete(mcForm);
       default:
@@ -504,6 +537,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return <MongoForm form={mongoForm} setForm={setMongoForm} isNew testResult={testResult} onFormChange={clearTest} />;
       case "truenas":
         return <TruenasForm form={truenasForm} setForm={setTruenasForm} isNew testResult={testResult} onFormChange={clearTest} />;
+      case "amp":
+        return <AmpForm form={ampForm} setForm={setAmpForm} isNew testResult={testResult} onFormChange={clearTest} />;
       case "minecraft":
         return <McForm form={mcForm} setForm={setMcForm} />;
       default:
@@ -624,6 +659,13 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
     insecureTls: Boolean(cfg.insecureTls),
   });
   const [mcForm, setMcForm] = useState<McFormState>({ name: row.name });
+  const [ampForm, setAmpForm] = useState<AmpFormState>({
+    ...emptyAmpForm,
+    name: row.name,
+    host: String(cfg.host ?? ""),
+    username: String(cfg.username ?? ""),
+    insecureTls: Boolean(cfg.insecureTls),
+  });
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const editPayload = (): FormPayload => {
@@ -642,6 +684,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return mongoPayload(mongoForm);
       case "truenas":
         return truenasPayload(truenasForm);
+      case "amp":
+        return ampPayload(ampForm);
       case "minecraft":
         return mcPayload();
       default:
@@ -664,6 +708,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return mongoForm.name;
       case "truenas":
         return truenasForm.name;
+      case "amp":
+        return ampForm.name;
       case "minecraft":
         return mcForm.name;
       default:
@@ -705,6 +751,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return mongoComplete(mongoForm, false);
       case "truenas":
         return truenasComplete(truenasForm, false);
+      case "amp":
+        return ampComplete(ampForm, false);
       case "minecraft":
         return mcComplete(mcForm);
       default:
@@ -746,6 +794,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
               return <MongoForm form={mongoForm} setForm={setMongoForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
             case "truenas":
               return <TruenasForm form={truenasForm} setForm={setTruenasForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
+            case "amp":
+              return <AmpForm form={ampForm} setForm={setAmpForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
             case "minecraft":
               return <McForm form={mcForm} setForm={setMcForm} />;
             case "proxmox":
@@ -1235,6 +1285,58 @@ function MongoForm({
           hint={t("integrations.dns.insecureTlsHint")}
         />
       )}
+      <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
+function AmpForm({
+  form,
+  setForm,
+  isNew,
+  testResult,
+  onFormChange,
+}: {
+  form: AmpFormState;
+  setForm: (fn: (prev: AmpFormState) => AmpFormState) => void;
+  isNew: boolean;
+  testResult: TestConnectionResult | null;
+  onFormChange: () => void;
+}) {
+  const { t } = useTranslation();
+  const update = (patch: Partial<AmpFormState>) => {
+    onFormChange();
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.form.name")} hint={t("integrations.form.nameHintAmp")}>
+          {(p) => <Input {...p} autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.amp.host")} hint={t("integrations.amp.hostHint")}>
+          {(p) => <Input {...p} placeholder="amp.lan:8080" value={form.host} onChange={(e) => update({ host: e.target.value })} />}
+        </Field>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.amp.username")} hint={t("integrations.amp.usernameHint")}>
+          {(p) => <Input {...p} value={form.username} onChange={(e) => update({ username: e.target.value })} />}
+        </Field>
+        <Field
+          label={t("integrations.amp.password")}
+          hint={isNew ? undefined : t("integrations.form.secretKeep")}
+        >
+          {(p) => (
+            <PasswordInput {...p} value={form.password} onChange={(e) => update({ password: e.target.value })} />
+          )}
+        </Field>
+      </div>
+      <Checkbox
+        checked={form.insecureTls}
+        onCheckedChange={(checked) => update({ insecureTls: checked })}
+        label={t("integrations.amp.insecureTls")}
+        hint={t("integrations.amp.insecureTlsHint")}
+      />
       <TestResultNote result={testResult} />
     </div>
   );
