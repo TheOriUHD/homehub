@@ -6,14 +6,24 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
+# ---- minecraft companion plugins ----
+FROM eclipse-temurin:21-jdk AS companion
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip \
+    && curl -sL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip \
+    && unzip -q /tmp/gradle.zip -d /opt && rm /tmp/gradle.zip
+WORKDIR /src/companion
+COPY companion/ ./
+RUN /opt/gradle-8.10.2/bin/gradle --no-daemon dist
+
 # ---- backend ----
-FROM golang:1.24-alpine AS build
+FROM golang:1.25-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/web/dist ./web/dist
-RUN CGO_ENABLED=0 go build -trimpath -tags ui \
+COPY --from=companion /src/companion/dist ./companion/dist
+RUN CGO_ENABLED=0 go build -trimpath -tags "ui companion" \
     -ldflags "-s -w -X github.com/TheOriUHD/homehub/internal/version.Version=$(cat VERSION)" \
     -o /out/homehub ./cmd/homehub
 
