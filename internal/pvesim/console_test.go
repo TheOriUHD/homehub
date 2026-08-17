@@ -43,7 +43,7 @@ func TestVNCWebsocketEcho(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	wsURL := strings.Replace(ts.URL, "http://", "ws://", 1) +
-		"/api2/json/nodes/pve1/vncwebsocket?port=" + env.Data.Port +
+		"/api2/json/nodes/pve1/qemu/101/vncwebsocket?port=" + env.Data.Port +
 		"&vncticket=" + url.QueryEscape(env.Data.Ticket)
 	conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{
 		HTTPHeader: http.Header{"Authorization": {"PVEAPIToken=" + s.Token()}},

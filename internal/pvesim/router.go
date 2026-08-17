@@ -48,7 +48,9 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/tasks/{upid}/status", s.getTaskStatus)
 			r.Get("/tasks/{upid}/log", s.getTaskLog)
 			r.Post("/vzdump", s.postVzdump)
-			r.Get("/vncwebsocket", s.getVNCWebsocket)
+			// Real PVE serves guest console websockets ONLY at the
+			// guest-scoped path; the node-level endpoint is the node shell.
+			// Mirroring that keeps wrong-path dials from passing here.
 
 			r.Route("/{kind:qemu|lxc}/{vmid:[0-9]+}", func(r chi.Router) {
 				r.Delete("/", s.deleteGuest)
@@ -70,6 +72,7 @@ func (s *Server) Handler() http.Handler {
 				r.Get("/agent/network-get-interfaces", s.getAgentInterfaces)
 				r.Get("/agent/get-host-name", s.getAgentHostname)
 				r.Get("/agent/get-osinfo", s.getAgentOSInfo)
+				r.Get("/vncwebsocket", s.getVNCWebsocket)
 			})
 		})
 	})

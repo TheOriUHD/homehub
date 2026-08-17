@@ -35,17 +35,23 @@ func (c *Client) TermProxy(ctx context.Context, node, kind string, vmid int) (Te
 	return ticket, err
 }
 
-// DialVNCWebsocket opens the node's vncwebsocket endpoint for a ticket from
-// VNCProxy or TermProxy, using the client's auth header and TLS config with
-// subprotocol "binary". It returns the raw connection: callers perform the
-// "user:ticket\n" auth preamble themselves and must Close it.
-func (c *Client) DialVNCWebsocket(ctx context.Context, node string, port int64, ticket string) (*websocket.Conn, error) {
+// DialVNCWebsocket opens the guest-scoped vncwebsocket endpoint for a ticket
+// from VNCProxy or TermProxy, using the client's auth header and TLS config
+// with subprotocol "binary". The ticket is bound to the guest path — the
+// node-level /nodes/{node}/vncwebsocket endpoint serves node shells only,
+// and real PVE answers guest tickets there with 401 "invalid PVEVNC ticket".
+// It returns the raw connection: callers perform the "user:ticket\n" auth
+// preamble themselves and must Close it.
+func (c *Client) DialVNCWebsocket(ctx context.Context, node, kind string, vmid int, port int64, ticket string) (*websocket.Conn, error) {
+	if err := checkKind(kind); err != nil {
+		return nil, err
+	}
 	q := url.Values{
 		"port":      {strconv.FormatInt(port, 10)},
 		"vncticket": {ticket},
 	}
 	// websocket.Dial maps http(s) schemes to ws(s) itself.
-	wsURL := c.baseURL + "/api2/json" + joinPath("nodes", node, "vncwebsocket") + "?" + q.Encode()
+	wsURL := c.baseURL + "/api2/json" + guestPath(node, kind, vmid, "vncwebsocket") + "?" + q.Encode()
 	hdr := http.Header{}
 	hdr.Set("Authorization", c.authz)
 	conn, resp, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{
