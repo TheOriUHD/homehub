@@ -17,6 +17,7 @@ import {
   Server,
   Settings,
   Shield,
+  ShieldCheck,
   Sun,
   Users,
   X,
@@ -103,6 +104,16 @@ export function AppShell() {
   const systems = (integrations.data ?? []).filter(
     (row) => row.enabled && (row.type === "proxmox" || row.type === "docker"),
   );
+  // DNS is one module spanning all Pi-hole/AdGuard instances — a single nav
+  // entry whose dot aggregates the worst instance status.
+  const dnsInstances = (integrations.data ?? []).filter(
+    (row) => row.enabled && (row.type === "pihole" || row.type === "adguard"),
+  );
+  const dnsStatus = dnsInstances.some((row) => row.status === "unreachable")
+    ? "unreachable"
+    : dnsInstances.some((row) => row.status === "degraded" || row.status === "connecting")
+      ? "degraded"
+      : "connected";
 
   const initials = me.user.displayName
     .split(/\s+/)
@@ -124,7 +135,7 @@ export function AppShell() {
             <SidebarLink key={item.to} item={item} active={pathname === item.to} />
           ))}
         </div>
-        {systems.length > 0 && (
+        {(systems.length > 0 || dnsInstances.length > 0) && (
           <div>
             <p className="text-fg-subtle mb-1.5 px-2.5 text-[11px] font-semibold tracking-wider uppercase">
               {t("nav.systems")}
@@ -141,6 +152,13 @@ export function AppShell() {
                   />
                 );
               })}
+              {dnsInstances.length > 0 && (
+                <SidebarLink
+                  item={{ to: "/dns", label: t("dns.title"), icon: ShieldCheck }}
+                  active={pathname.startsWith("/dns")}
+                  status={dnsStatus}
+                />
+              )}
             </div>
           </div>
         )}

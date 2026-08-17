@@ -5,7 +5,7 @@ import { cn, formatBytes } from "@/lib/utils";
 
 export type SeriesPoint = { ts: number; value: number };
 
-export type ChartKind = "percent" | "bytes";
+export type ChartKind = "percent" | "bytes" | "count";
 
 /** Resolve theme tokens for chart ink; re-read when the theme flips. */
 function useChartTheme() {
@@ -32,6 +32,7 @@ function useChartTheme() {
 
 function formatValue(kind: ChartKind, value: number): string {
   if (kind === "percent") return `${(value * 100).toFixed(value < 0.1 ? 1 : 0)}%`;
+  if (kind === "count") return Math.round(value).toLocaleString();
   return formatBytes(value);
 }
 
