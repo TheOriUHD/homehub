@@ -2833,6 +2833,225 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /db/{id}/databases/{database}/objects/{object}/schema:
+    get:
+      operationId: dbObjectSchema
+      summary: Structure of a table or collection
+      description: SQL columns with types, keys, and indexes, or a MongoDB collection's indexes and sampled keys.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/dbNameParam"
+        - $ref: "#/components/parameters/dbObjectParam"
+      responses:
+        "200":
+          description: The structure
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DbObjectSchema" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /db/{id}/databases/{database}/objects/{object}/data:
+    get:
+      operationId: dbObjectData
+      summary: Rows or documents, paginated
+      description: A page of table rows (SQL) or documents (MongoDB) with total count. SQL supports sort plus structured column filters via query params; MongoDB accepts a JSON filter and a sort field.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/dbNameParam"
+        - $ref: "#/components/parameters/dbObjectParam"
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: orderBy
+          in: query
+          description: SQL sort column
+          schema: { type: string }
+        - name: dir
+          in: query
+          schema: { type: string, enum: [asc, desc] }
+        - name: filter
+          in: query
+          description: SQL structured filters as column:op:value triples (op one of eq,ne,lt,lte,gt,gte,like,is_null,not_null), repeatable; or a single MongoDB extended-JSON filter document
+          schema:
+            type: array
+            items: { type: string }
+          style: form
+          explode: true
+        - name: sortField
+          in: query
+          description: MongoDB sort field
+          schema: { type: string }
+      responses:
+        "200":
+          description: A page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DbDataPage" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /db/{id}/databases/{database}/objects/{object}/rows:
+    post:
+      operationId: dbInsertRow
+      summary: Insert a row or document
+      description: Requires control on the database. SQL takes a column→value map (null for SQL NULL); MongoDB takes an extended-JSON document. Audited.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/dbNameParam"
+        - $ref: "#/components/parameters/dbObjectParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DbRowWrite" }
+      responses:
+        "204":
+          description: Inserted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+    patch:
+      operationId: dbUpdateRow
+      summary: Update a row or document
+      description: Requires control on the database. SQL identifies the row by primary key (or, keyless, by the original values sent in `identity`) and sets `values`; MongoDB replaces the document with the matching `_id`. One row/document only. Audited.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/dbNameParam"
+        - $ref: "#/components/parameters/dbObjectParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DbRowWrite" }
+      responses:
+        "200":
+          description: Update result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [affected]
+                properties:
+                  affected: { type: integer, format: int64 }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /db/{id}/databases/{database}/objects/{object}/rows/delete:
+    post:
+      operationId: dbDeleteRow
+      summary: Delete a row or document
+      description: Requires control on the database. SQL deletes by identity (primary key or original values); MongoDB deletes by `_id`. One row/document only. Audited.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/dbNameParam"
+        - $ref: "#/components/parameters/dbObjectParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DbRowWrite" }
+      responses:
+        "200":
+          description: Delete result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [affected]
+                properties:
+                  affected: { type: integer, format: int64 }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /db/{id}/databases/{database}/objects/{object}:
+    delete:
+      operationId: dbDropObject
+      summary: Drop a table or collection
+      description: Destructive. Requires control on the database and a confirm flag. Audited.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/dbNameParam"
+        - $ref: "#/components/parameters/dbObjectParam"
+        - name: confirm
+          in: query
+          required: true
+          schema: { type: boolean }
+      responses:
+        "204":
+          description: Dropped
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /db/{id}/databases/{database}/objects/{object}/truncate:
+    post:
+      operationId: dbTruncateObject
+      summary: Empty a table
+      description: SQL only; removes all rows. Destructive. Requires control on the database and a confirm flag. Audited.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/dbNameParam"
+        - $ref: "#/components/parameters/dbObjectParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm: { type: boolean }
+      responses:
+        "204":
+          description: Emptied
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /db/{id}/query:
     post:
       operationId: dbQuery
@@ -3778,6 +3997,12 @@ components:
       in: path
       required: true
       schema: { type: string, minLength: 1, maxLength: 128 }
+    dbObjectParam:
+      name: object
+      in: path
+      required: true
+      description: Table name (SQL) or collection name (MongoDB)
+      schema: { type: string, minLength: 1, maxLength: 128 }
     vmidParam:
       name: vmid
       in: path
@@ -4663,6 +4888,94 @@ components:
       properties:
         enabled: { type: boolean }
         until: { type: string, format: date-time, nullable: true }
+
+    DbObjectSchema:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [table, collection]
+        columns:
+          type: array
+          description: SQL tables
+          items: { $ref: "#/components/schemas/DbColumn" }
+        primaryKey:
+          type: array
+          items: { type: string }
+        indexes:
+          type: array
+          items: { $ref: "#/components/schemas/DbIndex" }
+        sampleKeys:
+          type: array
+          description: MongoDB — keys sampled from recent documents
+          items: { type: string }
+        rowEstimate: { type: integer, format: int64 }
+
+    DbColumn:
+      type: object
+      required: [name, type, nullable, isPrimaryKey]
+      properties:
+        name: { type: string }
+        type: { type: string }
+        nullable: { type: boolean }
+        key: { type: string }
+        default: { type: string, nullable: true }
+        extra: { type: string }
+        isPrimaryKey: { type: boolean }
+
+    DbIndex:
+      type: object
+      required: [name, unique, columns]
+      properties:
+        name: { type: string }
+        unique: { type: boolean }
+        columns:
+          type: array
+          items: { type: string }
+
+    DbDataPage:
+      type: object
+      required: [kind, total, limit]
+      properties:
+        kind:
+          type: string
+          enum: [rows, documents]
+        columns:
+          type: array
+          description: SQL column order for the rows
+          items: { type: string }
+        rows:
+          type: array
+          description: SQL rows; each cell is a string or null (SQL NULL)
+          items:
+            type: array
+            items: { type: string, nullable: true }
+        documents:
+          type: array
+          description: MongoDB documents as extended JSON strings
+          items: { type: string }
+        total: { type: integer, format: int64 }
+        limit: { type: integer }
+        offset: { type: integer }
+        durationMs: { type: number, format: double }
+
+    DbRowWrite:
+      type: object
+      description: >-
+        Engine-tagged write payload. SQL insert uses `values` (column→string|null);
+        SQL update/delete also send `identity` (original key values). MongoDB insert
+        uses `document`; update/delete use `id` (the _id as extended JSON) and update
+        also sends `document` (the full replacement).
+      properties:
+        values:
+          type: object
+          additionalProperties: { type: string, nullable: true }
+        identity:
+          type: object
+          additionalProperties: { type: string, nullable: true }
+        document: { type: string }
+        id: { type: string }
 
     DbInstance:
       type: object

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Braces, ChevronDown, ChevronRight, Database, Eye, HardDriveDownload, Table2 } from "lucide-react";
 import {
@@ -23,7 +23,7 @@ import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { SkeletonRows } from "@/ui/skeleton";
 import { useToast } from "@/ui/toast";
-import { dbDatabaseResource, useDbDatabases, useDbInstances } from "./shared";
+import { dbDatabaseResource, prettyDocument, useDbDatabases, useDbInstances } from "./shared";
 
 /**
  * The Databases tab: every database the server lets this user see, with
@@ -204,7 +204,10 @@ function DatabaseRow({
   );
 }
 
-/** ObjectsView lists a database's tables or collections inline. */
+/**
+ * ObjectsView lists a database's tables or collections inline; each row
+ * links into the full browse page for that object.
+ */
 function ObjectsView({
   instance,
   database,
@@ -217,6 +220,7 @@ function ObjectsView({
   onPeek: (collection: string) => void;
 }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const isSql = instance.engine === "mysql";
 
   const objects = useQuery({
@@ -256,12 +260,26 @@ function ObjectsView({
         {rows.map((obj) => {
           const KindIcon = obj.kind === "table" ? Table2 : Braces;
           return (
-            <TR key={obj.name}>
+            <TR
+              key={obj.name}
+              interactive
+              onClick={() =>
+                void navigate({
+                  to: "/db/$instanceId/browse/$database/$object",
+                  params: { instanceId: instance.id, database, object: obj.name },
+                })
+              }
+            >
               <TD className="pl-2">
-                <span className="text-fg flex items-center gap-2 font-mono text-[13px]">
+                <Link
+                  to="/db/$instanceId/browse/$database/$object"
+                  params={{ instanceId: instance.id, database, object: obj.name }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-fg hover:text-accent flex items-center gap-2 font-mono text-[13px] transition-colors"
+                >
                   <KindIcon className="text-fg-subtle size-3.5 shrink-0" aria-hidden />
                   {obj.name}
-                </span>
+                </Link>
               </TD>
               <TD className="text-fg-muted">{t(`db.databases.objects.kind.${obj.kind}`)}</TD>
               {isSql && <TD className="text-fg-muted">{obj.engine ?? "—"}</TD>}
@@ -270,7 +288,14 @@ function ObjectsView({
               {peekVisible && (
                 <TD className="text-right">
                   {obj.kind === "collection" && (
-                    <Button size="sm" variant="ghost" onClick={() => onPeek(obj.name)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPeek(obj.name);
+                      }}
+                    >
                       <Eye className="size-3.5" aria-hidden />
                       {t("db.databases.objects.peek")}
                     </Button>
@@ -357,14 +382,6 @@ function DumpDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function prettyDocument(doc: string): string {
-  try {
-    return JSON.stringify(JSON.parse(doc), null, 2);
-  } catch {
-    return doc;
-  }
 }
 
 /** PeekDialog renders a collection's newest documents as extended JSON. */

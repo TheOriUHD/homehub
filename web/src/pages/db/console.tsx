@@ -8,19 +8,7 @@ import { Button } from "@/ui/button";
 import { Textarea } from "@/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
 import { useToast } from "@/ui/toast";
-import { useDbDatabases, useDbInstances } from "./shared";
-
-// The result area is a fixed dark surface in BOTH themes — like a terminal,
-// not a themed card — mirroring the Minecraft console's palette.
-const PANE = {
-  bg: "#101319",
-  chrome: "#161a22",
-  edge: "#262b36",
-  text: "#ccd2de",
-  dim: "#5b6272",
-  warn: "#fbbf24",
-  error: "#f87171",
-};
+import { PANE, useDbDatabases, useDbInstances } from "./shared";
 
 /** Radix Select items can't carry an empty value; NUL can't be a DB name. */
 const NO_SCOPE = "\u0000";
