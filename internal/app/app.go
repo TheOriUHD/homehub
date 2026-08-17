@@ -26,6 +26,7 @@ import (
 	"homehub/internal/httpserver"
 	"homehub/internal/integration"
 	"homehub/internal/integrations/adguard"
+	"homehub/internal/integrations/homeassistant"
 	"homehub/internal/integrations/docker"
 	"homehub/internal/integrations/pihole"
 	"homehub/internal/integrations/proxmox"
@@ -109,6 +110,7 @@ func Run(ctx context.Context) error {
 	manager.Register(docker.Driver{})
 	manager.Register(pihole.Driver{})
 	manager.Register(adguard.Driver{})
+	manager.Register(homeassistant.Driver{})
 	manager.StatusChanged = statusNotifier(engine, notifySvc)
 
 	docker.RegisterJobs(func(kind string, fn func(ctx context.Context, payload json.RawMessage) error) {
