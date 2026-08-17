@@ -25,4 +25,9 @@ export default defineConfig({
     sourcemap: false,
     chunkSizeWarningLimit: 900,
   },
+  optimizeDeps: {
+    // The dev-server dependency prebundle needs the same target bump, or
+    // `vite dev` fails on noVNC's top-level await.
+    esbuildOptions: { target: "es2022" },
+  },
 });
