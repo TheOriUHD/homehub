@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   Activity,
+  Container,
   Eye,
   FileClock,
   Home,
@@ -99,7 +100,9 @@ export function AppShell() {
     queryFn: async () => unwrap(await api.GET("/integrations")),
     staleTime: 30_000,
   });
-  const systems = (integrations.data ?? []).filter((row) => row.enabled && row.type === "proxmox");
+  const systems = (integrations.data ?? []).filter(
+    (row) => row.enabled && (row.type === "proxmox" || row.type === "docker"),
+  );
 
   const initials = me.user.displayName
     .split(/\s+/)
@@ -127,14 +130,17 @@ export function AppShell() {
               {t("nav.systems")}
             </p>
             <div className="space-y-0.5">
-              {systems.map((system) => (
-                <SidebarLink
-                  key={system.id}
-                  item={{ to: `/pve/${system.id}`, label: system.name, icon: Server }}
-                  active={pathname.startsWith(`/pve/${system.id}`)}
-                  status={system.status}
-                />
-              ))}
+              {systems.map((system) => {
+                const base = system.type === "docker" ? `/docker/${system.id}` : `/pve/${system.id}`;
+                return (
+                  <SidebarLink
+                    key={system.id}
+                    item={{ to: base, label: system.name, icon: system.type === "docker" ? Container : Server }}
+                    active={pathname.startsWith(base)}
+                    status={system.status}
+                  />
+                );
+              })}
             </div>
           </div>
         )}

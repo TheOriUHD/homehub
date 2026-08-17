@@ -47,7 +47,7 @@ const TerminalPane = lazy(() =>
 const VncViewer = lazy(() =>
   import("@/components/vnc-viewer").then((m) => ({ default: m.VncViewer })),
 );
-import { useMetricSeries } from "./summary";
+import { useMetricSeries } from "@/lib/metrics";
 import { guestStatusLabel, guestStatusTone } from "./guests";
 
 type TabKey = "overview" | "hardware" | "snapshots" | "backup" | "console" | "ssh";
@@ -277,9 +277,10 @@ function OverviewTab({
 }) {
   const { t } = useTranslation();
   const resource = `proxmox/${instanceId}/guest/${vmid}`;
-  const cpu = useMetricSeries(instanceId, resource, "cpu");
-  const memUsed = useMetricSeries(instanceId, resource, "mem_used");
-  const memTotal = useMetricSeries(instanceId, resource, "mem_total");
+  const topic = `metrics:proxmox/${instanceId}`;
+  const cpu = useMetricSeries(topic, resource, "cpu");
+  const memUsed = useMetricSeries(topic, resource, "mem_used");
+  const memTotal = useMetricSeries(topic, resource, "mem_total");
 
   return (
     <div className="space-y-4">

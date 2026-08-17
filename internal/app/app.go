@@ -22,6 +22,7 @@ import (
 	"homehub/internal/db"
 	"homehub/internal/httpserver"
 	"homehub/internal/integration"
+	"homehub/internal/integrations/docker"
 	"homehub/internal/integrations/proxmox"
 	"homehub/internal/jobs"
 	"homehub/internal/metrics"
@@ -82,7 +83,58 @@ func Run(ctx context.Context) error {
 
 	manager := integration.NewManager(st, v, metricsSvc, hub, logger)
 	manager.Register(proxmox.Driver{})
+	manager.Register(docker.Driver{})
 	manager.StatusChanged = statusNotifier(st, engine, hub, logger)
+
+	docker.RegisterJobs(func(kind string, fn func(ctx context.Context, payload json.RawMessage) error) {
+		jobEngine.Register(kind, fn)
+	}, docker.JobDeps{
+		Conn: func(id uuid.UUID) (*docker.Conn, error) {
+			conn, err := manager.Connection(id)
+			if err != nil {
+				return nil, err
+			}
+			dc, ok := conn.(*docker.Conn)
+			if !ok {
+				return nil, fmt.Errorf("integration %s is not a docker host", id)
+			}
+			return dc, nil
+		},
+		RegistryAuth: func(ctx context.Context, instID uuid.UUID, reference string) string {
+			host := docker.RegistryHost(reference)
+			index := map[string]string{}
+			if _, err := st.GetSettingInto(ctx, "docker_registries_"+instID.String(), &index); err != nil {
+				return ""
+			}
+			username, ok := index[host]
+			if !ok {
+				return ""
+			}
+			secret, err := v.Open(ctx, "integration:"+instID.String(), "registry:"+host)
+			if err != nil {
+				return ""
+			}
+			return docker.EncodeRegistryAuth(username, string(secret), host)
+		},
+		Notify: func(ctx context.Context, userID uuid.UUID, severity, title, body, resource string) {
+			n, err := st.InsertNotification(ctx, &store.Notification{
+				UserID:    userID,
+				Severity:  severity,
+				Title:     title,
+				Body:      body,
+				Resource:  resource,
+				EventType: "docker.job",
+			})
+			if err != nil {
+				logger.Error("insert docker job notification", "error", err)
+				return
+			}
+			hub.PublishUser(userID, "notifications", map[string]any{
+				"id": n.ID, "ts": n.TS, "severity": n.Severity, "title": n.Title,
+				"body": n.Body, "resource": n.Resource, "eventType": n.EventType, "read": false,
+			})
+		},
+	})
 
 	apiServer := api.NewServer(st, authSvc, engine, auditSvc, settingsSvc, jobEngine, hub, v,
 		manager, metricsSvc, termMgr, logger)
