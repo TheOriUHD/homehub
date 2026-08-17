@@ -180,12 +180,25 @@ function Header({ name, status, baseUrl }: { name: string; status: string; baseU
   );
 }
 
-/** Health pill per the doc: stale/not-recording → red, coverage < 90 →
- * amber, else green. */
-function healthTone(cam: ApertureCamera): "success" | "warning" | "danger" {
-  if (cam.watchdogStale || !cam.recordingOk) return "danger";
-  if (cam.coveragePercent < 90) return "warning";
+/** The dot on a live tile answers "is the live picture healthy" — green
+ * while playing, amber while connecting, red on error. Recording health is
+ * a different fact and gets its own label; folding it into the dot made
+ * perfectly-live cameras look broken. */
+function tileTone(live: LiveState): "success" | "warning" | "danger" {
+  if (live.phase === "error") return "danger";
+  if (live.phase === "connecting") return "warning";
   return "success";
+}
+
+/** Recording label: only cameras that are supposed to record can be "not
+ * recording"; live-only cameras say so instead of counting as broken. */
+function recordingLabel(t: (k: string, o?: Record<string, unknown>) => string, cam: ApertureCamera) {
+  if (!cam.recordingExpected) return { text: t("nvr.grid.liveOnly"), tone: "text-white/50" };
+  if (!cam.recordingOk || cam.watchdogStale) return { text: t("nvr.grid.notRecording"), tone: "text-red-400" };
+  if (cam.coveragePercent < 90) {
+    return { text: t("nvr.grid.coverage", { pct: cam.coveragePercent }), tone: "text-amber-300/90" };
+  }
+  return { text: t("nvr.grid.coverage", { pct: cam.coveragePercent }), tone: "text-white/65" };
 }
 
 function CameraTile({
@@ -227,7 +240,8 @@ function CameraTile({
     };
   }, [instanceId, camera.id, quality]);
 
-  const tone = healthTone(camera);
+  const tone = tileTone(live);
+  const rec = recordingLabel(t, camera);
 
   return (
     <div
@@ -264,14 +278,10 @@ function CameraTile({
 
       <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/75 to-transparent px-3 pt-6 pb-2">
         <span className="flex min-w-0 items-center gap-2">
-          <StatusDot tone={tone} pulse={tone === "danger"} />
+          <StatusDot tone={tone} pulse={tone !== "success"} />
           <span className="truncate text-[13px] font-medium text-white">{camera.name}</span>
         </span>
-        <span className="shrink-0 text-[11.5px] text-white/65">
-          {camera.recordingOk
-            ? t("nvr.grid.coverage", { pct: camera.coveragePercent })
-            : t("nvr.grid.notRecording")}
-        </span>
+        <span className={cn("shrink-0 text-[11.5px]", rec.tone)}>{rec.text}</span>
       </div>
     </div>
   );

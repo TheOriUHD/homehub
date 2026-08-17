@@ -208,7 +208,9 @@ func (c *Conn) Health(ctx context.Context) integration.Health {
 	}
 	stale := 0
 	for _, cam := range cameras {
-		if cam.Enabled && (cam.WatchdogStale || (cam.RecordingExpected && !cam.RecordingOk)) {
+		// The watchdog tracks segment delivery, so live-only cameras sit
+		// permanently "stale" — only recording cameras can degrade us.
+		if cam.Enabled && cam.RecordingExpected && (cam.WatchdogStale || !cam.RecordingOk) {
 			stale++
 		}
 	}

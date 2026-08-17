@@ -39,6 +39,10 @@ func toAPITruenasInfo(info *truenas.SystemInfo) *TruenasSystemInfo {
 		return nil
 	}
 	out := &TruenasSystemInfo{Version: info.Version, Hostname: info.Hostname}
+	if info.UptimeSeconds > 0 {
+		secs := int64(info.UptimeSeconds)
+		out.UptimeSeconds = &secs
+	}
 	if info.Uptime != "" {
 		out.Uptime = &info.Uptime
 	}

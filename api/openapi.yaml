@@ -655,6 +655,7 @@ paths:
             schema:
               type: object
               properties:
+                username: { type: string, minLength: 3, maxLength: 64 }
                 displayName: { type: string, minLength: 1, maxLength: 128 }
                 email: { type: string, nullable: true }
                 status: { type: string, enum: [active, disabled] }
@@ -6171,13 +6172,16 @@ components:
 
     ApertureCamera:
       type: object
-      required: [id, name, enabled, recordMode, sortOrder, recordingOk, liveOk, coveragePercent, watchdogStale, restartsToday]
+      required: [id, name, enabled, recordMode, sortOrder, recordingExpected, recordingOk, liveOk, coveragePercent, watchdogStale, restartsToday]
       properties:
         id: { type: string }
         name: { type: string }
         enabled: { type: boolean }
         recordMode: { type: string }
         sortOrder: { type: integer }
+        recordingExpected:
+          type: boolean
+          description: Whether this camera is supposed to record at all — live-only cameras are healthy without footage.
         recordingOk: { type: boolean }
         liveOk: { type: boolean }
         coveragePercent: { type: integer }
@@ -6514,6 +6518,7 @@ components:
         version: { type: string }
         hostname: { type: string }
         uptime: { type: string }
+        uptimeSeconds: { type: integer, format: int64 }
         model: { type: string }
         cores: { type: integer }
         physicalMemoryBytes: { type: integer, format: int64 }
