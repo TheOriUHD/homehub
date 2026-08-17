@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { Braces, ChevronDown, ChevronRight, Database, Eye, HardDriveDownload, Table2 } from "lucide-react";
+import { Braces, ChevronDown, ChevronRight, Database, Eye, HardDriveDownload, Plus, Table2 } from "lucide-react";
 import {
   api,
   unwrap,
@@ -23,7 +23,8 @@ import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { SkeletonRows } from "@/ui/skeleton";
 import { useToast } from "@/ui/toast";
-import { dbDatabaseResource, prettyDocument, useDbDatabases, useDbInstances } from "./shared";
+import { CreateCollectionDialog, CreateDatabaseDialog, CreateTableDialog } from "./create";
+import { dbDatabaseResource, dbResource, prettyDocument, useDbDatabases, useDbInstances } from "./shared";
 
 /**
  * The Databases tab: every database the server lets this user see, with
@@ -49,8 +50,14 @@ export function DbDatabasesPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dumping, setDumping] = useState<string | null>(null);
   const [peeking, setPeeking] = useState<{ database: string; collection: string } | null>(null);
+  // Visual creation: a new database (SQL only), or a table/collection inside one.
+  const [creating, setCreating] = useState<{ kind: "database" } | { kind: "object"; database: string } | null>(null);
 
   if (!instance) return null;
+
+  // The engine rejects CREATE DATABASE for MongoDB (databases appear with
+  // their first collection), so the button only exists for SQL instances.
+  const canCreateDatabase = instance.engine === "mysql" && can(dbResource(instance), "control");
 
   if (databases.isLoading) {
     return (
@@ -70,13 +77,30 @@ export function DbDatabasesPage() {
   const list = databases.data!;
   if (list.length === 0) {
     return (
-      <Card>
-        <EmptyState
-          icon={Database}
-          title={t("db.databases.empty.title")}
-          body={t("db.databases.empty.body")}
-        />
-      </Card>
+      <>
+        <Card>
+          <EmptyState
+            icon={Database}
+            title={t("db.databases.empty.title")}
+            body={t("db.databases.empty.body")}
+            action={
+              canCreateDatabase ? (
+                <Button variant="secondary" size="sm" onClick={() => setCreating({ kind: "database" })}>
+                  <Plus className="size-3.5" aria-hidden />
+                  {t("db.create.database.button")}
+                </Button>
+              ) : undefined
+            }
+          />
+        </Card>
+        {creating?.kind === "database" && (
+          <CreateDatabaseDialog
+            instanceId={instanceId}
+            instanceName={instance.name}
+            onClose={() => setCreating(null)}
+          />
+        )}
+      </>
     );
   }
 
@@ -90,7 +114,17 @@ export function DbDatabasesPage() {
   };
 
   return (
-    <>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-fg-muted text-[13px]">{t("db.databases.count", { count: list.length })}</p>
+        {canCreateDatabase && (
+          <Button variant="secondary" size="sm" onClick={() => setCreating({ kind: "database" })}>
+            <Plus className="size-3.5" aria-hidden />
+            {t("db.create.database.button")}
+          </Button>
+        )}
+      </div>
+
       <Card className="overflow-hidden">
         <Table>
           <THead>
@@ -113,11 +147,34 @@ export function DbDatabasesPage() {
                 onToggle={() => toggle(db.name)}
                 onDump={() => setDumping(db.name)}
                 onPeek={(collection) => setPeeking({ database: db.name, collection })}
+                onCreateObject={() => setCreating({ kind: "object", database: db.name })}
               />
             ))}
           </TBody>
         </Table>
       </Card>
+
+      {creating?.kind === "database" && (
+        <CreateDatabaseDialog
+          instanceId={instanceId}
+          instanceName={instance.name}
+          onClose={() => setCreating(null)}
+        />
+      )}
+      {creating?.kind === "object" &&
+        (instance.engine === "mysql" ? (
+          <CreateTableDialog
+            instanceId={instanceId}
+            database={creating.database}
+            onClose={() => setCreating(null)}
+          />
+        ) : (
+          <CreateCollectionDialog
+            instanceId={instanceId}
+            database={creating.database}
+            onClose={() => setCreating(null)}
+          />
+        ))}
 
       {dumping !== null && (
         <DumpDialog
@@ -135,7 +192,7 @@ export function DbDatabasesPage() {
           onClose={() => setPeeking(null)}
         />
       )}
-    </>
+    </div>
   );
 }
 
@@ -148,6 +205,7 @@ function DatabaseRow({
   onToggle,
   onDump,
   onPeek,
+  onCreateObject,
 }: {
   instance: DbInstance;
   db: DbDatabase;
@@ -157,6 +215,7 @@ function DatabaseRow({
   onToggle: () => void;
   onDump: () => void;
   onPeek: (collection: string) => void;
+  onCreateObject: () => void;
 }) {
   const { t } = useTranslation();
   const Chevron = expanded ? ChevronDown : ChevronRight;
@@ -195,7 +254,9 @@ function DatabaseRow({
               instance={instance}
               database={db.name}
               peekVisible={instance.engine === "mongodb" && canControlDb}
+              canControlDb={canControlDb}
               onPeek={onPeek}
+              onCreateObject={onCreateObject}
             />
           </TD>
         </TR>
@@ -206,22 +267,34 @@ function DatabaseRow({
 
 /**
  * ObjectsView lists a database's tables or collections inline; each row
- * links into the full browse page for that object.
+ * links into the full browse page for that object, and control grants get
+ * the visual "new table / new collection" builder.
  */
 function ObjectsView({
   instance,
   database,
   peekVisible,
+  canControlDb,
   onPeek,
+  onCreateObject,
 }: {
   instance: DbInstance;
   database: string;
   peekVisible: boolean;
+  canControlDb: boolean;
   onPeek: (collection: string) => void;
+  onCreateObject: () => void;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isSql = instance.engine === "mysql";
+
+  const createButton = canControlDb ? (
+    <Button size="sm" variant="ghost" onClick={onCreateObject}>
+      <Plus className="size-3.5" aria-hidden />
+      {t(isSql ? "db.create.table.button" : "db.create.collection.button")}
+    </Button>
+  ) : null;
 
   const objects = useQuery({
     queryKey: ["db", instance.id, "databases", database, "objects"],
@@ -241,72 +314,80 @@ function ObjectsView({
 
   const rows = objects.data!;
   if (rows.length === 0) {
-    return <p className="text-fg-subtle py-2 text-[13px]">{t("db.databases.objects.empty")}</p>;
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 py-1">
+        <p className="text-fg-subtle text-[13px]">{t("db.databases.objects.empty")}</p>
+        {createButton}
+      </div>
+    );
   }
 
   return (
-    <Table>
-      <THead>
-        <TR>
-          <TH className="pl-2">{t("db.databases.objects.columns.name")}</TH>
-          <TH>{t("db.databases.objects.columns.kind")}</TH>
-          {isSql && <TH>{t("db.databases.objects.columns.engine")}</TH>}
-          <TH>{t("db.databases.objects.columns.rows")}</TH>
-          <TH>{t("db.databases.objects.columns.size")}</TH>
-          {peekVisible && <TH />}
-        </TR>
-      </THead>
-      <TBody>
-        {rows.map((obj) => {
-          const KindIcon = obj.kind === "table" ? Table2 : Braces;
-          return (
-            <TR
-              key={obj.name}
-              interactive
-              onClick={() =>
-                void navigate({
-                  to: "/db/$instanceId/browse/$database/$object",
-                  params: { instanceId: instance.id, database, object: obj.name },
-                })
-              }
-            >
-              <TD className="pl-2">
-                <Link
-                  to="/db/$instanceId/browse/$database/$object"
-                  params={{ instanceId: instance.id, database, object: obj.name }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="text-fg hover:text-accent flex items-center gap-2 font-mono text-[13px] transition-colors"
-                >
-                  <KindIcon className="text-fg-subtle size-3.5 shrink-0" aria-hidden />
-                  {obj.name}
-                </Link>
-              </TD>
-              <TD className="text-fg-muted">{t(`db.databases.objects.kind.${obj.kind}`)}</TD>
-              {isSql && <TD className="text-fg-muted">{obj.engine ?? "—"}</TD>}
-              <TD className="text-fg-muted">{obj.rows.toLocaleString()}</TD>
-              <TD className="text-fg-muted whitespace-nowrap">{formatBytes(obj.sizeBytes)}</TD>
-              {peekVisible && (
-                <TD className="text-right">
-                  {obj.kind === "collection" && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onPeek(obj.name);
-                      }}
-                    >
-                      <Eye className="size-3.5" aria-hidden />
-                      {t("db.databases.objects.peek")}
-                    </Button>
-                  )}
+    <>
+      <Table>
+        <THead>
+          <TR>
+            <TH className="pl-2">{t("db.databases.objects.columns.name")}</TH>
+            <TH>{t("db.databases.objects.columns.kind")}</TH>
+            {isSql && <TH>{t("db.databases.objects.columns.engine")}</TH>}
+            <TH>{t("db.databases.objects.columns.rows")}</TH>
+            <TH>{t("db.databases.objects.columns.size")}</TH>
+            {peekVisible && <TH />}
+          </TR>
+        </THead>
+        <TBody>
+          {rows.map((obj) => {
+            const KindIcon = obj.kind === "table" ? Table2 : Braces;
+            return (
+              <TR
+                key={obj.name}
+                interactive
+                onClick={() =>
+                  void navigate({
+                    to: "/db/$instanceId/browse/$database/$object",
+                    params: { instanceId: instance.id, database, object: obj.name },
+                  })
+                }
+              >
+                <TD className="pl-2">
+                  <Link
+                    to="/db/$instanceId/browse/$database/$object"
+                    params={{ instanceId: instance.id, database, object: obj.name }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-fg hover:text-accent flex items-center gap-2 font-mono text-[13px] transition-colors"
+                  >
+                    <KindIcon className="text-fg-subtle size-3.5 shrink-0" aria-hidden />
+                    {obj.name}
+                  </Link>
                 </TD>
-              )}
-            </TR>
-          );
-        })}
-      </TBody>
-    </Table>
+                <TD className="text-fg-muted">{t(`db.databases.objects.kind.${obj.kind}`)}</TD>
+                {isSql && <TD className="text-fg-muted">{obj.engine ?? "—"}</TD>}
+                <TD className="text-fg-muted">{obj.rows.toLocaleString()}</TD>
+                <TD className="text-fg-muted whitespace-nowrap">{formatBytes(obj.sizeBytes)}</TD>
+                {peekVisible && (
+                  <TD className="text-right">
+                    {obj.kind === "collection" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPeek(obj.name);
+                        }}
+                      >
+                        <Eye className="size-3.5" aria-hidden />
+                        {t("db.databases.objects.peek")}
+                      </Button>
+                    )}
+                  </TD>
+                )}
+              </TR>
+            );
+          })}
+        </TBody>
+      </Table>
+      {createButton !== null && <div className="mt-2 pl-0.5">{createButton}</div>}
+    </>
   );
 }
 

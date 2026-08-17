@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Database, Leaf, type LucideIcon } from "lucide-react";
 import { api, unwrap, type DbInstance } from "@/lib/api";
 
 /** RBAC/metrics resource for an instance, e.g. "mysql/<id>" or "mongodb/<id>". */
@@ -19,6 +20,18 @@ export const engineLabel: Record<DbInstance["engine"], string> = {
   mysql: "MySQL / MariaDB",
   mongodb: "MongoDB",
 };
+
+/** Per-engine icon: the classic cylinder for SQL, Mongo's leaf for MongoDB. */
+export const engineIcon: Record<DbInstance["engine"], LucideIcon> = {
+  mysql: Database,
+  mongodb: Leaf,
+};
+
+/** connectionIdentity renders "user@host" from whatever the server reported. */
+export function connectionIdentity(instance: Pick<DbInstance, "host" | "connectionUser">): string | null {
+  if (instance.connectionUser && instance.host) return `${instance.connectionUser}@${instance.host}`;
+  return instance.connectionUser || instance.host || null;
+}
 
 /** shortVersion trims a server version to major.minor, e.g. "11.8.8-MariaDB…" → "11.8". */
 export function shortVersion(version: string): string {

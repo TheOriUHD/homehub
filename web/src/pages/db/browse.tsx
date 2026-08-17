@@ -38,6 +38,7 @@ import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { ErrorState } from "@/ui/states";
 import { SkeletonRows } from "@/ui/skeleton";
 import { useToast } from "@/ui/toast";
+import { CreateCollectionDialog, CreateTableDialog } from "./create";
 import { PANE, dbDatabaseResource, prettyDocument, useDbInstances, useDbObjectSchema } from "./shared";
 
 /*
@@ -137,6 +138,8 @@ function BrowseView({
   const schema = useDbObjectSchema(instance.id, database, object);
   const [tab, setTab] = useState<"data" | "structure">("data");
   const [lastDurationMs, setLastDurationMs] = useState<number | null>(null);
+  // The sibling-object builder ("New table" / "New collection" in this database).
+  const [creatingSibling, setCreatingSibling] = useState(false);
 
   if (schema.isLoading) {
     return (
@@ -166,14 +169,22 @@ function BrowseView({
   return (
     <div className="space-y-5">
       <div>
-        <Link
-          to="/db/$instanceId"
-          params={{ instanceId: instance.id }}
-          className="text-fg-subtle hover:text-fg mb-3 inline-flex items-center gap-1.5 text-[13px] transition-colors"
-        >
-          <ArrowLeft className="size-3.5" aria-hidden />
-          {t("db.tabs.databases")}
-        </Link>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <Link
+            to="/db/$instanceId"
+            params={{ instanceId: instance.id }}
+            className="text-fg-subtle hover:text-fg inline-flex items-center gap-1.5 text-[13px] transition-colors"
+          >
+            <ArrowLeft className="size-3.5" aria-hidden />
+            {t("db.tabs.databases")}
+          </Link>
+          {canControl && (
+            <Button size="sm" variant="secondary" onClick={() => setCreatingSibling(true)}>
+              <Plus className="size-3.5" aria-hidden />
+              {t(instance.engine === "mysql" ? "db.create.table.button" : "db.create.collection.button")}
+            </Button>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className="bg-accent-soft text-accent-soft-fg flex size-10 shrink-0 items-center justify-center rounded-xl">
             <KindIcon className="size-5" aria-hidden />
@@ -246,6 +257,21 @@ function BrowseView({
           canControl={canControl}
         />
       )}
+
+      {creatingSibling &&
+        (instance.engine === "mysql" ? (
+          <CreateTableDialog
+            instanceId={instance.id}
+            database={database}
+            onClose={() => setCreatingSibling(false)}
+          />
+        ) : (
+          <CreateCollectionDialog
+            instanceId={instance.id}
+            database={database}
+            onClose={() => setCreatingSibling(false)}
+          />
+        ))}
     </div>
   );
 }
