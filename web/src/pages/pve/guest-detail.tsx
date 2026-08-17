@@ -1295,7 +1295,12 @@ function ConsoleTab({
             {t("pve.guest.consoleDisconnect")}
           </Button>
         </div>
-        <div className="border-edge overflow-hidden rounded-lg border" style={{ height: 520 }}>
+        {/* Fill the rest of the viewport instead of a fixed height, so the
+            console uses the whole screen below the chrome above it. */}
+        <div
+          className="border-edge overflow-hidden rounded-lg border"
+          style={{ height: "max(480px, calc(100vh - 21rem))" }}
+        >
           <Suspense fallback={<PageLoader className="h-full" />}>
             {session.mode === "vnc" ? (
               <VncViewer wsUrl={wsUrl(session.wsPath)} credential={session.credential ?? undefined} className="h-full" />
