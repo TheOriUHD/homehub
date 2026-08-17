@@ -1,55 +1,14 @@
-import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { api, unwrap, type PveNode } from "@/lib/api";
-import { useLiveSamples, type LiveSample } from "@/lib/live";
+import { useMetricSeries } from "@/lib/metrics";
 import { formatBytes, formatDuration } from "@/lib/utils";
 import { Card, CardBody, CardHeader } from "@/ui/card";
 import { Badge, StatusDot } from "@/ui/badge";
 import { ErrorState } from "@/ui/states";
 import { Skeleton } from "@/ui/skeleton";
-import { TimeSeriesChart, type SeriesPoint } from "@/components/time-series-chart";
-
-/** useMetricSeries loads an hour of history and appends live samples. */
-export function useMetricSeries(instanceId: string, resource: string, metric: string) {
-  const query = useQuery({
-    queryKey: ["metrics", resource, metric],
-    queryFn: async () => {
-      const to = new Date();
-      const from = new Date(to.getTime() - 60 * 60 * 1000);
-      return unwrap(
-        await api.GET("/metrics/query", {
-          params: { query: { resource, metric, from: from.toISOString(), to: to.toISOString() } },
-        }),
-      );
-    },
-    staleTime: 60_000,
-  });
-
-  const [liveTail, setLiveTail] = useState<SeriesPoint[]>([]);
-  const onSamples = useCallback(
-    (samples: LiveSample[]) => {
-      const relevant = samples.filter((s) => s.resource === resource && s.metric === metric);
-      if (relevant.length) {
-        setLiveTail((prev) =>
-          [...prev, ...relevant.map((s) => ({ ts: s.ts, value: s.value }))].slice(-240),
-        );
-      }
-    },
-    [resource, metric],
-  );
-  useLiveSamples(`metrics:proxmox/${instanceId}`, onSamples);
-
-  return useMemo((): SeriesPoint[] => {
-    const history = (query.data?.points ?? []).map((p) => ({
-      ts: new Date(p.ts).getTime(),
-      value: p.avg,
-    }));
-    const lastHistory = history.length ? history[history.length - 1].ts : 0;
-    return [...history, ...liveTail.filter((p) => p.ts > lastHistory)];
-  }, [query.data, liveTail]);
-}
+import { TimeSeriesChart } from "@/components/time-series-chart";
 
 export function PveSummaryPage() {
   const { t } = useTranslation();
@@ -142,9 +101,10 @@ function StatTile({ label, value, extra }: { label: string; value: string; extra
 function NodeCard({ instanceId, node }: { instanceId: string; node: PveNode }) {
   const { t } = useTranslation();
   const resource = `proxmox/${instanceId}/node/${node.name}`;
-  const cpu = useMetricSeries(instanceId, resource, "cpu");
-  const memUsed = useMetricSeries(instanceId, resource, "mem_used");
-  const memTotal = useMetricSeries(instanceId, resource, "mem_total");
+  const topic = `metrics:proxmox/${instanceId}`;
+  const cpu = useMetricSeries(topic, resource, "cpu");
+  const memUsed = useMetricSeries(topic, resource, "mem_used");
+  const memTotal = useMetricSeries(topic, resource, "mem_total");
 
   const online = node.status === "online";
   return (

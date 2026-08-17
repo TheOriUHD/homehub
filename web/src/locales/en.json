@@ -419,6 +419,7 @@
     "form": {
       "name": "Display name",
       "nameHintPve": "e.g. “Homelab cluster”",
+      "nameHintDocker": "e.g. “NAS Docker”",
       "editTitle": "Edit {{name}}",
       "saveAnyway": "Save without testing"
     },
@@ -434,6 +435,30 @@
       "insecureTlsHint": "Accept any certificate. Prefer pinning the fingerprint below.",
       "fingerprint": "Certificate fingerprint",
       "fingerprintHint": "SHA-256 fingerprint from the node’s Certificates page, e.g. AA:BB:… — safer than skipping verification"
+    },
+    "docker": {
+      "transport": "Connection",
+      "transportSocket": "Local socket",
+      "transportTcp": "TCP",
+      "transportSsh": "SSH",
+      "socketPath": "Socket path",
+      "socketPathHint": "The Docker socket on the machine HomeHub runs on. In a container, mount it into HomeHub first.",
+      "host": "Host",
+      "hostHintTcp": "Hostname or IP — port 2376 assumed with TLS, 2375 without. Append :port to override.",
+      "hostHintSsh": "Hostname or IP of the Docker host. HomeHub runs “docker system dial-stdio” over SSH.",
+      "port": "Port",
+      "username": "Username",
+      "tls": "Use TLS (recommended for TCP)",
+      "tlsHint": "Mutual TLS as set up by Docker’s certificate guide. Paste the PEM files below.",
+      "caCert": "CA certificate (PEM)",
+      "clientCert": "Client certificate (PEM)",
+      "clientKey": "Client key (PEM)",
+      "authType": "Authentication",
+      "authPassword": "Password",
+      "authKey": "Private key",
+      "sshPassword": "SSH password",
+      "sshKey": "Private key (PEM)",
+      "secretKeep": "Leave empty to keep the stored value"
     }
   },
   "pve": {
@@ -601,6 +626,210 @@
         "title": "No backup schedules",
         "body": "Create a schedule so backups happen without you thinking about them."
       }
+    }
+  },
+  "docker": {
+    "tabs": {
+      "containers": "Containers",
+      "stacks": "Stacks",
+      "images": "Images",
+      "volumes": "Volumes",
+      "networks": "Networks"
+    },
+    "unreachableBanner": "This Docker host is unreachable: {{message}}",
+    "degradedBanner": "Degraded: {{message}}",
+    "containers": {
+      "searchPlaceholder": "Filter by name, image, project…",
+      "columns": {
+        "container": "Container",
+        "state": "State",
+        "ports": "Ports",
+        "created": "Created"
+      },
+      "state": {
+        "running": "Running",
+        "exited": "Exited",
+        "created": "Created",
+        "paused": "Paused",
+        "restarting": "Restarting",
+        "dead": "Dead"
+      },
+      "selected": "{{count}} selected",
+      "empty": {
+        "title": "No containers",
+        "body": "No containers are visible to you on this host."
+      }
+    },
+    "actions": {
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart",
+      "pause": "Pause",
+      "unpause": "Resume",
+      "kill": "Kill",
+      "recreate": "Recreate",
+      "remove": "Remove",
+      "done": "{{action}} completed",
+      "failedFor": "{{name}} failed",
+      "bulkDone": "{{action}} applied to {{count}} containers",
+      "bulkStopConfirmTitle": "Stop {{count}} containers?",
+      "bulkStopConfirmBody": "The selected containers are sent a stop signal and go offline until started again.",
+      "killConfirmTitle": "Kill {{name}}?",
+      "killConfirmBody": "SIGKILL — the process is terminated instantly, with no chance to shut down cleanly. Use Stop for a graceful shutdown.",
+      "removeConfirmTitle": "Remove {{name}}?",
+      "removeConfirmBody": "The container and its writable layer are deleted from this host. Named volumes are kept unless you say otherwise below.",
+      "removeForce": "Force removal",
+      "removeForceHint": "Kills the container first if it is still running",
+      "removeVolumes": "Also delete anonymous volumes",
+      "removeVolumesHint": "Named volumes are never touched",
+      "recreateTitle": "Recreate {{name}}?",
+      "recreateBody": "The container is stopped, removed, and created again with its current configuration. Data in named volumes survives; the writable layer does not.",
+      "recreatePull": "Pull the latest image first",
+      "queuedTitle": "Queued",
+      "queuedBody": "Running in the background — the result lands in your notifications."
+    },
+    "container": {
+      "overview": "Overview",
+      "inspect": "Inspect",
+      "logs": "Logs",
+      "shell": "Shell",
+      "removed": "{{name}} removed",
+      "statStatus": "Status",
+      "statStarted": "Started",
+      "statExitCode": "Exit code",
+      "statRestartPolicy": "Restart policy",
+      "statPorts": "Ports",
+      "chartCpu": "CPU — last hour",
+      "chartMem": "Memory — last hour",
+      "command": "Command",
+      "cmd": "Cmd",
+      "entrypoint": "Entrypoint",
+      "env": "Environment",
+      "envIntro": "Values stay hidden until you reveal them — this is where secrets tend to live.",
+      "envEmpty": "No environment variables.",
+      "mounts": "Mounts",
+      "mountsEmpty": "No mounts.",
+      "mountType": "Type",
+      "mountSource": "Source",
+      "mountDestination": "Destination",
+      "mountMode": "Mode",
+      "mountRw": "rw",
+      "mountRo": "read-only",
+      "networks": "Networks",
+      "networksEmpty": "Not attached to any network.",
+      "labels": "Labels",
+      "labelsEmpty": "No labels.",
+      "labelKey": "Label",
+      "labelValue": "Value",
+      "logsIntro": "Streams the container’s output live, starting with the most recent lines.",
+      "logsTail": "History lines",
+      "logsTailHint": "How many past lines to load before following live output",
+      "logsOpen": "Open log stream",
+      "shellIntro": "Opens an interactive terminal inside the running container.",
+      "shellCommand": "Command",
+      "shellCommandHint": "Defaults to bash, falling back to sh",
+      "shellOpen": "Open shell"
+    },
+    "stacks": {
+      "summary": "{{services}} services · {{containers}} containers",
+      "redeploy": "Redeploy",
+      "redeployTitle": "Redeploy {{project}}?",
+      "redeployBody": "Every service in this project is recreated from its current compose configuration. Expect brief downtime while containers restart.",
+      "redeployPull": "Pull latest images first",
+      "empty": {
+        "title": "No compose stacks",
+        "body": "Containers started via docker compose show up here, grouped by project."
+      }
+    },
+    "images": {
+      "title": "Images",
+      "checkUpdates": "Check for updates",
+      "pull": "Pull image",
+      "prune": "Prune",
+      "columns": {
+        "image": "Image",
+        "size": "Size",
+        "created": "Created",
+        "status": "Status",
+        "updates": "Updates"
+      },
+      "untagged": "<untagged>",
+      "moreTags": "+{{count}} more",
+      "inUse": "In use",
+      "dangling": "Dangling",
+      "updateAvailable": "Update available",
+      "upToDate": "Up to date",
+      "checkFailed": "Check failed",
+      "deleted": "Image removed",
+      "empty": {
+        "title": "No images",
+        "body": "Pull an image or start a container and it will appear here."
+      },
+      "pullTitle": "Pull image",
+      "pullReference": "Image reference",
+      "pullReferenceHint": "e.g. nginx:latest or ghcr.io/owner/app:1.2 — pulled in the background",
+      "pruneConfirmTitle": "Prune unused images?",
+      "pruneConfirmBody": "All dangling images on this host are deleted to reclaim space. Images used by any container are kept.",
+      "deleteConfirmTitle": "Remove image {{name}}?",
+      "deleteConfirmBody": "The image is removed from this host. Containers already running keep working; using it again means pulling it again.",
+      "deleteForce": "Force removal",
+      "deleteForceHint": "Removes it even when tagged in multiple repositories or used by stopped containers"
+    },
+    "registries": {
+      "title": "Registry credentials",
+      "intro": "Used for pulls and update checks against private registries. Stored encrypted.",
+      "add": "Add registry",
+      "addIntro": "Docker Hub is docker.io. Use an access token instead of your account password where possible.",
+      "registry": "Registry",
+      "registryHint": "e.g. docker.io, ghcr.io, or registry.example.com",
+      "username": "Username",
+      "secret": "Password or token",
+      "secretHint": "Sent only to this registry, never shown again",
+      "saved": "Registry credentials saved",
+      "remove": "Remove",
+      "removeConfirmTitle": "Remove credentials for {{registry}}?",
+      "removeConfirmBody": "Pulls from this registry become anonymous — private images will stop pulling and updating.",
+      "empty": "No registry credentials stored. Public images pull anonymously."
+    },
+    "volumes": {
+      "title": "Volumes",
+      "prune": "Prune",
+      "columns": {
+        "volume": "Volume",
+        "mountpoint": "Mountpoint",
+        "created": "Created",
+        "status": "Status"
+      },
+      "inUse": "In use",
+      "unused": "Unused",
+      "deleted": "Volume removed",
+      "empty": {
+        "title": "No volumes",
+        "body": "Named volumes created by containers or compose stacks appear here."
+      },
+      "pruneConfirmTitle": "Prune unused volumes?",
+      "pruneConfirmBody": "Every volume not attached to a container is deleted — including all data inside. This cannot be undone.",
+      "deleteConfirmTitle": "Delete volume “{{name}}”?",
+      "deleteConfirmBody": "The volume and all data inside it are deleted permanently. This cannot be undone."
+    },
+    "networks": {
+      "columns": {
+        "network": "Network",
+        "driver": "Driver",
+        "scope": "Scope",
+        "containers": "Containers"
+      },
+      "builtin": "Built-in",
+      "deleted": "Network removed",
+      "empty": {
+        "title": "No networks",
+        "body": "User-defined bridge and overlay networks appear here."
+      },
+      "deleteConfirmTitle": "Delete network “{{name}}”?",
+      "deleteConfirmBody": "Containers can no longer reach each other over this network. Removal fails while containers are still attached."
+    },
+    "prune": {
+      "result": "Reclaimed {{bytes}} · {{count}} deleted"
     }
   }
 }

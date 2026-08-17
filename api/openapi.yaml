@@ -1805,6 +1805,522 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /docker/{id}/containers:
+    get:
+      operationId: dockerListContainers
+      summary: All containers on the host
+      description: Filtered per container by the caller's view permission.
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Containers, running first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DockerContainer" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/containers/{name}:
+    get:
+      operationId: dockerGetContainer
+      summary: Container detail (inspect)
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/containerName"
+      responses:
+        "200":
+          description: Inspect detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DockerContainerDetail" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+    delete:
+      operationId: dockerRemoveContainer
+      summary: Remove a container
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/containerName"
+        - name: force
+          in: query
+          schema: { type: boolean, default: false }
+        - name: volumes
+          in: query
+          description: Also remove anonymous volumes
+          schema: { type: boolean, default: false }
+      responses:
+        "204":
+          description: Removed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/containers/{name}/action:
+    post:
+      operationId: dockerContainerAction
+      summary: Start, stop, restart, pause, unpause, or kill
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/containerName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [start, stop, restart, pause, unpause, kill] }
+      responses:
+        "204":
+          description: Action completed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/containers/{name}/recreate:
+    post:
+      operationId: dockerRecreateContainer
+      summary: Recreate a container with its exact configuration
+      description: Optionally pulls the image first — the API-only equivalent of a compose redeploy for one service. Runs as a background job; completion lands in notifications.
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/containerName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pull: { type: boolean, default: true }
+      responses:
+        "202":
+          $ref: "#/components/responses/JobQueued"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /docker/{id}/containers/{name}/exec:
+    post:
+      operationId: dockerExecContainer
+      summary: Open an interactive shell in the container
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/containerName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                command:
+                  type: string
+                  description: Command to run; defaults to bash with sh fallback
+      responses:
+        "200":
+          description: Terminal session created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermSession" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/containers/{name}/logs:
+    post:
+      operationId: dockerContainerLogs
+      summary: Open a live log stream
+      description: Returns a read-only terminal session following the container log.
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/containerName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tail: { type: integer, minimum: 0, maximum: 10000, default: 500 }
+      responses:
+        "200":
+          description: Log session created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermSession" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/images:
+    get:
+      operationId: dockerListImages
+      summary: Images on the host
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Images, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DockerImage" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/images/pull:
+    post:
+      operationId: dockerPullImage
+      summary: Pull an image
+      description: Runs as a background job; completion lands in notifications.
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reference]
+              properties:
+                reference: { type: string, minLength: 1 }
+      responses:
+        "202":
+          $ref: "#/components/responses/JobQueued"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /docker/{id}/images/check-updates:
+    post:
+      operationId: dockerCheckImageUpdates
+      summary: Check tagged images for newer registry digests
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Per-reference results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DockerUpdateCheck" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/images/prune:
+    post:
+      operationId: dockerPruneImages
+      summary: Remove dangling images
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Space reclaimed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DockerPruneResult" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/images/{imageId}:
+    delete:
+      operationId: dockerRemoveImage
+      summary: Remove an image
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: imageId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: force
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "204":
+          description: Removed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/volumes:
+    get:
+      operationId: dockerListVolumes
+      summary: Volumes on the host
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Volumes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DockerVolume" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/volumes/prune:
+    post:
+      operationId: dockerPruneVolumes
+      summary: Remove unused anonymous volumes
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Space reclaimed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DockerPruneResult" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/volumes/{name}:
+    delete:
+      operationId: dockerRemoveVolume
+      summary: Remove a volume
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+        - name: force
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "204":
+          description: Removed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/networks:
+    get:
+      operationId: dockerListNetworks
+      summary: Networks on the host
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Networks
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DockerNetwork" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/networks/{networkId}:
+    delete:
+      operationId: dockerRemoveNetwork
+      summary: Remove a network
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: networkId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Removed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/stacks:
+    get:
+      operationId: dockerListStacks
+      summary: Compose stacks (grouped by project label)
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Stacks with their services and containers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DockerStack" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /docker/{id}/stacks/{project}/redeploy:
+    post:
+      operationId: dockerRedeployStack
+      summary: Redeploy a stack
+      description: Pulls newer images (optional) and recreates every container in the stack with its existing configuration. Runs as a background job.
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: project
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pull: { type: boolean, default: true }
+      responses:
+        "202":
+          $ref: "#/components/responses/JobQueued"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /docker/{id}/registries:
+    get:
+      operationId: dockerListRegistries
+      summary: Stored registry credentials
+      description: Secrets are never returned.
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Registries with stored credentials
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DockerRegistryCred" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: dockerPutRegistry
+      summary: Store credentials for a registry
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [registry, username, secret]
+              properties:
+                registry:
+                  type: string
+                  description: Registry host, e.g. ghcr.io or registry.example.com
+                username: { type: string }
+                secret: { type: string }
+      responses:
+        "204":
+          description: Stored
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /docker/{id}/registries/{registry}:
+    delete:
+      operationId: dockerDeleteRegistry
+      summary: Remove stored registry credentials
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: registry
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Removed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /resources/ssh:
     get:
       operationId: getSSHCredential
@@ -1923,6 +2439,11 @@ components:
       in: path
       required: true
       schema: { type: integer }
+    containerName:
+      name: name
+      in: path
+      required: true
+      schema: { type: string }
 
   responses:
     SessionUser:
@@ -1974,6 +2495,15 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/PveTaskRef" }
+    JobQueued:
+      description: Queued as a background job; the outcome arrives as a notification
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [jobId]
+            properties:
+              jobId: { type: integer, format: int64 }
 
   schemas:
     Error:
@@ -2430,6 +2960,144 @@ components:
         username: { type: string }
         authType: { type: string, enum: [password, key] }
         updatedAt: { type: string, format: date-time }
+
+    DockerContainer:
+      type: object
+      required: [id, name, image, state, status, created]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        image: { type: string }
+        imageId: { type: string }
+        state: { type: string }
+        status: { type: string }
+        created: { type: string, format: date-time }
+        composeProject: { type: string, nullable: true }
+        composeService: { type: string, nullable: true }
+        ports:
+          type: array
+          items:
+            type: object
+            required: [private, type]
+            properties:
+              private: { type: integer }
+              public: { type: integer, nullable: true }
+              type: { type: string }
+
+    DockerContainerDetail:
+      type: object
+      required: [container, env, mounts, networks, labels, cmd]
+      properties:
+        container: { $ref: "#/components/schemas/DockerContainer" }
+        env:
+          type: array
+          items: { type: string }
+        mounts:
+          type: array
+          items:
+            type: object
+            required: [type, destination, rw]
+            properties:
+              type: { type: string }
+              source: { type: string }
+              destination: { type: string }
+              rw: { type: boolean }
+        networks:
+          type: array
+          items:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string }
+              ipAddress: { type: string }
+        labels:
+          type: object
+          additionalProperties: { type: string }
+        restartPolicy: { type: string }
+        cmd: { type: string }
+        entrypoint: { type: string }
+        startedAt: { type: string, format: date-time, nullable: true }
+        exitCode: { type: integer, nullable: true }
+
+    DockerImage:
+      type: object
+      required: [id, tags, sizeBytes, created, dangling, inUse]
+      properties:
+        id: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        created: { type: string, format: date-time }
+        dangling: { type: boolean }
+        inUse: { type: boolean }
+
+    DockerUpdateCheck:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            required: [reference, updateAvailable]
+            properties:
+              reference: { type: string }
+              updateAvailable: { type: boolean }
+              message: { type: string, nullable: true }
+
+    DockerPruneResult:
+      type: object
+      required: [reclaimedBytes, deleted]
+      properties:
+        reclaimedBytes: { type: integer, format: int64 }
+        deleted: { type: integer }
+
+    DockerVolume:
+      type: object
+      required: [name, driver, mountpoint, inUse]
+      properties:
+        name: { type: string }
+        driver: { type: string }
+        mountpoint: { type: string }
+        created: { type: string, nullable: true }
+        inUse: { type: boolean }
+
+    DockerNetwork:
+      type: object
+      required: [id, name, driver, scope, containers, builtin]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        driver: { type: string }
+        scope: { type: string }
+        containers: { type: integer }
+        builtin:
+          type: boolean
+          description: bridge/host/none — cannot be removed
+
+    DockerStack:
+      type: object
+      required: [project, services]
+      properties:
+        project: { type: string }
+        services:
+          type: array
+          items:
+            type: object
+            required: [service, containers]
+            properties:
+              service: { type: string }
+              containers:
+                type: array
+                items: { $ref: "#/components/schemas/DockerContainer" }
+
+    DockerRegistryCred:
+      type: object
+      required: [registry, username]
+      properties:
+        registry: { type: string }
+        username: { type: string }
 
     MetricQueryResult:
       type: object
