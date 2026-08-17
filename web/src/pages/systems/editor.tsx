@@ -198,6 +198,106 @@ function haComplete(form: HaFormState, isNew: boolean): boolean {
   return Boolean(form.name.trim() && form.host.trim() && (form.token.trim() || !isNew));
 }
 
+type MysqlFormState = {
+  name: string;
+  host: string;
+  username: string;
+  password: string;
+  tls: boolean;
+  insecureTls: boolean;
+};
+
+type MongoFormState = {
+  name: string;
+  host: string;
+  username: string;
+  password: string;
+  authSource: string;
+  tls: boolean;
+  insecureTls: boolean;
+};
+
+type TruenasFormState = {
+  name: string;
+  host: string;
+  apiKey: string;
+  insecureTls: boolean;
+};
+
+type McFormState = { name: string };
+
+const emptyMysqlForm: MysqlFormState = {
+  name: "",
+  host: "",
+  username: "",
+  password: "",
+  tls: false,
+  insecureTls: false,
+};
+
+const emptyMongoForm: MongoFormState = {
+  name: "",
+  host: "",
+  username: "",
+  password: "",
+  authSource: "",
+  tls: false,
+  insecureTls: false,
+};
+
+const emptyTruenasForm: TruenasFormState = { name: "", host: "", apiKey: "", insecureTls: false };
+
+const emptyMcForm: McFormState = { name: "" };
+
+function mysqlPayload(form: MysqlFormState): FormPayload {
+  const secrets: Record<string, string> = {};
+  if (form.username) secrets.username = form.username;
+  if (form.password) secrets.password = form.password;
+  return {
+    config: { host: form.host, tls: form.tls, insecureTls: form.insecureTls },
+    secrets,
+  };
+}
+
+function mongoPayload(form: MongoFormState): FormPayload {
+  const secrets: Record<string, string> = {};
+  if (form.username) secrets.username = form.username;
+  if (form.password) secrets.password = form.password;
+  const config: Record<string, unknown> = {
+    host: form.host,
+    tls: form.tls,
+    insecureTls: form.insecureTls,
+  };
+  if (form.authSource.trim()) config.authSource = form.authSource.trim();
+  return { config, secrets };
+}
+
+function truenasPayload(form: TruenasFormState): FormPayload {
+  const secrets: Record<string, string> = {};
+  if (form.apiKey) secrets.apiKey = form.apiKey;
+  return { config: { host: form.host, insecureTls: form.insecureTls }, secrets };
+}
+
+function mcPayload(): FormPayload {
+  return { config: {}, secrets: {} };
+}
+
+function mysqlComplete(form: MysqlFormState, isNew: boolean): boolean {
+  return Boolean(form.name.trim() && form.host.trim() && (form.username.trim() || !isNew));
+}
+
+function mongoComplete(form: MongoFormState, isNew: boolean): boolean {
+  return Boolean(form.name.trim() && form.host.trim() && (form.username.trim() || !isNew));
+}
+
+function truenasComplete(form: TruenasFormState, isNew: boolean): boolean {
+  return Boolean(form.name.trim() && form.host.trim() && (form.apiKey.trim() || !isNew));
+}
+
+function mcComplete(form: McFormState): boolean {
+  return Boolean(form.name.trim());
+}
+
 // ---- add wizard ------------------------------------------------------------
 
 /**
@@ -222,11 +322,19 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
   const [piholeForm, setPiholeForm] = useState<PiholeFormState>(emptyPiholeForm);
   const [adguardForm, setAdguardForm] = useState<AdguardFormState>(emptyAdguardForm);
   const [haForm, setHaForm] = useState<HaFormState>(emptyHaForm);
+  const [mysqlForm, setMysqlForm] = useState<MysqlFormState>(emptyMysqlForm);
+  const [mongoForm, setMongoForm] = useState<MongoFormState>(emptyMongoForm);
+  const [truenasForm, setTruenasForm] = useState<TruenasFormState>(emptyTruenasForm);
+  const [mcForm, setMcForm] = useState<McFormState>(emptyMcForm);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const kind = type?.id ?? "";
-  const payload = () => {
+  // Exhaustive by design: a type without its own form must never inherit
+  // another type's fields. Unknown types render an honest notice instead.
+  const payload = (): FormPayload | null => {
     switch (kind) {
+      case "proxmox":
+        return pvePayload(pveForm);
       case "docker":
         return dockerPayload(dockerForm);
       case "pihole":
@@ -235,12 +343,22 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return adguardPayload(adguardForm);
       case "homeassistant":
         return haPayload(haForm);
+      case "mysql":
+        return mysqlPayload(mysqlForm);
+      case "mongodb":
+        return mongoPayload(mongoForm);
+      case "truenas":
+        return truenasPayload(truenasForm);
+      case "minecraft":
+        return mcPayload();
       default:
-        return pvePayload(pveForm);
+        return null;
     }
   };
   const formName = () => {
     switch (kind) {
+      case "proxmox":
+        return pveForm.name;
       case "docker":
         return dockerForm.name;
       case "pihole":
@@ -249,14 +367,24 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return adguardForm.name;
       case "homeassistant":
         return haForm.name;
+      case "mysql":
+        return mysqlForm.name;
+      case "mongodb":
+        return mongoForm.name;
+      case "truenas":
+        return truenasForm.name;
+      case "minecraft":
+        return mcForm.name;
       default:
-        return pveForm.name;
+        return "";
     }
   };
+  // The Minecraft companion pairs after creation — there is nothing to test.
+  const needsTest = kind !== "minecraft";
 
   const test = useMutation({
     mutationFn: async () =>
-      unwrap(await api.POST("/integrations/test", { body: { type: type!.id, ...payload() } })),
+      unwrap(await api.POST("/integrations/test", { body: { type: type!.id, ...payload()! } })),
     onSuccess: setTestResult,
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
@@ -265,7 +393,7 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
     mutationFn: async () =>
       unwrap(
         await api.POST("/integrations", {
-          body: { type: type!.id, name: formName(), ...payload() },
+          body: { type: type!.id, name: formName(), ...payload()! },
         }),
       ),
     onSuccess: (created: Integration) => {
@@ -286,6 +414,17 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         case "pihole":
         case "adguard":
           void navigate({ to: "/dns" });
+          break;
+        case "mysql":
+        case "mongodb":
+          void navigate({ to: "/db/$instanceId", params: { instanceId: created.id } });
+          break;
+        case "truenas":
+          void navigate({ to: "/truenas/$instanceId", params: { instanceId: created.id } });
+          break;
+        case "minecraft":
+          // Straight to the pairing instructions and downloads.
+          void navigate({ to: "/mc/$instanceId/setup", params: { instanceId: created.id } });
           break;
       }
     },
@@ -320,18 +459,57 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
     );
   }
 
-  const complete =
-    kind === "docker"
-      ? dockerComplete(dockerForm, true)
-      : kind === "pihole"
-        ? piholeComplete(piholeForm, true)
-        : kind === "adguard"
-          ? adguardComplete(adguardForm, true)
-          : kind === "homeassistant"
-            ? haComplete(haForm, true)
-            : pveComplete(pveForm, true);
+  const complete = (() => {
+    switch (kind) {
+      case "proxmox":
+        return pveComplete(pveForm, true);
+      case "docker":
+        return dockerComplete(dockerForm, true);
+      case "pihole":
+        return piholeComplete(piholeForm, true);
+      case "adguard":
+        return adguardComplete(adguardForm, true);
+      case "homeassistant":
+        return haComplete(haForm, true);
+      case "mysql":
+        return mysqlComplete(mysqlForm, true);
+      case "mongodb":
+        return mongoComplete(mongoForm, true);
+      case "truenas":
+        return truenasComplete(truenasForm, true);
+      case "minecraft":
+        return mcComplete(mcForm);
+      default:
+        return false;
+    }
+  })();
 
   const clearTest = () => setTestResult(null);
+
+  const formBody = (() => {
+    switch (kind) {
+      case "proxmox":
+        return <PveForm form={pveForm} setForm={setPveForm} isNew testResult={testResult} onFormChange={clearTest} />;
+      case "docker":
+        return <DockerForm form={dockerForm} setForm={setDockerForm} isNew testResult={testResult} onFormChange={clearTest} />;
+      case "pihole":
+        return <PiholeForm form={piholeForm} setForm={setPiholeForm} isNew testResult={testResult} onFormChange={clearTest} />;
+      case "adguard":
+        return <AdguardForm form={adguardForm} setForm={setAdguardForm} isNew testResult={testResult} onFormChange={clearTest} />;
+      case "homeassistant":
+        return <HaForm form={haForm} setForm={setHaForm} isNew testResult={testResult} onFormChange={clearTest} />;
+      case "mysql":
+        return <MysqlForm form={mysqlForm} setForm={setMysqlForm} isNew testResult={testResult} onFormChange={clearTest} />;
+      case "mongodb":
+        return <MongoForm form={mongoForm} setForm={setMongoForm} isNew testResult={testResult} onFormChange={clearTest} />;
+      case "truenas":
+        return <TruenasForm form={truenasForm} setForm={setTruenasForm} isNew testResult={testResult} onFormChange={clearTest} />;
+      case "minecraft":
+        return <McForm form={mcForm} setForm={setMcForm} />;
+      default:
+        return <UnknownTypeNotice />;
+    }
+  })();
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -353,12 +531,14 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
             <Button variant="ghost" onClick={onClose}>
               {t("common.cancel")}
             </Button>
-            <Button variant="secondary" disabled={!complete} loading={test.isPending} onClick={() => test.mutate()}>
-              {test.isPending ? t("systems.testing") : t("systems.testConnection")}
-            </Button>
+            {needsTest && (
+              <Button variant="secondary" disabled={!complete} loading={test.isPending} onClick={() => test.mutate()}>
+                {test.isPending ? t("systems.testing") : t("systems.testConnection")}
+              </Button>
+            )}
             <Button
               variant="primary"
-              disabled={!complete || !testResult?.ok}
+              disabled={!complete || (needsTest && !testResult?.ok)}
               loading={create.isPending}
               onClick={() => create.mutate()}
             >
@@ -367,18 +547,10 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
           </>
         }
       >
-        {kind === "docker" ? (
-          <DockerForm form={dockerForm} setForm={setDockerForm} isNew testResult={testResult} onFormChange={clearTest} />
-        ) : kind === "pihole" ? (
-          <PiholeForm form={piholeForm} setForm={setPiholeForm} isNew testResult={testResult} onFormChange={clearTest} />
-        ) : kind === "adguard" ? (
-          <AdguardForm form={adguardForm} setForm={setAdguardForm} isNew testResult={testResult} onFormChange={clearTest} />
-        ) : kind === "homeassistant" ? (
-          <HaForm form={haForm} setForm={setHaForm} isNew testResult={testResult} onFormChange={clearTest} />
-        ) : (
-          <PveForm form={pveForm} setForm={setPveForm} isNew testResult={testResult} onFormChange={clearTest} />
+        {formBody}
+        {needsTest && !testResult && (
+          <p className="text-fg-subtle mt-3 text-[13px]">{t("systems.testFirst")}</p>
         )}
-        {!testResult && <p className="text-fg-subtle mt-3 text-[13px]">{t("systems.testFirst")}</p>}
       </DialogContent>
     </Dialog>
   );
@@ -430,30 +602,79 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
     host: String(cfg.host ?? ""),
     insecureTls: Boolean(cfg.insecureTls),
   });
+  const [mysqlForm, setMysqlForm] = useState<MysqlFormState>({
+    ...emptyMysqlForm,
+    name: row.name,
+    host: String(cfg.host ?? ""),
+    tls: Boolean(cfg.tls),
+    insecureTls: Boolean(cfg.insecureTls),
+  });
+  const [mongoForm, setMongoForm] = useState<MongoFormState>({
+    ...emptyMongoForm,
+    name: row.name,
+    host: String(cfg.host ?? ""),
+    authSource: String(cfg.authSource ?? ""),
+    tls: Boolean(cfg.tls),
+    insecureTls: Boolean(cfg.insecureTls),
+  });
+  const [truenasForm, setTruenasForm] = useState<TruenasFormState>({
+    ...emptyTruenasForm,
+    name: row.name,
+    host: String(cfg.host ?? ""),
+    insecureTls: Boolean(cfg.insecureTls),
+  });
+  const [mcForm, setMcForm] = useState<McFormState>({ name: row.name });
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
+
+  const editPayload = (): FormPayload => {
+    switch (kind) {
+      case "docker":
+        return dockerPayload(dockerForm);
+      case "pihole":
+        return piholePayload(piholeForm);
+      case "adguard":
+        return adguardPayload(adguardForm);
+      case "homeassistant":
+        return haPayload(haForm);
+      case "mysql":
+        return mysqlPayload(mysqlForm);
+      case "mongodb":
+        return mongoPayload(mongoForm);
+      case "truenas":
+        return truenasPayload(truenasForm);
+      case "minecraft":
+        return mcPayload();
+      default:
+        return pvePayload(pveForm);
+    }
+  };
+  const editName = (): string => {
+    switch (kind) {
+      case "docker":
+        return dockerForm.name;
+      case "pihole":
+        return piholeForm.name;
+      case "adguard":
+        return adguardForm.name;
+      case "homeassistant":
+        return haForm.name;
+      case "mysql":
+        return mysqlForm.name;
+      case "mongodb":
+        return mongoForm.name;
+      case "truenas":
+        return truenasForm.name;
+      case "minecraft":
+        return mcForm.name;
+      default:
+        return pveForm.name;
+    }
+  };
 
   const save = useMutation({
     mutationFn: async () => {
-      const { config, secrets } =
-        kind === "docker"
-          ? dockerPayload(dockerForm)
-          : kind === "pihole"
-            ? piholePayload(piholeForm)
-            : kind === "adguard"
-              ? adguardPayload(adguardForm)
-              : kind === "homeassistant"
-                ? haPayload(haForm)
-                : pvePayload(pveForm);
-      const name =
-        kind === "docker"
-          ? dockerForm.name
-          : kind === "pihole"
-            ? piholeForm.name
-            : kind === "adguard"
-              ? adguardForm.name
-              : kind === "homeassistant"
-                ? haForm.name
-                : pveForm.name;
+      const { config, secrets } = editPayload();
+      const name = editName();
       return unwrap(
         await api.PATCH("/integrations/{id}", {
           params: { path: { id: row.id } },
@@ -468,16 +689,28 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
-  const complete =
-    kind === "docker"
-      ? dockerComplete(dockerForm, false)
-      : kind === "pihole"
-        ? piholeComplete(piholeForm, false)
-        : kind === "adguard"
-          ? adguardComplete(adguardForm, false)
-          : kind === "homeassistant"
-            ? haComplete(haForm, false)
-            : pveComplete(pveForm, false);
+  const complete = (() => {
+    switch (kind) {
+      case "docker":
+        return dockerComplete(dockerForm, false);
+      case "pihole":
+        return piholeComplete(piholeForm, false);
+      case "adguard":
+        return adguardComplete(adguardForm, false);
+      case "homeassistant":
+        return haComplete(haForm, false);
+      case "mysql":
+        return mysqlComplete(mysqlForm, false);
+      case "mongodb":
+        return mongoComplete(mongoForm, false);
+      case "truenas":
+        return truenasComplete(truenasForm, false);
+      case "minecraft":
+        return mcComplete(mcForm);
+      default:
+        return pveComplete(pveForm, false);
+    }
+  })();
 
   const clearTest = () => setTestResult(null);
 
@@ -497,17 +730,30 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
           </>
         }
       >
-        {kind === "docker" ? (
-          <DockerForm form={dockerForm} setForm={setDockerForm} isNew={false} testResult={testResult} onFormChange={clearTest} />
-        ) : kind === "pihole" ? (
-          <PiholeForm form={piholeForm} setForm={setPiholeForm} isNew={false} testResult={testResult} onFormChange={clearTest} />
-        ) : kind === "adguard" ? (
-          <AdguardForm form={adguardForm} setForm={setAdguardForm} isNew={false} testResult={testResult} onFormChange={clearTest} />
-        ) : kind === "homeassistant" ? (
-          <HaForm form={haForm} setForm={setHaForm} isNew={false} testResult={testResult} onFormChange={clearTest} />
-        ) : (
-          <PveForm form={pveForm} setForm={setPveForm} isNew={false} testResult={testResult} onFormChange={clearTest} />
-        )}
+        {(() => {
+          switch (kind) {
+            case "docker":
+              return <DockerForm form={dockerForm} setForm={setDockerForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
+            case "pihole":
+              return <PiholeForm form={piholeForm} setForm={setPiholeForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
+            case "adguard":
+              return <AdguardForm form={adguardForm} setForm={setAdguardForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
+            case "homeassistant":
+              return <HaForm form={haForm} setForm={setHaForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
+            case "mysql":
+              return <MysqlForm form={mysqlForm} setForm={setMysqlForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
+            case "mongodb":
+              return <MongoForm form={mongoForm} setForm={setMongoForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
+            case "truenas":
+              return <TruenasForm form={truenasForm} setForm={setTruenasForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
+            case "minecraft":
+              return <McForm form={mcForm} setForm={setMcForm} />;
+            case "proxmox":
+              return <PveForm form={pveForm} setForm={setPveForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
+            default:
+              return <UnknownTypeNotice />;
+          }
+        })()}
       </DialogContent>
     </Dialog>
   );
@@ -875,4 +1121,211 @@ function TestResultNote({ result }: { result: TestConnectionResult | null }) {
       {result.message}
     </div>
   );
+}
+
+function MysqlForm({
+  form,
+  setForm,
+  isNew,
+  testResult,
+  onFormChange,
+}: {
+  form: MysqlFormState;
+  setForm: (fn: (prev: MysqlFormState) => MysqlFormState) => void;
+  isNew: boolean;
+  testResult: TestConnectionResult | null;
+  onFormChange: () => void;
+}) {
+  const { t } = useTranslation();
+  const update = (patch: Partial<MysqlFormState>) => {
+    onFormChange();
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.form.name")} hint={t("integrations.form.nameHintMysql")}>
+          {(p) => <Input {...p} autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.mysql.host")} hint={t("integrations.mysql.hostHint")}>
+          {(p) => <Input {...p} placeholder="db.lan:3306" value={form.host} onChange={(e) => update({ host: e.target.value })} />}
+        </Field>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.mysql.username")} hint={isNew ? t("integrations.mysql.usernameHint") : t("integrations.form.secretKeep")}>
+          {(p) => <Input {...p} value={form.username} onChange={(e) => update({ username: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.mysql.password")} hint={isNew ? undefined : t("integrations.form.secretKeep")}>
+          {(p) => (
+            <PasswordInput {...p} className="font-mono text-[13px]" value={form.password} onChange={(e) => update({ password: e.target.value })} />
+          )}
+        </Field>
+      </div>
+      <Checkbox
+        checked={form.tls}
+        onCheckedChange={(checked) => update({ tls: checked, insecureTls: checked ? form.insecureTls : false })}
+        label={t("integrations.mysql.tls")}
+        hint={t("integrations.mysql.tlsHint")}
+      />
+      {form.tls && (
+        <Checkbox
+          checked={form.insecureTls}
+          onCheckedChange={(checked) => update({ insecureTls: checked })}
+          label={t("integrations.dns.insecureTls")}
+          hint={t("integrations.dns.insecureTlsHint")}
+        />
+      )}
+      <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
+function MongoForm({
+  form,
+  setForm,
+  isNew,
+  testResult,
+  onFormChange,
+}: {
+  form: MongoFormState;
+  setForm: (fn: (prev: MongoFormState) => MongoFormState) => void;
+  isNew: boolean;
+  testResult: TestConnectionResult | null;
+  onFormChange: () => void;
+}) {
+  const { t } = useTranslation();
+  const update = (patch: Partial<MongoFormState>) => {
+    onFormChange();
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.form.name")} hint={t("integrations.form.nameHintMongo")}>
+          {(p) => <Input {...p} autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.mongodb.host")} hint={t("integrations.mongodb.hostHint")}>
+          {(p) => <Input {...p} placeholder="mongo.lan:27017" value={form.host} onChange={(e) => update({ host: e.target.value })} />}
+        </Field>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.mongodb.username")} hint={isNew ? t("integrations.mongodb.usernameHint") : t("integrations.form.secretKeep")}>
+          {(p) => <Input {...p} value={form.username} onChange={(e) => update({ username: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.mongodb.password")} hint={isNew ? undefined : t("integrations.form.secretKeep")}>
+          {(p) => (
+            <PasswordInput {...p} className="font-mono text-[13px]" value={form.password} onChange={(e) => update({ password: e.target.value })} />
+          )}
+        </Field>
+      </div>
+      <Field label={t("integrations.mongodb.authSource")} hint={t("integrations.mongodb.authSourceHint")}>
+        {(p) => <Input {...p} placeholder="admin" value={form.authSource} onChange={(e) => update({ authSource: e.target.value })} />}
+      </Field>
+      <Checkbox
+        checked={form.tls}
+        onCheckedChange={(checked) => update({ tls: checked, insecureTls: checked ? form.insecureTls : false })}
+        label={t("integrations.mongodb.tls")}
+        hint={t("integrations.mongodb.tlsHint")}
+      />
+      {form.tls && (
+        <Checkbox
+          checked={form.insecureTls}
+          onCheckedChange={(checked) => update({ insecureTls: checked })}
+          label={t("integrations.dns.insecureTls")}
+          hint={t("integrations.dns.insecureTlsHint")}
+        />
+      )}
+      <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
+function TruenasForm({
+  form,
+  setForm,
+  isNew,
+  testResult,
+  onFormChange,
+}: {
+  form: TruenasFormState;
+  setForm: (fn: (prev: TruenasFormState) => TruenasFormState) => void;
+  isNew: boolean;
+  testResult: TestConnectionResult | null;
+  onFormChange: () => void;
+}) {
+  const { t } = useTranslation();
+  const update = (patch: Partial<TruenasFormState>) => {
+    onFormChange();
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.form.name")} hint={t("integrations.form.nameHintTruenas")}>
+          {(p) => <Input {...p} autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.truenas.host")} hint={t("integrations.truenas.hostHint")}>
+          {(p) => <Input {...p} placeholder="truenas.lan" value={form.host} onChange={(e) => update({ host: e.target.value })} />}
+        </Field>
+      </div>
+      <Field
+        label={t("integrations.truenas.apiKey")}
+        hint={isNew ? t("integrations.truenas.apiKeyHint") : t("integrations.form.secretKeep")}
+      >
+        {(p) => (
+          <PasswordInput {...p} className="font-mono text-[13px]" value={form.apiKey} onChange={(e) => update({ apiKey: e.target.value })} />
+        )}
+      </Field>
+      <Checkbox
+        checked={form.insecureTls}
+        onCheckedChange={(checked) => update({ insecureTls: checked })}
+        label={t("integrations.truenas.insecureTls")}
+        hint={t("integrations.truenas.insecureTlsHint")}
+      />
+      <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
+/**
+ * McForm: a Minecraft instance needs only a name — the companion plugin
+ * connects outward and pairs with a code after creation, so there is no
+ * connection to configure or test here.
+ */
+function McForm({
+  form,
+  setForm,
+}: {
+  form: McFormState;
+  setForm: (fn: (prev: McFormState) => McFormState) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-4">
+      <Field label={t("integrations.form.name")} hint={t("integrations.form.nameHintMc")}>
+        {(p) => (
+          <Input
+            {...p}
+            autoFocus
+            value={form.name}
+            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+          />
+        )}
+      </Field>
+      <div className="bg-accent-soft/40 border-accent/30 text-fg rounded-lg border p-4 text-[13px] leading-relaxed">
+        <p className="font-semibold">{t("integrations.minecraft.howTitle")}</p>
+        <ol className="text-fg-muted mt-2 list-decimal space-y-1 pl-4">
+          <li>{t("integrations.minecraft.step1")}</li>
+          <li>{t("integrations.minecraft.step2")}</li>
+          <li>{t("integrations.minecraft.step3")}</li>
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+/** UnknownTypeNotice renders when a type has no form yet — never another type's fields. */
+function UnknownTypeNotice() {
+  const { t } = useTranslation();
+  return <p className="text-fg-muted text-sm">{t("systems.wizard.noForm")}</p>;
 }
