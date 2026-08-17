@@ -11,6 +11,7 @@ import (
 
 	"github.com/TheOriUHD/homehub/internal/httpctx"
 	"github.com/TheOriUHD/homehub/internal/integrations/proxmox"
+	"github.com/TheOriUHD/homehub/internal/pve"
 	"github.com/TheOriUHD/homehub/internal/rbac"
 	"github.com/TheOriUHD/homehub/internal/store"
 )
@@ -537,4 +538,84 @@ func (s *Server) PveDeleteSnapshot(ctx context.Context, req PveDeleteSnapshotReq
 	s.audit.Log(ctx, actorFor(id), "proxmox.snapshot_delete", guestRes, "success",
 		map[string]any{"snapshot": req.Name, "upid": upid})
 	return PveDeleteSnapshot200JSONResponse{TaskStartedJSONResponse{Upid: upid, Node: node}}, nil
+}
+
+// PveGuestAgent reports what the QEMU guest agent knows: hostname, OS, and
+// network interfaces. Unavailability (LXC, agent off, guest stopped) is a
+// normal answer, not an error.
+func (s *Server) PveGuestAgent(ctx context.Context, req PveGuestAgentRequestObject) (PveGuestAgentResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	conn, _, resource, err := s.pveConn(ctx, id, req.Id)
+	if errors.Is(err, store.ErrNotFound) {
+		return PveGuestAgent404JSONResponse{notFoundErr("integration")}, nil
+	}
+	if err != nil {
+		return PveGuestAgent502JSONResponse{UpstreamErrorJSONResponse(errBody("unreachable", err.Error()))}, nil
+	}
+	if !s.can(ctx, id, guestResource(resource, req.Vmid), rbac.LevelView) {
+		return PveGuestAgent404JSONResponse{notFoundErr("guest")}, nil
+	}
+	node, kind, err := conn.Locate(ctx, req.Vmid)
+	if err != nil {
+		return PveGuestAgent404JSONResponse{notFoundErr("guest")}, nil
+	}
+	unavailable := func(reason string) PveGuestAgent200JSONResponse {
+		out := PveGuestAgent200JSONResponse{Available: false, Interfaces: []struct {
+			Addresses []struct {
+				Address string                               `json:"address"`
+				Prefix  *int                                 `json:"prefix,omitempty"`
+				Type    PveGuestAgentInterfacesAddressesType `json:"type"`
+			} `json:"addresses"`
+			Mac  *string `json:"mac,omitempty"`
+			Name string  `json:"name"`
+		}{}}
+		out.Reason = &reason
+		return out
+	}
+	if kind != "qemu" {
+		return unavailable("containers have no QEMU guest agent — addresses come from the container config"), nil
+	}
+
+	ifaces, err := conn.Client.AgentNetworkInterfaces(ctx, node, req.Vmid)
+	if errors.Is(err, pve.ErrAgentUnavailable) {
+		return unavailable("the QEMU guest agent is not running in this VM"), nil
+	}
+	if err != nil {
+		return PveGuestAgent502JSONResponse{UpstreamErrorJSONResponse(upstreamErr(err))}, nil
+	}
+	out := PveGuestAgent200JSONResponse{Available: true}
+	for _, iface := range ifaces {
+		entry := struct {
+			Addresses []struct {
+				Address string                               `json:"address"`
+				Prefix  *int                                 `json:"prefix,omitempty"`
+				Type    PveGuestAgentInterfacesAddressesType `json:"type"`
+			} `json:"addresses"`
+			Mac  *string `json:"mac,omitempty"`
+			Name string  `json:"name"`
+		}{Name: iface.Name}
+		if iface.HardwareAddress != "" {
+			mac := iface.HardwareAddress
+			entry.Mac = &mac
+		}
+		for _, addr := range iface.IPAddresses {
+			prefix := addr.Prefix
+			entry.Addresses = append(entry.Addresses, struct {
+				Address string                               `json:"address"`
+				Prefix  *int                                 `json:"prefix,omitempty"`
+				Type    PveGuestAgentInterfacesAddressesType `json:"type"`
+			}{Address: addr.Address, Prefix: &prefix, Type: PveGuestAgentInterfacesAddressesType(addr.Type)})
+		}
+		out.Interfaces = append(out.Interfaces, entry)
+	}
+	if hostname, herr := conn.Client.AgentHostname(ctx, node, req.Vmid); herr == nil && hostname != "" {
+		out.Hostname = &hostname
+	}
+	if osInfo, oerr := conn.Client.AgentOSInfo(ctx, node, req.Vmid); oerr == nil && osInfo != "" {
+		out.Os = &osInfo
+	}
+	return out, nil
 }

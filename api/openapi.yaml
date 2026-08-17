@@ -1360,6 +1360,26 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /proxmox/{id}/guests/{vmid}/agent:
+    get:
+      operationId: pveGuestAgent
+      summary: QEMU guest agent report
+      description: Hostname, OS, and network interfaces as the guest agent reports them. `available` is false (with a reason) when the agent is not installed, not running, or the guest is an LXC container.
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+      responses:
+        "200":
+          description: The agent report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PveGuestAgent" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /proxmox/{id}/guests/{vmid}/config:
     put:
       operationId: pveSetGuestConfig
@@ -4840,6 +4860,34 @@ components:
         snaptime: { type: string, format: date-time, nullable: true }
         vmstate: { type: boolean }
 
+    PveGuestAgent:
+      type: object
+      required: [available, interfaces]
+      properties:
+        available: { type: boolean }
+        reason:
+          type: string
+          description: Why the agent is unavailable, when it is
+        hostname: { type: string }
+        os: { type: string }
+        interfaces:
+          type: array
+          items:
+            type: object
+            required: [name, addresses]
+            properties:
+              name: { type: string }
+              mac: { type: string }
+              addresses:
+                type: array
+                items:
+                  type: object
+                  required: [address, type]
+                  properties:
+                    address: { type: string }
+                    type: { type: string, enum: [ipv4, ipv6] }
+                    prefix: { type: integer }
+
     PveTask:
       type: object
       required: [upid, node, type, id, user, running, startTime]
@@ -5606,10 +5654,15 @@ components:
         title:
           type: string
           maxLength: 80
+          description: Custom display name — replaces the entity's own name on entity cards, heads the card on group cards
         entityIds:
           type: array
           maxItems: 50
           items: { type: string, maxLength: 120 }
+        labels:
+          type: object
+          description: Per-entity display-name overrides for group rows (entity id → custom name)
+          additionalProperties: { type: string, maxLength: 80 }
         size:
           type: string
           enum: [small, medium, large]

@@ -96,9 +96,17 @@ func (s *Server) PveListTasks(ctx context.Context, req PveListTasksRequestObject
 				Running:   task.Status == "running" || (task.Status == "" && int64(task.EndTime) == 0),
 				StartTime: time.Unix(int64(task.StartTime), 0),
 			}
-			if task.ExitStatus != "" {
+			// Real PVE's node task list carries the exit verdict in `status`
+			// ("OK" or the error text) for finished tasks; a separate
+			// exitstatus field only exists on the task detail endpoint.
+			if !item.Running {
 				exit := task.ExitStatus
-				item.ExitStatus = &exit
+				if exit == "" && task.Status != "" && task.Status != "stopped" {
+					exit = task.Status
+				}
+				if exit != "" {
+					item.ExitStatus = &exit
+				}
 			}
 			if int64(task.EndTime) > 0 {
 				end := time.Unix(int64(task.EndTime), 0)
