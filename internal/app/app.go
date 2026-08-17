@@ -22,7 +22,9 @@ import (
 	"github.com/TheOriUHD/homehub/internal/db"
 	"github.com/TheOriUHD/homehub/internal/httpserver"
 	"github.com/TheOriUHD/homehub/internal/integration"
+	"github.com/TheOriUHD/homehub/internal/integrations/adguard"
 	"github.com/TheOriUHD/homehub/internal/integrations/docker"
+	"github.com/TheOriUHD/homehub/internal/integrations/pihole"
 	"github.com/TheOriUHD/homehub/internal/integrations/proxmox"
 	"github.com/TheOriUHD/homehub/internal/jobs"
 	"github.com/TheOriUHD/homehub/internal/metrics"
@@ -84,6 +86,8 @@ func Run(ctx context.Context) error {
 	manager := integration.NewManager(st, v, metricsSvc, hub, logger)
 	manager.Register(proxmox.Driver{})
 	manager.Register(docker.Driver{})
+	manager.Register(pihole.Driver{})
+	manager.Register(adguard.Driver{})
 	manager.StatusChanged = statusNotifier(st, engine, hub, logger)
 
 	docker.RegisterJobs(func(kind string, fn func(ctx context.Context, payload json.RawMessage) error) {

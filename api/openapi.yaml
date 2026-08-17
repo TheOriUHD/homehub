@@ -2321,6 +2321,353 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /dns/instances:
+    get:
+      operationId: dnsListInstances
+      summary: All DNS instances with live stats
+      description: Spans every Pi-hole and AdGuard Home instance the caller may see; stats are fetched live and null when an instance is unreachable.
+      tags: [dns]
+      responses:
+        "200":
+          description: Instances of both types
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DnsInstance" }
+
+  /dns/{id}/queries:
+    get:
+      operationId: dnsQueryLog
+      summary: Query log for one instance
+      tags: [dns]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: client
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [allowed, blocked, cached] }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 200 }
+      responses:
+        "200":
+          description: Recent queries, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DnsQuery" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /dns/{id}/lists:
+    get:
+      operationId: dnsLists
+      summary: Allow/deny/regex list entries
+      tags: [dns]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Normalized entries (AdGuard custom rules appear verbatim as type custom)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DnsListEntry" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+    post:
+      operationId: dnsAddListEntry
+      summary: Add a list entry
+      tags: [dns]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DnsListInput" }
+      responses:
+        "204":
+          description: Added
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /dns/{id}/lists/remove:
+    post:
+      operationId: dnsRemoveListEntry
+      summary: Remove a list entry
+      tags: [dns]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, domain]
+              properties:
+                type: { $ref: "#/components/schemas/DnsListType" }
+                domain: { type: string }
+                id: { type: string }
+      responses:
+        "204":
+          description: Removed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /dns/{id}/blocking:
+    post:
+      operationId: dnsSetBlocking
+      summary: Enable or disable blocking, optionally on a timer
+      tags: [dns]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+                seconds:
+                  type: integer
+                  minimum: 10
+                  maximum: 86400
+                  description: When disabling — automatically re-enable after this many seconds
+      responses:
+        "200":
+          description: Resulting blocking state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DnsBlocking" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /dns/{id}/clients:
+    get:
+      operationId: dnsClients
+      summary: Clients and groups
+      tags: [dns]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Clients, groups, and what this instance supports
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [clients, groups, capabilities]
+                properties:
+                  clients:
+                    type: array
+                    items: { $ref: "#/components/schemas/DnsClient" }
+                  groups:
+                    type: array
+                    items: { $ref: "#/components/schemas/DnsGroup" }
+                  capabilities: { $ref: "#/components/schemas/DnsCapabilities" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+    post:
+      operationId: dnsUpsertClient
+      summary: Create or update a client
+      tags: [dns]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DnsClient" }
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /dns/{id}/clients/delete:
+    post:
+      operationId: dnsDeleteClient
+      summary: Delete a client
+      tags: [dns]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: string }
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /dns/{id}/groups:
+    post:
+      operationId: dnsUpsertGroup
+      summary: Create or update a group
+      tags: [dns]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DnsGroup" }
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /dns/{id}/groups/delete:
+    post:
+      operationId: dnsDeleteGroup
+      summary: Delete a group
+      tags: [dns]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: string }
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /dns/compare:
+    get:
+      operationId: dnsCompare
+      summary: Compare list entries between two instances
+      description: Diffs normalized entries (custom rules excluded) so redundant resolvers don't drift.
+      tags: [dns]
+      parameters:
+        - name: a
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: b
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Entries unique to each side
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DnsCompareResult" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /dns/sync:
+    post:
+      operationId: dnsSync
+      summary: Copy list entries from one instance to another
+      tags: [dns]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from, to, entries]
+              properties:
+                from: { type: string, format: uuid }
+                to: { type: string, format: uuid }
+                entries:
+                  type: array
+                  minItems: 1
+                  items: { $ref: "#/components/schemas/DnsListInput" }
+      responses:
+        "200":
+          description: Per-entry outcomes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DnsSyncResult" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /resources/ssh:
     get:
       operationId: getSSHCredential
@@ -3098,6 +3445,134 @@ components:
       properties:
         registry: { type: string }
         username: { type: string }
+
+    DnsListType:
+      type: string
+      enum: [allow, deny, allow_regex, deny_regex, custom]
+
+    DnsCapabilities:
+      type: object
+      required: [groupCrud, clientCrud, regexLists, customRules, listComment]
+      properties:
+        groupCrud: { type: boolean }
+        clientCrud: { type: boolean }
+        regexLists: { type: boolean }
+        customRules: { type: boolean }
+        listComment: { type: boolean }
+
+    DnsStats:
+      type: object
+      required: [queriesToday, blockedToday, blockedPct, clientsSeen, domainsOnLists, enabled, version]
+      properties:
+        queriesToday: { type: integer, format: int64 }
+        blockedToday: { type: integer, format: int64 }
+        blockedPct: { type: number }
+        clientsSeen: { type: integer, format: int64 }
+        domainsOnLists: { type: integer, format: int64 }
+        enabled: { type: boolean }
+        disabledUntil: { type: string, format: date-time, nullable: true }
+        version: { type: string }
+
+    DnsBlocking:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+        until: { type: string, format: date-time, nullable: true }
+
+    DnsInstance:
+      type: object
+      required: [id, name, type, status, statusMessage, capabilities]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string, enum: [pihole, adguard] }
+        status:
+          type: string
+          enum: [pending, connecting, connected, degraded, unreachable, disabled]
+        statusMessage: { type: string }
+        capabilities: { $ref: "#/components/schemas/DnsCapabilities" }
+        stats:
+          allOf:
+            - $ref: "#/components/schemas/DnsStats"
+          nullable: true
+
+    DnsQuery:
+      type: object
+      required: [time, domain, client, type, status]
+      properties:
+        time: { type: string, format: date-time }
+        domain: { type: string }
+        client: { type: string }
+        clientName: { type: string, nullable: true }
+        type: { type: string }
+        status: { type: string, enum: [allowed, blocked, cached] }
+        reason: { type: string, nullable: true }
+
+    DnsListEntry:
+      type: object
+      required: [id, type, domain, enabled]
+      properties:
+        id: { type: string }
+        type: { $ref: "#/components/schemas/DnsListType" }
+        domain: { type: string }
+        enabled: { type: boolean }
+        comment: { type: string, nullable: true }
+
+    DnsListInput:
+      type: object
+      required: [type, domain]
+      properties:
+        type: { $ref: "#/components/schemas/DnsListType" }
+        domain: { type: string, minLength: 1, maxLength: 512 }
+        comment: { type: string, maxLength: 256 }
+
+    DnsClient:
+      type: object
+      required: [id, name, identifiers, groupIds]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        identifiers:
+          type: array
+          items: { type: string }
+        groupIds:
+          type: array
+          items: { type: string }
+
+    DnsGroup:
+      type: object
+      required: [id, name, enabled]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        enabled: { type: boolean }
+
+    DnsCompareResult:
+      type: object
+      required: [onlyA, onlyB, commonCount]
+      properties:
+        onlyA:
+          type: array
+          items: { $ref: "#/components/schemas/DnsListEntry" }
+        onlyB:
+          type: array
+          items: { $ref: "#/components/schemas/DnsListEntry" }
+        commonCount: { type: integer }
+
+    DnsSyncResult:
+      type: object
+      required: [added, failed]
+      properties:
+        added: { type: integer }
+        failed:
+          type: array
+          items:
+            type: object
+            required: [domain, error]
+            properties:
+              domain: { type: string }
+              error: { type: string }
 
     MetricQueryResult:
       type: object
