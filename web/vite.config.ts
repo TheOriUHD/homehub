@@ -20,6 +20,8 @@ export default defineConfig({
     },
   },
   build: {
+    // noVNC 1.7 uses top-level await; the default es2020 target rejects it.
+    target: "es2022",
     sourcemap: false,
     chunkSizeWarningLimit: 900,
   },

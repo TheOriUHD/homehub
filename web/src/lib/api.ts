@@ -17,6 +17,22 @@ export type AppSettings = ApiSchemas["AppSettings"];
 export type LoginResult = ApiSchemas["LoginResult"];
 export type CreateUserResult = ApiSchemas["CreateUserResult"];
 export type ApiError = ApiSchemas["Error"];
+export type Integration = ApiSchemas["Integration"];
+export type IntegrationType = ApiSchemas["IntegrationType"];
+export type TestConnectionResult = ApiSchemas["TestConnectionResult"];
+export type PveSummary = ApiSchemas["PveSummary"];
+export type PveNode = ApiSchemas["PveNode"];
+export type PveGuest = ApiSchemas["PveGuest"];
+export type PveGuestDetail = ApiSchemas["PveGuestDetail"];
+export type PveGuestAction = ApiSchemas["PveGuestAction"];
+export type PveSnapshot = ApiSchemas["PveSnapshot"];
+export type PveTask = ApiSchemas["PveTask"];
+export type PveTaskDetail = ApiSchemas["PveTaskDetail"];
+export type PveStorage = ApiSchemas["PveStorage"];
+export type PveBackupJob = ApiSchemas["PveBackupJob"];
+export type TermSession = ApiSchemas["TermSession"];
+export type SSHCredentialInfo = ApiSchemas["SSHCredentialInfo"];
+export type MetricQueryResult = ApiSchemas["MetricQueryResult"];
 
 export const api = createClient<paths>({ baseUrl: "/api" });
 

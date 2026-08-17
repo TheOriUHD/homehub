@@ -11,13 +11,16 @@ import {
   LogOut,
   Menu,
   Moon,
+  Plug,
   Search,
+  Server,
   Settings,
   Shield,
   Sun,
   Users,
   X,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { RES } from "@/lib/perms";
@@ -82,12 +85,21 @@ export function AppShell() {
   const adminNav: NavItem[] = [
     { to: "/admin/users", label: t("nav.users"), icon: Users, requires: RES.users },
     { to: "/admin/roles", label: t("nav.roles"), icon: Shield, requires: RES.roles },
+    { to: "/admin/integrations", label: t("integrations.title"), icon: Plug, requires: "system/integrations" },
     { to: "/admin/audit", label: t("nav.audit"), icon: FileClock, requires: RES.audit },
     { to: "/admin/settings", label: t("nav.settings"), icon: Settings, requires: RES.settings },
   ];
 
   const visible = (items: NavItem[]) => items.filter((i) => !i.requires || can(i.requires));
   const adminVisible = visible(adminNav);
+
+  // Connected systems the user may see — the server filters by permission.
+  const integrations = useQuery({
+    queryKey: ["integrations"],
+    queryFn: async () => unwrap(await api.GET("/integrations")),
+    staleTime: 30_000,
+  });
+  const systems = (integrations.data ?? []).filter((row) => row.enabled && row.type === "proxmox");
 
   const initials = me.user.displayName
     .split(/\s+/)
@@ -109,6 +121,23 @@ export function AppShell() {
             <SidebarLink key={item.to} item={item} active={pathname === item.to} />
           ))}
         </div>
+        {systems.length > 0 && (
+          <div>
+            <p className="text-fg-subtle mb-1.5 px-2.5 text-[11px] font-semibold tracking-wider uppercase">
+              {t("nav.systems")}
+            </p>
+            <div className="space-y-0.5">
+              {systems.map((system) => (
+                <SidebarLink
+                  key={system.id}
+                  item={{ to: `/pve/${system.id}`, label: system.name, icon: Server }}
+                  active={pathname.startsWith(`/pve/${system.id}`)}
+                  status={system.status}
+                />
+              ))}
+            </div>
+          </div>
+        )}
         {adminVisible.length > 0 && (
           <div>
             <p className="text-fg-subtle mb-1.5 px-2.5 text-[11px] font-semibold tracking-wider uppercase">
@@ -219,7 +248,15 @@ export function AppShell() {
   );
 }
 
-function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
+function SidebarLink({
+  item,
+  active,
+  status,
+}: {
+  item: NavItem;
+  active: boolean;
+  status?: string;
+}) {
   const Icon = item.icon;
   return (
     <Link
@@ -232,7 +269,15 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
       )}
     >
       <Icon className="size-4 shrink-0" />
-      {item.label}
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      {status && status !== "connected" && (
+        <span
+          className={cn(
+            "size-1.5 shrink-0 rounded-full",
+            status === "degraded" || status === "connecting" ? "bg-warning" : "bg-danger",
+          )}
+        />
+      )}
     </Link>
   );
 }

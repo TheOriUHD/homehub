@@ -40,6 +40,7 @@
   "nav": {
     "overview": "Overview",
     "health": "System health",
+    "systems": "Systems",
     "administration": "Administration",
     "users": "Users",
     "roles": "Roles",
@@ -151,6 +152,19 @@
       "body": "Integration health will appear here once systems are connected."
     },
     "loadFailed": "Couldn’t load health data."
+  },
+  "term": {
+    "connecting": "Connecting…",
+    "disconnected": "Connection closed.",
+    "reconnect": "Reconnect",
+    "searchPlaceholder": "Search terminal…",
+    "searchPrev": "Previous match",
+    "searchNext": "Next match",
+    "searchClose": "Close search",
+    "vncDisconnected": "Disconnected from the remote screen.",
+    "vncDisconnectedUnclean": "The connection to the remote screen was lost.",
+    "vncSecurityFailure": "The connection was refused: {{reason}}",
+    "vncSecurityFailureUnknown": "The connection was refused during the security handshake."
   },
   "users": {
     "title": "Users",
@@ -371,6 +385,222 @@
       "title": "Page not found",
       "body": "This page doesn’t exist — or you don’t have access to it.",
       "home": "Back to overview"
+    }
+  },
+  "integrations": {
+    "title": "Integrations",
+    "subtitle": "The systems HomeHub manages.",
+    "add": "Add integration",
+    "status": {
+      "pending": "Pending",
+      "connecting": "Connecting",
+      "connected": "Connected",
+      "degraded": "Degraded",
+      "unreachable": "Unreachable",
+      "disabled": "Disabled"
+    },
+    "openModule": "Open",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "testFirst": "Test the connection before saving.",
+    "retest": "Re-test",
+    "disable": "Disable",
+    "enable": "Enable",
+    "deleteConfirmTitle": "Remove “{{name}}”?",
+    "deleteConfirmBody": "HomeHub forgets this system and its stored credentials. Nothing is changed on the system itself.",
+    "empty": {
+      "title": "Nothing connected yet",
+      "body": "Add your first integration to start managing your homelab from here."
+    },
+    "picker": {
+      "title": "Add integration",
+      "intro": "What do you want to connect?"
+    },
+    "form": {
+      "name": "Display name",
+      "nameHintPve": "e.g. “Homelab cluster”",
+      "editTitle": "Edit {{name}}",
+      "saveAnyway": "Save without testing"
+    },
+    "pve": {
+      "host": "Host",
+      "hostHint": "Hostname or IP, port 8006 assumed — or a full URL like https://pve.lan:8006",
+      "tokenId": "API token id",
+      "tokenIdHint": "Create under Datacenter → Permissions → API Tokens, e.g. root@pam!homehub (uncheck privilege separation, or grant the token PVEAuditor + PVEVMAdmin)",
+      "tokenSecret": "API token secret",
+      "tokenSecretHint": "Shown once by Proxmox when the token is created",
+      "tokenSecretKeep": "Leave empty to keep the stored secret",
+      "insecureTls": "Skip TLS verification",
+      "insecureTlsHint": "Accept any certificate. Prefer pinning the fingerprint below.",
+      "fingerprint": "Certificate fingerprint",
+      "fingerprintHint": "SHA-256 fingerprint from the node’s Certificates page, e.g. AA:BB:… — safer than skipping verification"
+    }
+  },
+  "pve": {
+    "tabs": {
+      "summary": "Summary",
+      "guests": "Guests",
+      "storage": "Storage",
+      "tasks": "Tasks",
+      "backups": "Backups"
+    },
+    "unreachableBanner": "This Proxmox instance is unreachable: {{message}}",
+    "degradedBanner": "Degraded: {{message}}",
+    "summary": {
+      "cluster": "Cluster",
+      "standalone": "Standalone node",
+      "quorate": "Quorate",
+      "noQuorum": "No quorum",
+      "nodesOnline": "{{online}}/{{total}} nodes online",
+      "storageUsed": "Storage used",
+      "guestsRunning": "{{running}}/{{total}} running",
+      "cpuChart": "CPU",
+      "memChart": "Memory"
+    },
+    "guests": {
+      "searchPlaceholder": "Filter by name, vmid, node…",
+      "columns": {
+        "guest": "Guest",
+        "node": "Node",
+        "status": "Status",
+        "cpu": "CPU",
+        "memory": "Memory",
+        "uptime": "Uptime"
+      },
+      "template": "Template",
+      "selected": "{{count}} selected",
+      "empty": {
+        "title": "No guests",
+        "body": "No VMs or containers are visible to you on this instance."
+      },
+      "status": {
+        "running": "Running",
+        "stopped": "Stopped",
+        "paused": "Paused",
+        "suspended": "Suspended"
+      }
+    },
+    "actions": {
+      "start": "Start",
+      "stop": "Stop",
+      "shutdown": "Shut down",
+      "reboot": "Reboot",
+      "suspend": "Suspend",
+      "resume": "Resume",
+      "migrate": "Migrate",
+      "clone": "Clone",
+      "snapshot": "Snapshot",
+      "backupNow": "Back up now",
+      "delete": "Delete",
+      "console": "Console",
+      "started": "Task started",
+      "stopConfirmTitle": "Force-stop {{name}}?",
+      "stopConfirmBody": "This pulls the plug — the guest OS gets no chance to shut down cleanly. Use “Shut down” for a graceful stop.",
+      "deleteConfirmTitle": "Delete {{name}} (VMID {{vmid}})?",
+      "deleteConfirmBody": "The guest and its disks are destroyed permanently. This cannot be undone.",
+      "deletePurge": "Also remove from backup jobs and HA",
+      "bulkTitle": "{{action}} {{count}} guests",
+      "bulkPartial": "{{ok}} started, {{failed}} failed"
+    },
+    "guest": {
+      "overview": "Overview",
+      "hardware": "Hardware",
+      "snapshots": "Snapshots",
+      "backup": "Backup",
+      "console": "Console",
+      "terminal": "SSH",
+      "onNode": "on {{node}}",
+      "cpuUsage": "CPU",
+      "memUsage": "Memory",
+      "diskUsage": "Disk",
+      "uptime": "Uptime",
+      "chartCpu": "CPU — last hour",
+      "chartMem": "Memory — last hour",
+      "migrateTitle": "Migrate {{name}}",
+      "migrateTarget": "Target node",
+      "migrateOnline": "Live migration (guest keeps running)",
+      "cloneTitle": "Clone {{name}}",
+      "cloneNewId": "New VMID",
+      "cloneName": "Name",
+      "cloneFull": "Full clone (independent copy of all disks)",
+      "cloneTarget": "Target node",
+      "hardwareIntro": "Raw Proxmox configuration. Edit a value and apply — keys and values exactly as the Proxmox API defines them.",
+      "hardwareKey": "Key",
+      "hardwareValue": "Value",
+      "hardwareApply": "Apply changes",
+      "hardwareApplied": "Configuration applied",
+      "hardwareAddKey": "Set another key",
+      "snapshotNew": "Take snapshot",
+      "snapshotName": "Name",
+      "snapshotDescription": "Description",
+      "snapshotVmstate": "Include RAM (vmstate)",
+      "snapshotRollback": "Roll back",
+      "snapshotRollbackConfirmTitle": "Roll back to “{{name}}”?",
+      "snapshotRollbackConfirmBody": "The guest’s current disk state is replaced by this snapshot. Everything since is lost.",
+      "snapshotDeleteConfirmTitle": "Delete snapshot “{{name}}”?",
+      "snapshotDeleteConfirmBody": "The restore point is removed. The guest itself is not touched.",
+      "snapshotsEmpty": "No snapshots yet.",
+      "backupStorage": "Target storage",
+      "backupMode": "Mode",
+      "backupModeHint": "Snapshot backs up live with minimal pause; suspend and stop are more consistent but interrupt the guest.",
+      "consoleKind": "Console type",
+      "consoleVnc": "Display (VNC)",
+      "consoleSerial": "Serial terminal",
+      "consoleOpen": "Open console",
+      "consoleHintLxc": "Containers use the serial terminal.",
+      "sshSettings": "SSH settings",
+      "sshIntro": "Stored per guest, encrypted. Used for the SSH tab below.",
+      "sshHost": "Host or IP",
+      "sshPort": "Port",
+      "sshUser": "Username",
+      "sshAuthPassword": "Password",
+      "sshAuthKey": "Private key",
+      "sshSecretPassword": "Password",
+      "sshSecretKey": "Private key (PEM)",
+      "sshSecretKeep": "Leave empty to keep the stored secret",
+      "sshSaved": "SSH access saved",
+      "sshConnect": "Connect",
+      "sshNotConfigured": "No SSH access configured for this guest yet.",
+      "sshRemove": "Remove stored access"
+    },
+    "storage": {
+      "columns": {
+        "pool": "Pool",
+        "node": "Node",
+        "type": "Type",
+        "content": "Content",
+        "usage": "Usage"
+      },
+      "inactive": "Inactive"
+    },
+    "tasks": {
+      "columns": {
+        "time": "Started",
+        "task": "Task",
+        "node": "Node",
+        "user": "User",
+        "status": "Status"
+      },
+      "running": "Running",
+      "ok": "OK",
+      "logTitle": "Task log",
+      "empty": "No recent tasks."
+    },
+    "backups": {
+      "jobs": "Scheduled jobs",
+      "addJob": "New schedule",
+      "editJob": "Edit schedule",
+      "schedule": "Schedule",
+      "scheduleHint": "Proxmox calendar event, e.g. 02:30 (daily) or sat 03:00",
+      "storage": "Target storage",
+      "guests": "Guests",
+      "guestsHint": "Comma-separated VMIDs, empty = all guests",
+      "allGuests": "All guests",
+      "jobSaved": "Backup schedule saved",
+      "empty": {
+        "title": "No backup schedules",
+        "body": "Create a schedule so backups happen without you thinking about them."
+      }
     }
   }
 }
