@@ -19,9 +19,9 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/TheOriUHD/homehub/internal/api"
-	"github.com/TheOriUHD/homehub/internal/integrations/minecraft"
 	"github.com/TheOriUHD/homehub/internal/auth"
 	"github.com/TheOriUHD/homehub/internal/httpctx"
+	"github.com/TheOriUHD/homehub/internal/integrations/minecraft"
 	"github.com/TheOriUHD/homehub/internal/settings"
 	"github.com/TheOriUHD/homehub/internal/store"
 	"github.com/TheOriUHD/homehub/internal/term"
@@ -40,12 +40,19 @@ type Deps struct {
 	// UI is the embedded frontend; nil in development builds, where the Vite
 	// dev server serves the frontend and proxies /api here.
 	UI fs.FS
+	// Helper serves the caddy-reader installer and binaries (nil without
+	// the helper build tag). Deliberately unauthenticated: the binary is
+	// not a secret, and curl cannot log in.
+	Helper fs.FS
 }
 
 func Handler(deps Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(recoverer(deps.Logger))
 
+	if deps.Helper != nil {
+		registerHelperRoutes(r, deps.Helper)
+	}
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = io.WriteString(w, "ok")
@@ -340,5 +347,44 @@ func NewServer(addr string, handler http.Handler) *http.Server {
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
+	}
+}
+
+// registerHelperRoutes serves the caddy-reader install contract: the
+// installer script with __BASE_URL__ replaced by the request's own origin,
+// the three static binaries, and the checksum file.
+func registerHelperRoutes(r chi.Router, helperFS fs.FS) {
+	r.Get("/helper/install.sh", func(w http.ResponseWriter, req *http.Request) {
+		raw, err := fs.ReadFile(helperFS, "install.sh")
+		if err != nil {
+			http.NotFound(w, req)
+			return
+		}
+		scheme := "http"
+		if req.TLS != nil || req.Header.Get("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		origin := scheme + "://" + req.Host
+		body := strings.ReplaceAll(string(raw), "__BASE_URL__", origin)
+		w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
+		_, _ = w.Write([]byte(body))
+	})
+	for _, name := range []string{
+		"caddy-reader-linux-amd64", "caddy-reader-linux-arm64", "caddy-reader-linux-armv7", "SHA256SUMS",
+	} {
+		name := name
+		r.Get("/helper/"+name, func(w http.ResponseWriter, req *http.Request) {
+			raw, err := fs.ReadFile(helperFS, name)
+			if err != nil {
+				http.NotFound(w, req)
+				return
+			}
+			if name == "SHA256SUMS" {
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			} else {
+				w.Header().Set("Content-Type", "application/octet-stream")
+			}
+			_, _ = w.Write(raw)
+		})
 	}
 }

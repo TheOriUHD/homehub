@@ -567,7 +567,8 @@
       "code": "Pairing code",
       "codeHint": "Run `sudo caddy-reader pair` on the Caddy host and type the six digits it prints. The code is single-use and expires in 15 minutes.",
       "repairNote": "To replace the stored token, remove this system and pair it again with a fresh code.",
-      "adminWarning": "Do not point this at Caddy's admin API (port 2019) — it has no authentication and must never leave loopback. The helper is the only safe surface."
+      "adminWarning": "Do not point this at Caddy's admin API (port 2019) — it has no authentication and must never leave loopback. The helper is the only safe surface.",
+      "installTitle": "No helper yet? Install it on the Caddy host:"
     },
     "aperture": {
       "baseUrl": "Aperture address",
@@ -2581,6 +2582,18 @@
       "unresolvableBody": "These domains are proxied, but where they go can't be answered statically.",
       "noProxyTitle": "Served without a proxy",
       "noProxyBody": "Domains answered by something other than a reverse proxy — a file server, a redirect."
+    },
+    "setup": {
+      "menuLabel": "Helper setup",
+      "title": "caddy-reader helper",
+      "installStep": "Install the helper on the Caddy host",
+      "setupStep": "Set up the service",
+      "setupNote": "It asks a few questions with sensible defaults and ends with a six-digit pairing code. Re-running it later prints a fresh code.",
+      "repairStep": "Re-pair this system",
+      "repairHint": "Enter the code from the setup command to replace the stored token — after reinstalling the helper, or if pairing was lost.",
+      "repairButton": "Re-pair",
+      "repairSuccess": "Helper re-paired",
+      "repairFailed": "Re-pairing failed"
     }
   },
   "nvr": {

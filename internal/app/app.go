@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/TheOriUHD/homehub/companion"
+	"github.com/TheOriUHD/homehub/helper"
 	"github.com/TheOriUHD/homehub/internal/alerting"
 	"github.com/TheOriUHD/homehub/internal/api"
 	"github.com/TheOriUHD/homehub/internal/audit"
@@ -228,6 +229,7 @@ func Run(ctx context.Context) error {
 		Term:     termMgr,
 		MC:       mcRegistry,
 		UI:       web.UI(),
+		Helper:   helper.FS(),
 	})
 	server := httpserver.NewServer(cfg.HTTPAddr, handler)
 

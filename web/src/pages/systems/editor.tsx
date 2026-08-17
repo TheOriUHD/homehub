@@ -1484,11 +1484,19 @@ function CaddyForm({
         </Field>
       </div>
       {isNew && (
-        <Field label={t("integrations.caddy.code")} hint={t("integrations.caddy.codeHint")}>
-          {(p) => (
-            <Input {...p} className="font-mono text-[15px] tracking-widest" placeholder="481 502" value={form.code} onChange={(e) => update({ code: e.target.value })} />
-          )}
-        </Field>
+        <>
+          <div className="bg-bg-subtle border-edge rounded-md border px-3 py-2">
+            <p className="text-fg-subtle mb-1 text-xs">{t("integrations.caddy.installTitle")}</p>
+            <pre className="text-fg overflow-x-auto font-mono text-[12px] whitespace-pre select-all">
+              {`curl -fsSL ${window.location.origin}/helper/install.sh | sudo bash\nsudo caddy-reader setup`}
+            </pre>
+          </div>
+          <Field label={t("integrations.caddy.code")} hint={t("integrations.caddy.codeHint")}>
+            {(p) => (
+              <Input {...p} className="font-mono text-[15px] tracking-widest" placeholder="481 502" value={form.code} onChange={(e) => update({ code: e.target.value })} />
+            )}
+          </Field>
+        </>
       )}
       {!isNew && <p className="text-fg-muted text-[13px]">{t("integrations.caddy.repairNote")}</p>}
       <div className="bg-warning-soft text-warning-soft-fg rounded-lg px-3 py-2 text-[13px]">

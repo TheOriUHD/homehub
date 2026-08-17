@@ -1,0 +1,47 @@
+[Unit]
+Description=caddy-reader — HomeHub's window onto the local Caddy config
+Documentation=https://github.com/TheOriUHD/homehub/blob/main/helper/README.md
+After=network-online.target caddy.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/caddy-reader
+
+# The token lives in a file, not in ExecStart: a unit file is world-readable and
+# 'systemctl cat' prints it.
+EnvironmentFile=/etc/caddy-reader.env
+EnvironmentFile=-/etc/default/caddy
+EnvironmentFile=-/etc/caddy/caddy.env
+
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @obsolete
+RestrictAddressFamilies=AF_INET AF_INET6
+UMask=0077
+
+# Read-only: no privileges at all, and nothing on disk is writable.
+DynamicUser=yes
+ProtectSystem=strict
+ReadOnlyPaths=/
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
