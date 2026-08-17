@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 VERSION := $(shell cat VERSION)
 
-.PHONY: generate build build-web dev-api dev-web test lint image
+.PHONY: generate build build-web build-companion dev-api dev-web test lint image
 
 ## Regenerate API server interfaces and the typed frontend client from api/openapi.yaml
 generate:
@@ -11,9 +11,13 @@ generate:
 build-web:
 	cd web && npm ci && npm run build
 
-## Full production binary with the frontend embedded
-build: build-web
-	CGO_ENABLED=0 go build -trimpath -tags ui \
+## Minecraft companion plugin jars (requires JDK 21 + Gradle)
+build-companion:
+	cd companion && gradle --no-daemon dist
+
+## Full production binary with the frontend and companion jars embedded
+build: build-web build-companion
+	CGO_ENABLED=0 go build -trimpath -tags "ui companion" \
 		-ldflags "-s -w -X homehub/internal/version.Version=$(VERSION)" \
 		-o bin/homehub ./cmd/homehub
 

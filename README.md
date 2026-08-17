@@ -36,6 +36,13 @@ with trigger and enable/disable, and sensor history recorded into the
 metrics engine for graphs and alerting. Permissions scope down to a single
 entity or a whole domain.
 
+**Minecraft** — servers connect through the HomeHub Companion plugin
+(Paper/Spigot, with Velocity, Fabric, and Forge builds), downloaded from
+inside the app and paired with a 6-digit code — the server dials out, so
+no ports open on the Minecraft side. Live console with scrollback all the
+way to server start, instant command execution, online players, and
+TPS/tick-time/heap history. The companion reconnects on its own.
+
 More integrations land as vertical slices — each ships complete or not at
 all.
 
@@ -110,7 +117,8 @@ spec).
 
 ## Development
 
-Requirements: Go 1.24+, Node 20.19+, PostgreSQL 17.
+Requirements: Go 1.25+, Node 20.19+, PostgreSQL 17; JDK 21 + Gradle for
+the Minecraft companion jars (`make build-companion`).
 
 ```bash
 # terminal 1 — API on :8080
