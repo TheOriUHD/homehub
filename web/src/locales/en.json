@@ -148,7 +148,30 @@
       "containers": "containers running",
       "ampServers": "AMP servers running",
       "caddySites": "sites behind Caddy",
-      "databases": "database servers"
+      "databases": "database servers",
+      "camerasLiveOnly": "Cameras, live view"
+    },
+    "pin": "Pin to front",
+    "unpin": "Unpin",
+    "firingTitle": "{{count}} alert firing",
+    "firingTitle_other": "{{count}} alerts firing",
+    "hub": {
+      "app": "HomeHub",
+      "uptime": "up {{uptime}}",
+      "database": "Database",
+      "dbLatency": "{{ms}} ms round-trip",
+      "jobs": "Jobs",
+      "jobsDetail": "{{running}} running · {{pending}} queued",
+      "jobsFailed": "{{count}} failed recently",
+      "live": "Live connections",
+      "liveDetail": "WebSocket clients",
+      "alerts": "Alerts",
+      "alertsFiring": "firing now",
+      "alertsQuiet": "all quiet",
+      "backup": "Last backup",
+      "backupFailed": "Failed",
+      "backupNever": "Never",
+      "details": "System health"
     }
   },
   "health": {
@@ -247,7 +270,8 @@
       "deleteConfirmBody": "Their account, sessions, and personal settings are removed permanently. Their audit history is kept.",
       "disable": "Disable account",
       "enable": "Enable account",
-      "cannotDeleteSelf": "You cannot delete your own account."
+      "cannotDeleteSelf": "You cannot delete your own account.",
+      "usernameHint": "The login name. Changing it takes effect on the user's next sign-in."
     }
   },
   "roles": {
@@ -2613,7 +2637,8 @@
       "retrying": "retrying in {{seconds}}s",
       "coverage": "{{pct}}% coverage",
       "notRecording": "not recording",
-      "expand": "Expand {{name}}"
+      "expand": "Expand {{name}}",
+      "liveOnly": "Live only"
     }
   }
 }

@@ -19,7 +19,7 @@ type SystemInfo struct {
 	Version     string    `json:"version"`
 	Hostname    string    `json:"hostname"`
 	Uptime      string    `json:"uptime"`
-	Uptimeownds float64   `json:"uptime_seconds"`
+	UptimeSeconds float64   `json:"uptime_seconds"`
 	PhysicalMem int64     `json:"physmem"`
 	Model       string    `json:"system_product"`
 	Cores       int       `json:"cores"`

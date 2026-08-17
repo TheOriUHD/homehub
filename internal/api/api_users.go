@@ -212,6 +212,22 @@ func (s *Server) UpdateUser(ctx context.Context, req UpdateUserRequestObject) (U
 
 	changes := map[string]any{}
 
+	if req.Body.Username != nil {
+		username := strings.TrimSpace(*req.Body.Username)
+		if len(username) < 3 || len(username) > 64 {
+			return UpdateUser400JSONResponse{BadRequestJSONResponse(errBody("invalid_username", "usernames are 3-64 characters"))}, nil
+		}
+		if username != user.Username {
+			if err := s.store.SetUserUsername(ctx, user.ID, username); err != nil {
+				if store.IsUniqueViolation(err) {
+					return UpdateUser400JSONResponse{BadRequestJSONResponse(errBody("username_taken", "that username is already in use"))}, nil
+				}
+				return nil, err
+			}
+			changes["username"] = map[string]string{"from": user.Username, "to": username}
+		}
+	}
+
 	if req.Body.DisplayName != nil || req.Body.Email != nil {
 		displayName := user.DisplayName
 		if req.Body.DisplayName != nil {

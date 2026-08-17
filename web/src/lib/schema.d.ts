@@ -4070,6 +4070,8 @@ export interface components {
             enabled: boolean;
             recordMode: string;
             sortOrder: number;
+            /** @description Whether this camera is supposed to record at all — live-only cameras are healthy without footage. */
+            recordingExpected: boolean;
             recordingOk: boolean;
             liveOk: boolean;
             coveragePercent: number;
@@ -4297,6 +4299,8 @@ export interface components {
             version: string;
             hostname: string;
             uptime?: string;
+            /** Format: int64 */
+            uptimeSeconds?: number;
             model?: string;
             cores?: number;
             /** Format: int64 */
@@ -5383,6 +5387,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    username?: string;
                     displayName?: string;
                     email?: string | null;
                     /** @enum {string} */

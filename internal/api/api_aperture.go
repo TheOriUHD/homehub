@@ -90,6 +90,7 @@ func (s *Server) ApertureOverview(ctx context.Context, req ApertureOverviewReque
 			SortOrder:  cam.SortOrder,
 		}
 		if h, ok := healthByID[cam.ID]; ok {
+			entry.RecordingExpected = h.RecordingExpected
 			entry.RecordingOk = h.RecordingOk
 			entry.LiveOk = h.LiveOk
 			entry.CoveragePercent = h.CoveragePercent

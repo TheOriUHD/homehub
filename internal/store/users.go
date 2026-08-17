@@ -61,6 +61,15 @@ func (s *Store) SetUserProfile(ctx context.Context, id uuid.UUID, displayName st
 	return err
 }
 
+// SetUserUsername renames the login. Uniqueness is case-insensitive
+// (users_username_key on lower(username)) — the caller maps the violation.
+func (s *Store) SetUserUsername(ctx context.Context, id uuid.UUID, username string) error {
+	_, err := s.pool.Exec(ctx,
+		`update users set username = $2, updated_at = now() where id = $1`,
+		id, username)
+	return err
+}
+
 func (s *Store) SetUserStatus(ctx context.Context, id uuid.UUID, status string) error {
 	_, err := s.pool.Exec(ctx, `update users set status = $2, updated_at = now() where id = $1`, id, status)
 	return err

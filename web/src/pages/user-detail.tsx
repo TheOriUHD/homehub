@@ -51,12 +51,14 @@ export function UserDetailPage() {
   const isSelf = me?.user.id === userId;
 
   // Editable state, hydrated from the query.
+  const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [roleIds, setRoleIds] = useState<string[]>([]);
   const [overrides, setOverrides] = useState<GrantInput[]>([]);
   useEffect(() => {
     if (user.data) {
+      setUsername(user.data.username);
       setDisplayName(user.data.displayName);
       setEmail(user.data.email ?? "");
       setRoleIds(user.data.roleIds);
@@ -71,12 +73,13 @@ export function UserDetailPage() {
     const overridesChanged = JSON.stringify(overrides) !==
       JSON.stringify(user.data.overrides.map((g) => ({ selector: g.selector, levels: [...g.levels], effect: g.effect })));
     return (
+      username.trim() !== user.data.username ||
       displayName !== user.data.displayName ||
       email !== (user.data.email ?? "") ||
       rolesChanged ||
       overridesChanged
     );
-  }, [user.data, displayName, email, roleIds, overrides]);
+  }, [user.data, username, displayName, email, roleIds, overrides]);
 
   const save = useMutation({
     mutationFn: async () =>
@@ -84,6 +87,7 @@ export function UserDetailPage() {
         await api.PATCH("/users/{id}", {
           params: { path: { id: userId } },
           body: {
+            username: username.trim(),
             displayName,
             email: email.trim() === "" ? null : email.trim(),
             roleIds,
@@ -189,6 +193,9 @@ export function UserDetailPage() {
           <Card>
             <CardHeader title={t("users.detail.profile")} />
             <CardBody className="space-y-4">
+              <Field label={t("users.create.username")} hint={t("users.detail.usernameHint")}>
+                {(p) => <Input {...p} disabled={!canConfigure} value={username} onChange={(e) => setUsername(e.target.value)} />}
+              </Field>
               <Field label={t("users.create.displayName")}>
                 {(p) => <Input {...p} disabled={!canConfigure} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />}
               </Field>

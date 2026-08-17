@@ -9,7 +9,7 @@ import type {
   TruenasPool,
   TruenasSystemInfo,
 } from "@/lib/api";
-import { cn, formatBytes, formatRelative } from "@/lib/utils";
+import { cn, formatBytes, formatDuration, formatRelative } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Card, CardBody, CardHeader } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
@@ -52,10 +52,14 @@ export function TruenasOverviewPage() {
 
   return (
     <div className="space-y-5">
-      <div className="grid items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <SystemCard info={info} />
+      {/* Two wide bars (System, Storage) stacked beside the memory dial —
+          the dial is naturally tall, the other two naturally wide. */}
+      <div className="grid items-stretch gap-3 lg:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-3 lg:col-span-2">
+          <SystemCard info={info} />
+          <StorageSummaryCard pools={pools} className="flex-1" />
+        </div>
         <MemoryCard memory={memory} />
-        <StorageSummaryCard pools={pools} className="md:col-span-2 xl:col-span-1" />
       </div>
 
       {activeAlerts.length > 0 && <AlertsSection alerts={activeAlerts} />}
@@ -133,7 +137,12 @@ function SystemCard({ info }: { info: TruenasSystemInfo | null | undefined }) {
     // is missing the version takes the lead slot instead of repeating below.
     if (info.model) rows.push({ key: "model", value: info.model });
     if (typeof info.cores === "number") rows.push({ key: "cores", value: String(info.cores) });
-    if (info.uptime) rows.push({ key: "uptime", value: info.uptime });
+    // Prefer the numeric uptime — the raw string is "3:21:54.413328".
+    if (typeof info.uptimeSeconds === "number" && info.uptimeSeconds > 0) {
+      rows.push({ key: "uptime", value: formatDuration(info.uptimeSeconds) });
+    } else if (info.uptime) {
+      rows.push({ key: "uptime", value: info.uptime });
+    }
   }
   const lead = info?.hostname || info?.version;
 
@@ -144,7 +153,7 @@ function SystemCard({ info }: { info: TruenasSystemInfo | null | undefined }) {
         {!info || !lead ? (
           <CardNote>{t("truenas.overview.system.unavailable")}</CardNote>
         ) : (
-          <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
             <div className="min-w-0">
               <p className="text-fg truncate text-lg font-semibold tracking-tight">{lead}</p>
               {info.hostname && info.version && (
@@ -152,10 +161,12 @@ function SystemCard({ info }: { info: TruenasSystemInfo | null | undefined }) {
               )}
             </div>
             {rows.length > 0 && (
-              <dl className="text-fg-muted space-y-1.5 text-[13px]">
+              <dl className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 text-[13px]">
                 {rows.map((row) => (
-                  <div key={row.key} className="flex justify-between gap-3">
-                    <dt>{t(`truenas.overview.system.${row.key}`)}</dt>
+                  <div key={row.key} className="min-w-0">
+                    <dt className="text-fg-subtle text-[10.5px] font-semibold tracking-wide uppercase">
+                      {t(`truenas.overview.system.${row.key}`)}
+                    </dt>
                     <dd className="text-fg truncate font-medium">{row.value}</dd>
                   </div>
                 ))}
