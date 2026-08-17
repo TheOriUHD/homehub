@@ -2488,7 +2488,10 @@
       "preauthorizedLabel": "Pre-approved",
       "preauthorizedHint": "Devices skip manual approval when device approval is on.",
       "createdTitle": "Auth key created",
-      "createdBody": "Copy the key now — this is the only time it is shown."
+      "createdBody": "Copy the key now — this is the only time it is shown.",
+      "autoRenewTitle": "Renew HomeHub's API token automatically",
+      "autoRenewBody": "Info notification each day of the final week; one day before expiry HomeHub mints a clearly-named replacement, switches to it, and revokes the old token.",
+      "autoRenewSaved": "Automatic renewal updated"
     },
     "dns": {
       "nameservers": "Global nameservers",

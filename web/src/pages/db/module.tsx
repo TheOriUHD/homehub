@@ -96,7 +96,7 @@ export function DbModulePage() {
         )}
       </div>
 
-      <nav className="border-edge flex gap-1 overflow-x-auto border-b">
+      <nav className="border-edge no-scrollbar flex gap-1 overflow-x-auto border-b">
         {tabs.map((tab) => {
           // The browse page is a child of the databases tab, so the exact
           // match also claims /browse/… paths.

@@ -1,0 +1,28 @@
+tracker.example.com {
+    reverse_proxy 10.0.0.5:8080
+}
+
+media.example.com {
+    reverse_proxy 10.0.0.6:8096
+}
+
+files.example.com {
+    root * /srv/files
+    file_server
+}
+
+api.example.com {
+    handle /v1/* {
+        reverse_proxy 10.0.0.7:3000
+    }
+    handle /admin/* {
+        reverse_proxy [fd00::1]:9000
+    }
+    handle {
+        respond "nope" 404
+    }
+}
+
+old.example.com {
+    redir https://tracker.example.com{uri}
+}
