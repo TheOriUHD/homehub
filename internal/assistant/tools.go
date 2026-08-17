@@ -22,10 +22,13 @@ type Access struct {
 	VisibleUnder func(prefix string) bool
 }
 
-// Toolbox executes tools against HomeHub's own services.
+// Toolbox executes tools against HomeHub's own services. Call performs an
+// in-process API request under the calling user's identity (nil disables
+// the per-system tools).
 type Toolbox struct {
 	Store   *store.Store
 	Metrics *metrics.Service
+	Call    func(ctx context.Context, method, path string, body any) (int, []byte)
 }
 
 type toolFunc func(ctx context.Context, access Access, input json.RawMessage) (any, error)
@@ -97,9 +100,19 @@ func (tb *Toolbox) tools() []tool {
 	}
 }
 
+// allTools joins the base read tools with the per-system depth/control
+// tools (present only when an API bridge was provided).
+func (tb *Toolbox) allTools() []tool {
+	all := tb.tools()
+	if tb.Call != nil {
+		all = append(all, tb.systemTools()...)
+	}
+	return all
+}
+
 // Defs lists the tool definitions for the provider.
 func (tb *Toolbox) Defs() []ToolDef {
-	all := tb.tools()
+	all := tb.allTools()
 	defs := make([]ToolDef, len(all))
 	for i, tl := range all {
 		defs[i] = tl.def
@@ -110,7 +123,7 @@ func (tb *Toolbox) Defs() []ToolDef {
 // Run executes one named tool. Unknown names and refusals come back as
 // readable errors for the model to relay.
 func (tb *Toolbox) Run(ctx context.Context, access Access, name string, input json.RawMessage) (string, error) {
-	for _, tl := range tb.tools() {
+	for _, tl := range tb.allTools() {
 		if tl.def.Name != name {
 			continue
 		}
