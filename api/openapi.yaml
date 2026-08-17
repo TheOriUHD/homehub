@@ -2831,6 +2831,142 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /mc/{id}/overview:
+    get:
+      operationId: mcOverview
+      summary: Minecraft server overview
+      description: Companion connection state, server metadata, live performance snapshot, online players, and (for configure-level callers) the pending pairing code.
+      tags: [minecraft]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: The overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/McOverview" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /mc/{id}/pairing-code:
+    post:
+      operationId: mcCreatePairingCode
+      summary: Issue a fresh pairing code
+      description: Generates a new 6-digit code valid for 15 minutes, replacing any outstanding code. The companion pairs once; afterwards it authenticates with its own token.
+      tags: [minecraft]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: The code
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/McPairingCode" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /mc/{id}/console:
+    get:
+      operationId: mcConsole
+      summary: Console scrollback
+      description: Lines after a sequence number, oldest first. The buffer holds the full scrollback from server start (backfilled from the server's own log); poll with nextSeq or ride the WS topic's console events for live lines.
+      tags: [minecraft]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: after
+          in: query
+          description: Return lines with seq greater than this; -1 (default) starts at the oldest held line
+          schema: { type: integer, format: int64, default: -1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 5000, default: 1000 }
+      responses:
+        "200":
+          description: Console lines
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/McConsole" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /mc/{id}/command:
+    post:
+      operationId: mcCommand
+      summary: Execute a console command
+      description: Runs the command on the server's main thread and reports the companion's acknowledgment. Audited.
+      tags: [minecraft]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [command]
+              properties:
+                command:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /mc/downloads:
+    get:
+      operationId: mcDownloads
+      summary: Companion plugin downloads
+      description: The companion builds shipped inside this HomeHub, one per loader, with the Minecraft versions each supports.
+      tags: [minecraft]
+      responses:
+        "200":
+          description: Available builds
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/McDownload" }
+
+  /mc/downloads/{file}:
+    get:
+      operationId: mcDownloadFile
+      summary: Download a companion build
+      tags: [minecraft]
+      parameters:
+        - name: file
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[A-Za-z0-9._-]+\\.jar$" }
+      responses:
+        "200":
+          description: The jar
+          content:
+            application/java-archive:
+              schema: { type: string, format: binary }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /backups/targets:
     get:
       operationId: listBackupTargets
@@ -4324,6 +4460,107 @@ components:
       properties:
         enabled: { type: boolean }
         until: { type: string, format: date-time, nullable: true }
+
+    McOverview:
+      type: object
+      required: [connected]
+      properties:
+        connected: { type: boolean }
+        serverName: { type: string }
+        loader:
+          type: string
+          description: paper, spigot, velocity, fabric, or forge
+        mcVersion: { type: string }
+        companionVersion: { type: string }
+        pairedAt: { type: string, format: date-time }
+        lastConnectedAt: { type: string, format: date-time }
+        remoteIp: { type: string }
+        status:
+          allOf:
+            - $ref: "#/components/schemas/McStatus"
+          nullable: true
+        players:
+          type: array
+          items: { $ref: "#/components/schemas/McPlayer" }
+        pendingPairing:
+          allOf:
+            - $ref: "#/components/schemas/McPairingCode"
+          nullable: true
+          description: Present only for configure-level callers while a code is outstanding
+
+    McStatus:
+      type: object
+      required: [playersOnline, playersMax]
+      properties:
+        tps: { type: number, format: double }
+        mspt: { type: number, format: double }
+        playersOnline: { type: integer }
+        playersMax: { type: integer }
+        heapUsedMb: { type: number, format: double }
+        heapMaxMb: { type: number, format: double }
+        downstream:
+          type: array
+          description: Backends behind a Velocity proxy
+          items:
+            type: object
+            required: [name, players]
+            properties:
+              name: { type: string }
+              players: { type: integer }
+
+    McPlayer:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        uuid: { type: string }
+
+    McPairingCode:
+      type: object
+      required: [code, expiresAt]
+      properties:
+        code: { type: string }
+        expiresAt: { type: string, format: date-time }
+
+    McConsole:
+      type: object
+      required: [lines, oldestSeq, nextSeq, connected]
+      properties:
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/McConsoleLine" }
+        oldestSeq:
+          type: integer
+          format: int64
+          description: Sequence of the oldest line still held — history before this has been evicted
+        nextSeq:
+          type: integer
+          format: int64
+          description: Pass as `after` on the next poll
+        connected: { type: boolean }
+
+    McConsoleLine:
+      type: object
+      required: [seq, ts, text]
+      properties:
+        seq: { type: integer, format: int64 }
+        ts:
+          type: integer
+          format: int64
+          description: Server-side unix milliseconds
+        level: { type: string }
+        text: { type: string }
+
+    McDownload:
+      type: object
+      required: [loader, file, sizeBytes, mcVersions]
+      properties:
+        loader: { type: string }
+        file: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        mcVersions:
+          type: string
+          description: Human-readable supported range, e.g. "1.16.5 – 1.21.x"
 
     HaInstance:
       type: object

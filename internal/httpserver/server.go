@@ -19,6 +19,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"homehub/internal/api"
+	"homehub/internal/integrations/minecraft"
 	"homehub/internal/auth"
 	"homehub/internal/httpctx"
 	"homehub/internal/settings"
@@ -34,6 +35,8 @@ type Deps struct {
 	Hub      *ws.Hub
 	Settings *settings.Service
 	Term     *term.Manager
+	// MC terminates the Minecraft companion agent WebSocket.
+	MC *minecraft.Registry
 	// UI is the embedded frontend; nil in development builds, where the Vite
 	// dev server serves the frontend and proxies /api here.
 	UI fs.FS
@@ -55,6 +58,10 @@ func Handler(deps Deps) http.Handler {
 
 		apiRouter.Get("/ws", wsHandler(deps))
 		apiRouter.Get("/term/{sessionID}", termHandler(deps))
+		// Companion agents authenticate with pairing codes/tokens, not sessions.
+		apiRouter.Get("/mc/agent", func(w http.ResponseWriter, r *http.Request) {
+			deps.MC.HandleAgent(w, r, api.ClientIP(r))
+		})
 		apiRouter.Get("/openapi.json", specHandler(deps.Logger))
 
 		strict := api.NewStrictHandlerWithOptions(deps.API, nil, api.StrictHTTPServerOptions{

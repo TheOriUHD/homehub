@@ -1,0 +1,15 @@
+name: HomeHubCompanion
+version: '${version}'
+main: dev.homehub.companion.paper.HomeHubCompanionPlugin
+api-version: '1.16'
+description: Connects this server to HomeHub for console, players, metrics, and remote commands.
+author: HomeHub
+commands:
+  homehub:
+    description: HomeHub companion controls.
+    usage: /homehub pair <url> <code> | /homehub status
+    permission: homehub.admin
+permissions:
+  homehub.admin:
+    description: Manage the HomeHub companion connection.
+    default: op

@@ -221,13 +221,31 @@ func (m *Manager) run(ctx context.Context, r *runner, d Driver, inst Instance) {
 			backoff = min(backoff*2, reconnectMax)
 			continue
 		}
+		// Open built a connection, but only its own health verdict decides the
+		// status: inbound drivers (companion-style) open successfully while the
+		// upstream still has to call in, and report pending/unreachable here.
+		hctx, hcancel := context.WithTimeout(ctx, upstreamCallTime)
+		h := conn.Health(hctx)
+		hcancel()
+		if h.Status == StatusUnreachable {
+			conn.Close()
+			m.transition(ctx, r, inst, StatusUnreachable, h.Message)
+			logger.Warn("unhealthy after connect", "message", h.Message, "retry_in", backoff)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(backoff):
+			}
+			backoff = min(backoff*2, reconnectMax)
+			continue
+		}
 		backoff = reconnectMin
 
 		r.mu.Lock()
 		r.conn = conn
 		r.mu.Unlock()
-		m.transition(ctx, r, inst, StatusConnected, "")
-		logger.Info("connected")
+		m.transition(ctx, r, inst, h.Status, h.Message)
+		logger.Info("connected", "status", string(h.Status))
 
 		m.watch(ctx, r, inst, conn)
 

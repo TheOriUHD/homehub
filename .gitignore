@@ -12,3 +12,6 @@
 .vscode/
 *.swp
 .DS_Store
+companion/.gradle/
+companion/**/build/
+companion/dist/

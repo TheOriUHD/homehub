@@ -27,6 +27,7 @@ import (
 	"homehub/internal/integration"
 	"homehub/internal/integrations/adguard"
 	"homehub/internal/integrations/homeassistant"
+	"homehub/internal/integrations/minecraft"
 	"homehub/internal/integrations/docker"
 	"homehub/internal/integrations/pihole"
 	"homehub/internal/integrations/proxmox"
@@ -40,6 +41,7 @@ import (
 	"homehub/internal/vault"
 	"homehub/internal/version"
 	"homehub/internal/ws"
+	"homehub/companion"
 	"homehub/web"
 )
 
@@ -111,6 +113,12 @@ func Run(ctx context.Context) error {
 	manager.Register(pihole.Driver{})
 	manager.Register(adguard.Driver{})
 	manager.Register(homeassistant.Driver{})
+	mcRegistry := minecraft.NewRegistry(st, v, logger)
+	mcRegistry.Publish = func(instanceID uuid.UUID, event string, data any) {
+		hub.Publish("integration:"+minecraft.TypeID+"/"+instanceID.String(),
+			map[string]any{"event": event, "data": data})
+	}
+	manager.Register(minecraft.Driver{Registry: mcRegistry})
 	manager.StatusChanged = statusNotifier(engine, notifySvc)
 
 	docker.RegisterJobs(func(kind string, fn func(ctx context.Context, payload json.RawMessage) error) {
@@ -186,7 +194,7 @@ func Run(ctx context.Context) error {
 	})
 
 	apiServer := api.NewServer(st, authSvc, engine, auditSvc, settingsSvc, jobEngine, hub, v,
-		manager, metricsSvc, termMgr, backupSvc, logger)
+		manager, metricsSvc, termMgr, backupSvc, mcRegistry, companion.FS(), logger)
 	handler := httpserver.Handler(httpserver.Deps{
 		Logger:   logger,
 		Auth:     authSvc,
@@ -194,6 +202,7 @@ func Run(ctx context.Context) error {
 		Hub:      hub,
 		Settings: settingsSvc,
 		Term:     termMgr,
+		MC:       mcRegistry,
 		UI:       web.UI(),
 	})
 	server := httpserver.NewServer(cfg.HTTPAddr, handler)
@@ -271,7 +280,17 @@ func statusNotifier(engine *rbac.Engine, notifySvc *notify.Service) func(integra
 		}
 		mu.Lock()
 		previous := lastNotified[inst.ID]
-		shouldNotify := (to == integration.StatusUnreachable && previous != integration.StatusUnreachable && from != integration.StatusPending) ||
+		if to == integration.StatusConnected && previous == "" {
+			// First successful connect this process: remember it silently so a
+			// later drop notifies, without announcing every app restart.
+			lastNotified[inst.ID] = to
+			mu.Unlock()
+			return
+		}
+		// Outage alerts fire only on an observed drop (last notified state was
+		// connected) — never for instances that merely failed to connect at
+		// boot or are waiting to be paired. Their state is on the Systems page.
+		shouldNotify := (to == integration.StatusUnreachable && previous == integration.StatusConnected) ||
 			(to == integration.StatusConnected && previous == integration.StatusUnreachable)
 		if shouldNotify {
 			lastNotified[inst.ID] = to

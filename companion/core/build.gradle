@@ -1,0 +1,25 @@
+// Pure-Java protocol client. No Bukkit/loader types anywhere in here so the
+// same core serves paper/spigot today and other loaders later.
+plugins {
+    id 'java-library'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Shaded + relocated into the loader jars (see paper/build.gradle).
+    api 'com.neovisionaries:nv-websocket-client:2.14'
+    // Every modern Minecraft server ships Gson on the classpath; never bundle it.
+    compileOnly 'com.google.code.gson:gson:2.8.9'
+}
+
+java {
+    withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 8
+    options.encoding = 'UTF-8'
+}
