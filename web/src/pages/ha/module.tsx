@@ -41,6 +41,7 @@ export function HaModulePage() {
   const base = `/ha/${instanceId}`;
   const tabs = [
     { to: base, label: t("ha.tabs.dashboard"), exact: true },
+    { to: `${base}/entities`, label: t("ha.tabs.entities") },
     { to: `${base}/automations`, label: t("ha.tabs.automations") },
   ];
 

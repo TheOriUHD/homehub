@@ -1380,7 +1380,53 @@
     "serviceError": "Service call failed",
     "tabs": {
       "dashboard": "Dashboard",
+      "entities": "Entities",
       "automations": "Automations"
+    },
+    "board": {
+      "title": "My dashboard",
+      "subtitle": "Personal to your account — only you see this layout.",
+      "edit": "Edit dashboard",
+      "addCard": "Add card",
+      "saveError": "Couldn't save your dashboard",
+      "unavailable": "Entity unavailable",
+      "unavailableBody": "Removed from Home Assistant or outside your permissions.",
+      "groupUntitled": "Group",
+      "removeCard": "Remove card",
+      "moveLeft": "Move card left",
+      "moveRight": "Move card right",
+      "cycleSize": "Card size: {{size}}. Click to change.",
+      "sizeAbbr": {
+        "small": "S",
+        "medium": "M",
+        "large": "L"
+      },
+      "sizeName": {
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large"
+      },
+      "editCard": "Edit card",
+      "empty": {
+        "title": "Your dashboard",
+        "body": "A personal board for this Home Assistant — empty until you add the entities you actually care about. Only you see it."
+      },
+      "dialog": {
+        "addTitle": "Add card",
+        "editTitle": "Edit card",
+        "typePrompt": "Choose what the card shows.",
+        "entityType": "Entity card",
+        "entityTypeBody": "One entity with its full controls.",
+        "groupType": "Group card",
+        "groupTypeBody": "A titled list of entities with compact controls.",
+        "groupTitle": "Title",
+        "groupTitlePlaceholder": "e.g. Living room",
+        "titleHint": "Shown as the card's header.",
+        "selectedCount_one": "{{count}} entity selected",
+        "selectedCount_other": "{{count}} entities selected",
+        "maxEntities": "A group holds at most {{max}} entities.",
+        "save": "Save card"
+      }
     },
     "searchPlaceholder": "Search entities…",
     "areaFilter": "Area",
