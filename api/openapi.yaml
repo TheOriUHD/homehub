@@ -1059,6 +1059,9 @@ paths:
               properties:
                 appUrl: { type: string }
                 sessionTtlHours: { type: integer, minimum: 1, maximum: 8760 }
+                metricsRawRetentionHours: { type: integer, minimum: 6, maximum: 720 }
+                metrics5mRetentionDays: { type: integer, minimum: 1, maximum: 365 }
+                metrics1hRetentionDays: { type: integer, minimum: 7, maximum: 3650 }
       responses:
         "200":
           description: Updated settings
@@ -2736,6 +2739,219 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /metrics/series:
+    get:
+      operationId: listMetricSeries
+      summary: Catalog of recorded metric series
+      description: Filtered to resources the caller may view — the history picker's data source.
+      tags: [metrics]
+      responses:
+        "200":
+          description: Available series
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MetricSeriesInfo" }
+
+  /alerts:
+    get:
+      operationId: listAlertRules
+      summary: Alert rules visible to the caller
+      tags: [alerts]
+      responses:
+        "200":
+          description: Rules on resources the caller may view
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AlertRule" }
+    post:
+      operationId: createAlertRule
+      summary: Create an alert rule
+      tags: [alerts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AlertRuleInput" }
+      responses:
+        "201":
+          description: Created rule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertRule" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /alerts/{id}:
+    patch:
+      operationId: updateAlertRule
+      summary: Update an alert rule
+      tags: [alerts]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AlertRuleInput" }
+      responses:
+        "200":
+          description: Updated rule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertRule" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAlertRule
+      summary: Delete an alert rule
+      tags: [alerts]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /channels:
+    get:
+      operationId: listChannels
+      summary: Outbound notification channels
+      tags: [notifications]
+      responses:
+        "200":
+          description: Configured channels (secrets never returned)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Channel" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createChannel
+      summary: Add an outbound channel
+      tags: [notifications]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChannelInput" }
+      responses:
+        "201":
+          description: Created channel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Channel" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /channels/{id}:
+    patch:
+      operationId: updateChannel
+      summary: Update an outbound channel
+      tags: [notifications]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChannelInput" }
+      responses:
+        "200":
+          description: Updated channel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Channel" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteChannel
+      summary: Remove an outbound channel
+      tags: [notifications]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Removed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /channels/{id}/test:
+    post:
+      operationId: testChannel
+      summary: Send a test notification through a channel
+      tags: [notifications]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Delivery outcome
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestConnectionResult" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /notification-prefs:
+    get:
+      operationId: getNotificationPrefs
+      summary: The caller's notification routing preferences
+      tags: [notifications]
+      responses:
+        "200":
+          description: Event types, current preferences, and subscribable channels
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationPrefs" }
+    put:
+      operationId: putNotificationPref
+      summary: Set routing for one event type
+      tags: [notifications]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventType, inapp, channelIds]
+              properties:
+                eventType: { type: string }
+                inapp: { type: boolean }
+                channelIds:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
   /metrics/query:
     get:
       operationId: queryMetrics
@@ -3088,12 +3304,112 @@ components:
 
     AppSettings:
       type: object
-      required: [appUrl, sessionTtlHours]
+      required: [appUrl, sessionTtlHours, metricsRawRetentionHours, metrics5mRetentionDays, metrics1hRetentionDays]
       properties:
         appUrl:
           type: string
           description: External base URL, used for invite links and passkey origin validation
         sessionTtlHours: { type: integer }
+        metricsRawRetentionHours: { type: integer }
+        metrics5mRetentionDays: { type: integer }
+        metrics1hRetentionDays: { type: integer }
+
+    MetricSeriesInfo:
+      type: object
+      required: [resource, metric, unit]
+      properties:
+        resource: { type: string }
+        metric: { type: string }
+        unit: { type: string }
+
+    AlertRule:
+      type: object
+      required: [id, name, resource, metric, operator, threshold, sustainedSeconds, severity, enabled, state, stateChangedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        resource: { type: string }
+        metric: { type: string }
+        operator: { type: string, enum: [gt, lt] }
+        threshold: { type: number }
+        sustainedSeconds: { type: integer }
+        severity: { type: string, enum: [info, warning, error] }
+        enabled: { type: boolean }
+        state: { type: string, enum: [ok, firing, unknown] }
+        stateChangedAt: { type: string, format: date-time }
+
+    AlertRuleInput:
+      type: object
+      required: [name, resource, metric, operator, threshold, sustainedSeconds, severity]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 128 }
+        resource: { type: string, minLength: 1 }
+        metric: { type: string, minLength: 1 }
+        operator: { type: string, enum: [gt, lt] }
+        threshold: { type: number }
+        sustainedSeconds: { type: integer, minimum: 30, maximum: 86400 }
+        severity: { type: string, enum: [info, warning, error] }
+        enabled: { type: boolean, default: true }
+
+    Channel:
+      type: object
+      required: [id, type, name, config, enabled, secretNames]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [webhook, email, ntfy, gotify, telegram, discord] }
+        name: { type: string }
+        config:
+          type: object
+          additionalProperties: true
+        enabled: { type: boolean }
+        secretNames:
+          type: array
+          items: { type: string }
+
+    ChannelInput:
+      type: object
+      required: [type, name, config]
+      properties:
+        type: { type: string, enum: [webhook, email, ntfy, gotify, telegram, discord] }
+        name: { type: string, minLength: 1, maxLength: 128 }
+        config:
+          type: object
+          additionalProperties: true
+        secrets:
+          type: object
+          description: Only provided keys are replaced
+          additionalProperties: { type: string }
+        enabled: { type: boolean, default: true }
+
+    ChannelRef:
+      type: object
+      required: [id, name, type]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string }
+
+    NotificationPrefs:
+      type: object
+      required: [eventTypes, prefs, channels]
+      properties:
+        eventTypes:
+          type: array
+          items: { type: string }
+        prefs:
+          type: array
+          items:
+            type: object
+            required: [eventType, inapp, channelIds]
+            properties:
+              eventType: { type: string }
+              inapp: { type: boolean }
+              channelIds:
+                type: array
+                items: { type: string, format: uuid }
+        channels:
+          type: array
+          items: { $ref: "#/components/schemas/ChannelRef" }
 
     IntegrationType:
       type: object

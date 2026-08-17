@@ -50,6 +50,14 @@
   --hh-shadow-1: 0 1px 2px oklch(0.2 0.01 265 / 6%), 0 1px 1px oklch(0.2 0.01 265 / 4%);
   --hh-shadow-2: 0 2px 8px oklch(0.2 0.01 265 / 8%), 0 1px 2px oklch(0.2 0.01 265 / 5%);
   --hh-shadow-3: 0 12px 32px oklch(0.2 0.01 265 / 14%), 0 2px 8px oklch(0.2 0.01 265 / 8%);
+  /* Categorical series palette for multi-series charts (History). Colors
+     attach to picked series in fixed order 1..6 and never re-shuffle. */
+  --hh-series-1: #4f46e5; /* indigo */
+  --hh-series-2: #0d9488; /* teal */
+  --hh-series-3: #d97706; /* amber */
+  --hh-series-4: #db2777; /* pink */
+  --hh-series-5: #2563eb; /* blue */
+  --hh-series-6: #65a30d; /* lime */
   color-scheme: light;
 }
 
@@ -86,6 +94,14 @@
   --hh-shadow-1: 0 1px 2px oklch(0 0 0 / 30%);
   --hh-shadow-2: 0 2px 8px oklch(0 0 0 / 35%), 0 1px 2px oklch(0 0 0 / 25%);
   --hh-shadow-3: 0 12px 32px oklch(0 0 0 / 50%), 0 2px 8px oklch(0 0 0 / 35%);
+  /* Categorical series palette for multi-series charts (History) — brighter
+     variants of the light-theme hues, same fixed 1..6 assignment order. */
+  --hh-series-1: #818cf8; /* indigo */
+  --hh-series-2: #2dd4bf; /* teal */
+  --hh-series-3: #fbbf24; /* amber */
+  --hh-series-4: #f472b6; /* pink */
+  --hh-series-5: #60a5fa; /* blue */
+  --hh-series-6: #a3e635; /* lime */
   color-scheme: dark;
 }
 

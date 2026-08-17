@@ -54,6 +54,13 @@ export type DnsSyncResult = ApiSchemas["DnsSyncResult"];
 export type TermSession = ApiSchemas["TermSession"];
 export type SSHCredentialInfo = ApiSchemas["SSHCredentialInfo"];
 export type MetricQueryResult = ApiSchemas["MetricQueryResult"];
+export type MetricSeriesInfo = ApiSchemas["MetricSeriesInfo"];
+export type AlertRule = ApiSchemas["AlertRule"];
+export type AlertRuleInput = ApiSchemas["AlertRuleInput"];
+export type Channel = ApiSchemas["Channel"];
+export type ChannelInput = ApiSchemas["ChannelInput"];
+export type ChannelRef = ApiSchemas["ChannelRef"];
+export type NotificationPrefs = ApiSchemas["NotificationPrefs"];
 
 export const api = createClient<paths>({ baseUrl: "/api" });
 

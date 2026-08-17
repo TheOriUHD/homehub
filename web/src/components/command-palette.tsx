@@ -3,6 +3,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
   Activity,
+  BellRing,
+  ChartSpline,
   FileClock,
   Home,
   KeyRound,
@@ -44,6 +46,8 @@ export function CommandPalette({
   const pages = [
     { label: t("nav.overview"), icon: Home, to: "/" },
     { label: t("nav.health"), icon: Activity, to: "/health", requires: RES.health },
+    { label: t("nav.history"), icon: ChartSpline, to: "/history" },
+    { label: t("nav.alerts"), icon: BellRing, to: "/alerts" },
     { label: t("nav.users"), icon: Users, to: "/admin/users", requires: RES.users },
     { label: t("nav.roles"), icon: Shield, to: "/admin/roles", requires: RES.roles },
     { label: t("nav.audit"), icon: FileClock, to: "/admin/audit", requires: RES.audit },
