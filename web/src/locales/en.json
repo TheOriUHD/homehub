@@ -1,0 +1,376 @@
+{
+  "common": {
+    "appName": "HomeHub",
+    "loading": "Loading…",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "copy": "Copy",
+    "copied": "Copied",
+    "confirm": "Confirm",
+    "back": "Back",
+    "continue": "Continue",
+    "skip": "Skip for now",
+    "done": "Done",
+    "retry": "Try again",
+    "search": "Search",
+    "actions": "Actions",
+    "name": "Name",
+    "description": "Description",
+    "none": "None",
+    "never": "Never",
+    "optional": "optional",
+    "unknownError": "Something went wrong. Try again — if it keeps happening, check the server logs.",
+    "requiredField": "This field is required",
+    "show": "Show",
+    "hide": "Hide",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "you": "you"
+  },
+  "theme": {
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "nav": {
+    "overview": "Overview",
+    "health": "System health",
+    "administration": "Administration",
+    "users": "Users",
+    "roles": "Roles",
+    "audit": "Audit log",
+    "settings": "Settings",
+    "account": "Account",
+    "signOut": "Sign out",
+    "notifications": "Notifications",
+    "menu": "Menu"
+  },
+  "palette": {
+    "placeholder": "Jump to a page or action…",
+    "empty": "No results for “{{query}}”",
+    "hint": "Command palette",
+    "sectionPages": "Pages",
+    "sectionActions": "Actions"
+  },
+  "setup": {
+    "welcome": "Welcome to HomeHub",
+    "intro": "One control plane for your whole homelab. First, create the administrator account — it holds full access and cannot be locked out.",
+    "adminAccount": "Administrator account",
+    "username": "Username",
+    "usernameHint": "Lowercase letters and numbers work best — you will type this often.",
+    "displayName": "Display name",
+    "password": "Password",
+    "passwordHint": "At least 12 characters. A long phrase beats a short jumble.",
+    "confirmPassword": "Confirm password",
+    "passwordMismatch": "Passwords do not match",
+    "createAccount": "Create account",
+    "creating": "Creating…",
+    "alreadySetUp": "This HomeHub is already set up.",
+    "goToLogin": "Go to sign-in"
+  },
+  "login": {
+    "title": "Sign in to HomeHub",
+    "username": "Username",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "usePasskey": "Sign in with a passkey",
+    "passkeyFailed": "Passkey sign-in didn’t complete. Use your password, or try again.",
+    "mfaTitle": "Two-factor verification",
+    "mfaIntro": "Enter the 6-digit code from your authenticator app.",
+    "mfaCode": "Authentication code",
+    "verify": "Verify",
+    "verifying": "Verifying…",
+    "useRecoveryCode": "Use a recovery code instead",
+    "useTotpCode": "Use an authenticator code instead",
+    "usePasskeyMfa": "Verify with a passkey",
+    "recoveryTitle": "Recovery code",
+    "recoveryIntro": "Enter one of your saved recovery codes. Each code works once.",
+    "recoveryCode": "Recovery code",
+    "startOver": "Start over"
+  },
+  "invite": {
+    "title": "You’ve been invited",
+    "intro": "Set a password to activate the account <strong>{{username}}</strong>.",
+    "invalid": "This invite link is invalid or has expired. Ask your administrator for a new one.",
+    "password": "Choose a password",
+    "activate": "Activate account",
+    "activating": "Activating…"
+  },
+  "changePassword": {
+    "title": "Set a new password",
+    "intro": "Your password was issued by an administrator and must be changed before you continue.",
+    "current": "Current password",
+    "new": "New password",
+    "confirm": "Confirm new password",
+    "change": "Change password",
+    "changing": "Changing…",
+    "mismatch": "Passwords do not match"
+  },
+  "overview": {
+    "greeting": "Welcome back, {{name}}",
+    "subtitle": "Your homelab at a glance.",
+    "empty": {
+      "title": "Nothing here yet",
+      "body": "You don’t have access to any systems yet. When an administrator grants you access, it will appear here."
+    },
+    "healthCard": "System health",
+    "healthOk": "All systems normal",
+    "healthIssues": "Needs attention",
+    "recentActivity": "Recent activity",
+    "noActivity": "No recent activity.",
+    "quickActions": "Quick actions",
+    "addUser": "Invite a user",
+    "createRole": "Create a role",
+    "viewAudit": "Review audit log"
+  },
+  "health": {
+    "title": "System health",
+    "subtitle": "The state of HomeHub itself.",
+    "version": "Version",
+    "uptime": "Uptime",
+    "database": "Database",
+    "databaseSize": "Database size",
+    "databaseLatency": "Query latency",
+    "reachable": "Reachable",
+    "unreachable": "Unreachable",
+    "jobs": "Background jobs",
+    "jobsWorkers": "Workers",
+    "jobsPending": "Pending",
+    "jobsRunning": "Running",
+    "jobsFailed": "Failed (24h)",
+    "wsClients": "Live connections",
+    "integrations": "Integrations",
+    "noIntegrations": {
+      "title": "No integrations yet",
+      "body": "Integration health will appear here once systems are connected."
+    },
+    "loadFailed": "Couldn’t load health data."
+  },
+  "users": {
+    "title": "Users",
+    "subtitle": "Accounts, roles, and access.",
+    "add": "Add user",
+    "columns": {
+      "user": "User",
+      "roles": "Roles",
+      "security": "Security",
+      "lastLogin": "Last sign-in",
+      "status": "Status"
+    },
+    "statusActive": "Active",
+    "statusDisabled": "Disabled",
+    "totpOn": "2FA",
+    "passkeys": "{{count}} passkey",
+    "passkeys_other": "{{count}} passkeys",
+    "mustChange": "Temp password",
+    "empty": {
+      "title": "Just you so far",
+      "body": "Add a user to give someone else access — you choose exactly what they can see and do."
+    },
+    "create": {
+      "title": "Add user",
+      "username": "Username",
+      "displayName": "Display name",
+      "email": "Email",
+      "roles": "Roles",
+      "rolesHint": "Pick at least one role, or leave empty and add per-user grants later.",
+      "onboarding": "How should they get in?",
+      "invite": "Invite link",
+      "inviteHint": "They open the link and choose their own password. Expires in 72 hours.",
+      "tempPassword": "Temporary password",
+      "tempPasswordHint": "You hand them a one-time password; they must replace it at first sign-in.",
+      "submit": "Create user"
+    },
+    "created": {
+      "title": "{{username}} created",
+      "inviteIntro": "Send them this invite link — it’s shown only once and expires {{expires}}.",
+      "tempIntro": "Hand them this temporary password — it’s shown only once.",
+      "understood": "I’ve saved it"
+    },
+    "detail": {
+      "title": "User details",
+      "profile": "Profile",
+      "roles": "Roles",
+      "overrides": "Per-user overrides",
+      "overridesHint": "Extra grants (or denies) applied on top of this user’s roles. Deny always wins.",
+      "sessions": "Active sessions",
+      "revokeAll": "Revoke all sessions",
+      "resetAccess": "Reset access",
+      "resetIntro": "Issue a fresh invite link or temporary password. Their current password stops working when they use it.",
+      "newInvite": "New invite link",
+      "newTempPassword": "New temporary password",
+      "alsoRevoke": "Also sign them out everywhere",
+      "dangerZone": "Danger zone",
+      "deleteUser": "Delete user",
+      "deleteConfirmTitle": "Delete {{username}}?",
+      "deleteConfirmBody": "Their account, sessions, and personal settings are removed permanently. Their audit history is kept.",
+      "disable": "Disable account",
+      "enable": "Enable account",
+      "cannotDeleteSelf": "You cannot delete your own account."
+    }
+  },
+  "roles": {
+    "title": "Roles",
+    "subtitle": "What each kind of user can see and do.",
+    "add": "Create role",
+    "system": "Built-in",
+    "custom": "Custom",
+    "members": "{{count}} member",
+    "members_other": "{{count}} members",
+    "noGrants": "No access granted yet",
+    "grantCount": "{{count}} grant",
+    "grantCount_other": "{{count}} grants",
+    "viewAs": "Preview as this role",
+    "editor": {
+      "createTitle": "Create role",
+      "editTitle": "Edit role",
+      "name": "Role name",
+      "description": "Description",
+      "grants": "Grants",
+      "grantsHint": "Each grant applies to a resource and everything beneath it. Deny-by-default: anything not granted is invisible.",
+      "addGrant": "Add grant",
+      "selector": "Resource",
+      "selectorHint": "e.g. * (everything), system/health, or later proxmox/<id>/guest/114",
+      "levels": "Levels",
+      "effect": "Effect",
+      "allow": "Allow",
+      "deny": "Deny",
+      "level": {
+        "view": "View",
+        "control": "Control",
+        "configure": "Configure",
+        "delete": "Delete"
+      },
+      "levelHint": {
+        "view": "See it exists, read its state",
+        "control": "Operate it — start, stop, run",
+        "configure": "Change its settings",
+        "delete": "Remove it entirely"
+      },
+      "removeGrant": "Remove grant",
+      "systemLocked": "Built-in roles can’t be edited. Create a custom role instead."
+    },
+    "deleteConfirmTitle": "Delete role “{{name}}”?",
+    "deleteConfirmBody": "{{count}} user(s) hold this role and will lose the access it grants.",
+    "empty": {
+      "title": "No custom roles yet",
+      "body": "Create a role to give people exactly the access they need — down to a single server or service."
+    }
+  },
+  "viewAs": {
+    "banner": "Previewing as {{role}} — you see what this role sees.",
+    "exit": "Exit preview"
+  },
+  "audit": {
+    "title": "Audit log",
+    "subtitle": "Every state-changing action, permanently recorded.",
+    "columns": {
+      "time": "Time",
+      "actor": "Actor",
+      "action": "Action",
+      "resource": "Resource",
+      "outcome": "Outcome",
+      "ip": "IP"
+    },
+    "outcome": {
+      "success": "Success",
+      "failure": "Failure",
+      "denied": "Denied"
+    },
+    "filter": {
+      "action": "Filter by action",
+      "resource": "Filter by resource",
+      "outcome": "Any outcome",
+      "clear": "Clear filters"
+    },
+    "export": "Export CSV",
+    "detail": "Detail",
+    "loadMore": "Load older entries",
+    "empty": {
+      "title": "No matching entries",
+      "body": "Nothing in the audit log matches these filters."
+    }
+  },
+  "settingsPage": {
+    "title": "Settings",
+    "subtitle": "Application-wide configuration.",
+    "appUrl": "External URL",
+    "appUrlHint": "How users reach HomeHub, e.g. https://hub.example.com. Used for invite links and passkeys.",
+    "sessionTtl": "Session lifetime (hours)",
+    "sessionTtlHint": "Signed-in sessions roll forward on activity and expire after this long unused.",
+    "saved": "Settings saved"
+  },
+  "account": {
+    "title": "Account",
+    "subtitle": "Your sign-in security and sessions.",
+    "password": "Password",
+    "passwordIntro": "Changing your password signs out every other session.",
+    "changePassword": "Change password",
+    "twoFactor": "Two-factor authentication",
+    "totpOn": "Authenticator app is enabled.",
+    "totpOff": "Add an authenticator app so a stolen password isn’t enough to get in.",
+    "enableTotp": "Enable two-factor",
+    "disableTotp": "Disable",
+    "totpSetup": {
+      "title": "Set up two-factor",
+      "scan": "Scan this QR code with your authenticator app, or enter the secret manually.",
+      "secret": "Secret",
+      "enterCode": "Then enter the 6-digit code it shows:",
+      "verify": "Turn on",
+      "recoveryTitle": "Save your recovery codes",
+      "recoveryIntro": "If you lose your authenticator, one of these codes gets you in. Each works once. Store them somewhere safe — they are shown only now.",
+      "downloaded": "I’ve saved them"
+    },
+    "disableTotpConfirm": {
+      "title": "Disable two-factor?",
+      "body": "Your account falls back to password-only sign-in. Enter your password to confirm."
+    },
+    "recoveryCodes": "Recovery codes",
+    "recoveryLeft": "{{count}} unused code left",
+    "recoveryLeft_other": "{{count}} unused codes left",
+    "regenerate": "Generate new codes",
+    "regenerateConfirm": "This replaces all existing recovery codes. Enter your password to confirm.",
+    "passkeysTitle": "Passkeys",
+    "passkeysIntro": "Sign in with your fingerprint, face, or security key — no password needed.",
+    "addPasskey": "Add passkey",
+    "passkeyName": "Name this passkey",
+    "passkeyNameHint": "e.g. “MacBook Touch ID” or “YubiKey 5”",
+    "passkeyAdded": "Passkey added",
+    "passkeyLastUsed": "Last used {{when}}",
+    "passkeyNever": "Never used",
+    "removePasskey": "Remove",
+    "removePasskeyConfirm": "Remove passkey “{{name}}”? You can no longer sign in with it.",
+    "noPasskeys": "No passkeys yet.",
+    "sessions": "Active sessions",
+    "sessionsIntro": "Everywhere you’re signed in right now.",
+    "currentSession": "This device",
+    "revoke": "Sign out",
+    "revokeOthers": "Sign out everywhere else",
+    "sessionCreated": "Signed in {{when}}",
+    "sessionSeen": "Active {{when}}"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "empty": {
+      "title": "All caught up",
+      "body": "Alerts and system events will land here."
+    },
+    "viewAll": "View all"
+  },
+  "errors": {
+    "sessionExpired": "Your session has expired. Sign in again.",
+    "forbidden": "You don’t have access to this.",
+    "notFound": {
+      "title": "Page not found",
+      "body": "This page doesn’t exist — or you don’t have access to it.",
+      "home": "Back to overview"
+    }
+  }
+}

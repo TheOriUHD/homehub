@@ -1,0 +1,46 @@
+# HomeHub — self-hosted homelab control plane.
+#
+# Quickstart:
+#   docker compose up -d
+# then open http://<host>:8080 and follow the setup wizard.
+#
+# Optional overrides (all have working defaults):
+#   POSTGRES_PASSWORD  database password (change for anything beyond a first look)
+#   HOMEHUB_PORT       published port, default 8080
+#
+# The app encryption key is generated on first start and stored in the
+# homehub-data volume at /data/master.key — back that file up.
+
+services:
+  app:
+    image: homehub:latest
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${HOMEHUB_PORT:-8080}:8080"
+    environment:
+      HOMEHUB_DATABASE_URL: postgres://homehub:${POSTGRES_PASSWORD:-homehub}@db:5432/homehub?sslmode=disable
+    volumes:
+      - homehub-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: homehub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-homehub}
+      POSTGRES_DB: homehub
+    volumes:
+      - homehub-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U homehub -d homehub"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  homehub-data:
+  homehub-db:

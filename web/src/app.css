@@ -1,0 +1,206 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   HomeHub design tokens.
+
+   Semantic tokens are defined per theme as plain custom properties, then
+   mapped into Tailwind utilities via @theme inline. Components use only
+   semantic utilities (bg-surface, text-fg-muted, border-edge, …) — never raw
+   palette values — so both themes stay coherent by construction.
+--------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./assets/fonts/InterVariable.woff2") format("woff2");
+}
+
+:root[data-theme="light"] {
+  --hh-bg: oklch(0.977 0.003 260);
+  --hh-bg-subtle: oklch(0.955 0.004 260);
+  --hh-surface: oklch(1 0 0);
+  --hh-surface-hover: oklch(0.965 0.003 260);
+  --hh-overlay: oklch(1 0 0);
+  --hh-edge: oklch(0.91 0.006 260);
+  --hh-edge-strong: oklch(0.85 0.008 260);
+  --hh-fg: oklch(0.23 0.012 265);
+  --hh-fg-muted: oklch(0.45 0.014 265);
+  --hh-fg-subtle: oklch(0.60 0.012 265);
+  --hh-accent: oklch(0.54 0.19 275);
+  --hh-accent-hover: oklch(0.49 0.20 275);
+  --hh-accent-fg: oklch(0.99 0.005 275);
+  --hh-accent-soft: oklch(0.94 0.035 275);
+  --hh-accent-soft-fg: oklch(0.42 0.17 275);
+  --hh-success: oklch(0.60 0.13 160);
+  --hh-success-soft: oklch(0.94 0.045 160);
+  --hh-success-soft-fg: oklch(0.40 0.10 160);
+  --hh-warning: oklch(0.72 0.14 75);
+  --hh-warning-soft: oklch(0.95 0.055 85);
+  --hh-warning-soft-fg: oklch(0.47 0.11 70);
+  --hh-danger: oklch(0.58 0.20 25);
+  --hh-danger-hover: oklch(0.52 0.21 25);
+  --hh-danger-soft: oklch(0.94 0.04 20);
+  --hh-danger-soft-fg: oklch(0.45 0.17 25);
+  --hh-info: oklch(0.60 0.12 240);
+  --hh-info-soft: oklch(0.94 0.035 240);
+  --hh-info-soft-fg: oklch(0.43 0.10 240);
+  --hh-ring: oklch(0.54 0.19 275 / 45%);
+  --hh-shadow-1: 0 1px 2px oklch(0.2 0.01 265 / 6%), 0 1px 1px oklch(0.2 0.01 265 / 4%);
+  --hh-shadow-2: 0 2px 8px oklch(0.2 0.01 265 / 8%), 0 1px 2px oklch(0.2 0.01 265 / 5%);
+  --hh-shadow-3: 0 12px 32px oklch(0.2 0.01 265 / 14%), 0 2px 8px oklch(0.2 0.01 265 / 8%);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --hh-bg: oklch(0.185 0.012 265);
+  --hh-bg-subtle: oklch(0.16 0.012 265);
+  --hh-surface: oklch(0.225 0.013 265);
+  --hh-surface-hover: oklch(0.26 0.014 265);
+  --hh-overlay: oklch(0.245 0.014 265);
+  --hh-edge: oklch(0.31 0.013 265);
+  --hh-edge-strong: oklch(0.38 0.014 265);
+  --hh-fg: oklch(0.93 0.006 260);
+  --hh-fg-muted: oklch(0.72 0.010 260);
+  --hh-fg-subtle: oklch(0.58 0.010 260);
+  --hh-accent: oklch(0.64 0.17 275);
+  --hh-accent-hover: oklch(0.69 0.16 275);
+  --hh-accent-fg: oklch(0.985 0.005 275);
+  --hh-accent-soft: oklch(0.30 0.06 275);
+  --hh-accent-soft-fg: oklch(0.80 0.10 275);
+  --hh-success: oklch(0.70 0.13 160);
+  --hh-success-soft: oklch(0.30 0.045 160);
+  --hh-success-soft-fg: oklch(0.80 0.11 160);
+  --hh-warning: oklch(0.78 0.13 80);
+  --hh-warning-soft: oklch(0.31 0.05 80);
+  --hh-warning-soft-fg: oklch(0.83 0.11 85);
+  --hh-danger: oklch(0.65 0.18 25);
+  --hh-danger-hover: oklch(0.70 0.17 25);
+  --hh-danger-soft: oklch(0.30 0.06 25);
+  --hh-danger-soft-fg: oklch(0.80 0.10 25);
+  --hh-info: oklch(0.70 0.11 240);
+  --hh-info-soft: oklch(0.30 0.045 240);
+  --hh-info-soft-fg: oklch(0.79 0.09 240);
+  --hh-ring: oklch(0.64 0.17 275 / 55%);
+  --hh-shadow-1: 0 1px 2px oklch(0 0 0 / 30%);
+  --hh-shadow-2: 0 2px 8px oklch(0 0 0 / 35%), 0 1px 2px oklch(0 0 0 / 25%);
+  --hh-shadow-3: 0 12px 32px oklch(0 0 0 / 50%), 0 2px 8px oklch(0 0 0 / 35%);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+
+  --color-bg: var(--hh-bg);
+  --color-bg-subtle: var(--hh-bg-subtle);
+  --color-surface: var(--hh-surface);
+  --color-surface-hover: var(--hh-surface-hover);
+  --color-overlay: var(--hh-overlay);
+  --color-edge: var(--hh-edge);
+  --color-edge-strong: var(--hh-edge-strong);
+  --color-fg: var(--hh-fg);
+  --color-fg-muted: var(--hh-fg-muted);
+  --color-fg-subtle: var(--hh-fg-subtle);
+  --color-accent: var(--hh-accent);
+  --color-accent-hover: var(--hh-accent-hover);
+  --color-accent-fg: var(--hh-accent-fg);
+  --color-accent-soft: var(--hh-accent-soft);
+  --color-accent-soft-fg: var(--hh-accent-soft-fg);
+  --color-success: var(--hh-success);
+  --color-success-soft: var(--hh-success-soft);
+  --color-success-soft-fg: var(--hh-success-soft-fg);
+  --color-warning: var(--hh-warning);
+  --color-warning-soft: var(--hh-warning-soft);
+  --color-warning-soft-fg: var(--hh-warning-soft-fg);
+  --color-danger: var(--hh-danger);
+  --color-danger-hover: var(--hh-danger-hover);
+  --color-danger-soft: var(--hh-danger-soft);
+  --color-danger-soft-fg: var(--hh-danger-soft-fg);
+  --color-info: var(--hh-info);
+  --color-info-soft: var(--hh-info-soft);
+  --color-info-soft-fg: var(--hh-info-soft-fg);
+  --color-ring: var(--hh-ring);
+
+  --shadow-1: var(--hh-shadow-1);
+  --shadow-2: var(--hh-shadow-2);
+  --shadow-3: var(--hh-shadow-3);
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+
+  --ease-out-quick: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---- base ----------------------------------------------------------------- */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg text-fg font-sans antialiased;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  font-feature-settings: "cv11", "ss01";
+}
+
+::selection {
+  background: var(--hh-accent-soft);
+  color: var(--hh-accent-soft-fg);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hh-edge-strong) transparent;
+}
+
+/* Focus is always visible for keyboard users, never for pointer clicks. */
+:focus-visible {
+  outline: 2px solid var(--hh-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- shared component recipes --------------------------------------------- */
+
+@utility card {
+  @apply bg-surface border-edge rounded-lg border shadow-1;
+}
+
+@utility interactive-muted {
+  @apply text-fg-muted hover:text-fg hover:bg-surface-hover rounded-md transition-colors duration-150;
+}
+
+/* Keyframes for overlay + toast motion. */
+@keyframes hh-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes hh-pop-in {
+  from { opacity: 0; transform: scale(0.97) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes hh-slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes hh-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
