@@ -380,7 +380,8 @@
     "revoke": "Sign out",
     "revokeOthers": "Sign out everywhere else",
     "sessionCreated": "Signed in {{when}}",
-    "sessionSeen": "Active {{when}}"
+    "sessionSeen": "Active {{when}}",
+    "passkeysInsecureContext": "Passkeys need a secure connection — open HomeHub over HTTPS (or on localhost) to add or use them. Existing passkeys stay registered."
   },
   "notifications": {
     "title": "Notifications",

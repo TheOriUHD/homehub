@@ -47,3 +47,46 @@ export function formatDuration(totalSeconds: number): string {
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
 }
+
+/**
+ * randomId generates a short hex id. crypto.randomUUID only exists in secure
+ * contexts (HTTPS/localhost) — HomeHub is routinely served over plain HTTP on
+ * a LAN, so ids must come from getRandomValues, which works everywhere.
+ */
+export function randomId(length = 8): string {
+  const bytes = new Uint8Array(Math.ceil(length / 2));
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, length);
+}
+
+/**
+ * copyText copies to the clipboard with an insecure-context fallback:
+ * navigator.clipboard is undefined on plain-HTTP LAN origins, where the
+ * legacy execCommand path still works. Returns whether the copy succeeded.
+ */
+export async function copyText(value: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch {
+    // fall through to the legacy path
+  }
+  const area = document.createElement("textarea");
+  area.value = value;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    area.remove();
+  }
+}

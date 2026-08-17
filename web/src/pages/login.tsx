@@ -150,7 +150,7 @@ export function LoginPage() {
           </Button>
         </form>
         <div className="mt-4 flex flex-col gap-1.5 text-center">
-          {stage.methods.includes("passkey") && (
+          {stage.methods.includes("passkey") && window.isSecureContext && (
             <button
               className="text-accent cursor-pointer text-[13px] hover:underline"
               onClick={() => passkeyMfa.mutate(stage.mfaToken)}
@@ -237,21 +237,23 @@ export function LoginPage() {
         </Button>
       </form>
 
-      <div className="border-edge mt-5 border-t pt-4">
-        <Button
-          variant="secondary"
-          size="md"
-          className="w-full"
-          loading={passkeyLogin.isPending}
-          onClick={() => {
-            setError(null);
-            passkeyLogin.mutate();
-          }}
-        >
-          <Fingerprint className="size-4" />
-          {t("login.usePasskey")}
-        </Button>
-      </div>
+      {window.isSecureContext && (
+        <div className="border-edge mt-5 border-t pt-4">
+          <Button
+            variant="secondary"
+            size="md"
+            className="w-full"
+            loading={passkeyLogin.isPending}
+            onClick={() => {
+              setError(null);
+              passkeyLogin.mutate();
+            }}
+          >
+            <Fingerprint className="size-4" />
+            {t("login.usePasskey")}
+          </Button>
+        </div>
+      )}
     </AuthLayout>
   );
 }

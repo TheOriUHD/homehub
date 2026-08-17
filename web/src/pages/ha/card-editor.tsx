@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, LayoutList, Lightbulb } from "lucide-react";
 import type { HaDashboardCard } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, randomId } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent } from "@/ui/dialog";
 import { Field } from "@/ui/field";
@@ -92,7 +92,7 @@ export function CardEditorDialog({
   const submit = () => {
     if (!valid || type === null) return;
     onSave({
-      id: card?.id ?? crypto.randomUUID().slice(0, 8),
+      id: card?.id ?? randomId(8),
       type,
       entityIds: selected,
       ...(type === "group" && title.trim() !== "" ? { title: title.trim() } : {}),

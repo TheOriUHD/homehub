@@ -373,11 +373,15 @@ function PasskeysCard() {
             {t("account.passkeysTitle")}
           </span>
         }
-        description={t("account.passkeysIntro")}
+        description={
+          window.isSecureContext ? t("account.passkeysIntro") : t("account.passkeysInsecureContext")
+        }
         actions={
-          <Button size="sm" variant="primary" onClick={() => setNameOpen(true)}>
-            {t("account.addPasskey")}
-          </Button>
+          window.isSecureContext ? (
+            <Button size="sm" variant="primary" onClick={() => setNameOpen(true)}>
+              {t("account.addPasskey")}
+            </Button>
+          ) : undefined
         }
       />
       <CardBody className="px-0 py-0">

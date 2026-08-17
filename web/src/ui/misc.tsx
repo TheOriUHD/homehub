@@ -2,7 +2,7 @@ import { useState, type HTMLAttributes, type ReactNode } from "react";
 import { Check, Copy, Loader2 } from "lucide-react";
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
 import { useTranslation } from "react-i18next";
-import { cn } from "@/lib/utils";
+import { cn, copyText } from "@/lib/utils";
 import { Tooltip } from "./tooltip";
 
 export function Kbd({ className, ...props }: HTMLAttributes<HTMLElement>) {
@@ -26,7 +26,7 @@ export function CopyButton({ value, className }: { value: string; className?: st
       <button
         type="button"
         onClick={async () => {
-          await navigator.clipboard.writeText(value);
+          if (!(await copyText(value))) return;
           setCopied(true);
           window.setTimeout(() => setCopied(false), 1500);
         }}
