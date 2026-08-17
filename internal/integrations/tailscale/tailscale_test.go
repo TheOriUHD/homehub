@@ -153,8 +153,8 @@ func TestKeysLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Keys: %v", err)
 	}
-	if len(keys) != 2 {
-		t.Fatalf("expected 2 keys, got %d", len(keys))
+	if len(keys) != 3 {
+		t.Fatalf("expected 3 keys (fixture + own token + created), got %d", len(keys))
 	}
 	for _, k := range keys {
 		if k.Key != "" {
@@ -219,5 +219,47 @@ func TestCollectSamples(t *testing.T) {
 	}
 	if got["devices_total"] != 5 || got["devices_online"] != 3 {
 		t.Fatalf("unexpected samples: %+v", got)
+	}
+}
+
+func TestOwnKeyAndAPIKeyRotation(t *testing.T) {
+	conn := newTestConn(t)
+	ctx := context.Background()
+
+	own, err := conn.OwnKey(ctx)
+	if err != nil {
+		t.Fatalf("OwnKey: %v", err)
+	}
+	if own.ID != tailscalesim.OwnKeyID || own.Expires.IsZero() {
+		t.Fatalf("own key not resolved: %+v", own)
+	}
+
+	replacement, err := conn.CreateAPIKey(ctx, "HomeHub auto-renewal test", 90*86400)
+	if err != nil {
+		t.Fatalf("CreateAPIKey: %v", err)
+	}
+	if !strings.HasPrefix(replacement.Key, "tskey-api-") {
+		t.Fatalf("replacement secret shape: %q", replacement.Key)
+	}
+
+	// The replacement token must actually authenticate.
+	c2, err := newClient(
+		map[string]any{"tailnet": tailscalesim.Tailnet, "baseUrl": conn.client.base},
+		map[string]string{"apiKey": replacement.Key},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn2 := &Conn{inst: conn.inst, client: c2, deps: conn.deps}
+	if _, err := conn2.Devices(ctx); err != nil {
+		t.Fatalf("replacement token rejected: %v", err)
+	}
+
+	// Revoking the OLD key through the NEW token kills the old token.
+	if err := conn2.RevokeKey(ctx, own.ID); err != nil {
+		t.Fatalf("revoke old: %v", err)
+	}
+	if _, err := conn.Devices(ctx); err == nil {
+		t.Fatal("the old token must stop working after revocation")
 	}
 }

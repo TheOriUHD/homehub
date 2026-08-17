@@ -234,6 +234,11 @@ func normalizeInstance(i Instance) NormInstance {
 		Port:         i.Port,
 		DiskUsageMB:  i.DiskUsageMB,
 	}
+	// A stopped instance container reports a stale AppState — the container
+	// being down IS the state, and nothing behind the proxy is reachable.
+	if !i.Running {
+		out.State = "offline"
+	}
 	if out.ModuleName == "" {
 		out.ModuleName = i.Module
 	}

@@ -20,8 +20,10 @@ import (
 )
 
 const (
-	APIKey  = "tskey-api-homehub-sim"
-	Tailnet = "example.com"
+	// APIKey carries a parseable key id like real tskey-api tokens.
+	APIKey   = "tskey-api-kHOMEHUBSIM1-simsecret0000"
+	OwnKeyID = "kHOMEHUBSIM1"
+	Tailnet  = "example.com"
 
 	// Fixed device IDs for deterministic tests.
 	GatewayID = "50052"
@@ -54,6 +56,7 @@ type device struct {
 type key struct {
 	id            string
 	secret        string
+	keyType       string // "auth" or "api"
 	description   string
 	created       time.Time
 	expires       time.Time
@@ -71,6 +74,7 @@ type Sim struct {
 	order       []string
 	keys        map[string]*key
 	keyOrder    []string
+	validTokens map[string]bool // accepted Basic-auth usernames (API tokens)
 	nameservers []string
 	magicDNS    bool
 	searchPaths []string
@@ -127,10 +131,16 @@ func New() *Sim {
 		lastSeen: now.Add(-30 * time.Minute),
 	})
 	s.addKey(&key{
-		id: "k1234567CNTRL", secret: "", description: "NAS bootstrap",
+		id: "k1234567CNTRL", secret: "", keyType: "auth", description: "NAS bootstrap",
 		created: now.Add(-60 * 24 * time.Hour), expires: now.Add(30 * 24 * time.Hour),
 		reusable: true,
 	})
+	// The sim's own API token, so the auto-renewal flow can read its expiry.
+	s.addKey(&key{
+		id: OwnKeyID, secret: APIKey, keyType: "api", description: "homehub",
+		created: now.Add(-80 * 24 * time.Hour), expires: now.Add(10 * 24 * time.Hour),
+	})
+	s.validTokens = map[string]bool{APIKey: true}
 	return s
 }
 
@@ -141,9 +151,21 @@ func (s *Sim) addKey(k *key) {
 
 // ---- HTTP -------------------------------------------------------------------
 
+// SetOwnKeyExpiry moves the sim's own token expiry (for renewal tests).
+func (s *Sim) SetOwnKeyExpiry(expires time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if k, ok := s.keys[OwnKeyID]; ok {
+		k.expires = expires
+	}
+}
+
 func (s *Sim) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	user, _, ok := r.BasicAuth()
-	if !ok || user != APIKey {
+	s.mu.Lock()
+	valid := ok && s.validTokens[user]
+	s.mu.Unlock()
+	if !valid {
 		s.fail(w, http.StatusUnauthorized, "invalid key")
 		return
 	}
@@ -204,6 +226,7 @@ func (s *Sim) serveTailnet(w http.ResponseWriter, r *http.Request, parts []strin
 			} `json:"capabilities"`
 			ExpirySeconds int64  `json:"expirySeconds"`
 			Description   string `json:"description"`
+			KeyType       string `json:"keyType"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			s.fail(w, http.StatusBadRequest, "bad request body")
@@ -214,13 +237,20 @@ func (s *Sim) serveTailnet(w http.ResponseWriter, r *http.Request, parts []strin
 			return
 		}
 		now := time.Now()
+		id := "k" + strings.ToUpper(strings.ReplaceAll(uuid.NewString()[:12], "-", ""))
 		k := &key{
-			id:          "k" + uuid.NewString()[:12],
+			id:          id,
+			keyType:     "auth",
 			secret:      "tskey-auth-" + uuid.NewString(),
 			description: req.Description,
 			created:     now, expires: now.Add(time.Duration(req.ExpirySeconds) * time.Second),
 			reusable: req.Capabilities.Devices.Create.Reusable, ephemeral: req.Capabilities.Devices.Create.Ephemeral,
 			preauthorized: req.Capabilities.Devices.Create.Preauthorized, tags: req.Capabilities.Devices.Create.Tags,
+		}
+		if req.KeyType == "api" {
+			k.keyType = "api"
+			k.secret = "tskey-api-" + id + "-" + strings.ReplaceAll(uuid.NewString(), "-", "")
+			s.validTokens[k.secret] = true
 		}
 		s.addKey(k)
 		s.reply(w, s.keyPayload(k, true))
@@ -236,6 +266,9 @@ func (s *Sim) serveTailnet(w http.ResponseWriter, r *http.Request, parts []strin
 			s.reply(w, s.keyPayload(k, false))
 		case http.MethodDelete:
 			k.revoked = time.Now()
+			if k.keyType == "api" && k.secret != "" {
+				delete(s.validTokens, k.secret)
+			}
 			s.reply(w, nil)
 		default:
 			http.NotFound(w, r)

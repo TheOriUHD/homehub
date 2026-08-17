@@ -64,6 +64,7 @@ export function ampStateTone(
     case "failed":
     case "suspended":
       return "danger";
+    case "offline":
     default:
       return "neutral";
   }

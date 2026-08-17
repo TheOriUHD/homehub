@@ -3,6 +3,7 @@ package tailscale
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"sort"
@@ -218,6 +219,50 @@ func (c *Conn) CreateKey(ctx context.Context, spec CreateKeySpec) (*Key, error) 
 	return &key, nil
 }
 
+// OwnKeyID parses the key id embedded in the client's own API token
+// (tskey-api-<id>-<secret>).
+func (c *Conn) OwnKeyID() (string, error) {
+	parts := strings.Split(c.client.key, "-")
+	if len(parts) < 4 || parts[0] != "tskey" || parts[1] != "api" {
+		return "", errors.New("the stored token does not look like a tskey-api token, so its expiry cannot be read")
+	}
+	return parts[2], nil
+}
+
+// OwnKey fetches the client's own API token record — id, description,
+// expiry — never the secret.
+func (c *Conn) OwnKey(ctx context.Context) (*Key, error) {
+	id, err := c.OwnKeyID()
+	if err != nil {
+		return nil, err
+	}
+	var key Key
+	if err := c.client.call(ctx, http.MethodGet, c.client.tailnetPath("keys/"+url.PathEscape(id)), nil, &key); err != nil {
+		return nil, err
+	}
+	key.Key = ""
+	return &key, nil
+}
+
+// CreateAPIKey mints a replacement API access token. The returned Key
+// carries the secret ONCE. Depends on the tailnet permitting API-token
+// creation through the keys endpoint; failure is surfaced, never silent.
+func (c *Conn) CreateAPIKey(ctx context.Context, description string, expirySeconds int64) (*Key, error) {
+	body := map[string]any{
+		"keyType":       "api",
+		"description":   description,
+		"expirySeconds": expirySeconds,
+	}
+	var key Key
+	if err := c.client.call(ctx, http.MethodPost, c.client.tailnetPath("keys"), body, &key); err != nil {
+		return nil, err
+	}
+	if key.Key == "" {
+		return nil, errors.New("the API answered without a token secret")
+	}
+	return &key, nil
+}
+
 // RevokeKey revokes an auth key.
 func (c *Conn) RevokeKey(ctx context.Context, keyID string) error {
 	return c.client.call(ctx, http.MethodDelete, c.client.tailnetPath("keys/"+url.PathEscape(keyID)), nil, nil)
@@ -316,3 +361,13 @@ func (c *Conn) Collect(ctx context.Context) ([]metrics.Sample, error) {
 	}, nil
 }
 
+// RevokeKeyWithToken revokes a key using an explicit token — the renewal
+// job uses it to kill the old token with the new one, independent of the
+// supervised connection's lifecycle.
+func RevokeKeyWithToken(ctx context.Context, config map[string]any, token, keyID string) error {
+	c, err := newClient(config, map[string]string{"apiKey": token})
+	if err != nil {
+		return err
+	}
+	return c.call(ctx, http.MethodDelete, c.tailnetPath("keys/"+url.PathEscape(keyID)), nil, nil)
+}

@@ -138,6 +138,7 @@ func Run(ctx context.Context) error {
 	mcRegistry.StatusChanged = manager.Kick
 	manager.Register(minecraft.Driver{Registry: mcRegistry})
 	manager.StatusChanged = statusNotifier(engine, notifySvc)
+	registerTailscaleRenewal(jobEngine, st, v, manager, engine, notifySvc, logger)
 
 	docker.RegisterJobs(func(kind string, fn func(ctx context.Context, payload json.RawMessage) error) {
 		jobEngine.Register(kind, fn)
@@ -369,6 +370,13 @@ func ensureMaintenanceSchedule(ctx context.Context, st *store.Store) error {
 		return err
 	}
 	if err := st.EnsureSchedule(ctx, "System maintenance", "maintenance.cleanup", map[string]any{}, "13 3 * * *", next); err != nil {
+		return err
+	}
+	next, err = jobs.NextRun("23 * * * *", time.Now())
+	if err != nil {
+		return err
+	}
+	if err := st.EnsureSchedule(ctx, "Tailscale token renewal", "tailscale.renew", map[string]any{}, "23 * * * *", next); err != nil {
 		return err
 	}
 	next, err = jobs.NextRun("*/5 * * * *", time.Now())
