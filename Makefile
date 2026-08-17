@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 VERSION := $(shell cat VERSION)
 
-.PHONY: generate build build-web build-companion dev-api dev-web test lint image
+.PHONY: generate build build-web build-companion build-helper dev-api dev-web test lint image
 
 ## Regenerate API server interfaces and the typed frontend client from api/openapi.yaml
 generate:
@@ -15,9 +15,25 @@ build-web:
 build-companion:
 	cd companion && gradle --no-daemon dist
 
-## Full production binary with the frontend and companion jars embedded
-build: build-web build-companion
-	CGO_ENABLED=0 go build -trimpath -tags "ui companion" \
+## caddy-reader helper binaries (amd64/arm64/armv7) + installer into helper/dist,
+## embedded into the server by the "helper" build tag. helper/caddy-reader is its
+## own Go module (vendored from references/caddy/caddy-reader-export).
+build-helper:
+	cd helper/caddy-reader && \
+	for target in amd64 arm64 armv7; do \
+		arch=$$target; goarm=""; \
+		if [ $$target = armv7 ]; then arch=arm; goarm=7; fi; \
+		GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=$$arch GOARM=$$goarm \
+			go build -trimpath -ldflags "-s -w -X main.Version=$(VERSION)" \
+			-o ../dist/caddy-reader-linux-$$target . || exit 1; \
+	done
+	cp helper/install.sh helper/dist/install.sh
+	cd helper/dist && sha256sum caddy-reader-linux-* > SHA256SUMS
+
+## Full production binary with the frontend, companion jars and caddy-reader
+## helper embedded
+build: build-web build-companion build-helper
+	CGO_ENABLED=0 go build -trimpath -tags "ui companion helper" \
 		-ldflags "-s -w -X homehub/internal/version.Version=$(VERSION)" \
 		-o bin/homehub ./cmd/homehub
 

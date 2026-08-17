@@ -1,7 +1,13 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet, useParams, useRouterState } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, Waypoints } from "lucide-react";
+import { AlertTriangle, MoreHorizontal, Waypoints, Wrench } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { Button } from "@/ui/button";
+import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "@/ui/dropdown";
+import { CaddySetupDialog } from "./setup";
+import { caddyResource } from "./shared";
 import { api, unwrap } from "@/lib/api";
 import { useLiveInvalidate } from "@/lib/live";
 import { cn } from "@/lib/utils";
@@ -15,6 +21,8 @@ export function CaddyModulePage() {
   const { t } = useTranslation();
   const { instanceId } = useParams({ from: "/shell/caddy/$instanceId" });
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { can } = useAuth();
+  const [setupOpen, setSetupOpen] = useState(false);
 
   const integrations = useQuery({
     queryKey: ["integrations"],
@@ -61,7 +69,25 @@ export function CaddyModulePage() {
           </h1>
           <p className="text-fg-muted text-sm">{t("caddy.subtitle")}</p>
         </div>
+
+        {can(caddyResource(instanceId), "configure") && (
+          <Dropdown>
+            <DropdownTrigger asChild>
+              <Button size="sm" variant="ghost" aria-label={t("common.actions")}>
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownTrigger>
+            <DropdownContent align="end">
+              <DropdownItem onSelect={() => setSetupOpen(true)}>
+                <Wrench className="size-3.5" />
+                {t("caddy.setup.menuLabel")}
+              </DropdownItem>
+            </DropdownContent>
+          </Dropdown>
+        )}
       </div>
+
+      {setupOpen && <CaddySetupDialog instanceId={instanceId} onClose={() => setSetupOpen(false)} />}
 
       {(instance.status === "unreachable" || instance.status === "degraded") && (
         <div

@@ -1,0 +1,47 @@
+[Unit]
+Description=caddy-reader — devtracker's window onto the local Caddy config
+Documentation=https://github.com/TheOriUHD/devtracker/blob/main/helper/README.md
+After=network-online.target caddy.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/caddy-reader --writable
+
+# The token lives in a file, not in ExecStart: a unit file is world-readable and
+# 'systemctl cat' prints it.
+EnvironmentFile=/etc/caddy-reader.env
+
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @obsolete
+RestrictAddressFamilies=AF_INET AF_INET6
+UMask=0077
+
+# Write mode. Replacing a file means writing in its DIRECTORY, so the
+# read-only-everything sandbox cannot be used and this runs as the user that
+# owns the config. Re-run 'caddy-reader setup --read-only' to go back, which
+# needs none of it.
+User=root
+ProtectSystem=full
+ReadWritePaths=/etc/caddy
+
+[Install]
+WantedBy=multi-user.target

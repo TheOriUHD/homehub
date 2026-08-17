@@ -1,0 +1,208 @@
+{
+    "apps": {
+        "http": {
+            "servers": {
+                "srv0": {
+                    "listen": [
+                        ":443"
+                    ],
+                    "routes": [
+                        {
+                            "handle": [
+                                {
+                                    "handler": "subroute",
+                                    "routes": [
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "reverse_proxy",
+                                                    "upstreams": [
+                                                        {
+                                                            "dial": "10.0.0.5:8080"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            "match": [
+                                {
+                                    "host": [
+                                        "tracker.example.com"
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "handle": [
+                                {
+                                    "handler": "subroute",
+                                    "routes": [
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "reverse_proxy",
+                                                    "upstreams": [
+                                                        {
+                                                            "dial": "10.0.0.6:8096"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            "match": [
+                                {
+                                    "host": [
+                                        "media.example.com"
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "handle": [
+                                {
+                                    "handler": "subroute",
+                                    "routes": [
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "vars"
+                                                },
+                                                {
+                                                    "handler": "file_server"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            "match": [
+                                {
+                                    "host": [
+                                        "files.example.com"
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "handle": [
+                                {
+                                    "handler": "subroute",
+                                    "routes": [
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "subroute",
+                                                    "routes": [
+                                                        {
+                                                            "handle": [
+                                                                {
+                                                                    "handler": "reverse_proxy",
+                                                                    "upstreams": [
+                                                                        {
+                                                                            "dial": "[fd00::1]:9000"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                }
+                                            ],
+                                            "match": [
+                                                {
+                                                    "path": [
+                                                        "/admin/*"
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "subroute",
+                                                    "routes": [
+                                                        {
+                                                            "handle": [
+                                                                {
+                                                                    "handler": "reverse_proxy",
+                                                                    "upstreams": [
+                                                                        {
+                                                                            "dial": "10.0.0.7:3000"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                }
+                                            ],
+                                            "match": [
+                                                {
+                                                    "path": [
+                                                        "/v1/*"
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "subroute",
+                                                    "routes": [
+                                                        {
+                                                            "handle": [
+                                                                {
+                                                                    "handler": "static_response"
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            "match": [
+                                {
+                                    "host": [
+                                        "api.example.com"
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "handle": [
+                                {
+                                    "handler": "subroute",
+                                    "routes": [
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "static_response"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            "match": [
+                                {
+                                    "host": [
+                                        "old.example.com"
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

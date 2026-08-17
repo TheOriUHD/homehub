@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"homehub/companion"
+	"homehub/helper"
 	"homehub/internal/alerting"
 	"homehub/internal/api"
 	"homehub/internal/audit"
@@ -228,6 +229,7 @@ func Run(ctx context.Context) error {
 		Term:     termMgr,
 		MC:       mcRegistry,
 		UI:       web.UI(),
+		Helper:   helper.FS(),
 	})
 	server := httpserver.NewServer(cfg.HTTPAddr, handler)
 
