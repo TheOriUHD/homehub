@@ -102,6 +102,12 @@ export type TruenasShare = ApiSchemas["TruenasShare"];
 export type TruenasSnapshot = ApiSchemas["TruenasSnapshot"];
 export type TruenasAlert = ApiSchemas["TruenasAlert"];
 
+export type TsTailnet = ApiSchemas["TsTailnet"];
+export type TsDevice = ApiSchemas["TsDevice"];
+export type TsKey = ApiSchemas["TsKey"];
+export type TsCreatedKey = ApiSchemas["TsCreatedKey"];
+export type TsDns = ApiSchemas["TsDns"];
+
 export type AmpPanel = ApiSchemas["AmpPanel"];
 export type AmpOverview = ApiSchemas["AmpOverview"];
 export type AmpTarget = ApiSchemas["AmpTarget"];
