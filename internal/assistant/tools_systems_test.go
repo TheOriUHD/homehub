@@ -7,17 +7,35 @@ import (
 	"testing"
 )
 
-// fakeCall records the request and returns a scripted response.
+// fakeCall records every request and returns a scripted response.
 type fakeCall struct {
 	method, path string
 	body         any
-	status       int
-	response     string
+	calls        []struct {
+		Method, Path string
+		Body         any
+	}
+	status   int
+	response string
 }
 
 func (f *fakeCall) fn(_ context.Context, method, path string, body any) (int, []byte) {
 	f.method, f.path, f.body = method, path, body
+	f.calls = append(f.calls, struct {
+		Method, Path string
+		Body         any
+	}{method, path, body})
 	return f.status, []byte(f.response)
+}
+
+// findCall returns the first recorded call with the given method+path.
+func (f *fakeCall) findCall(method, path string) (any, bool) {
+	for _, c := range f.calls {
+		if c.Method == method && c.Path == path {
+			return c.Body, true
+		}
+	}
+	return nil, false
 }
 
 func TestActionToolsBuildCorrectRequests(t *testing.T) {
@@ -60,10 +78,14 @@ func TestActionToolsBuildCorrectRequests(t *testing.T) {
 			t.Errorf("%s: %v", tc.tool, err)
 			continue
 		}
-		if out == "" || fake.method != http.MethodPost || fake.path != tc.wantPath {
-			t.Errorf("%s: got %s %s", tc.tool, fake.method, fake.path)
+		// mc_command wraps its POST in console reads; find the POST among
+		// whatever else the tool called.
+		body, found := fake.findCall(http.MethodPost, tc.wantPath)
+		if out == "" || !found {
+			t.Errorf("%s: POST %s not issued (calls: %+v)", tc.tool, tc.wantPath, fake.calls)
+			continue
 		}
-		gotRaw, _ := json.Marshal(fake.body)
+		gotRaw, _ := json.Marshal(body)
 		wantRaw, _ := json.Marshal(tc.wantBody)
 		if string(gotRaw) != string(wantRaw) {
 			t.Errorf("%s body: got %s want %s", tc.tool, gotRaw, wantRaw)

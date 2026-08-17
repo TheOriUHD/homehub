@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -58,7 +59,7 @@ func (tb *Toolbox) systemTools() []tool {
 		{
 			def: ToolDef{
 				Name:        "mc_command",
-				Description: "Run a console command on a Minecraft server (no leading slash), e.g. `say hi`, `whitelist add Name`, `time set day`.",
+				Description: "Run a console command on a Minecraft server (no leading slash). The console has NO player context: @s/@p never work — use exact player names (system_details lists who is online). Use modern item ids (enchanted_golden_apple, not NBT syntax). The result includes the console's reaction — READ it: an error there means the command failed even if dispatch was acknowledged.",
 				InputSchema: obj(`"systemId":{"type":"string"},"command":{"type":"string"}`, "systemId", "command"),
 			},
 			run: tb.mcCommand,
@@ -334,8 +335,48 @@ func (tb *Toolbox) mcCommand(ctx context.Context, _ Access, input json.RawMessag
 	if err := json.Unmarshal(input, &args); err != nil || strings.TrimSpace(args.Command) == "" {
 		return nil, fmt.Errorf("command is required")
 	}
-	return tb.call(ctx, http.MethodPost, "/mc/"+id.String()+"/command",
+
+	// Snapshot the console position, run the command, then read what the
+	// server actually said about it — the ack alone reports dispatch, not
+	// success, and "Done!" on a failed /give helps nobody.
+	lastSeq := int64(-1)
+	// nextSeq is the buffer head regardless of limit, so an over-the-head
+	// read returns it with zero lines.
+	if raw, err := tb.call(ctx, http.MethodGet, "/mc/"+id.String()+"/console?after=9000000000000000&limit=1", nil); err == nil {
+		var console struct {
+			NextSeq int64 `json:"nextSeq"`
+		}
+		if json.Unmarshal(raw, &console) == nil && console.NextSeq > 0 {
+			lastSeq = console.NextSeq - 1
+		}
+	}
+
+	ack, err := tb.call(ctx, http.MethodPost, "/mc/"+id.String()+"/command",
 		map[string]any{"command": strings.TrimPrefix(strings.TrimSpace(args.Command), "/")})
+	if err != nil {
+		return nil, err
+	}
+
+	// Give the server a beat to print its reaction, then collect it.
+	reaction := []string{}
+	select {
+	case <-ctx.Done():
+	case <-time.After(700 * time.Millisecond):
+		if raw, err := tb.call(ctx, http.MethodGet,
+			fmt.Sprintf("/mc/%s/console?after=%d&limit=12", id.String(), lastSeq), nil); err == nil {
+			var console struct {
+				Lines []struct {
+					Text string `json:"text"`
+				} `json:"lines"`
+			}
+			if json.Unmarshal(raw, &console) == nil {
+				for _, line := range console.Lines {
+					reaction = append(reaction, line.Text)
+				}
+			}
+		}
+	}
+	return map[string]any{"ack": ack, "console": reaction}, nil
 }
 
 func (tb *Toolbox) ampAction(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
