@@ -39,3 +39,18 @@ export function evaluate(grants: Grant[], resource: string, level: Level): boole
   }
   return allowed;
 }
+
+/** visibleUnder mirrors the server's subtree visibility for navigation. */
+export function visibleUnder(grants: Grant[], prefix: string): boolean {
+  const pre = prefix.split("/");
+  for (const g of grants) {
+    if (g.effect === "deny" && g.levels.includes("view") && matches(g.selector, prefix)) return false;
+  }
+  for (const g of grants) {
+    if (g.effect === "deny") continue;
+    if (matches(g.selector, prefix)) return true;
+    const sel = g.selector.split("/");
+    if (sel.length > pre.length && pre.every((seg, i) => sel[i] === "*" || sel[i] === seg)) return true;
+  }
+  return false;
+}

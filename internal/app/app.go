@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,10 +21,14 @@ import (
 	"github.com/TheOriUHD/homehub/internal/config"
 	"github.com/TheOriUHD/homehub/internal/db"
 	"github.com/TheOriUHD/homehub/internal/httpserver"
+	"github.com/TheOriUHD/homehub/internal/integration"
+	"github.com/TheOriUHD/homehub/internal/integrations/proxmox"
 	"github.com/TheOriUHD/homehub/internal/jobs"
+	"github.com/TheOriUHD/homehub/internal/metrics"
 	"github.com/TheOriUHD/homehub/internal/rbac"
 	"github.com/TheOriUHD/homehub/internal/settings"
 	"github.com/TheOriUHD/homehub/internal/store"
+	"github.com/TheOriUHD/homehub/internal/term"
 	"github.com/TheOriUHD/homehub/internal/vault"
 	"github.com/TheOriUHD/homehub/internal/version"
 	"github.com/TheOriUHD/homehub/internal/ws"
@@ -68,13 +74,25 @@ func Run(ctx context.Context) error {
 		return authorizeTopic(ctx, engine, userID, viewAsRole, topic)
 	})
 
-	apiServer := api.NewServer(st, authSvc, engine, auditSvc, settingsSvc, jobEngine, hub, v, logger)
+	metricsSvc := metrics.New(st, logger)
+	jobEngine.Register("metrics.maintenance", func(ctx context.Context, _ json.RawMessage) error {
+		return metricsSvc.RunMaintenance(ctx)
+	})
+	termMgr := term.NewManager()
+
+	manager := integration.NewManager(st, v, metricsSvc, hub, logger)
+	manager.Register(proxmox.Driver{})
+	manager.StatusChanged = statusNotifier(st, engine, hub, logger)
+
+	apiServer := api.NewServer(st, authSvc, engine, auditSvc, settingsSvc, jobEngine, hub, v,
+		manager, metricsSvc, termMgr, logger)
 	handler := httpserver.Handler(httpserver.Deps{
 		Logger:   logger,
 		Auth:     authSvc,
 		API:      apiServer,
 		Hub:      hub,
 		Settings: settingsSvc,
+		Term:     termMgr,
 		UI:       web.UI(),
 	})
 	server := httpserver.NewServer(cfg.HTTPAddr, handler)
@@ -85,6 +103,10 @@ func Run(ctx context.Context) error {
 	if err := ensureMaintenanceSchedule(ctx, st); err != nil {
 		logger.Warn("could not ensure maintenance schedule", "error", err)
 	}
+	if err := manager.Start(ctx); err != nil {
+		return err
+	}
+	defer manager.Stop()
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -113,15 +135,92 @@ func Run(ctx context.Context) error {
 // topics are denied.
 func authorizeTopic(ctx context.Context, engine *rbac.Engine, userID uuid.UUID, viewAsRole *uuid.UUID, topic string) bool {
 	principal := rbac.Principal{UserID: userID, ViewAsRole: viewAsRole}
-	switch topic {
-	case "notifications":
+	switch {
+	case topic == "notifications":
 		// Personal inbox — delivered per-user, identity is the authorization.
 		return true
-	case "health":
+	case topic == "health":
 		ok, err := engine.Can(ctx, principal, api.ResHealth, rbac.LevelView)
+		return err == nil && ok
+	case topic == "integrations":
+		// Admin surface: the integrations management page.
+		ok, err := engine.Can(ctx, principal, api.ResIntegrations, rbac.LevelConfigure)
+		return err == nil && ok
+	case strings.HasPrefix(topic, "integration:"), strings.HasPrefix(topic, "metrics:"):
+		// Instance topics carry the resource path after the colon.
+		_, resource, _ := strings.Cut(topic, ":")
+		ok, err := engine.VisibleUnder(ctx, principal, resource)
 		return err == nil && ok
 	default:
 		return false
+	}
+}
+
+// statusNotifier turns integration status edges into notifications for every
+// user who can see the instance. The reconnect loop cycles
+// connecting→unreachable on every retry, so notifications key off the last
+// *notified* state per instance — one alert per outage, one per recovery.
+func statusNotifier(st *store.Store, engine *rbac.Engine, hub *ws.Hub, logger *slog.Logger) func(integration.Instance, integration.Status, integration.Status, string) {
+	var mu sync.Mutex
+	lastNotified := map[uuid.UUID]integration.Status{}
+
+	return func(inst integration.Instance, from, to integration.Status, message string) {
+		if to != integration.StatusUnreachable && to != integration.StatusConnected {
+			return
+		}
+		mu.Lock()
+		previous := lastNotified[inst.ID]
+		shouldNotify := (to == integration.StatusUnreachable && previous != integration.StatusUnreachable && from != integration.StatusPending) ||
+			(to == integration.StatusConnected && previous == integration.StatusUnreachable)
+		if shouldNotify {
+			lastNotified[inst.ID] = to
+		}
+		mu.Unlock()
+		if !shouldNotify {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		severity, title := "error", inst.Name+" is unreachable"
+		body := message
+		eventType := "integration.unreachable"
+		if to == integration.StatusConnected {
+			severity, title = "success", inst.Name+" is back online"
+			body = ""
+			eventType = "integration.recovered"
+		}
+
+		users, err := st.ListUsers(ctx)
+		if err != nil {
+			logger.Error("notify integration status: list users", "error", err)
+			return
+		}
+		for _, user := range users {
+			if user.Status != "active" {
+				continue
+			}
+			visible, err := engine.VisibleUnder(ctx, rbac.Principal{UserID: user.ID}, inst.ResourcePath())
+			if err != nil || !visible {
+				continue
+			}
+			n, err := st.InsertNotification(ctx, &store.Notification{
+				UserID:    user.ID,
+				Severity:  severity,
+				Title:     title,
+				Body:      body,
+				Resource:  inst.ResourcePath(),
+				EventType: eventType,
+			})
+			if err != nil {
+				logger.Error("insert integration notification", "error", err)
+				continue
+			}
+			hub.PublishUser(user.ID, "notifications", map[string]any{
+				"id": n.ID, "ts": n.TS, "severity": n.Severity, "title": n.Title,
+				"body": n.Body, "resource": n.Resource, "eventType": n.EventType, "read": false,
+			})
+		}
 	}
 }
 
@@ -152,5 +251,12 @@ func ensureMaintenanceSchedule(ctx context.Context, st *store.Store) error {
 	if err != nil {
 		return err
 	}
-	return st.EnsureSchedule(ctx, "System maintenance", "maintenance.cleanup", map[string]any{}, "13 3 * * *", next)
+	if err := st.EnsureSchedule(ctx, "System maintenance", "maintenance.cleanup", map[string]any{}, "13 3 * * *", next); err != nil {
+		return err
+	}
+	next, err = jobs.NextRun("*/5 * * * *", time.Now())
+	if err != nil {
+		return err
+	}
+	return st.EnsureSchedule(ctx, "Metric rollups", "metrics.maintenance", map[string]any{}, "*/5 * * * *", next)
 }

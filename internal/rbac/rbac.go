@@ -161,6 +161,49 @@ func Evaluate(grants []store.Grant, resource string, level Level) bool {
 	return allowed
 }
 
+// VisibleUnder reports whether the principal can see the resource node or
+// anything beneath it. Navigation uses this: a user granted a single guest
+// still sees the module that contains it.
+func (e *Engine) VisibleUnder(ctx context.Context, p Principal, prefix string) (bool, error) {
+	grants, err := e.grantsFor(ctx, p)
+	if err != nil {
+		return false, err
+	}
+	return EvaluateSubtree(grants, prefix), nil
+}
+
+// EvaluateSubtree applies deny-wins visibility over a node and its subtree.
+func EvaluateSubtree(grants []store.Grant, prefix string) bool {
+	pre := strings.Split(prefix, "/")
+	for _, g := range grants {
+		if g.Effect == "deny" && slices.Contains(g.Levels, string(LevelView)) && Match(g.Selector, prefix) {
+			return false
+		}
+	}
+	for _, g := range grants {
+		if g.Effect == "deny" {
+			continue
+		}
+		if Match(g.Selector, prefix) {
+			return true
+		}
+		sel := strings.Split(g.Selector, "/")
+		if len(sel) > len(pre) && segmentsMatch(sel[:len(pre)], pre) {
+			return true
+		}
+	}
+	return false
+}
+
+func segmentsMatch(sel, res []string) bool {
+	for i := range sel {
+		if sel[i] != "*" && sel[i] != res[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // Match reports whether a selector covers a resource path (node or subtree).
 func Match(selector, resource string) bool {
 	if selector == "" || resource == "" {

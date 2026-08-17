@@ -227,8 +227,6 @@ func (s *Server) GetHealth(ctx context.Context, _ GetHealthRequestObject) (GetHe
 		UptimeSeconds:    int64(time.Since(s.started).Seconds()),
 		WebsocketClients: s.hub.ClientCount(),
 	}
-	// Integration health joins this report in phase 2; the field is present
-	// (and empty) so the contract is stable.
 	report.Integrations = make([]struct {
 		Id        uuid.UUID                      `json:"id"`
 		LastError *string                        `json:"lastError,omitempty"`
@@ -236,6 +234,29 @@ func (s *Server) GetHealth(ctx context.Context, _ GetHealthRequestObject) (GetHe
 		Status    HealthReportIntegrationsStatus `json:"status"`
 		Type      string                         `json:"type"`
 	}, 0)
+	if rows, err := s.store.ListIntegrations(ctx); err == nil {
+		for _, row := range rows {
+			status := HealthReportIntegrationsStatus("unreachable")
+			switch row.Status {
+			case "connected":
+				status = "connected"
+			case "degraded":
+				status = "degraded"
+			}
+			entry := struct {
+				Id        uuid.UUID                      `json:"id"`
+				LastError *string                        `json:"lastError,omitempty"`
+				Name      string                         `json:"name"`
+				Status    HealthReportIntegrationsStatus `json:"status"`
+				Type      string                         `json:"type"`
+			}{Id: row.ID, Name: row.Name, Status: status, Type: row.Type}
+			if row.StatusMessage != "" {
+				msg := row.StatusMessage
+				entry.LastError = &msg
+			}
+			report.Integrations = append(report.Integrations, entry)
+		}
+	}
 
 	dbStart := time.Now()
 	var sizeBytes int64

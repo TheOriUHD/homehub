@@ -18,10 +18,13 @@ import (
 	"github.com/TheOriUHD/homehub/internal/audit"
 	"github.com/TheOriUHD/homehub/internal/auth"
 	"github.com/TheOriUHD/homehub/internal/httpctx"
+	"github.com/TheOriUHD/homehub/internal/integration"
 	"github.com/TheOriUHD/homehub/internal/jobs"
+	"github.com/TheOriUHD/homehub/internal/metrics"
 	"github.com/TheOriUHD/homehub/internal/rbac"
 	"github.com/TheOriUHD/homehub/internal/settings"
 	"github.com/TheOriUHD/homehub/internal/store"
+	"github.com/TheOriUHD/homehub/internal/term"
 	"github.com/TheOriUHD/homehub/internal/vault"
 	"github.com/TheOriUHD/homehub/internal/ws"
 )
@@ -33,42 +36,61 @@ const SessionCookie = "homehub_session"
 // Resource paths for the app's own administrative surfaces. These flow
 // through the same RBAC engine as integration resources.
 const (
-	ResUsers    = "system/users"
-	ResRoles    = "system/roles"
-	ResSettings = "system/settings"
-	ResAudit    = "system/audit"
-	ResHealth   = "system/health"
+	ResUsers        = "system/users"
+	ResRoles        = "system/roles"
+	ResSettings     = "system/settings"
+	ResAudit        = "system/audit"
+	ResHealth       = "system/health"
+	ResIntegrations = "system/integrations"
 )
 
 type Server struct {
-	store    *store.Store
-	auth     *auth.Service
-	rbac     *rbac.Engine
-	audit    *audit.Service
-	settings *settings.Service
-	jobs     *jobs.Engine
-	hub      *ws.Hub
-	vault    *vault.Vault
-	logger   *slog.Logger
-	started  time.Time
+	store        *store.Store
+	auth         *auth.Service
+	rbac         *rbac.Engine
+	audit        *audit.Service
+	settings     *settings.Service
+	jobs         *jobs.Engine
+	hub          *ws.Hub
+	vault        *vault.Vault
+	integrations *integration.Manager
+	metrics      *metrics.Service
+	term         *term.Manager
+	logger       *slog.Logger
+	started      time.Time
 }
 
 var _ StrictServerInterface = (*Server)(nil)
 
 func NewServer(st *store.Store, authSvc *auth.Service, engine *rbac.Engine, aud *audit.Service,
-	set *settings.Service, jobEngine *jobs.Engine, hub *ws.Hub, v *vault.Vault, logger *slog.Logger) *Server {
+	set *settings.Service, jobEngine *jobs.Engine, hub *ws.Hub, v *vault.Vault,
+	integrations *integration.Manager, metricsSvc *metrics.Service, termMgr *term.Manager,
+	logger *slog.Logger) *Server {
 	return &Server{
-		store:    st,
-		auth:     authSvc,
-		rbac:     engine,
-		audit:    aud,
-		settings: set,
-		jobs:     jobEngine,
-		hub:      hub,
-		vault:    v,
-		logger:   logger.With("component", "api"),
-		started:  time.Now(),
+		store:        st,
+		auth:         authSvc,
+		rbac:         engine,
+		audit:        aud,
+		settings:     set,
+		jobs:         jobEngine,
+		hub:          hub,
+		vault:        v,
+		integrations: integrations,
+		metrics:      metricsSvc,
+		term:         termMgr,
+		logger:       logger.With("component", "api"),
+		started:      time.Now(),
 	}
+}
+
+// visibleUnder wraps the engine's subtree visibility check, failing closed.
+func (s *Server) visibleUnder(ctx context.Context, id *httpctx.Identity, prefix string) bool {
+	ok, err := s.rbac.VisibleUnder(ctx, principal(id), prefix)
+	if err != nil {
+		s.logger.Error("visibility evaluation failed", "prefix", prefix, "error", err)
+		return false
+	}
+	return ok
 }
 
 // ---- request helpers -------------------------------------------------------

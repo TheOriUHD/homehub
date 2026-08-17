@@ -1,0 +1,154 @@
+package api
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"time"
+
+	"github.com/TheOriUHD/homehub/internal/httpctx"
+	"github.com/TheOriUHD/homehub/internal/rbac"
+	"github.com/TheOriUHD/homehub/internal/store"
+)
+
+// ---- SSH credentials (per resource) ---------------------------------------
+
+func (s *Server) GetSSHCredential(ctx context.Context, req GetSSHCredentialRequestObject) (GetSSHCredentialResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	if !s.can(ctx, id, req.Params.Resource, rbac.LevelView) {
+		return GetSSHCredential403JSONResponse{forbidden()}, nil
+	}
+	cred, err := s.store.GetSSHCredential(ctx, req.Params.Resource)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return GetSSHCredential404JSONResponse{notFoundErr("SSH credential")}, nil
+		}
+		return nil, err
+	}
+	return GetSSHCredential200JSONResponse(toAPISSHCredential(cred)), nil
+}
+
+func (s *Server) PutSSHCredential(ctx context.Context, req PutSSHCredentialRequestObject) (PutSSHCredentialResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	resource := strings.TrimSpace(req.Body.Resource)
+	if !s.can(ctx, id, resource, rbac.LevelConfigure) {
+		s.deniedAudit(ctx, id, "resource.ssh_credential", resource)
+		return PutSSHCredential403JSONResponse{forbidden()}, nil
+	}
+	if !rbac.ValidSelector(resource) || strings.Contains(resource, "*") {
+		return PutSSHCredential400JSONResponse{BadRequestJSONResponse(errBody("invalid_resource", "resource must be a concrete path"))}, nil
+	}
+	host := ""
+	if req.Body.Host != nil {
+		host = strings.TrimSpace(*req.Body.Host)
+	}
+	if host == "" {
+		return PutSSHCredential400JSONResponse{BadRequestJSONResponse(errBody("host_required", "a hostname or IP is required"))}, nil
+	}
+	port := 22
+	if req.Body.Port != nil {
+		port = *req.Body.Port
+	}
+
+	// A fresh credential needs a secret; an update may keep the stored one.
+	hasStored := true
+	if _, err := s.store.GetSSHCredential(ctx, resource); errors.Is(err, store.ErrNotFound) {
+		hasStored = false
+	}
+	secret := ""
+	if req.Body.Secret != nil {
+		secret = *req.Body.Secret
+	}
+	if secret == "" && !hasStored {
+		return PutSSHCredential400JSONResponse{BadRequestJSONResponse(errBody("secret_required", "a password or private key is required"))}, nil
+	}
+
+	if err := s.store.UpsertSSHCredential(ctx, &store.SSHCredential{
+		Resource: resource,
+		Host:     host,
+		Port:     port,
+		Username: req.Body.Username,
+		AuthType: string(req.Body.AuthType),
+	}); err != nil {
+		return nil, err
+	}
+	if secret != "" {
+		if err := s.vault.Seal(ctx, "ssh", resource, []byte(secret)); err != nil {
+			return nil, err
+		}
+	}
+	s.audit.Log(ctx, actorFor(id), "resource.ssh_credential", resource, "success",
+		map[string]any{"username": req.Body.Username, "authType": req.Body.AuthType})
+
+	cred, err := s.store.GetSSHCredential(ctx, resource)
+	if err != nil {
+		return nil, err
+	}
+	return PutSSHCredential200JSONResponse(toAPISSHCredential(cred)), nil
+}
+
+func (s *Server) DeleteSSHCredential(ctx context.Context, req DeleteSSHCredentialRequestObject) (DeleteSSHCredentialResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	resource := req.Params.Resource
+	if !s.can(ctx, id, resource, rbac.LevelConfigure) {
+		s.deniedAudit(ctx, id, "resource.ssh_credential_delete", resource)
+		return DeleteSSHCredential403JSONResponse{forbidden()}, nil
+	}
+	if err := s.store.DeleteSSHCredential(ctx, resource); err != nil {
+		return nil, err
+	}
+	if err := s.vault.Delete(ctx, "ssh", resource); err != nil {
+		s.logger.Error("delete ssh secret", "resource", resource, "error", err)
+	}
+	s.audit.Log(ctx, actorFor(id), "resource.ssh_credential_delete", resource, "success", nil)
+	return DeleteSSHCredential204Response{}, nil
+}
+
+func toAPISSHCredential(cred *store.SSHCredential) SSHCredentialInfo {
+	return SSHCredentialInfo{
+		Resource:  cred.Resource,
+		Host:      cred.Host,
+		Port:      cred.Port,
+		Username:  cred.Username,
+		AuthType:  SSHCredentialInfoAuthType(cred.AuthType),
+		UpdatedAt: cred.UpdatedAt,
+	}
+}
+
+// ---- metrics ---------------------------------------------------------------
+
+func (s *Server) QueryMetrics(ctx context.Context, req QueryMetricsRequestObject) (QueryMetricsResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	if !s.can(ctx, id, req.Params.Resource, rbac.LevelView) {
+		return QueryMetrics403JSONResponse{forbidden()}, nil
+	}
+	points, err := s.metrics.Query(ctx, req.Params.Resource, req.Params.Metric, req.Params.From, req.Params.To)
+	if err != nil {
+		return nil, err
+	}
+	type pointRow = struct {
+		Avg float32   `json:"avg"`
+		Max float32   `json:"max"`
+		Min float32   `json:"min"`
+		Ts  time.Time `json:"ts"`
+	}
+	out := QueryMetrics200JSONResponse{Points: make([]pointRow, 0, len(points))}
+	for _, p := range points {
+		out.Points = append(out.Points, pointRow{
+			Avg: float32(p.Avg), Max: float32(p.Max), Min: float32(p.Min), Ts: p.TS,
+		})
+	}
+	return out, nil
+}

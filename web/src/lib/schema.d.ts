@@ -675,6 +675,489 @@ export interface paths {
         patch: operations["updateSettings"];
         trace?: never;
     };
+    "/integration-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Integration types available to add */
+        get: operations["listIntegrationTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List configured integrations
+         * @description Filtered to instances the caller may see (any grant on or beneath the instance).
+         */
+        get: operations["listIntegrations"];
+        put?: never;
+        /**
+         * Add an integration
+         * @description Secrets are stored encrypted and never returned. Test first with /integrations/test.
+         */
+        post: operations["createIntegration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test a connection before saving */
+        post: operations["testIntegrationConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an integration */
+        get: operations["getIntegration"];
+        put?: never;
+        post?: never;
+        /** Remove an integration and its stored secrets */
+        delete: operations["deleteIntegration"];
+        options?: never;
+        head?: never;
+        /**
+         * Update name, config, secrets, or enabled state
+         * @description The connection reloads live; no restart, no interruption elsewhere.
+         */
+        patch: operations["updateIntegration"];
+        trace?: never;
+    };
+    "/integrations/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Re-test an existing integration */
+        post: operations["testIntegration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cluster and node overview */
+        get: operations["pveSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/guests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * All VMs and containers
+         * @description Filtered per guest by the caller's view permission.
+         */
+        get: operations["pveListGuests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/guests/{vmid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Guest status and configuration */
+        get: operations["pveGetGuest"];
+        put?: never;
+        post?: never;
+        /** Delete a guest */
+        delete: operations["pveDeleteGuest"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/guests/{vmid}/action": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start, stop, shutdown, reboot, suspend, or resume */
+        post: operations["pveGuestAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/guests/{vmid}/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit guest hardware and options
+         * @description Accepts raw Proxmox config keys (cores, memory, name, netN, onboot, …) exactly as the API defines them.
+         */
+        put: operations["pveSetGuestConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/guests/{vmid}/migrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Migrate a guest to another node */
+        post: operations["pveMigrateGuest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/guests/{vmid}/clone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clone a guest or template */
+        post: operations["pveCloneGuest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/guests/{vmid}/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List snapshots */
+        get: operations["pveListSnapshots"];
+        put?: never;
+        /** Take a snapshot */
+        post: operations["pveCreateSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/guests/{vmid}/snapshots/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a snapshot */
+        delete: operations["pveDeleteSnapshot"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/guests/{vmid}/snapshots/{name}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Roll back to a snapshot
+         * @description The guest's current state is replaced by the snapshot. This cannot be undone.
+         */
+        post: operations["pveRollbackSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/guests/{vmid}/backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Back up a guest now (vzdump) */
+        post: operations["pveBackupGuest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/guests/{vmid}/console": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a VNC or serial console session
+         * @description Returns a one-time WebSocket path; connect within 30 seconds. VNC sessions speak RFB (noVNC-compatible); serial sessions use the terminal protocol described for /api/ws.
+         */
+        post: operations["pveOpenConsole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/guests/{vmid}/ssh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open an SSH terminal to the guest
+         * @description Uses the SSH credential stored for this guest (see /resources/ssh). 400 when none is configured.
+         */
+        post: operations["pveOpenSSH"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run one action across selected guests
+         * @description Permission is checked per guest; unauthorized guests fail individually without aborting the rest.
+         */
+        post: operations["pveBulkAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent tasks across all nodes */
+        get: operations["pveListTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/tasks/{node}/{upid}/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Task status and log */
+        get: operations["pveTaskLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Storage pools with usage */
+        get: operations["pveListStorage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/backup-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scheduled vzdump jobs */
+        get: operations["pveListBackupJobs"];
+        put?: never;
+        /** Create a scheduled vzdump job */
+        post: operations["pveCreateBackupJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proxmox/{id}/backup-jobs/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a scheduled vzdump job */
+        put: operations["pveUpdateBackupJob"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/resources/ssh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * SSH credential metadata for a resource
+         * @description The secret itself is never returned.
+         */
+        get: operations["getSSHCredential"];
+        /** Store SSH access for a resource */
+        put: operations["putSSHCredential"];
+        post?: never;
+        /** Remove SSH access for a resource */
+        delete: operations["deleteSSHCredential"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/metrics/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Historical metric points for one resource metric
+         * @description Tier (raw, 5-minute, hourly) is chosen automatically from the time span.
+         */
+        get: operations["queryMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -859,6 +1342,184 @@ export interface components {
             appUrl: string;
             sessionTtlHours: number;
         };
+        IntegrationType: {
+            id: string;
+            name: string;
+            description: string;
+            secretNames: string[];
+        };
+        Integration: {
+            /** Format: uuid */
+            id: string;
+            type: string;
+            name: string;
+            config: {
+                [key: string]: unknown;
+            };
+            enabled: boolean;
+            /** @enum {string} */
+            status: "pending" | "connecting" | "connected" | "degraded" | "unreachable" | "disabled";
+            statusMessage: string;
+            /** Format: date-time */
+            statusChangedAt: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        TestConnectionResult: {
+            ok: boolean;
+            message: string;
+            detail?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @enum {string} */
+        PveGuestAction: "start" | "stop" | "shutdown" | "reboot" | "suspend" | "resume";
+        PveTaskRef: {
+            upid: string;
+            node: string;
+        };
+        PveSummary: {
+            clusterName: string;
+            quorate: boolean | null;
+            nodes: components["schemas"]["PveNode"][];
+            /** Format: int64 */
+            storageUsedBytes: number;
+            /** Format: int64 */
+            storageTotalBytes: number;
+        };
+        PveNode: {
+            name: string;
+            status: string;
+            /** @description Load as a 0..1 fraction of all cores */
+            cpu: number;
+            maxCpu: number;
+            /** Format: int64 */
+            memBytes: number;
+            /** Format: int64 */
+            maxMemBytes: number;
+            /** Format: int64 */
+            uptimeSeconds: number;
+            pveVersion?: string;
+        };
+        PveGuest: {
+            vmid: number;
+            name: string;
+            /** @enum {string} */
+            kind: "qemu" | "lxc";
+            node: string;
+            status: string;
+            cpu: number;
+            maxCpu: number;
+            /** Format: int64 */
+            memBytes: number;
+            /** Format: int64 */
+            maxMemBytes: number;
+            /** Format: int64 */
+            diskBytes: number;
+            /** Format: int64 */
+            maxDiskBytes: number;
+            /** Format: int64 */
+            uptimeSeconds: number;
+            template: boolean;
+            tags?: string;
+        };
+        PveGuestDetail: {
+            guest: components["schemas"]["PveGuest"];
+            /** @description Raw Proxmox configuration keys as the API reports them */
+            config: {
+                [key: string]: unknown;
+            };
+        };
+        PveSnapshot: {
+            name: string;
+            description: string;
+            /** Format: date-time */
+            snaptime?: string | null;
+            vmstate: boolean;
+        };
+        PveTask: {
+            upid: string;
+            node: string;
+            type: string;
+            id: string;
+            user: string;
+            running: boolean;
+            exitStatus?: string | null;
+            /** Format: date-time */
+            startTime: string;
+            /** Format: date-time */
+            endTime?: string | null;
+        };
+        PveTaskDetail: {
+            task: components["schemas"]["PveTask"];
+            lines: string[];
+        };
+        PveStorage: {
+            storage: string;
+            node: string;
+            type: string;
+            content: string;
+            active: boolean;
+            /** Format: int64 */
+            usedBytes: number;
+            /** Format: int64 */
+            totalBytes: number;
+        };
+        PveBackupJob: {
+            id: string;
+            schedule: string;
+            storage: string;
+            mode: string;
+            enabled: boolean;
+            /** @description Comma-separated vmid list, or empty for all */
+            vmids: string;
+        };
+        PveBackupJobSpec: {
+            /** @description Proxmox calendar event, e.g. "02:30" or "sat 03:00" */
+            schedule: string;
+            storage: string;
+            /**
+             * @default snapshot
+             * @enum {string}
+             */
+            mode: "snapshot" | "suspend" | "stop";
+            /** @default true */
+            enabled: boolean;
+            vmids: string;
+        };
+        PveBulkResult: {
+            results: {
+                vmid: number;
+                upid?: string | null;
+                error?: string | null;
+            }[];
+        };
+        TermSession: {
+            sessionId: string;
+            /** @description One-time WebSocket path, valid for 30 seconds */
+            wsPath: string;
+            /** @description For VNC sessions, the one-time password noVNC must answer RFB authentication with */
+            credential?: string | null;
+        };
+        SSHCredentialInfo: {
+            resource: string;
+            host: string;
+            port: number;
+            username: string;
+            /** @enum {string} */
+            authType: "password" | "key";
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        MetricQueryResult: {
+            points: {
+                /** Format: date-time */
+                ts: string;
+                avg: number;
+                min: number;
+                max: number;
+            }[];
+        };
     };
     responses: {
         /** @description Authenticated — session cookie set */
@@ -926,9 +1587,28 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description The upstream system rejected or failed the request; message carries its actual error */
+        UpstreamError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The upstream accepted the operation as an asynchronous task */
+        TaskStarted: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PveTaskRef"];
+            };
+        };
     };
     parameters: {
         idParam: string;
+        vmidParam: number;
     };
     requestBodies: never;
     headers: never;
@@ -2122,6 +2802,917 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listIntegrationTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Registered integration types */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationType"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listIntegrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Configured instances */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integration"][];
+                };
+            };
+        };
+    };
+    createIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    type: string;
+                    name: string;
+                    config: {
+                        [key: string]: unknown;
+                    };
+                    secrets?: {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Created instance (connection supervision starts immediately) */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integration"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    testIntegrationConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    type: string;
+                    config: {
+                        [key: string]: unknown;
+                    };
+                    secrets?: {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Test outcome with a specific, actionable message */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestConnectionResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instance detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integration"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    config?: {
+                        [key: string]: unknown;
+                    };
+                    /** @description Only provided keys are replaced */
+                    secrets?: {
+                        [key: string]: string;
+                    };
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated instance */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integration"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    testIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Test outcome */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestConnectionResult"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    pveSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cluster status, nodes, and storage totals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PveSummary"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveListGuests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Guests across all nodes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PveGuest"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveGetGuest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Guest detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PveGuestDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveDeleteGuest: {
+        parameters: {
+            query?: {
+                purge?: boolean;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["TaskStarted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveGuestAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    action: components["schemas"]["PveGuestAction"];
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["TaskStarted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveSetGuestConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    changes: {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Configuration applied */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveMigrateGuest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    target: string;
+                    /** @default false */
+                    online?: boolean;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["TaskStarted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveCloneGuest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    newid: number;
+                    name?: string;
+                    /** @default false */
+                    full?: boolean;
+                    target?: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["TaskStarted"];
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveListSnapshots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Snapshots, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PveSnapshot"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveCreateSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string;
+                    /** @default false */
+                    vmstate?: boolean;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["TaskStarted"];
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveDeleteSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["TaskStarted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveRollbackSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["TaskStarted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveBackupGuest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    storage: string;
+                    /**
+                     * @default snapshot
+                     * @enum {string}
+                     */
+                    mode?: "snapshot" | "suspend" | "stop";
+                    /**
+                     * @default zstd
+                     * @enum {string}
+                     */
+                    compress?: "zstd" | "gzip" | "lzo" | "0";
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["TaskStarted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveOpenConsole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind: "vnc" | "serial";
+                };
+            };
+        };
+        responses: {
+            /** @description Session created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermSession"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveOpenSSH: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                vmid: components["parameters"]["vmidParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermSession"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    pveBulkAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    vmids: number[];
+                    action: components["schemas"]["PveGuestAction"];
+                };
+            };
+        };
+        responses: {
+            /** @description Per-guest outcomes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PveBulkResult"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    pveListTasks: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tasks, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PveTask"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveTaskLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                node: string;
+                upid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task state with log lines */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PveTaskDetail"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveListStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Storage per node */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PveStorage"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveListBackupJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Backup jobs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PveBackupJob"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveCreateBackupJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PveBackupJobSpec"];
+            };
+        };
+        responses: {
+            /** @description Job created */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    pveUpdateBackupJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PveBackupJobSpec"];
+            };
+        };
+        responses: {
+            /** @description Job updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    getSSHCredential: {
+        parameters: {
+            query: {
+                resource: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stored credential metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHCredentialInfo"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putSSHCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    resource: string;
+                    /** @description Hostname or IP; required until guest-agent address discovery lands */
+                    host?: string;
+                    /** @default 22 */
+                    port?: number;
+                    username: string;
+                    /** @enum {string} */
+                    authType: "password" | "key";
+                    /** @description Password or PEM private key; omit to keep the stored secret */
+                    secret?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Stored credential metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHCredentialInfo"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteSSHCredential: {
+        parameters: {
+            query: {
+                resource: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    queryMetrics: {
+        parameters: {
+            query: {
+                resource: string;
+                metric: string;
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Time-ordered points */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricQueryResult"];
+                };
+            };
             403: components["responses"]["Forbidden"];
         };
     };
