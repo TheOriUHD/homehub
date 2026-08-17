@@ -21,8 +21,18 @@ type StateListener = (state: LiveState) => void;
 export type WsUrlProvider = (useSub: boolean) => Promise<string>;
 
 const WEBRTC_TIMEOUT_MS = 5_000;
+const MSE_FIRST_DATA_TIMEOUT_MS = 9_000;
 const STALL_TIMEOUT_MS = 8_000;
 const MAX_BACKOFF_MS = 15_000;
+/** Seconds of MSE history kept behind the live edge; everything older is
+ * removed so the SourceBuffer never hits the browser's quota. */
+const MSE_LIVE_WINDOW_S = 5;
+
+/** iPhone Safari only exposes MSE through ManagedMediaSource (iOS 17+),
+ * which attaches via srcObject instead of an object URL. */
+type MSWindow = Window & { ManagedMediaSource?: typeof MediaSource };
+const managedMediaSource = () =>
+  typeof window === "undefined" ? undefined : (window as unknown as MSWindow).ManagedMediaSource;
 const MSE_CODECS =
   'avc1.640029,avc1.64002A,avc1.640033,hvc1.1.6.L153.B0,mp4a.40.2,mp4a.40.5,flac,opus';
 
@@ -88,9 +98,29 @@ export class LiveEngine {
     void this.connect();
   }
 
-  /** Nudge playback — call when the tab becomes visible again. */
-  nudge() {
+  /** Foreground return: nudge autoplay, then verify the picture actually
+   * advances — iOS suspends WebRTC in background tabs and the stream comes
+   * back frozen. A frozen stream reconnects immediately instead of waiting
+   * for the slow stall watchdog. */
+  resumeCheck() {
+    if (this.stopped) return;
     void this.video.play().catch(() => {});
+    if (this.state.phase !== "playing") return;
+    const t = this.video.currentTime;
+    window.setTimeout(() => {
+      if (this.stopped || this.state.phase !== "playing") return;
+      if (this.video.currentTime === t && !this.video.paused) this.restart();
+    }, 700);
+  }
+
+  /** Clean reconnect without an error tile — for recoveries the viewer
+   * should not be bothered with (foreground return). */
+  private restart() {
+    if (this.stopped) return;
+    this.teardownConnection();
+    this.transport = "webrtc";
+    this.setState({ phase: "connecting" });
+    void this.connect();
   }
 
   stop() {
@@ -205,6 +235,10 @@ export class LiveEngine {
 
   private startMSE(ws: WebSocket) {
     ws.send(JSON.stringify({ type: "mse", value: MSE_CODECS }));
+    // The socket being open proves nothing — data has to arrive.
+    this.webrtcTimer = window.setTimeout(() => {
+      if (this.state.phase !== "playing") this.fail("the stream sent no data");
+    }, MSE_FIRST_DATA_TIMEOUT_MS);
   }
 
   private handleSignal(ws: WebSocket, raw: string) {
@@ -244,7 +278,7 @@ export class LiveEngine {
 
   private fallbackToMSE() {
     if (this.stopped || this.transport === "mse") return;
-    if (typeof MediaSource === "undefined") {
+    if (typeof MediaSource === "undefined" && !managedMediaSource()) {
       this.fail("live video is not supported in this browser");
       return;
     }
@@ -253,24 +287,51 @@ export class LiveEngine {
   }
 
   private openMediaSource(mime: string) {
-    const ms = new MediaSource();
+    const MMS = managedMediaSource();
+    const ms = new (MMS ?? MediaSource)();
     this.mediaSource = ms;
     this.video.srcObject = null;
-    this.video.src = URL.createObjectURL(ms);
     ms.addEventListener("sourceopen", () => {
-      URL.revokeObjectURL(this.video.src);
+      if (this.video.src) URL.revokeObjectURL(this.video.src);
       try {
         const sb = ms.addSourceBuffer(mime);
         sb.mode = "segments";
-        sb.addEventListener("updateend", () => this.drainMSE());
+        sb.addEventListener("updateend", () => {
+          this.drainMSE();
+          this.trimMSE(sb);
+        });
         this.sourceBuffer = sb;
         this.drainMSE();
       } catch {
         this.fail(`this browser cannot play the stream (${mime})`);
       }
     });
+    if (MMS) {
+      this.video.disableRemotePlayback = true;
+      (this.video as HTMLVideoElement & { srcObject: MediaSource }).srcObject = ms;
+    } else {
+      this.video.src = URL.createObjectURL(ms);
+    }
     this.video.onplaying = () => this.onPlaying();
     void this.video.play().catch(() => {});
+  }
+
+  /** Keep only the last few seconds buffered and pin playback near the
+   * live edge — an unbounded SourceBuffer eventually throws QuotaExceeded,
+   * and a drifting one shows the past. */
+  private trimMSE(sb: SourceBuffer) {
+    if (sb !== this.sourceBuffer || sb.updating || sb.buffered.length === 0) return;
+    const end = sb.buffered.end(sb.buffered.length - 1);
+    const start = sb.buffered.start(0);
+    const liveStart = end - MSE_LIVE_WINDOW_S;
+    if (liveStart > start) {
+      try {
+        sb.remove(start, liveStart);
+      } catch {
+        /* transient; retried on the next updateend */
+      }
+    }
+    if (this.video.currentTime < liveStart) this.video.currentTime = end - 0.4;
   }
 
   private appendMSE(chunk: ArrayBuffer) {
@@ -300,6 +361,11 @@ export class LiveEngine {
     if (this.stallTimer) window.clearInterval(this.stallTimer);
     this.stallTimer = window.setInterval(() => {
       if (document.hidden) return; // background tabs legitimately pause
+      if (this.video.paused) {
+        // Paused is autoplay policy, not a dead stream — nudge, don't fail.
+        void this.video.play().catch(() => {});
+        return;
+      }
       const t = this.video.currentTime;
       if (t === this.lastTime) {
         this.fail("the stream stalled");
@@ -378,11 +444,12 @@ export function releaseLive(key: string) {
   }, IDLE_RELEASE_MS);
 }
 
-// iOS suspends WebRTC in background tabs — nudge everything on return.
+// iOS suspends WebRTC in background tabs — on return, nudge every stream
+// and reconnect any whose picture stays frozen.
 if (typeof document !== "undefined") {
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
-      for (const entry of pool.values()) entry.engine.nudge();
+      for (const entry of pool.values()) entry.engine.resumeCheck();
     }
   });
 }
