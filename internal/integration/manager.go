@@ -198,7 +198,9 @@ func (m *Manager) run(ctx context.Context, r *runner, d Driver, inst Instance) {
 			return string(raw), nil
 		},
 		Publish: func(event string, data any) {
-			m.hub.Publish("integration:"+inst.ID.String(), map[string]any{"event": event, "data": data})
+			// Topic carries the resource path ("integration:<type>/<id>") so
+			// subscription authorization maps straight onto RBAC visibility.
+			m.hub.Publish("integration:"+inst.ResourcePath(), map[string]any{"event": event, "data": data})
 		},
 	}
 

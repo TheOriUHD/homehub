@@ -1008,6 +1008,189 @@
       }
     }
   },
+  "ha": {
+    "title": "Home Assistant",
+    "versionShort": "v{{version}}",
+    "entityCount_one": "{{count}} entity",
+    "entityCount_other": "{{count}} entities",
+    "unreachableBanner": "This Home Assistant instance is unreachable: {{message}}",
+    "degradedBanner": "Degraded: {{message}}",
+    "serviceError": "Service call failed",
+    "tabs": {
+      "dashboard": "Dashboard",
+      "automations": "Automations"
+    },
+    "searchPlaceholder": "Search entities…",
+    "areaFilter": "Area",
+    "allAreas": "All areas",
+    "noArea": "No area",
+    "empty": {
+      "title": "No entities",
+      "body": "Nothing is visible here yet. Entities appear once Home Assistant reports them and your role can see them."
+    },
+    "noMatches": {
+      "title": "No matching entities",
+      "body": "Nothing matches the current search and filters. Clear them to see everything again."
+    },
+    "state": {
+      "on": "On",
+      "off": "Off",
+      "unknown": "Unknown",
+      "unavailable": "Unavailable"
+    },
+    "light": {
+      "brightness": "Brightness"
+    },
+    "cover": {
+      "open": "Open",
+      "close": "Close",
+      "stop": "Stop",
+      "position": "Position"
+    },
+    "lock": {
+      "lock": "Lock",
+      "unlock": "Unlock"
+    },
+    "media": {
+      "playPause": "Play / pause",
+      "volume": "Volume"
+    },
+    "scene": {
+      "activate": "Activate"
+    },
+    "script": {
+      "run": "Run"
+    },
+    "buttonEntity": {
+      "press": "Press"
+    },
+    "vacuum": {
+      "start": "Start",
+      "pause": "Pause",
+      "returnToBase": "Return to base"
+    },
+    "alarm": {
+      "armHome": "Arm home",
+      "armAway": "Arm away",
+      "disarm": "Disarm"
+    },
+    "climate": {
+      "currentTemp": "Current",
+      "decrease": "Lower target temperature",
+      "increase": "Raise target temperature",
+      "hvacMode": "Mode"
+    },
+    "hvacMode": {
+      "off": "Off",
+      "heat": "Heat",
+      "cool": "Cool",
+      "heat_cool": "Heat/Cool",
+      "auto": "Auto",
+      "dry": "Dry",
+      "fan_only": "Fan only"
+    },
+    "binaryClass": {
+      "battery": {
+        "on": "Low",
+        "off": "Normal"
+      },
+      "battery_charging": {
+        "on": "Charging",
+        "off": "Not charging"
+      },
+      "connectivity": {
+        "on": "Connected",
+        "off": "Disconnected"
+      },
+      "door": {
+        "on": "Open",
+        "off": "Closed"
+      },
+      "garage_door": {
+        "on": "Open",
+        "off": "Closed"
+      },
+      "gas": {
+        "on": "Gas detected",
+        "off": "Clear"
+      },
+      "lock": {
+        "on": "Unlocked",
+        "off": "Locked"
+      },
+      "moisture": {
+        "on": "Wet",
+        "off": "Dry"
+      },
+      "motion": {
+        "on": "Motion",
+        "off": "Clear"
+      },
+      "occupancy": {
+        "on": "Occupied",
+        "off": "Clear"
+      },
+      "opening": {
+        "on": "Open",
+        "off": "Closed"
+      },
+      "plug": {
+        "on": "Plugged in",
+        "off": "Unplugged"
+      },
+      "power": {
+        "on": "Power",
+        "off": "No power"
+      },
+      "presence": {
+        "on": "Home",
+        "off": "Away"
+      },
+      "problem": {
+        "on": "Problem",
+        "off": "OK"
+      },
+      "safety": {
+        "on": "Unsafe",
+        "off": "Safe"
+      },
+      "smoke": {
+        "on": "Smoke detected",
+        "off": "Clear"
+      },
+      "tamper": {
+        "on": "Tampered",
+        "off": "Clear"
+      },
+      "window": {
+        "on": "Open",
+        "off": "Closed"
+      }
+    },
+    "automations": {
+      "title": "Automations",
+      "scenes": "Scenes",
+      "scripts": "Scripts",
+      "triggerNow": "Trigger now",
+      "running": "Running",
+      "lastTriggered": "Last triggered {{time}}",
+      "lastActivated": "Last activated {{time}}",
+      "neverTriggered": "Never triggered",
+      "empty": {
+        "title": "No automations",
+        "body": "Automations, scenes, and scripts from Home Assistant show up here once your role can see them."
+      }
+    },
+    "detail": {
+      "lastChanged": "Changed {{time}}",
+      "lastUpdated": "Updated {{time}}",
+      "attributes": "Attributes",
+      "noAttributes": "This entity reports no attributes.",
+      "attributeKey": "Attribute",
+      "attributeValue": "Value",
+      "noHistory": "No recorded history for this entity yet."
+    }
+  },
   "history": {
     "title": "History",
     "subtitle": "Any metric, any timeframe — compared on one chart.",

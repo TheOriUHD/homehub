@@ -1693,6 +1693,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ha/instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * All Home Assistant instances
+         * @description Every enabled Home Assistant instance the caller may see, with live overview data when connected.
+         */
+        get: operations["haListInstances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ha/{id}/entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Entities with live state
+         * @description The joined registry + state view, filtered to entities the caller may view. Areas the caller cannot see any entity in are absent from the area list.
+         */
+        get: operations["haListEntities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ha/{id}/entities/{entityId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One entity */
+        get: operations["haGetEntity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ha/{id}/entities/{entityId}/service": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Call a service on an entity
+         * @description Invokes a service in the entity's own domain (light.turn_on, climate.set_temperature, automation.trigger, …). Requires control on the entity; the upstream service error is surfaced verbatim on failure.
+         */
+        post: operations["haCallService"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/backups/targets": {
         parameters: {
             query?: never;
@@ -2703,6 +2780,52 @@ export interface components {
             /** Format: date-time */
             until?: string | null;
         };
+        HaInstance: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            status: "pending" | "connecting" | "connected" | "degraded" | "unreachable" | "disabled";
+            statusMessage: string;
+            /** @description Entities visible to the caller, 0 while disconnected */
+            entityCount: number;
+            info?: components["schemas"]["HaInfo"] | null;
+        };
+        HaInfo: {
+            version: string;
+            locationName: string;
+            timeZone?: string;
+            country?: string;
+        };
+        HaArea: {
+            id: string;
+            name: string;
+        };
+        HaEntity: {
+            entityId: string;
+            domain: string;
+            objectId: string;
+            name: string;
+            areaId?: string;
+            /** @description config or diagnostic for registry-categorized entities, absent for primary entities */
+            category?: string;
+            state: string;
+            attributes: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            lastChanged: string;
+            /** Format: date-time */
+            lastUpdated: string;
+        };
+        HaServiceCall: {
+            /** @description Service name within the entity's domain, e.g. turn_on */
+            service: string;
+            /** @description Service data, e.g. {"brightness": 200} */
+            data?: {
+                [key: string]: unknown;
+            };
+        };
         DnsInstance: {
             /** Format: uuid */
             id: string;
@@ -2870,6 +2993,8 @@ export interface components {
     };
     parameters: {
         idParam: string;
+        /** @description Home Assistant entity id, e.g. light.kitchen */
+        haEntityId: string;
         vmidParam: number;
         containerName: string;
     };
@@ -5900,6 +6025,112 @@ export interface operations {
                 content?: never;
             };
             403: components["responses"]["Forbidden"];
+        };
+    };
+    haListInstances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Visible instances */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HaInstance"][];
+                };
+            };
+        };
+    };
+    haListEntities: {
+        parameters: {
+            query?: {
+                /** @description Restrict to one domain, e.g. light */
+                domain?: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entities and the areas they resolve to */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        entities: components["schemas"]["HaEntity"][];
+                        areas: components["schemas"]["HaArea"][];
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    haGetEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                /** @description Home Assistant entity id, e.g. light.kitchen */
+                entityId: components["parameters"]["haEntityId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HaEntity"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    haCallService: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                /** @description Home Assistant entity id, e.g. light.kitchen */
+                entityId: components["parameters"]["haEntityId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HaServiceCall"];
+            };
+        };
+        responses: {
+            /** @description Service call accepted by Home Assistant */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
         };
     };
     listBackupTargets: {
