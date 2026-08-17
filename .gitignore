@@ -1,0 +1,14 @@
+# build outputs
+/bin/
+/web/dist/
+/web/node_modules/
+
+# local dev state
+/data/
+*.log
+
+# editor noise
+.idea/
+.vscode/
+*.swp
+.DS_Store

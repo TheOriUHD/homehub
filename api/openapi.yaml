@@ -1,0 +1,1369 @@
+openapi: 3.0.3
+info:
+  title: HomeHub API
+  version: 0.1.0
+  description: |
+    The HomeHub internal API. The web frontend consumes exactly this API —
+    every capability in the UI is available here with the same permission
+    checks, enforced server-side per request.
+
+    **Authentication** uses an opaque session cookie (`homehub_session`)
+    obtained from the login endpoints. State-changing requests must originate
+    from the app's own origin (checked via `Origin`/`Sec-Fetch-Site`).
+
+    **Real-time** updates are delivered over a single multiplexed WebSocket at
+    `/api/ws` (not describable in OpenAPI): after connecting with the session
+    cookie, send `{"type":"subscribe","topic":"..."}` and receive
+    `{"type":"event","topic":"...","data":{...}}` frames. Topics are
+    permission-checked at subscribe time and on every delivery.
+servers:
+  - url: /api
+
+security:
+  - session: []
+
+paths:
+  /setup/status:
+    get:
+      operationId: getSetupStatus
+      summary: Whether first-run setup is required
+      security: []
+      tags: [setup]
+      responses:
+        "200":
+          description: Setup state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [needsSetup, version]
+                properties:
+                  needsSetup: { type: boolean }
+                  version: { type: string }
+
+  /setup:
+    post:
+      operationId: completeSetup
+      summary: Create the first administrator account
+      description: Only succeeds while the instance has zero users. Signs the new administrator in.
+      security: []
+      tags: [setup]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, displayName]
+              properties:
+                username: { type: string, minLength: 3, maxLength: 64 }
+                password: { type: string, minLength: 12, maxLength: 512 }
+                displayName: { type: string, minLength: 1, maxLength: 128 }
+                appUrl:
+                  type: string
+                  description: External base URL of this installation, used for invite links and passkeys. Defaults to the requesting origin.
+      responses:
+        "200":
+          $ref: "#/components/responses/SessionUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /auth/login:
+    post:
+      operationId: login
+      summary: Password login (step one)
+      security: []
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: Login accepted, or a second factor is required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoginResult" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "423":
+          description: Account temporarily locked after repeated failures
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/login/totp:
+    post:
+      operationId: loginTotp
+      summary: Complete login with a TOTP code
+      security: []
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mfaToken, code]
+              properties:
+                mfaToken: { type: string }
+                code: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/SessionUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/login/recovery:
+    post:
+      operationId: loginRecovery
+      summary: Complete login with a recovery code
+      description: Each recovery code works exactly once.
+      security: []
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mfaToken, code]
+              properties:
+                mfaToken: { type: string }
+                code: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/SessionUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/login/passkey/options:
+    post:
+      operationId: passkeyLoginOptions
+      summary: Begin passwordless passkey login
+      security: []
+      tags: [auth]
+      responses:
+        "200":
+          description: WebAuthn assertion options
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebauthnChallenge" }
+
+  /auth/login/passkey/verify:
+    post:
+      operationId: passkeyLoginVerify
+      summary: Finish passwordless passkey login
+      security: []
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challengeToken, credential]
+              properties:
+                challengeToken: { type: string }
+                credential: { $ref: "#/components/schemas/WebauthnPayload" }
+      responses:
+        "200":
+          $ref: "#/components/responses/SessionUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/login/mfa-passkey/options:
+    post:
+      operationId: mfaPasskeyOptions
+      summary: Begin passkey verification as a second factor
+      security: []
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mfaToken]
+              properties:
+                mfaToken: { type: string }
+      responses:
+        "200":
+          description: WebAuthn assertion options
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebauthnChallenge" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/login/mfa-passkey/verify:
+    post:
+      operationId: mfaPasskeyVerify
+      summary: Finish passkey second-factor verification
+      security: []
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mfaToken, challengeToken, credential]
+              properties:
+                mfaToken: { type: string }
+                challengeToken: { type: string }
+                credential: { $ref: "#/components/schemas/WebauthnPayload" }
+      responses:
+        "200":
+          $ref: "#/components/responses/SessionUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: End the current session
+      tags: [auth]
+      responses:
+        "204":
+          description: Session revoked
+
+  /auth/me:
+    get:
+      operationId: getMe
+      summary: Current user, effective permissions, and MFA state
+      tags: [auth]
+      responses:
+        "200":
+          description: Current identity
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/password:
+    post:
+      operationId: changePassword
+      summary: Change the current user's password
+      description: Also used to satisfy a forced password change. Revokes every other session.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 12, maxLength: 512 }
+      responses:
+        "204":
+          description: Password changed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/totp/enroll:
+    post:
+      operationId: enrollTotp
+      summary: Begin TOTP enrollment
+      description: Returns the secret and provisioning URI. Not active until confirmed.
+      tags: [auth]
+      responses:
+        "200":
+          description: Enrollment material
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [secret, otpauthUrl]
+                properties:
+                  secret: { type: string }
+                  otpauthUrl: { type: string }
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /auth/totp/confirm:
+    post:
+      operationId: confirmTotp
+      summary: Confirm TOTP enrollment with a first code
+      description: Activates TOTP and returns single-use recovery codes — shown exactly once.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+      responses:
+        "200":
+          description: TOTP active
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryCodes" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/totp/disable:
+    post:
+      operationId: disableTotp
+      summary: Disable TOTP
+      description: Requires the account password. Also deletes remaining recovery codes.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string }
+      responses:
+        "204":
+          description: TOTP disabled
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/recovery-codes:
+    post:
+      operationId: regenerateRecoveryCodes
+      summary: Regenerate recovery codes
+      description: Invalidates all previous codes. Requires the account password.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string }
+      responses:
+        "200":
+          description: Fresh recovery codes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryCodes" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/passkeys/options:
+    post:
+      operationId: passkeyRegisterOptions
+      summary: Begin passkey registration
+      tags: [auth]
+      responses:
+        "200":
+          description: WebAuthn creation options
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebauthnChallenge" }
+
+  /auth/passkeys:
+    get:
+      operationId: listPasskeys
+      summary: List the current user's passkeys
+      tags: [auth]
+      responses:
+        "200":
+          description: Registered passkeys
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Passkey" }
+    post:
+      operationId: passkeyRegisterVerify
+      summary: Finish passkey registration
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challengeToken, name, credential]
+              properties:
+                challengeToken: { type: string }
+                name: { type: string, minLength: 1, maxLength: 64 }
+                credential: { $ref: "#/components/schemas/WebauthnPayload" }
+      responses:
+        "201":
+          description: Passkey registered
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Passkey" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/passkeys/{id}:
+    patch:
+      operationId: renamePasskey
+      summary: Rename a passkey
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        "200":
+          description: Renamed passkey
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Passkey" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deletePasskey
+      summary: Remove a passkey
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Passkey removed
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /auth/sessions:
+    get:
+      operationId: listMySessions
+      summary: List the current user's active sessions
+      tags: [auth]
+      responses:
+        "200":
+          description: Active sessions, most recently used first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SessionInfo" }
+
+  /auth/sessions/revoke-others:
+    post:
+      operationId: revokeOtherSessions
+      summary: Revoke every session except the current one
+      tags: [auth]
+      responses:
+        "200":
+          description: Number of sessions revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revoked]
+                properties:
+                  revoked: { type: integer }
+
+  /auth/sessions/{id}:
+    delete:
+      operationId: revokeMySession
+      summary: Revoke one of the current user's sessions
+      tags: [auth]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Session revoked
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /auth/view-as:
+    put:
+      operationId: setViewAs
+      summary: Preview the app as a role (admins only)
+      description: Pass a role id to adopt its permissions for this session's evaluation, or null to return to normal. All actions remain audited as the real user.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roleId:
+                  type: string
+                  format: uuid
+                  nullable: true
+      responses:
+        "200":
+          description: Updated identity
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /invites/{token}:
+    get:
+      operationId: getInvite
+      summary: Inspect an invite link
+      security: []
+      tags: [users]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The account this invite activates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [username, displayName]
+                properties:
+                  username: { type: string }
+                  displayName: { type: string }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: acceptInvite
+      summary: Accept an invite and set a password
+      description: Consumes the invite, sets the account password, and signs in.
+      security: []
+      tags: [users]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, minLength: 12, maxLength: 512 }
+      responses:
+        "200":
+          $ref: "#/components/responses/SessionUser"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /users:
+    get:
+      operationId: listUsers
+      summary: List users
+      tags: [users]
+      responses:
+        "200":
+          description: All users
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/User" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createUser
+      summary: Create a user
+      description: The administrator never chooses the user's real password — the system issues an invite link or a one-time temporary password.
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, displayName, onboarding]
+              properties:
+                username: { type: string, minLength: 3, maxLength: 64 }
+                displayName: { type: string, minLength: 1, maxLength: 128 }
+                email: { type: string, format: email }
+                roleIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                onboarding:
+                  type: string
+                  enum: [invite, temp_password]
+      responses:
+        "201":
+          description: User created with onboarding material
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreateUserResult" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      summary: Get a user with roles and overrides
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: User detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserDetail" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateUser
+      summary: Update profile, status, roles, or permission overrides
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName: { type: string, minLength: 1, maxLength: 128 }
+                email: { type: string, nullable: true }
+                status: { type: string, enum: [active, disabled] }
+                roleIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                overrides:
+                  type: array
+                  items: { $ref: "#/components/schemas/GrantInput" }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserDetail" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteUser
+      summary: Delete a user
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: User deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /users/{id}/reset:
+    post:
+      operationId: resetUserCredentials
+      summary: Issue fresh onboarding credentials
+      description: Generates a new invite link or temporary password, optionally revoking the user's sessions.
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: { type: string, enum: [invite, temp_password] }
+                revokeSessions: { type: boolean, default: true }
+      responses:
+        "200":
+          description: New onboarding material
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreateUserResult" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /users/{id}/sessions:
+    get:
+      operationId: listUserSessions
+      summary: List a user's active sessions
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: The user's active sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SessionInfo" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: revokeUserSessions
+      summary: Revoke all of a user's sessions
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Number of sessions revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revoked]
+                properties:
+                  revoked: { type: integer }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /roles:
+    get:
+      operationId: listRoles
+      summary: List roles with their grants
+      tags: [roles]
+      responses:
+        "200":
+          description: All roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Role" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createRole
+      summary: Create a custom role
+      description: New roles start with exactly the grants provided — nothing is implicit.
+      tags: [roles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 64 }
+                description: { type: string, maxLength: 512 }
+                grants:
+                  type: array
+                  items: { $ref: "#/components/schemas/GrantInput" }
+      responses:
+        "201":
+          description: Created role
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Role" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /roles/{id}:
+    get:
+      operationId: getRole
+      summary: Get a role
+      tags: [roles]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Role detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Role" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateRole
+      summary: Update a role's metadata or grants
+      description: System roles cannot be edited.
+      tags: [roles]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 1, maxLength: 64 }
+                description: { type: string, maxLength: 512 }
+                grants:
+                  type: array
+                  items: { $ref: "#/components/schemas/GrantInput" }
+      responses:
+        "200":
+          description: Updated role
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Role" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteRole
+      summary: Delete a custom role
+      description: System roles cannot be deleted. Users holding only this role lose its access.
+      tags: [roles]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Role deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /audit:
+    get:
+      operationId: listAudit
+      summary: Query the audit log
+      description: Newest first with keyset pagination. Resource filters match the node and its subtree.
+      tags: [audit]
+      parameters:
+        - name: actorId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: action
+          in: query
+          schema: { type: string }
+        - name: resource
+          in: query
+          schema: { type: string }
+        - name: outcome
+          in: query
+          schema: { type: string, enum: [success, failure, denied] }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: before
+          in: query
+          description: Return entries with id lower than this cursor
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        "200":
+          description: Matching entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries]
+                properties:
+                  entries:
+                    type: array
+                    items: { $ref: "#/components/schemas/AuditEntry" }
+                  nextBefore:
+                    type: integer
+                    format: int64
+                    nullable: true
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /audit/export:
+    get:
+      operationId: exportAudit
+      summary: Export the audit log as CSV
+      description: Applies the same filters as the list endpoint.
+      tags: [audit]
+      parameters:
+        - name: actorId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: action
+          in: query
+          schema: { type: string }
+        - name: resource
+          in: query
+          schema: { type: string }
+        - name: outcome
+          in: query
+          schema: { type: string, enum: [success, failure, denied] }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: CSV export
+          content:
+            text/csv:
+              schema: { type: string }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      summary: List the current user's notifications
+      tags: [notifications]
+      parameters:
+        - name: unread
+          in: query
+          schema: { type: boolean, default: false }
+        - name: before
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: Notifications, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [notifications, unreadCount]
+                properties:
+                  notifications:
+                    type: array
+                    items: { $ref: "#/components/schemas/Notification" }
+                  unreadCount: { type: integer }
+                  nextBefore:
+                    type: integer
+                    format: int64
+                    nullable: true
+
+  /notifications/read:
+    post:
+      operationId: markNotificationsRead
+      summary: Mark notifications as read
+      tags: [notifications]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items: { type: integer, format: int64 }
+                all: { type: boolean }
+      responses:
+        "200":
+          description: Remaining unread count
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [unreadCount]
+                properties:
+                  unreadCount: { type: integer }
+
+  /health:
+    get:
+      operationId: getHealth
+      summary: Application health
+      tags: [system]
+      responses:
+        "200":
+          description: Health report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthReport" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /settings:
+    get:
+      operationId: getSettings
+      summary: Application settings
+      tags: [system]
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AppSettings" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    patch:
+      operationId: updateSettings
+      summary: Update application settings
+      tags: [system]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                appUrl: { type: string }
+                sessionTtlHours: { type: integer, minimum: 1, maximum: 8760 }
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AppSettings" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: homehub_session
+
+  parameters:
+    idParam:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    SessionUser:
+      description: Authenticated — session cookie set
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [user]
+            properties:
+              user: { $ref: "#/components/schemas/User" }
+    BadRequest:
+      description: Invalid input
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Not authenticated or credentials rejected
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Authenticated but not permitted
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: No such resource
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: State conflict
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: Rate limited
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code
+        message:
+          type: string
+          description: Human-readable explanation safe to display
+
+    User:
+      type: object
+      required: [id, username, displayName, status, mustChangePassword, totpEnabled, passkeyCount, roleIds, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        displayName: { type: string }
+        email: { type: string, nullable: true }
+        status: { type: string, enum: [active, disabled] }
+        mustChangePassword: { type: boolean }
+        totpEnabled: { type: boolean }
+        passkeyCount: { type: integer }
+        roleIds:
+          type: array
+          items: { type: string, format: uuid }
+        lastLoginAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    UserDetail:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          required: [overrides]
+          properties:
+            overrides:
+              type: array
+              items: { $ref: "#/components/schemas/Grant" }
+
+    CreateUserResult:
+      type: object
+      required: [user]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        inviteUrl:
+          type: string
+          nullable: true
+          description: Present when onboarding is invite
+        inviteExpiresAt: { type: string, format: date-time, nullable: true }
+        tempPassword:
+          type: string
+          nullable: true
+          description: Present when onboarding is temp_password — shown exactly once
+
+    Grant:
+      type: object
+      required: [selector, levels, effect]
+      properties:
+        selector:
+          type: string
+          description: Resource path; matches the node and its subtree. '*' matches one segment.
+        levels:
+          type: array
+          items: { type: string, enum: [view, control, configure, delete] }
+        effect: { type: string, enum: [allow, deny] }
+
+    GrantInput:
+      type: object
+      required: [selector, levels]
+      properties:
+        selector: { type: string, minLength: 1, maxLength: 512 }
+        levels:
+          type: array
+          minItems: 1
+          items: { type: string, enum: [view, control, configure, delete] }
+        effect: { type: string, enum: [allow, deny], default: allow }
+
+    Role:
+      type: object
+      required: [id, name, description, isSystem, memberCount, grants, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        isSystem: { type: boolean }
+        memberCount: { type: integer }
+        grants:
+          type: array
+          items: { $ref: "#/components/schemas/Grant" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Me:
+      type: object
+      required: [user, grants]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        grants:
+          type: array
+          description: Effective grants for UI presentation. The server re-checks every request regardless.
+          items: { $ref: "#/components/schemas/Grant" }
+        viewAsRoleId: { type: string, format: uuid, nullable: true }
+
+    LoginResult:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, mfa_required]
+        user:
+          $ref: "#/components/schemas/User"
+        mfaToken:
+          type: string
+          nullable: true
+          description: Short-lived token to pass to the MFA completion endpoints
+        methods:
+          type: array
+          items: { type: string, enum: [totp, passkey, recovery] }
+
+    WebauthnChallenge:
+      type: object
+      required: [challengeToken, publicKey]
+      properties:
+        challengeToken:
+          type: string
+          description: Opaque token binding this challenge to the verify call
+        publicKey:
+          $ref: "#/components/schemas/WebauthnPayload"
+
+    WebauthnPayload:
+      type: object
+      description: Opaque WebAuthn protocol payload, passed to and from the browser credential API unmodified
+      additionalProperties: true
+
+    Passkey:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time, nullable: true }
+        transports:
+          type: array
+          items: { type: string }
+
+    RecoveryCodes:
+      type: object
+      required: [recoveryCodes]
+      properties:
+        recoveryCodes:
+          type: array
+          items: { type: string }
+
+    SessionInfo:
+      type: object
+      required: [id, createdAt, lastSeenAt, expiresAt, ip, userAgent, current]
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        ip: { type: string }
+        userAgent: { type: string }
+        current: { type: boolean }
+
+    AuditEntry:
+      type: object
+      required: [id, ts, actorKind, actorName, action, resource, outcome, ip]
+      properties:
+        id: { type: integer, format: int64 }
+        ts: { type: string, format: date-time }
+        actorKind: { type: string, enum: [user, system, agent] }
+        actorId: { type: string, format: uuid, nullable: true }
+        actorName: { type: string }
+        action: { type: string }
+        resource: { type: string }
+        outcome: { type: string, enum: [success, failure, denied] }
+        ip: { type: string }
+        detail:
+          type: object
+          additionalProperties: true
+
+    Notification:
+      type: object
+      required: [id, ts, severity, title, body, resource, eventType, read]
+      properties:
+        id: { type: integer, format: int64 }
+        ts: { type: string, format: date-time }
+        severity: { type: string, enum: [info, success, warning, error] }
+        title: { type: string }
+        body: { type: string }
+        resource: { type: string }
+        eventType: { type: string }
+        read: { type: boolean }
+
+    HealthReport:
+      type: object
+      required: [version, uptimeSeconds, database, jobs, websocketClients, integrations]
+      properties:
+        version: { type: string }
+        uptimeSeconds: { type: integer, format: int64 }
+        database:
+          type: object
+          required: [reachable, sizeBytes, latencyMs]
+          properties:
+            reachable: { type: boolean }
+            sizeBytes: { type: integer, format: int64 }
+            latencyMs: { type: number }
+        jobs:
+          type: object
+          required: [workers, active, pending, running, failedRecent]
+          properties:
+            workers: { type: integer }
+            active: { type: integer }
+            pending: { type: integer }
+            running: { type: integer }
+            failedRecent: { type: integer }
+        websocketClients: { type: integer }
+        integrations:
+          type: array
+          description: Health of every configured integration instance. Empty until integrations are added.
+          items:
+            type: object
+            required: [id, type, name, status]
+            properties:
+              id: { type: string, format: uuid }
+              type: { type: string }
+              name: { type: string }
+              status: { type: string, enum: [connected, degraded, unreachable] }
+              lastError: { type: string, nullable: true }
+
+    AppSettings:
+      type: object
+      required: [appUrl, sessionTtlHours]
+      properties:
+        appUrl:
+          type: string
+          description: External base URL, used for invite links and passkey origin validation
+        sessionTtlHours: { type: integer }

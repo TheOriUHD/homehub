@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <title>HomeHub</title>
+    <script>
+      // Apply the stored theme before first paint to avoid flashing.
+      (function () {
+        try {
+          var t = localStorage.getItem("homehub-theme");
+          if (t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches)) {
+            document.documentElement.dataset.theme = "dark";
+          } else {
+            document.documentElement.dataset.theme = "light";
+          }
+        } catch (e) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
