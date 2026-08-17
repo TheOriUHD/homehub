@@ -2,13 +2,14 @@ import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "reac
 import { useMutation } from "@tanstack/react-query";
 import { Navigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, Loader2, Play } from "lucide-react";
+import { KeyRound, Loader2, Play, ScrollText } from "lucide-react";
 import { api, unwrap, isApiError, type DbQueryResult } from "@/lib/api";
+import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Textarea } from "@/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
 import { useToast } from "@/ui/toast";
-import { PANE, useDbDatabases, useDbInstances } from "./shared";
+import { PANE, connectionIdentity, useDbDatabases, useDbInstances } from "./shared";
 
 /** Radix Select items can't carry an empty value; NUL can't be a DB name. */
 const NO_SCOPE = "\u0000";
@@ -102,19 +103,32 @@ export function DbConsolePage() {
     }
   };
 
+  const identity = instance ? connectionIdentity(instance) : null;
+
   return (
     <div className="space-y-3">
-      <div
-        className="text-warning-soft-fg bg-warning-soft flex items-start gap-2.5 rounded-md px-3.5 py-2.5 text-[13px]"
-        role="note"
-      >
-        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-        {t("db.console.warning")}
-      </div>
-
       <div className="flex flex-wrap items-center gap-2">
+        {identity !== null && (
+          <>
+            <Badge
+              tone="neutral"
+              title={t("db.console.identityTitle")}
+              className="gap-1.5 py-1 font-mono text-[11.5px]"
+            >
+              <KeyRound className="size-3 shrink-0" aria-hidden />
+              {identity}
+            </Badge>
+            <span
+              className="text-fg-subtle flex items-center gap-1 text-[11.5px]"
+              title={t("db.console.auditedTitle")}
+            >
+              <ScrollText className="size-3" aria-hidden />
+              {t("db.console.audited")}
+            </span>
+          </>
+        )}
         <Select value={scope} onValueChange={setScope}>
-          <SelectTrigger className="w-60" aria-label={t("db.console.scope")}>
+          <SelectTrigger className="ml-auto w-60" aria-label={t("db.console.scope")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -128,7 +142,6 @@ export function DbConsolePage() {
         </Select>
         <Button
           variant="primary"
-          className="ml-auto"
           loading={run.isPending}
           disabled={statement.trim() === ""}
           onClick={submit}
