@@ -3,6 +3,7 @@ package truenas
 import (
 	"context"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -142,5 +143,56 @@ func TestHealthDegradedOnBadPool(t *testing.T) {
 	h := conn.Health(context.Background())
 	if h.Status != integration.StatusConnected {
 		t.Fatalf("health = %s, want connected", h.Status)
+	}
+}
+
+func TestWebSocketTransport(t *testing.T) {
+	const simKey = "ws-test-key"
+	srv := httptest.NewServer(truenassim.Handler(simKey))
+	defer srv.Close()
+	ctx := context.Background()
+
+	// Wrong username: the auth failure must surface, never silently REST.
+	badRes := Driver{}.Test(ctx,
+		map[string]any{"host": srv.URL, "username": "wronguser"},
+		map[string]string{"apiKey": simKey})
+	if badRes.OK || !strings.Contains(badRes.Message, "username") {
+		t.Fatalf("wrong ws username must fail loudly, got ok=%v %q", badRes.OK, badRes.Message)
+	}
+
+	// Right username: everything reads over the socket.
+	res := Driver{}.Test(ctx,
+		map[string]any{"host": srv.URL, "username": truenassim.WSUsername},
+		map[string]string{"apiKey": simKey})
+	if !res.OK || !strings.Contains(res.Message, "WebSocket API") {
+		t.Fatalf("ws transport expected, got ok=%v %q", res.OK, res.Message)
+	}
+
+	c, err := newClient(map[string]any{"host": srv.URL}, map[string]string{"apiKey": simKey})
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := &Conn{client: c, ws: newWSClient(c.base, truenassim.WSUsername, simKey, false)}
+
+	pools, err := conn.Pools(ctx)
+	if err != nil || len(pools) == 0 {
+		t.Fatalf("ws pools: %v (%d)", err, len(pools))
+	}
+	shares, err := conn.Shares(ctx)
+	if err != nil || len(shares) == 0 {
+		t.Fatalf("ws shares: %v (%d)", err, len(shares))
+	}
+	mem, err := conn.Memory(ctx)
+	if err != nil || mem.ArcBytes == 0 {
+		t.Fatalf("ws memory: %v %+v", err, mem)
+	}
+	alerts, err := conn.Alerts(ctx)
+	if err != nil {
+		t.Fatalf("ws alerts: %v", err)
+	}
+	for _, a := range alerts {
+		if strings.Contains(a.Formatted, "<") {
+			t.Fatalf("alert HTML not stripped: %q", a.Formatted)
+		}
 	}
 }

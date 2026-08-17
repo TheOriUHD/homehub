@@ -126,18 +126,25 @@ func (Driver) Test(ctx context.Context, config map[string]any, secrets map[strin
 	if err != nil {
 		return integration.TestResult{OK: false, Message: err.Error()}
 	}
-	var info SystemInfo
-	if err := c.call(ctx, "GET", "/system/info", nil, &info); err != nil {
+	conn := &Conn{client: c}
+	transport := "the REST API (deprecated on 25.x)"
+	if username, _ := config["username"].(string); strings.TrimSpace(username) != "" {
+		insecure, _ := config["insecureTls"].(bool)
+		conn.ws = newWSClient(c.base, strings.TrimSpace(username), secrets["apiKey"], insecure)
+		transport = "the WebSocket API"
+	}
+	info, err := conn.Info(ctx)
+	if err != nil {
 		return integration.TestResult{OK: false, Message: friendlyError(err)}
 	}
-	var pools []Pool
-	if err := c.call(ctx, "GET", "/pool", nil, &pools); err != nil {
+	pools, err := conn.Pools(ctx)
+	if err != nil {
 		return integration.TestResult{OK: false, Message: friendlyError(err)}
 	}
 	return integration.TestResult{
 		OK: true,
-		Message: fmt.Sprintf("Connected to %s — TrueNAS %s, %d pool(s)",
-			info.Hostname, info.Version, len(pools)),
+		Message: fmt.Sprintf("Connected to %s via %s — TrueNAS %s, %d pool(s)",
+			info.Hostname, transport, info.Version, len(pools)),
 		Detail: map[string]any{"version": info.Version, "hostname": info.Hostname},
 	}
 }
@@ -152,10 +159,13 @@ func (d Driver) Open(ctx context.Context, inst integration.Instance, deps integr
 		return nil, err
 	}
 	conn := &Conn{inst: inst, client: c}
-	pctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	if username, _ := inst.Config["username"].(string); strings.TrimSpace(username) != "" {
+		insecure, _ := inst.Config["insecureTls"].(bool)
+		conn.ws = newWSClient(c.base, strings.TrimSpace(username), key, insecure)
+	}
+	pctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	var info SystemInfo
-	if err := c.call(pctx, "GET", "/system/info", nil, &info); err != nil {
+	if _, err := conn.Info(pctx); err != nil {
 		return nil, errors.New(friendlyError(err))
 	}
 	return conn, nil

@@ -220,6 +220,7 @@ type MongoFormState = {
 type TruenasFormState = {
   name: string;
   host: string;
+  username: string;
   apiKey: string;
   insecureTls: boolean;
 };
@@ -264,7 +265,7 @@ const emptyMongoForm: MongoFormState = {
   insecureTls: false,
 };
 
-const emptyTruenasForm: TruenasFormState = { name: "", host: "", apiKey: "", insecureTls: false };
+const emptyTruenasForm: TruenasFormState = { name: "", host: "", username: "", apiKey: "", insecureTls: false };
 
 const emptyMcForm: McFormState = { name: "" };
 
@@ -302,7 +303,10 @@ function mongoPayload(form: MongoFormState): FormPayload {
 function truenasPayload(form: TruenasFormState): FormPayload {
   const secrets: Record<string, string> = {};
   if (form.apiKey) secrets.apiKey = form.apiKey;
-  return { config: { host: form.host, insecureTls: form.insecureTls }, secrets };
+  return {
+    config: { host: form.host, username: form.username.trim(), insecureTls: form.insecureTls },
+    secrets,
+  };
 }
 
 function mcPayload(): FormPayload {
@@ -737,6 +741,7 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
     ...emptyTruenasForm,
     name: row.name,
     host: String(cfg.host ?? ""),
+    username: String(cfg.username ?? ""),
     insecureTls: Boolean(cfg.insecureTls),
   });
   const [mcForm, setMcForm] = useState<McFormState>({ name: row.name });
@@ -1627,6 +1632,9 @@ function TruenasForm({
         {(p) => (
           <PasswordInput {...p} className="font-mono text-[13px]" value={form.apiKey} onChange={(e) => update({ apiKey: e.target.value })} />
         )}
+      </Field>
+      <Field label={t("integrations.truenas.username")} hint={t("integrations.truenas.usernameHint")}>
+        {(p) => <Input {...p} value={form.username} onChange={(e) => update({ username: e.target.value })} />}
       </Field>
       <Checkbox
         checked={form.insecureTls}
