@@ -2739,6 +2739,204 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /db/instances:
+    get:
+      operationId: dbListInstances
+      summary: All database instances with live stats
+      description: Spans every MySQL/MariaDB and MongoDB instance the caller may see; stats are fetched live and null when unreachable.
+      tags: [databases]
+      responses:
+        "200":
+          description: Instances of both engines
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DbInstance" }
+
+  /db/{id}/databases:
+    get:
+      operationId: dbListDatabases
+      summary: Databases on one instance
+      description: Filtered to databases the caller may view (resource mysql|mongodb/<id>/database/<name>).
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Databases
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DbDatabase" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /db/{id}/databases/{database}/objects:
+    get:
+      operationId: dbListObjects
+      summary: Tables or collections in one database
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/dbNameParam"
+      responses:
+        "200":
+          description: Tables (SQL) or collections (MongoDB)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DbObject" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /db/{id}/databases/{database}/peek:
+    get:
+      operationId: dbPeek
+      summary: Newest documents of a MongoDB collection
+      description: MongoDB only — SQL engines use the console. Requires control on the database; audited.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/dbNameParam"
+        - name: collection
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      responses:
+        "200":
+          description: Documents as extended JSON strings, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [documents]
+                properties:
+                  documents:
+                    type: array
+                    items: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /db/{id}/query:
+    post:
+      operationId: dbQuery
+      summary: Run one SQL console statement
+      description: SQL engines only. Requires control on the targeted database (or the whole instance when no database is set); results cap at 500 rows. Every statement is audited verbatim.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [statement]
+              properties:
+                database: { type: string }
+                statement: { type: string, minLength: 1, maxLength: 10000 }
+      responses:
+        "200":
+          description: Result rows or affected count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DbQueryResult" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /db/{id}/sessions:
+    get:
+      operationId: dbSessions
+      summary: Live sessions or operations
+      description: The SQL processlist, or MongoDB's active client operations.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Sessions, longest-running first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DbSession" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /db/{id}/sessions/{sessionId}/kill:
+    post:
+      operationId: dbKillSession
+      summary: Terminate a session or operation
+      description: Requires control on the instance. Audited.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: sessionId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204":
+          description: Terminated
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /db/{id}/dump:
+    post:
+      operationId: dbDump
+      summary: Dump a database to a backup target
+      description: Runs mysqldump/mongodump into the chosen backup target as a background job. Requires control on the database and view on backups. Audited; progress lands in the backup run history.
+      tags: [databases]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [database, targetId]
+              properties:
+                database: { type: string }
+                targetId: { type: string, format: uuid }
+      responses:
+        "202":
+          $ref: "#/components/responses/JobQueued"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /ha/instances:
     get:
       operationId: haListInstances
@@ -3575,6 +3773,11 @@ components:
       required: true
       description: Home Assistant entity id, e.g. light.kitchen
       schema: { type: string, pattern: "^[a-z0-9_]+\\.[a-z0-9_]+$" }
+    dbNameParam:
+      name: database
+      in: path
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 128 }
     vmidParam:
       name: vmid
       in: path
@@ -4460,6 +4663,105 @@ components:
       properties:
         enabled: { type: boolean }
         until: { type: string, format: date-time, nullable: true }
+
+    DbInstance:
+      type: object
+      required: [id, name, engine, status, statusMessage]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        engine:
+          type: string
+          enum: [mysql, mongodb]
+        status:
+          type: string
+          enum: [pending, connecting, connected, degraded, unreachable, disabled]
+        statusMessage: { type: string }
+        stats:
+          allOf:
+            - $ref: "#/components/schemas/DbStats"
+          nullable: true
+
+    DbStats:
+      type: object
+      required: [version]
+      properties:
+        version: { type: string }
+        flavor:
+          type: string
+          description: MySQL or MariaDB for SQL engines, absent for MongoDB
+        uptimeSeconds: { type: integer, format: int64 }
+        connectionsCurrent: { type: integer, format: int64 }
+        connectionsMax: { type: integer, format: int64 }
+        opsPerSec:
+          type: number
+          format: double
+          description: Queries per second (SQL) or operations per second (MongoDB), delta-derived
+        slowQueriesTotal:
+          type: integer
+          format: int64
+          description: SQL engines only
+        memResidentMb:
+          type: integer
+          format: int64
+          description: MongoDB only
+
+    DbDatabase:
+      type: object
+      required: [name, sizeBytes, objectCount]
+      properties:
+        name: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        objectCount:
+          type: integer
+          format: int64
+          description: Tables (SQL) or collections (MongoDB)
+
+    DbObject:
+      type: object
+      required: [name, kind, rows, sizeBytes]
+      properties:
+        name: { type: string }
+        kind:
+          type: string
+          enum: [table, collection]
+        engine:
+          type: string
+          description: Storage engine, SQL tables only
+        rows:
+          type: integer
+          format: int64
+          description: Estimated rows or documents
+        sizeBytes: { type: integer, format: int64 }
+
+    DbSession:
+      type: object
+      required: [id, client, command, timeSec]
+      properties:
+        id: { type: integer, format: int64 }
+        user: { type: string }
+        client: { type: string }
+        database: { type: string }
+        command: { type: string }
+        timeSec: { type: integer, format: int64 }
+        state: { type: string }
+        query: { type: string }
+
+    DbQueryResult:
+      type: object
+      required: [columns, rows, rowsAffected, truncated, durationMs]
+      properties:
+        columns:
+          type: array
+          items: { type: string }
+        rows:
+          type: array
+          items:
+            type: array
+            items: { type: string }
+        rowsAffected: { type: integer, format: int64 }
+        truncated: { type: boolean }
+        durationMs: { type: number, format: double }
 
     McOverview:
       type: object

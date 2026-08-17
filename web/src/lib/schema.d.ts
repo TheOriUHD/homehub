@@ -1693,6 +1693,163 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/db/instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * All database instances with live stats
+         * @description Spans every MySQL/MariaDB and MongoDB instance the caller may see; stats are fetched live and null when unreachable.
+         */
+        get: operations["dbListInstances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/db/{id}/databases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Databases on one instance
+         * @description Filtered to databases the caller may view (resource mysql|mongodb/<id>/database/<name>).
+         */
+        get: operations["dbListDatabases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/db/{id}/databases/{database}/objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tables or collections in one database */
+        get: operations["dbListObjects"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/db/{id}/databases/{database}/peek": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Newest documents of a MongoDB collection
+         * @description MongoDB only — SQL engines use the console. Requires control on the database; audited.
+         */
+        get: operations["dbPeek"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/db/{id}/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run one SQL console statement
+         * @description SQL engines only. Requires control on the targeted database (or the whole instance when no database is set); results cap at 500 rows. Every statement is audited verbatim.
+         */
+        post: operations["dbQuery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/db/{id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live sessions or operations
+         * @description The SQL processlist, or MongoDB's active client operations.
+         */
+        get: operations["dbSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/db/{id}/sessions/{sessionId}/kill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Terminate a session or operation
+         * @description Requires control on the instance. Audited.
+         */
+        post: operations["dbKillSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/db/{id}/dump": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dump a database to a backup target
+         * @description Runs mysqldump/mongodump into the chosen backup target as a background job. Requires control on the database and view on backups. Audited; progress lands in the backup run history.
+         */
+        post: operations["dbDump"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ha/instances": {
         parameters: {
             query?: never;
@@ -2897,6 +3054,88 @@ export interface components {
             /** Format: date-time */
             until?: string | null;
         };
+        DbInstance: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            engine: "mysql" | "mongodb";
+            /** @enum {string} */
+            status: "pending" | "connecting" | "connected" | "degraded" | "unreachable" | "disabled";
+            statusMessage: string;
+            stats?: components["schemas"]["DbStats"] | null;
+        };
+        DbStats: {
+            version: string;
+            /** @description MySQL or MariaDB for SQL engines, absent for MongoDB */
+            flavor?: string;
+            /** Format: int64 */
+            uptimeSeconds?: number;
+            /** Format: int64 */
+            connectionsCurrent?: number;
+            /** Format: int64 */
+            connectionsMax?: number;
+            /**
+             * Format: double
+             * @description Queries per second (SQL) or operations per second (MongoDB), delta-derived
+             */
+            opsPerSec?: number;
+            /**
+             * Format: int64
+             * @description SQL engines only
+             */
+            slowQueriesTotal?: number;
+            /**
+             * Format: int64
+             * @description MongoDB only
+             */
+            memResidentMb?: number;
+        };
+        DbDatabase: {
+            name: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            /**
+             * Format: int64
+             * @description Tables (SQL) or collections (MongoDB)
+             */
+            objectCount: number;
+        };
+        DbObject: {
+            name: string;
+            /** @enum {string} */
+            kind: "table" | "collection";
+            /** @description Storage engine, SQL tables only */
+            engine?: string;
+            /**
+             * Format: int64
+             * @description Estimated rows or documents
+             */
+            rows: number;
+            /** Format: int64 */
+            sizeBytes: number;
+        };
+        DbSession: {
+            /** Format: int64 */
+            id: number;
+            user?: string;
+            client: string;
+            database?: string;
+            command: string;
+            /** Format: int64 */
+            timeSec: number;
+            state?: string;
+            query?: string;
+        };
+        DbQueryResult: {
+            columns: string[];
+            rows: string[][];
+            /** Format: int64 */
+            rowsAffected: number;
+            truncated: boolean;
+            /** Format: double */
+            durationMs: number;
+        };
         McOverview: {
             connected: boolean;
             serverName?: string;
@@ -3188,6 +3427,7 @@ export interface components {
         idParam: string;
         /** @description Home Assistant entity id, e.g. light.kitchen */
         haEntityId: string;
+        dbNameParam: string;
         vmidParam: number;
         containerName: string;
     };
@@ -6218,6 +6458,213 @@ export interface operations {
                 content?: never;
             };
             403: components["responses"]["Forbidden"];
+        };
+    };
+    dbListInstances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instances of both engines */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DbInstance"][];
+                };
+            };
+        };
+    };
+    dbListDatabases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Databases */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DbDatabase"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbListObjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                database: components["parameters"]["dbNameParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tables (SQL) or collections (MongoDB) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DbObject"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbPeek: {
+        parameters: {
+            query: {
+                collection: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                database: components["parameters"]["dbNameParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Documents as extended JSON strings, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        documents: string[];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbQuery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    database?: string;
+                    statement: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Result rows or affected count */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DbQueryResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sessions, longest-running first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DbSession"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbKillSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                sessionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Terminated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbDump: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    database: string;
+                    /** Format: uuid */
+                    targetId: string;
+                };
+            };
+        };
+        responses: {
+            202: components["responses"]["JobQueued"];
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     haListInstances: {

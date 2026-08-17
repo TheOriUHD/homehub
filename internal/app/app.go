@@ -26,8 +26,11 @@ import (
 	"github.com/TheOriUHD/homehub/internal/httpserver"
 	"github.com/TheOriUHD/homehub/internal/integration"
 	"github.com/TheOriUHD/homehub/internal/integrations/adguard"
+	"github.com/TheOriUHD/homehub/internal/dbdump"
+	"github.com/TheOriUHD/homehub/internal/integrations/dbsql"
 	"github.com/TheOriUHD/homehub/internal/integrations/homeassistant"
 	"github.com/TheOriUHD/homehub/internal/integrations/minecraft"
+	"github.com/TheOriUHD/homehub/internal/integrations/mongodb"
 	"github.com/TheOriUHD/homehub/internal/integrations/docker"
 	"github.com/TheOriUHD/homehub/internal/integrations/pihole"
 	"github.com/TheOriUHD/homehub/internal/integrations/proxmox"
@@ -113,6 +116,8 @@ func Run(ctx context.Context) error {
 	manager.Register(pihole.Driver{})
 	manager.Register(adguard.Driver{})
 	manager.Register(homeassistant.Driver{})
+	manager.Register(dbsql.Driver{})
+	manager.Register(mongodb.Driver{})
 	mcRegistry := minecraft.NewRegistry(st, v, logger)
 	mcRegistry.Publish = func(instanceID uuid.UUID, event string, data any) {
 		hub.Publish("integration:"+minecraft.TypeID+"/"+instanceID.String(),
@@ -181,6 +186,11 @@ func Run(ctx context.Context) error {
 		}
 		return err
 	})
+	dumpSvc := dbdump.New(st, v, backupSvc, logger)
+	dumpSvc.Notify = func(ctx context.Context, userID uuid.UUID, severity, title, body string) {
+		notifySvc.Notify(ctx, userID, severity, title, body, api.ResBackups, "security")
+	}
+	jobEngine.Register("db.dump", dumpSvc.Run)
 	jobEngine.Register("backup.restore", func(ctx context.Context, payload json.RawMessage) error {
 		var p backup.JobPayload
 		if err := json.Unmarshal(payload, &p); err != nil {

@@ -29,8 +29,9 @@ RUN CGO_ENABLED=0 go build -trimpath -tags "ui companion" \
 
 # ---- runtime ----
 FROM alpine:3.22
-# postgresql client provides pg_dump/pg_restore for the backup system.
-RUN apk add --no-cache ca-certificates tzdata postgresql17-client \
+# postgresql client provides pg_dump/pg_restore for the backup system;
+# mariadb-client and mongodb-tools provide the database dump tools.
+RUN apk add --no-cache ca-certificates tzdata postgresql17-client mariadb-client mongodb-tools \
     && addgroup -g 10001 homehub \
     && adduser -D -u 10001 -G homehub homehub \
     && mkdir -p /data && chown homehub:homehub /data
