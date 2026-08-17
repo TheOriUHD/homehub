@@ -42,6 +42,7 @@
     "health": "System health",
     "history": "History",
     "alerts": "Alerts",
+    "backups": "Backups",
     "systems": "Systems",
     "administration": "Administration",
     "users": "Users",
@@ -1093,6 +1094,191 @@
       "threshold": "Threshold",
       "sustained": "Sustained for",
       "sustainedHint": "Brief spikes shorter than this never fire."
+    }
+  },
+  "backups": {
+    "title": "Backups",
+    "subtitle": "Back up this HomeHub installation and restore it from a saved archive.",
+    "targets": {
+      "title": "Targets",
+      "intro": "Where backup archives are written.",
+      "add": "Add target",
+      "types": {
+        "local": "Local path",
+        "smb": "SMB share",
+        "nfs": "NFS export",
+        "s3": "S3-compatible"
+      },
+      "typeDescriptions": {
+        "local": "A directory on the machine HomeHub runs on",
+        "smb": "A Windows or Samba network share",
+        "nfs": "An NFS export on your network",
+        "s3": "MinIO, Garage, AWS S3, or any S3-compatible store"
+      },
+      "status": {
+        "unknown": "Not checked yet",
+        "ok": "OK",
+        "error": "Error"
+      },
+      "capacityFree": "{{free}} free of {{total}}",
+      "retentionBadge": "{{days}}-day retention",
+      "encryptedBadge": "Encrypted",
+      "disabledBadge": "Disabled",
+      "test": "Test",
+      "testing": "Testing…",
+      "testOk": "Target is reachable and writable.",
+      "testFailed": "Test failed",
+      "testFirst": "Test the target before saving.",
+      "runNow": "Back up now",
+      "runQueuedTitle": "Backup queued",
+      "runQueuedBody": "The result lands in your notifications when it finishes.",
+      "browse": "Browse archives",
+      "pickType": "Where should backups go?",
+      "editTitle": "Edit “{{name}}”",
+      "nameHint": "e.g. “NAS backups”",
+      "secretKeep": "Leave empty to keep the stored value",
+      "retention": "Retention (days)",
+      "retentionHint": "Archives older than this are pruned after each successful backup.",
+      "retentionRange": "Between 1 and 3650 days",
+      "encrypt": "Encrypt archives",
+      "encryptHint": "Archives are sealed with this installation’s backup key. Export it from the Encryption key section on this page and store it offline — without it, encrypted archives can’t be restored anywhere else.",
+      "enabledHint": "Disabled targets are skipped by schedules and can’t be backed up to.",
+      "created": "Target added",
+      "updated": "Target saved",
+      "deleted": "Target removed",
+      "deleteConfirmTitle": "Remove “{{name}}”?",
+      "deleteConfirmBody": "HomeHub forgets this target and its stored credentials. Archives already stored on the target are NOT deleted.",
+      "empty": {
+        "title": "No backup targets yet",
+        "body": "Add a target — a local path, a network share, or an S3 bucket — to start backing up HomeHub."
+      }
+    },
+    "fields": {
+      "path": "Path",
+      "pathHint": "An existing directory HomeHub can write to",
+      "host": "Host",
+      "share": "Share",
+      "subdir": "Subdirectory",
+      "subdirHint": "Optional folder inside the share to keep archives in",
+      "domain": "Domain",
+      "username": "Username",
+      "password": "Password",
+      "export": "Export",
+      "uid": "UID",
+      "uidHint": "Numeric owner for written files, if the export squashes users",
+      "gid": "GID",
+      "endpoint": "Endpoint",
+      "endpointHint": "Full URL of the S3 API, e.g. https://s3.example.com",
+      "bucket": "Bucket",
+      "prefix": "Prefix",
+      "prefixHint": "Optional key prefix to keep archives under",
+      "region": "Region",
+      "accessKey": "Access key",
+      "secretKey": "Secret key"
+    },
+    "archives": {
+      "title": "Archives on “{{name}}”",
+      "intro": "Restore points stored on this target, newest first.",
+      "encrypted": "Encrypted",
+      "inspect": "Inspect",
+      "restore": "Restore",
+      "empty": {
+        "title": "No archives yet",
+        "body": "Run a backup to this target to create the first restore point."
+      },
+      "manifest": {
+        "version": "HomeHub version",
+        "createdAt": "Created",
+        "dumpFormat": "Dump format",
+        "encrypted": "Encrypted",
+        "yes": "Yes",
+        "no": "No"
+      },
+      "restoreTitle": "Restore this backup?",
+      "restoreWarningTitle": "This cannot be undone",
+      "restoreWarningReplace": "Restoring replaces the entire current database with this archive’s contents.",
+      "restoreWarningLost": "Everything created or changed since {{date}} — users, settings, history, everything — is lost.",
+      "restoreWarningRestart": "HomeHub restarts to finish the restore, and everyone (including you) is signed out.",
+      "restoreArchiveLabel": "Archive",
+      "restoreWord": "RESTORE",
+      "restoreTypeToConfirm": "Type {{word}} to confirm",
+      "restoreConfirm": "Restore",
+      "restoreQueuedTitle": "Restore started",
+      "restoreQueuedBody": "HomeHub restarts when it completes — you will be signed out."
+    },
+    "schedules": {
+      "title": "Schedules",
+      "intro": "Recurring backups on a cron cadence.",
+      "add": "Add schedule",
+      "empty": {
+        "title": "No schedules yet",
+        "body": "Add a schedule to back up automatically. You need at least one target."
+      },
+      "nextRun": "Next {{time}}",
+      "paused": "Paused",
+      "lastRun": "Last run {{time}}",
+      "lastNever": "Never run",
+      "toggleAria": "Toggle schedule for {{name}}",
+      "created": "Schedule created",
+      "deleted": "Schedule deleted",
+      "deleteConfirmTitle": "Delete this schedule?",
+      "deleteConfirmBody": "Scheduled backups to “{{name}}” stop. Existing archives are untouched.",
+      "target": "Target",
+      "targetPlaceholder": "Pick a target",
+      "cadence": "Cadence",
+      "presetDaily": "Daily at a time",
+      "presetWeekly": "Weekly on a day",
+      "presetCustom": "Custom cron",
+      "time": "Time",
+      "day": "Day",
+      "cron": "Cron expression",
+      "cronHint": "Standard 5-field cron: minute, hour, day of month, month, day of week",
+      "invalidCron": "Enter a 5-field cron expression",
+      "preview": "Runs {{text}}",
+      "previewCustom": "Runs on this cron expression"
+    },
+    "cron": {
+      "daily": "every day at {{time}}",
+      "weekly": "every {{day}} at {{time}}",
+      "monthly": "monthly on day {{dom}} at {{time}}",
+      "everyMinute": "every minute",
+      "everyNMinutes": "every {{n}} minutes",
+      "hourly": "every hour at :{{m}}",
+      "everyNHours": "every {{n}} hours"
+    },
+    "history": {
+      "title": "History",
+      "intro": "Backup, restore, and prune runs.",
+      "empty": {
+        "title": "Nothing has run yet",
+        "body": "Backup, restore, and prune runs show up here."
+      },
+      "columns": {
+        "kind": "Kind",
+        "target": "Target",
+        "status": "Status",
+        "size": "Size",
+        "duration": "Duration",
+        "started": "Started"
+      },
+      "kind": {
+        "app-backup": "Backup",
+        "restore": "Restore",
+        "prune": "Prune"
+      },
+      "status": {
+        "running": "Running",
+        "succeeded": "Succeeded",
+        "failed": "Failed"
+      }
+    },
+    "key": {
+      "title": "Encryption key",
+      "intro": "Encrypted archives can only be read with this key. To restore them outside this installation, you need a copy of it.",
+      "reveal": "Reveal key",
+      "auditNote": "Revealing the key is recorded in the audit log.",
+      "warning": "Store this key somewhere safe and offline — a password manager or a printed copy. Anyone holding it can read your encrypted backups; without it, they are unrecoverable.",
+      "hide": "Hide"
     }
   },
   "channels": {

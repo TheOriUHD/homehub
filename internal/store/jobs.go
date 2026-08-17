@@ -145,6 +145,51 @@ func (s *Store) EnsureSchedule(ctx context.Context, name, kind string, payload a
 	return err
 }
 
+func (s *Store) ListSchedulesByKind(ctx context.Context, kind string) ([]Schedule, error) {
+	return scanMany[Schedule](s.pool.Query(ctx,
+		`select `+scheduleCols+` from schedules where kind = $1 order by name`, kind))
+}
+
+func (s *Store) GetSchedule(ctx context.Context, id uuid.UUID) (*Schedule, error) {
+	return scanOne[Schedule](s.pool.Query(ctx,
+		`select `+scheduleCols+` from schedules where id = $1`, id))
+}
+
+func (s *Store) CreateSchedule(ctx context.Context, name, kind string, payload any, cronExpr string, nextRun time.Time) (*Schedule, error) {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return scanOne[Schedule](s.pool.Query(ctx, `
+		insert into schedules (name, kind, payload, cron_expr, enabled, next_run_at)
+		values ($1, $2, $3, $4, true, $5)
+		returning `+scheduleCols, name, kind, raw, cronExpr, nextRun))
+}
+
+func (s *Store) UpdateSchedule(ctx context.Context, id uuid.UUID, cronExpr string, enabled bool, nextRun time.Time) error {
+	tag, err := s.pool.Exec(ctx, `
+		update schedules set cron_expr = $2, enabled = $3, next_run_at = $4, updated_at = now()
+		where id = $1`, id, cronExpr, enabled, nextRun)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) DeleteSchedule(ctx context.Context, id uuid.UUID) error {
+	tag, err := s.pool.Exec(ctx, `delete from schedules where id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // DueSchedules claims schedules whose next_run_at has passed, advancing
 // next_run_at to the provided computation via MarkScheduleRun.
 func (s *Store) DueSchedules(ctx context.Context, now time.Time) ([]Schedule, error) {

@@ -17,6 +17,7 @@ import (
 
 	"homehub/internal/audit"
 	"homehub/internal/auth"
+	backuppkg "homehub/internal/backup"
 	"homehub/internal/httpctx"
 	"homehub/internal/integration"
 	"homehub/internal/jobs"
@@ -56,6 +57,7 @@ type Server struct {
 	integrations *integration.Manager
 	metrics      *metrics.Service
 	term         *term.Manager
+	backups      *backuppkg.Service
 	logger       *slog.Logger
 	started      time.Time
 }
@@ -65,7 +67,7 @@ var _ StrictServerInterface = (*Server)(nil)
 func NewServer(st *store.Store, authSvc *auth.Service, engine *rbac.Engine, aud *audit.Service,
 	set *settings.Service, jobEngine *jobs.Engine, hub *ws.Hub, v *vault.Vault,
 	integrations *integration.Manager, metricsSvc *metrics.Service, termMgr *term.Manager,
-	logger *slog.Logger) *Server {
+	backups *backuppkg.Service, logger *slog.Logger) *Server {
 	return &Server{
 		store:        st,
 		auth:         authSvc,
@@ -78,6 +80,7 @@ func NewServer(st *store.Store, authSvc *auth.Service, engine *rbac.Engine, aud 
 		integrations: integrations,
 		metrics:      metricsSvc,
 		term:         termMgr,
+		backups:      backups,
 		logger:       logger.With("component", "api"),
 		started:      time.Now(),
 	}

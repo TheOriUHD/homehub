@@ -2739,6 +2739,350 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /backups/targets:
+    get:
+      operationId: listBackupTargets
+      summary: Backup storage targets
+      tags: [backups]
+      responses:
+        "200":
+          description: Configured targets with live capacity where known
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/BackupTarget" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createBackupTarget
+      summary: Add a backup target
+      description: Adding a target validates and connects immediately — no restart, no interruption.
+      tags: [backups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BackupTargetInput" }
+      responses:
+        "201":
+          description: Created target
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupTarget" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /backups/targets/test:
+    post:
+      operationId: testBackupTargetConfig
+      summary: Test a target configuration before saving
+      description: Connects and performs a write/read-back/delete probe.
+      tags: [backups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, config]
+              properties:
+                type: { type: string, enum: [local, smb, nfs, s3] }
+                config:
+                  type: object
+                  additionalProperties: true
+                secrets:
+                  type: object
+                  additionalProperties: { type: string }
+      responses:
+        "200":
+          description: Probe outcome
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestConnectionResult" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /backups/targets/{id}:
+    patch:
+      operationId: updateBackupTarget
+      summary: Update a backup target
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BackupTargetInput" }
+      responses:
+        "200":
+          description: Updated target
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupTarget" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteBackupTarget
+      summary: Remove a backup target
+      description: Stored archives on the target are left untouched.
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Removed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /backups/targets/{id}/test:
+    post:
+      operationId: testBackupTarget
+      summary: Re-test a stored target
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Probe outcome
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestConnectionResult" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /backups/targets/{id}/run:
+    post:
+      operationId: runBackupNow
+      summary: Run an application backup to this target now
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "202":
+          $ref: "#/components/responses/JobQueued"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /backups/targets/{id}/archives:
+    get:
+      operationId: listBackupArchives
+      summary: Restore points stored on a target
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Archives, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/BackupArchive" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /backups/targets/{id}/archives/inspect:
+    post:
+      operationId: inspectBackupArchive
+      summary: Read an archive's manifest
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: { type: string }
+      responses:
+        "200":
+          description: Archive manifest
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupManifest" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /backups/restore:
+    post:
+      operationId: restoreBackup
+      summary: Restore the application from an archive
+      description: Replaces the current database with the archive's contents and restarts HomeHub. Everything created since that backup is lost. The confirm flag must be true.
+      tags: [backups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetId, path, confirm]
+              properties:
+                targetId: { type: string, format: uuid }
+                path: { type: string }
+                confirm: { type: boolean }
+      responses:
+        "202":
+          $ref: "#/components/responses/JobQueued"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /backups/runs:
+    get:
+      operationId: listBackupRuns
+      summary: Backup and restore history
+      tags: [backups]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        "200":
+          description: Runs, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/BackupRun" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /backups/schedules:
+    get:
+      operationId: listBackupSchedules
+      summary: Scheduled application backups
+      tags: [backups]
+      responses:
+        "200":
+          description: Schedules
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/BackupSchedule" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createBackupSchedule
+      summary: Schedule recurring application backups to a target
+      tags: [backups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetId, cron]
+              properties:
+                targetId: { type: string, format: uuid }
+                cron:
+                  type: string
+                  description: Standard 5-field cron expression
+      responses:
+        "201":
+          description: Created schedule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupSchedule" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /backups/schedules/{id}:
+    patch:
+      operationId: updateBackupSchedule
+      summary: Update a backup schedule
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cron, enabled]
+              properties:
+                cron: { type: string }
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: Updated schedule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupSchedule" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteBackupSchedule
+      summary: Delete a backup schedule
+      tags: [backups]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /backups/encryption-key:
+    get:
+      operationId: getBackupEncryptionKey
+      summary: Export the backup encryption key
+      description: The age identity that decrypts encrypted archives. Store it safely offline — without it (and outside this installation) encrypted backups are unreadable. The export is audited.
+      tags: [backups]
+      responses:
+        "200":
+          description: The age identity string
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key]
+                properties:
+                  key: { type: string }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /metrics/series:
     get:
       operationId: listMetricSeries
@@ -3313,6 +3657,93 @@ components:
         metricsRawRetentionHours: { type: integer }
         metrics5mRetentionDays: { type: integer }
         metrics1hRetentionDays: { type: integer }
+
+    BackupTarget:
+      type: object
+      required: [id, type, name, config, retentionDays, encrypt, enabled, status, statusMessage]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [local, smb, nfs, s3] }
+        name: { type: string }
+        config:
+          type: object
+          additionalProperties: true
+        retentionDays: { type: integer }
+        encrypt: { type: boolean }
+        enabled: { type: boolean }
+        status: { type: string, enum: [unknown, ok, error] }
+        statusMessage: { type: string }
+        capacity:
+          type: object
+          nullable: true
+          required: [unknown]
+          properties:
+            totalBytes: { type: integer, format: int64 }
+            freeBytes: { type: integer, format: int64 }
+            unknown: { type: boolean }
+
+    BackupTargetInput:
+      type: object
+      required: [type, name, config]
+      properties:
+        type: { type: string, enum: [local, smb, nfs, s3] }
+        name: { type: string, minLength: 1, maxLength: 128 }
+        config:
+          type: object
+          additionalProperties: true
+        secrets:
+          type: object
+          description: Only provided keys are replaced
+          additionalProperties: { type: string }
+        retentionDays: { type: integer, minimum: 1, maximum: 3650, default: 30 }
+        encrypt: { type: boolean, default: false }
+        enabled: { type: boolean, default: true }
+
+    BackupArchive:
+      type: object
+      required: [path, sizeBytes, modTime, encrypted]
+      properties:
+        path: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        modTime: { type: string, format: date-time }
+        encrypted: { type: boolean }
+
+    BackupManifest:
+      type: object
+      required: [version, createdAt, kind, dumpFormat, encrypted]
+      properties:
+        version: { type: string }
+        createdAt: { type: string, format: date-time }
+        kind: { type: string }
+        dumpFormat: { type: string }
+        encrypted: { type: boolean }
+
+    BackupRun:
+      type: object
+      required: [id, targetName, kind, status, filePath, sizeBytes, error, startedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        targetId: { type: string, format: uuid, nullable: true }
+        targetName: { type: string }
+        kind: { type: string, enum: [app-backup, restore, prune] }
+        status: { type: string, enum: [running, succeeded, failed] }
+        filePath: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        error: { type: string }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time, nullable: true }
+
+    BackupSchedule:
+      type: object
+      required: [id, targetId, targetName, cron, enabled]
+      properties:
+        id: { type: string, format: uuid }
+        targetId: { type: string, format: uuid }
+        targetName: { type: string }
+        cron: { type: string }
+        enabled: { type: boolean }
+        lastRunAt: { type: string, format: date-time, nullable: true }
+        nextRunAt: { type: string, format: date-time, nullable: true }
 
     MetricSeriesInfo:
       type: object

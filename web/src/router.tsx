@@ -13,6 +13,7 @@ import { OverviewPage } from "./pages/overview";
 import { HealthPage } from "./pages/health";
 import { HistoryPage } from "./pages/history";
 import { AlertsPage } from "./pages/alerts";
+import { BackupsPage } from "./pages/backups";
 import { AccountPage } from "./pages/account";
 import { UsersPage } from "./pages/users";
 import { UserDetailPage } from "./pages/user-detail";
@@ -96,6 +97,12 @@ const alertsRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/alerts",
   component: AlertsPage,
+});
+
+const backupsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/backups",
+  component: BackupsPage,
 });
 
 const accountRoute = createRoute({
@@ -270,6 +277,7 @@ const routeTree = rootRoute.addChildren([
     healthRoute,
     historyRoute,
     alertsRoute,
+    backupsRoute,
     accountRoute,
     usersRoute,
     userDetailRoute,
