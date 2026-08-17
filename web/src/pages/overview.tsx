@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useState } from "react";
+import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -17,6 +17,7 @@ import {
   Pickaxe,
   Pin,
   Server,
+  SlidersHorizontal,
   ShieldCheck,
   Users,
   Waypoints,
@@ -27,25 +28,33 @@ import { RES } from "@/lib/perms";
 import { statusTone, systemTypeIcon, useIntegrations } from "@/lib/systems";
 import { cn, formatBytes, formatDuration, formatRelative } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
+import { Button } from "@/ui/button";
 import { Card, CardBody, CardHeader } from "@/ui/card";
+import { Dialog, DialogContent } from "@/ui/dialog";
 import { Skeleton } from "@/ui/skeleton";
+import { Switch } from "@/ui/switch";
 
 /**
  * OverviewPage is the home dashboard: HomeHub's own vitals up top, every
  * connected system's headline number below, each card linking into its
  * module. Everything rides existing RBAC-filtered endpoints — a viewer
- * sees only their slice. Pinned cards (stored per browser) sort first.
+ * sees only their slice. Pinned cards sort first and hidden cards don't render — per-user, server-side.
  */
 
-const PINS_KEY = "hh.overview.pins";
+/** Per-user overview layout, stored server-side under pref key "overview"
+ * so it follows the login across devices. `pins` order first; `hidden`
+ * cards don't render at all. */
+type OverviewPrefs = { pins: string[]; hidden: string[] };
 
-function loadPins(): string[] {
-  try {
-    const v: unknown = JSON.parse(localStorage.getItem(PINS_KEY) ?? "[]");
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-  } catch {
-    return [];
-  }
+const EMPTY_PREFS: OverviewPrefs = { pins: [], hidden: [] };
+/** Pre-server pins lived in localStorage; adopted once, then ignored. */
+const LEGACY_PINS_KEY = "hh.overview.pins";
+
+function parsePrefs(value: Record<string, unknown> | null | undefined): OverviewPrefs | null {
+  if (!value) return null;
+  const arr = (v: unknown) =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  return { pins: arr(value.pins), hidden: arr(value.hidden) };
 }
 
 export function OverviewPage() {
@@ -56,14 +65,80 @@ export function OverviewPage() {
   const byType = (type: string) => rows.filter((row) => row.type === type);
   const first = (type: string): Integration | undefined => byType(type)[0];
 
-  const [pins, setPins] = useState<string[]>(loadPins);
-  const togglePin = useCallback((key: string) => {
-    setPins((prev) => {
-      const next = prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key];
-      localStorage.setItem(PINS_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
+  const [prefs, setPrefs] = useState<OverviewPrefs | null>(null);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+
+  const prefsQuery = useQuery({
+    queryKey: ["prefs", "overview"],
+    queryFn: async () =>
+      unwrap(await api.GET("/prefs/{key}", { params: { path: { key: "overview" } } })),
+  });
+  const savePrefs = useMutation({
+    mutationFn: async (next: OverviewPrefs) => {
+      unwrap(
+        await api.PUT("/prefs/{key}", {
+          params: { path: { key: "overview" } },
+          body: { value: next },
+        }),
+      );
+    },
+  });
+
+  // Hydrate once; a user who pinned before this was server-side gets their
+  // localStorage pins adopted into the account on first load.
+  useEffect(() => {
+    if (prefs !== null || prefsQuery.data === undefined) return;
+    const stored = parsePrefs(prefsQuery.data.value);
+    if (stored) {
+      setPrefs(stored);
+      return;
+    }
+    let legacy: string[] = [];
+    try {
+      const v: unknown = JSON.parse(localStorage.getItem(LEGACY_PINS_KEY) ?? "[]");
+      legacy = Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      /* ignore */
+    }
+    const initial = { ...EMPTY_PREFS, pins: legacy };
+    setPrefs(initial);
+    if (legacy.length > 0) {
+      savePrefs.mutate(initial);
+      localStorage.removeItem(LEGACY_PINS_KEY);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefsQuery.data, prefs]);
+
+  const pins = prefs?.pins ?? [];
+  const hidden = prefs?.hidden ?? [];
+  const update = useCallback(
+    (next: OverviewPrefs) => {
+      setPrefs(next);
+      savePrefs.mutate(next);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const togglePin = useCallback(
+    (key: string) => {
+      const cur = prefs ?? EMPTY_PREFS;
+      update({
+        ...cur,
+        pins: cur.pins.includes(key) ? cur.pins.filter((x) => x !== key) : [...cur.pins, key],
+      });
+    },
+    [prefs, update],
+  );
+  const toggleHidden = useCallback(
+    (key: string) => {
+      const cur = prefs ?? EMPTY_PREFS;
+      update({
+        ...cur,
+        hidden: cur.hidden.includes(key) ? cur.hidden.filter((x) => x !== key) : [...cur.hidden, key],
+      });
+    },
+    [prefs, update],
+  );
 
   const pve = first("proxmox");
   const pveSummary = useQuery({
@@ -204,9 +279,10 @@ export function OverviewPage() {
 
   // ---- stat cards, pinned-first ---------------------------------------------
 
-  type CardDef = { key: string; node: React.ReactNode };
+  type CardDef = { key: string; title: string; node: React.ReactNode };
   const defs: CardDef[] = [];
-  const add = (key: string, node: React.ReactNode) => defs.push({ key, node });
+  const add = (key: string, node: React.ReactNode) =>
+    defs.push({ key, title: t(`overview.cardNames.${key}`), node });
 
   if (nvr) {
     add(
@@ -334,9 +410,10 @@ export function OverviewPage() {
     );
   }
 
+  const visible = defs.filter((d) => !hidden.includes(d.key));
   const ordered = [
-    ...pins.map((key) => defs.find((d) => d.key === key)).filter((d): d is CardDef => !!d),
-    ...defs.filter((d) => !pins.includes(d.key)),
+    ...pins.map((key) => visible.find((d) => d.key === key)).filter((d): d is CardDef => !!d),
+    ...visible.filter((d) => !pins.includes(d.key)),
   ];
 
   return (
@@ -352,9 +429,26 @@ export function OverviewPage() {
               : t("overview.problems", { count: problems.length })}
           </p>
         </div>
+        <Button size="sm" variant="ghost" onClick={() => setCustomizeOpen(true)}>
+          <SlidersHorizontal className="size-3.5" />
+          {t("overview.customize")}
+        </Button>
       </div>
 
-      {can(RES.health) && <HomeHubCard firingCount={alertsVisible ? firing.length : null} />}
+      {customizeOpen && (
+        <CustomizeDialog
+          cards={[{ key: "hub", title: t("overview.cardNames.hub"), node: null }, ...defs]}
+          pins={pins}
+          hidden={hidden}
+          onTogglePin={togglePin}
+          onToggleHidden={toggleHidden}
+          onClose={() => setCustomizeOpen(false)}
+        />
+      )}
+
+      {can(RES.health) && !hidden.includes("hub") && (
+        <HomeHubCard firingCount={alertsVisible ? firing.length : null} />
+      )}
 
       {problems.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -479,6 +573,79 @@ export function OverviewPage() {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * One menu for the whole overview: every card in natural order, each with
+ * a visibility switch and a pin toggle. Pinned cards sort first in the
+ * grid; hidden cards don't render. Saved per user, server-side.
+ */
+function CustomizeDialog({
+  cards,
+  pins,
+  hidden,
+  onTogglePin,
+  onToggleHidden,
+  onClose,
+}: {
+  cards: Array<{ key: string; title: string; node: React.ReactNode }>;
+  pins: string[];
+  hidden: string[];
+  onTogglePin: (key: string) => void;
+  onToggleHidden: (key: string) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        title={t("overview.customizeTitle")}
+        footer={
+          <Button variant="primary" onClick={onClose}>
+            {t("common.done")}
+          </Button>
+        }
+      >
+        <div className="space-y-1">
+          <p className="text-fg-muted mb-3 text-[13px]">{t("overview.customizeBody")}</p>
+          {cards.map((card) => {
+            const isHidden = hidden.includes(card.key);
+            const isPinned = pins.includes(card.key);
+            return (
+              <div
+                key={card.key}
+                className="hover:bg-bg-subtle flex items-center gap-3 rounded-lg px-2 py-2 transition-colors"
+              >
+                <span className={cn("min-w-0 flex-1 truncate text-sm", isHidden ? "text-fg-subtle" : "text-fg")}>
+                  {card.title}
+                </span>
+                {card.key !== "hub" && (
+                  <button
+                    type="button"
+                    aria-label={isPinned ? t("overview.unpin") : t("overview.pin")}
+                    aria-pressed={isPinned}
+                    disabled={isHidden}
+                    onClick={() => onTogglePin(card.key)}
+                    className={cn(
+                      "rounded-md p-1 transition-colors disabled:opacity-30",
+                      isPinned ? "text-accent" : "text-fg-subtle hover:text-fg",
+                    )}
+                  >
+                    <Pin className={cn("size-4", isPinned && "fill-current")} />
+                  </button>
+                )}
+                <Switch
+                  checked={!isHidden}
+                  onCheckedChange={() => onToggleHidden(card.key)}
+                  aria-label={t("overview.showCard", { name: card.title })}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
