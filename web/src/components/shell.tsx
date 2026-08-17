@@ -17,6 +17,7 @@ import {
   LogOut,
   Menu,
   Moon,
+  Pickaxe,
   Search,
   Server,
   Settings,
@@ -123,6 +124,7 @@ export function AppShell() {
   const dockerRows = rows.filter((row) => row.type === "docker");
   const dnsRows = rows.filter((row) => row.type === "pihole" || row.type === "adguard");
   const haRows = rows.filter((row) => row.type === "homeassistant");
+  const mcRows = rows.filter((row) => row.type === "minecraft");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
 
   type TypeEntry = NavItem & { status: string; prefix: string };
@@ -161,6 +163,15 @@ export function AppShell() {
           icon: House,
           status: worstStatus(haRows),
           prefix: "/ha",
+        }]
+      : []),
+    ...(mcRows.length > 0
+      ? [{
+          to: mcRows.length === 1 ? `/mc/${mcRows[0].id}` : "/mc",
+          label: t("systems.types.minecraft"),
+          icon: Pickaxe,
+          status: worstStatus(mcRows),
+          prefix: "/mc",
         }]
       : []),
   ];

@@ -37,6 +37,11 @@ import { DockerImagesPage, DockerNetworksPage, DockerStacksPage, DockerVolumesPa
 import { HaModulePage } from "./pages/ha/module";
 import { HaDashboardPage } from "./pages/ha/dashboard";
 import { HaAutomationsPage } from "./pages/ha/automations";
+import { McModulePage } from "./pages/mc/module";
+import { McConsolePage } from "./pages/mc/console";
+import { McPlayersPage } from "./pages/mc/players";
+import { McSetupPage } from "./pages/mc/setup";
+import { McPerformancePage } from "./pages/mc/performance";
 import { DnsModulePage } from "./pages/dns/module";
 import { DnsOverviewPage } from "./pages/dns/overview";
 import { DnsQueryLogPage } from "./pages/dns/querylog";
@@ -173,6 +178,12 @@ const haLandingRoute = createRoute({
   component: () => <SystemTypeLanding type="homeassistant" />,
 });
 
+const mcLandingRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/mc",
+  component: () => <SystemTypeLanding type="minecraft" />,
+});
+
 const pveModuleRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/pve/$instanceId",
@@ -300,6 +311,36 @@ const haAutomationsRoute = createRoute({
   component: HaAutomationsPage,
 });
 
+const mcModuleRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/mc/$instanceId",
+  component: McModulePage,
+});
+
+const mcConsoleRoute = createRoute({
+  getParentRoute: () => mcModuleRoute,
+  path: "/",
+  component: McConsolePage,
+});
+
+const mcPlayersRoute = createRoute({
+  getParentRoute: () => mcModuleRoute,
+  path: "/players",
+  component: McPlayersPage,
+});
+
+const mcSetupRoute = createRoute({
+  getParentRoute: () => mcModuleRoute,
+  path: "/setup",
+  component: McSetupPage,
+});
+
+const mcPerformanceRoute = createRoute({
+  getParentRoute: () => mcModuleRoute,
+  path: "/performance",
+  component: McPerformancePage,
+});
+
 const dnsModuleRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/dns",
@@ -357,6 +398,7 @@ const routeTree = rootRoute.addChildren([
     integrationsRedirectRoute,
     pveLandingRoute,
     haLandingRoute,
+    mcLandingRoute,
     dockerHubRoute.addChildren([dockerAllContainersRoute, dockerHostsRoute]),
     pveModuleRoute.addChildren([
       pveSummaryRoute,
@@ -375,6 +417,12 @@ const routeTree = rootRoute.addChildren([
       dockerNetworksRoute,
     ]),
     haModuleRoute.addChildren([haDashboardRoute, haAutomationsRoute]),
+    mcModuleRoute.addChildren([
+      mcConsoleRoute,
+      mcPlayersRoute,
+      mcSetupRoute,
+      mcPerformanceRoute,
+    ]),
     dnsModuleRoute.addChildren([
       dnsOverviewRoute,
       dnsQueriesRoute,

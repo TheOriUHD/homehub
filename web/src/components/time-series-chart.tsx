@@ -5,7 +5,7 @@ import { cn, formatBytes } from "@/lib/utils";
 
 export type SeriesPoint = { ts: number; value: number };
 
-export type ChartKind = "percent" | "bytes" | "count";
+export type ChartKind = "percent" | "bytes" | "count" | "decimal";
 
 /** Resolve theme tokens for chart ink; re-read when the theme flips. */
 // withAlpha derives a translucent canvas color from a design token, whatever
@@ -49,6 +49,9 @@ function useChartTheme() {
 function formatValue(kind: ChartKind, value: number): string {
   if (kind === "percent") return `${(value * 100).toFixed(value < 0.1 ? 1 : 0)}%`;
   if (kind === "count") return Math.round(value).toLocaleString();
+  if (kind === "decimal") {
+    return value.toLocaleString(undefined, { maximumFractionDigits: Math.abs(value) < 10 ? 2 : 1 });
+  }
   return formatBytes(value);
 }
 
