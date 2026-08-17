@@ -1,0 +1,373 @@
+package truenas
+
+import (
+	"context"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/TheOriUHD/homehub/internal/integration"
+	"github.com/TheOriUHD/homehub/internal/metrics"
+)
+
+// ---- upstream shapes (REST v2.0) -------------------------------------------
+
+// SystemInfo is /system/info.
+type SystemInfo struct {
+	Version     string    `json:"version"`
+	Hostname    string    `json:"hostname"`
+	Uptime      string    `json:"uptime"`
+	Uptimeownds float64   `json:"uptime_seconds"`
+	PhysicalMem int64     `json:"physmem"`
+	Model       string    `json:"system_product"`
+	Cores       int       `json:"cores"`
+	LoadAvg     []float64 `json:"loadavg"`
+}
+
+// Pool is /pool. size/allocated/free are strings or numbers depending on
+// version; captured as json.Number-friendly int64 via the topology summary.
+type Pool struct {
+	ID            int             `json:"id"`
+	Name          string          `json:"name"`
+	Status        string          `json:"status"`
+	Healthy       bool            `json:"healthy"`
+	Size          int64           `json:"size"`
+	Allocated     int64           `json:"allocated"`
+	Free          int64           `json:"free"`
+	Fragmentation string          `json:"fragmentation"`
+	Topology      TopologySummary `json:"topology"`
+}
+
+type TopologySummary struct {
+	Data []VDev `json:"data"`
+}
+
+type VDev struct {
+	Type   string `json:"type"`
+	Status string `json:"status"`
+}
+
+// Dataset is /pool/dataset. Numeric props come nested as {parsed, rawvalue}.
+type Dataset struct {
+	ID          string      `json:"id"`
+	Name        string      `json:"name"`
+	Type        string      `json:"type"`
+	Used        ParsedValue `json:"used"`
+	Available   ParsedValue `json:"available"`
+	Compression ParsedValue `json:"compression"`
+	Mountpoint  string      `json:"mountpoint"`
+}
+
+// ParsedValue matches TrueNAS's {parsed, rawvalue, value} property shape.
+type ParsedValue struct {
+	Parsed   any    `json:"parsed"`
+	RawValue string `json:"rawvalue"`
+	Value    string `json:"value"`
+}
+
+func (p ParsedValue) Int64() int64 {
+	switch v := p.Parsed.(type) {
+	case float64:
+		return int64(v)
+	case string:
+		n, _ := strconv.ParseInt(v, 10, 64)
+		return n
+	}
+	if p.RawValue != "" {
+		n, _ := strconv.ParseInt(p.RawValue, 10, 64)
+		return n
+	}
+	return 0
+}
+
+func (p ParsedValue) String() string {
+	if p.Value != "" {
+		return p.Value
+	}
+	if s, ok := p.Parsed.(string); ok {
+		return s
+	}
+	return p.RawValue
+}
+
+// Disk is /disk.
+type Disk struct {
+	Name        string `json:"name"`
+	Serial      string `json:"serial"`
+	Model       string `json:"model"`
+	Size        int64  `json:"size"`
+	Type        string `json:"type"` // HDD | SSD
+	Temperature *int   `json:"temperature,omitempty"`
+	Pool        string `json:"pool"`
+}
+
+// Share shapes for SMB, NFS, iSCSI.
+type SMBShare struct {
+	ID      int    `json:"id"`
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Enabled bool   `json:"enabled"`
+	Comment string `json:"comment"`
+}
+
+type NFSShare struct {
+	ID      int      `json:"id"`
+	Paths   []string `json:"paths"`
+	Path    string   `json:"path"`
+	Enabled bool     `json:"enabled"`
+	Comment string   `json:"comment"`
+}
+
+type ISCSITarget struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Alias string `json:"alias"`
+}
+
+// Snapshot is /pool/snapshot.
+type Snapshot struct {
+	Name     string      `json:"name"`
+	Dataset  string      `json:"dataset"`
+	Snapshot string      `json:"snapshot_name"`
+	Used     ParsedValue `json:"used"`
+	Created  struct {
+		Date int64 `json:"$date"`
+	} `json:"created"`
+}
+
+// Replication is /replication.
+type Replication struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	State struct {
+		State string `json:"state"`
+	} `json:"state"`
+	Enabled bool `json:"enabled"`
+}
+
+// Alert is /alert/list.
+type Alert struct {
+	Level     string `json:"level"`
+	Formatted string `json:"formatted"`
+	Dismissed bool   `json:"dismissed"`
+	Datetime  struct {
+		Date int64 `json:"$date"`
+	} `json:"datetime"`
+}
+
+// ---- normalized model ------------------------------------------------------
+
+type NormPool struct {
+	Name           string  `json:"name"`
+	Status         string  `json:"status"`
+	Healthy        bool    `json:"healthy"`
+	SizeBytes      int64   `json:"sizeBytes"`
+	AllocatedBytes int64   `json:"allocatedBytes"`
+	FreeBytes      int64   `json:"freeBytes"`
+	UsedPct        float64 `json:"usedPct"`
+	Fragmentation  string  `json:"fragmentation,omitempty"`
+}
+
+type NormDataset struct {
+	Name           string `json:"name"`
+	Type           string `json:"type"`
+	UsedBytes      int64  `json:"usedBytes"`
+	AvailableBytes int64  `json:"availableBytes"`
+	Compression    string `json:"compression,omitempty"`
+	Mountpoint     string `json:"mountpoint,omitempty"`
+}
+
+type NormShare struct {
+	Type    string `json:"type"` // smb | nfs | iscsi
+	Name    string `json:"name"`
+	Path    string `json:"path,omitempty"`
+	Enabled bool   `json:"enabled"`
+	Comment string `json:"comment,omitempty"`
+}
+
+// ---- connection ------------------------------------------------------------
+
+type Conn struct {
+	inst   integration.Instance
+	client *client
+}
+
+func (c *Conn) Info(ctx context.Context) (*SystemInfo, error) {
+	var info SystemInfo
+	if err := c.client.call(ctx, "GET", "/system/info", nil, &info); err != nil {
+		return nil, err
+	}
+	return &info, nil
+}
+
+func (c *Conn) Pools(ctx context.Context) ([]NormPool, error) {
+	var pools []Pool
+	if err := c.client.call(ctx, "GET", "/pool", nil, &pools); err != nil {
+		return nil, err
+	}
+	out := make([]NormPool, 0, len(pools))
+	for _, p := range pools {
+		np := NormPool{
+			Name: p.Name, Status: p.Status, Healthy: p.Healthy,
+			SizeBytes: p.Size, AllocatedBytes: p.Allocated, FreeBytes: p.Free,
+			Fragmentation: p.Fragmentation,
+		}
+		if p.Size > 0 {
+			np.UsedPct = float64(p.Allocated) / float64(p.Size) * 100
+		}
+		out = append(out, np)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
+
+func (c *Conn) Datasets(ctx context.Context) ([]NormDataset, error) {
+	var datasets []Dataset
+	if err := c.client.call(ctx, "GET", "/pool/dataset", nil, &datasets); err != nil {
+		return nil, err
+	}
+	out := make([]NormDataset, 0, len(datasets))
+	for _, d := range datasets {
+		out = append(out, NormDataset{
+			Name: d.Name, Type: d.Type,
+			UsedBytes: d.Used.Int64(), AvailableBytes: d.Available.Int64(),
+			Compression: d.Compression.String(), Mountpoint: d.Mountpoint,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
+
+func (c *Conn) Disks(ctx context.Context) ([]Disk, error) {
+	var disks []Disk
+	if err := c.client.call(ctx, "GET", "/disk", nil, &disks); err != nil {
+		return nil, err
+	}
+	sort.Slice(disks, func(i, j int) bool { return disks[i].Name < disks[j].Name })
+	return disks, nil
+}
+
+func (c *Conn) Shares(ctx context.Context) ([]NormShare, error) {
+	out := []NormShare{}
+	var smb []SMBShare
+	if err := c.client.call(ctx, "GET", "/sharing/smb", nil, &smb); err == nil {
+		for _, s := range smb {
+			out = append(out, NormShare{Type: "smb", Name: s.Name, Path: s.Path, Enabled: s.Enabled, Comment: s.Comment})
+		}
+	}
+	var nfs []NFSShare
+	if err := c.client.call(ctx, "GET", "/sharing/nfs", nil, &nfs); err == nil {
+		for _, s := range nfs {
+			path := s.Path
+			if path == "" && len(s.Paths) > 0 {
+				path = strings.Join(s.Paths, ", ")
+			}
+			name := path
+			out = append(out, NormShare{Type: "nfs", Name: name, Path: path, Enabled: s.Enabled, Comment: s.Comment})
+		}
+	}
+	var targets []ISCSITarget
+	if err := c.client.call(ctx, "GET", "/iscsi/target", nil, &targets); err == nil {
+		for _, t := range targets {
+			name := t.Name
+			if t.Alias != "" {
+				name = t.Alias
+			}
+			out = append(out, NormShare{Type: "iscsi", Name: name, Enabled: true})
+		}
+	}
+	return out, nil
+}
+
+func (c *Conn) Snapshots(ctx context.Context, limit int) ([]Snapshot, error) {
+	var snaps []Snapshot
+	if err := c.client.call(ctx, "GET", "/pool/snapshot", nil, &snaps); err != nil {
+		return nil, err
+	}
+	sort.Slice(snaps, func(i, j int) bool { return snaps[i].Created.Date > snaps[j].Created.Date })
+	if limit > 0 && len(snaps) > limit {
+		snaps = snaps[:limit]
+	}
+	return snaps, nil
+}
+
+func (c *Conn) Alerts(ctx context.Context) ([]Alert, error) {
+	var alerts []Alert
+	if err := c.client.call(ctx, "GET", "/alert/list", nil, &alerts); err != nil {
+		return nil, err
+	}
+	return alerts, nil
+}
+
+func (c *Conn) Replications(ctx context.Context) ([]Replication, error) {
+	var reps []Replication
+	if err := c.client.call(ctx, "GET", "/replication", nil, &reps); err != nil {
+		return nil, err
+	}
+	return reps, nil
+}
+
+// ---- integration.Connection ------------------------------------------------
+
+func (c *Conn) Health(ctx context.Context) integration.Health {
+	hctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	var info SystemInfo
+	if err := c.client.call(hctx, "GET", "/system/info", nil, &info); err != nil {
+		return integration.Health{Status: integration.StatusUnreachable, Message: friendlyError(err)}
+	}
+	// A pool in a degraded/faulted state is reachable but unhealthy.
+	if pools, err := c.Pools(hctx); err == nil {
+		for _, p := range pools {
+			if !p.Healthy {
+				return integration.Health{Status: integration.StatusDegraded, Message: "pool " + p.Name + " is " + p.Status}
+			}
+		}
+	}
+	return integration.Health{Status: integration.StatusConnected}
+}
+
+// Resources publishes one node per pool for per-pool grants.
+func (c *Conn) Resources(ctx context.Context) ([]integration.Resource, error) {
+	pools, err := c.Pools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	root := c.inst.ResourcePath()
+	out := make([]integration.Resource, 0, len(pools))
+	for _, p := range pools {
+		out = append(out, integration.Resource{Path: root + "/pool/" + p.Name, Kind: "pool", Name: p.Name})
+	}
+	return out, nil
+}
+
+// Collect samples per-pool capacity and per-disk temperature.
+func (c *Conn) Collect(ctx context.Context) ([]metrics.Sample, error) {
+	now := time.Now()
+	root := c.inst.ResourcePath()
+	var samples []metrics.Sample
+
+	pools, err := c.Pools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range pools {
+		samples = append(samples,
+			metrics.Sample{Resource: root + "/pool/" + p.Name, Metric: "used_pct", Unit: "%", TS: now, Value: p.UsedPct},
+			metrics.Sample{Resource: root + "/pool/" + p.Name, Metric: "free_bytes", Unit: "bytes", TS: now, Value: float64(p.FreeBytes)},
+		)
+	}
+	if disks, err := c.Disks(ctx); err == nil {
+		for _, d := range disks {
+			if d.Temperature != nil {
+				samples = append(samples, metrics.Sample{
+					Resource: root + "/disk/" + d.Name, Metric: "temperature", Unit: "°C", TS: now, Value: float64(*d.Temperature),
+				})
+			}
+		}
+	}
+	return samples, nil
+}
+
+func (c *Conn) Close() {}

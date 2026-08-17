@@ -31,6 +31,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/integrations/homeassistant"
 	"github.com/TheOriUHD/homehub/internal/integrations/minecraft"
 	"github.com/TheOriUHD/homehub/internal/integrations/mongodb"
+	"github.com/TheOriUHD/homehub/internal/integrations/truenas"
 	"github.com/TheOriUHD/homehub/internal/integrations/docker"
 	"github.com/TheOriUHD/homehub/internal/integrations/pihole"
 	"github.com/TheOriUHD/homehub/internal/integrations/proxmox"
@@ -118,6 +119,7 @@ func Run(ctx context.Context) error {
 	manager.Register(homeassistant.Driver{})
 	manager.Register(dbsql.Driver{})
 	manager.Register(mongodb.Driver{})
+	manager.Register(truenas.Driver{})
 	mcRegistry := minecraft.NewRegistry(st, v, logger)
 	mcRegistry.Publish = func(instanceID uuid.UUID, event string, data any) {
 		hub.Publish("integration:"+minecraft.TypeID+"/"+instanceID.String(),
