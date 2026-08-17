@@ -401,9 +401,6 @@
     }
   },
   "integrations": {
-    "title": "Integrations",
-    "subtitle": "The systems HomeHub manages.",
-    "add": "Add integration",
     "status": {
       "pending": "Pending",
       "connecting": "Connecting",
@@ -412,31 +409,13 @@
       "unreachable": "Unreachable",
       "disabled": "Disabled"
     },
-    "openModule": "Open",
-    "test": "Test connection",
-    "testing": "Testing…",
-    "testFirst": "Test the connection before saving.",
-    "retest": "Re-test",
-    "disable": "Disable",
-    "enable": "Enable",
-    "deleteConfirmTitle": "Remove “{{name}}”?",
-    "deleteConfirmBody": "HomeHub forgets this system and its stored credentials. Nothing is changed on the system itself.",
-    "empty": {
-      "title": "Nothing connected yet",
-      "body": "Add your first integration to start managing your homelab from here."
-    },
-    "picker": {
-      "title": "Add integration",
-      "intro": "What do you want to connect?"
-    },
     "form": {
       "name": "Display name",
       "nameHintPve": "e.g. “Homelab cluster”",
       "nameHintDocker": "e.g. “NAS Docker”",
       "nameHintPihole": "e.g. “Pi-hole primary”",
       "nameHintAdguard": "e.g. “AdGuard Home”",
-      "editTitle": "Edit {{name}}",
-      "saveAnyway": "Save without testing"
+      "nameHintHa": "e.g. “Home”"
     },
     "pve": {
       "host": "Host",
@@ -493,6 +472,55 @@
     "dns": {
       "insecureTls": "Skip TLS verification",
       "insecureTlsHint": "Accept any certificate when connecting over HTTPS."
+    },
+    "homeassistant": {
+      "host": "Host",
+      "hostHint": "Hostname or IP — port 8123 assumed, e.g. homeassistant.lan:8123 or http://192.168.1.10:8123",
+      "token": "Long-lived access token",
+      "tokenHint": "Create one under your Home Assistant profile → Security → Long-lived access tokens",
+      "tokenKeep": "Leave empty to keep the stored token"
+    }
+  },
+  "systems": {
+    "title": "Systems",
+    "subtitle": "Everything HomeHub is connected to — add, test, and manage systems here.",
+    "add": "Add system",
+    "open": "Open",
+    "test": "Test",
+    "testConnection": "Test connection",
+    "testing": "Testing…",
+    "testFirst": "Test the connection before saving.",
+    "remove": "Remove",
+    "enable": "Enable",
+    "disable": "Disable",
+    "created": "{{name}} connected",
+    "removed": "System removed",
+    "editTitle": "Edit {{name}}",
+    "deleteConfirmTitle": "Remove “{{name}}”?",
+    "deleteConfirmBody": "HomeHub forgets this system and its stored credentials. Nothing is changed on the system itself.",
+    "empty": {
+      "title": "No systems yet",
+      "body": "Add your first system to start managing your homelab from here."
+    },
+    "wizard": {
+      "title": "Add system",
+      "intro": "What do you want to connect?"
+    },
+    "types": {
+      "proxmox": "Proxmox VE",
+      "docker": "Docker",
+      "pihole": "Pi-hole",
+      "adguard": "AdGuard Home",
+      "homeassistant": "Home Assistant",
+      "minecraft": "Minecraft"
+    },
+    "landing": {
+      "pickInstance": "Choose an instance",
+      "manage": "Go to Systems",
+      "empty": {
+        "title": "No {{type}} connected",
+        "body": "Connect one under Systems and it shows up here."
+      }
     }
   },
   "pve": {
@@ -864,6 +892,27 @@
     },
     "prune": {
       "result": "Reclaimed {{bytes}} · {{count}} deleted"
+    },
+    "unified": {
+      "tabs": {
+        "containers": "Containers",
+        "hosts": "Hosts"
+      },
+      "hostsSummary": "{{online}} of {{total}} hosts online",
+      "allHosts": "All hosts",
+      "allStates": "All states",
+      "columns": {
+        "host": "Host"
+      },
+      "unreachableHosts": "Some hosts could not be reached: {{hosts}}",
+      "containerCount": "{{running}} running · {{total}} containers",
+      "countUnavailable": "Containers unavailable",
+      "emptyBody": "No containers match the current filters.",
+      "empty": {
+        "title": "No Docker hosts",
+        "body": "Connect a Docker host and every container shows up here.",
+        "action": "Go to Systems"
+      }
     }
   },
   "dns": {
@@ -880,7 +929,7 @@
     "empty": {
       "title": "No DNS instances connected",
       "body": "Connect a Pi-hole or AdGuard Home integration and network-wide ad blocking shows up here.",
-      "action": "Go to integrations"
+      "action": "Go to Systems"
     },
     "overview": {
       "queriesToday": "Queries today",

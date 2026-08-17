@@ -7,7 +7,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { PageLoader } from "@/ui/misc";
 import { ErrorState } from "@/ui/states";
 import { Card } from "@/ui/card";
-import { statusTone } from "@/pages/integrations";
+import { statusTone } from "@/lib/systems";
 import { useHaInstances, useHaLiveStates } from "./shared";
 
 export function HaModulePage() {

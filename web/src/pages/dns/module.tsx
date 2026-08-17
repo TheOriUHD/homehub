@@ -60,7 +60,7 @@ export function DnsModulePage() {
           body={t("dns.empty.body")}
           action={
             can("system/integrations", "configure") ? (
-              <Link to="/admin/integrations" className="text-accent text-[13px] font-medium hover:underline">
+              <Link to="/systems" className="text-accent text-[13px] font-medium hover:underline">
                 {t("dns.empty.action")} →
               </Link>
             ) : undefined

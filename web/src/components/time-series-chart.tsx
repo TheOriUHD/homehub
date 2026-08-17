@@ -8,6 +8,22 @@ export type SeriesPoint = { ts: number; value: number };
 export type ChartKind = "percent" | "bytes" | "count";
 
 /** Resolve theme tokens for chart ink; re-read when the theme flips. */
+// withAlpha derives a translucent canvas color from a design token, whatever
+// its syntax: hex gets a hex alpha suffix, functional colors (oklch, modern
+// rgb/hsl) get a slash alpha — appending hex to those is a parse error.
+function withAlpha(color: string, alpha: number): string {
+  if (color.startsWith("#")) {
+    const hex = Math.round(alpha * 255)
+      .toString(16)
+      .padStart(2, "0");
+    return color + hex;
+  }
+  if (color.endsWith(")")) {
+    return `${color.slice(0, -1)} / ${alpha})`;
+  }
+  return color;
+}
+
 function useChartTheme() {
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme ?? "light");
   useEffect(() => {
@@ -87,8 +103,8 @@ export function TimeSeriesChart({
         width: 2,
         fill: (u) => {
           const gradient = u.ctx.createLinearGradient(0, u.bbox.top, 0, u.bbox.top + u.bbox.height);
-          gradient.addColorStop(0, theme.accent + "33");
-          gradient.addColorStop(1, theme.accent + "00");
+          gradient.addColorStop(0, withAlpha(theme.accent, 0.2));
+          gradient.addColorStop(1, withAlpha(theme.accent, 0));
           return gradient;
         },
         points: { show: false },
