@@ -55,6 +55,12 @@ import { DbBrowsePage } from "./pages/db/browse";
 import { DbConsolePage } from "./pages/db/console";
 import { DbSessionsPage } from "./pages/db/sessions";
 import { DbPerformancePage } from "./pages/db/performance";
+import { TruenasModulePage } from "./pages/truenas/module";
+import { TruenasOverviewPage } from "./pages/truenas/overview";
+import { TruenasDatasetsPage } from "./pages/truenas/datasets";
+import { TruenasSharesPage } from "./pages/truenas/shares";
+import { TruenasSnapshotsPage } from "./pages/truenas/snapshots";
+import { TruenasPerformancePage } from "./pages/truenas/performance";
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -189,6 +195,12 @@ const mcLandingRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/mc",
   component: () => <SystemTypeLanding type="minecraft" />,
+});
+
+const truenasLandingRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/truenas",
+  component: () => <SystemTypeLanding type="truenas" />,
 });
 
 const pveModuleRoute = createRoute({
@@ -429,6 +441,44 @@ const dbPerformanceRoute = createRoute({
   component: DbPerformancePage,
 });
 
+// The unified TrueNAS module: one storage instance with tabbed views. The
+// static /truenas landing outranks $instanceId.
+const truenasModuleRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/truenas/$instanceId",
+  component: TruenasModulePage,
+});
+
+const truenasOverviewRoute = createRoute({
+  getParentRoute: () => truenasModuleRoute,
+  path: "/",
+  component: TruenasOverviewPage,
+});
+
+const truenasDatasetsRoute = createRoute({
+  getParentRoute: () => truenasModuleRoute,
+  path: "/datasets",
+  component: TruenasDatasetsPage,
+});
+
+const truenasSharesRoute = createRoute({
+  getParentRoute: () => truenasModuleRoute,
+  path: "/shares",
+  component: TruenasSharesPage,
+});
+
+const truenasSnapshotsRoute = createRoute({
+  getParentRoute: () => truenasModuleRoute,
+  path: "/snapshots",
+  component: TruenasSnapshotsPage,
+});
+
+const truenasPerformanceRoute = createRoute({
+  getParentRoute: () => truenasModuleRoute,
+  path: "/performance",
+  component: TruenasPerformancePage,
+});
+
 const routeTree = rootRoute.addChildren([
   setupRoute,
   loginRoute,
@@ -451,6 +501,7 @@ const routeTree = rootRoute.addChildren([
     pveLandingRoute,
     haLandingRoute,
     mcLandingRoute,
+    truenasLandingRoute,
     dockerHubRoute.addChildren([dockerAllContainersRoute, dockerHostsRoute]),
     pveModuleRoute.addChildren([
       pveSummaryRoute,
@@ -489,6 +540,13 @@ const routeTree = rootRoute.addChildren([
       dbConsoleRoute,
       dbSessionsRoute,
       dbPerformanceRoute,
+    ]),
+    truenasModuleRoute.addChildren([
+      truenasOverviewRoute,
+      truenasDatasetsRoute,
+      truenasSharesRoute,
+      truenasSnapshotsRoute,
+      truenasPerformanceRoute,
     ]),
   ]),
 ]);

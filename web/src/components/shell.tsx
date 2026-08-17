@@ -12,6 +12,7 @@ import {
   DatabaseBackup,
   Eye,
   FileClock,
+  HardDrive,
   Home,
   House,
   KeyRound,
@@ -127,6 +128,7 @@ export function AppShell() {
   const dbRows = rows.filter((row) => row.type === "mysql" || row.type === "mongodb");
   const haRows = rows.filter((row) => row.type === "homeassistant");
   const mcRows = rows.filter((row) => row.type === "minecraft");
+  const truenasRows = rows.filter((row) => row.type === "truenas");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
 
   type TypeEntry = NavItem & { status: string; prefix: string };
@@ -183,6 +185,15 @@ export function AppShell() {
           icon: Pickaxe,
           status: worstStatus(mcRows),
           prefix: "/mc",
+        }]
+      : []),
+    ...(truenasRows.length > 0
+      ? [{
+          to: truenasRows.length === 1 ? `/truenas/${truenasRows[0].id}` : "/truenas",
+          label: t("systems.types.truenas"),
+          icon: HardDrive,
+          status: worstStatus(truenasRows),
+          prefix: "/truenas",
         }]
       : []),
   ];
