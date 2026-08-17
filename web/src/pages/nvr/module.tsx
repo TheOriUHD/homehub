@@ -137,8 +137,8 @@ export function NvrModulePage() {
 
       {expanded && (
         <Dialog open onOpenChange={(open) => !open && setExpanded(null)}>
-          <DialogContent wide title={expanded.name}>
-            <div className="aspect-video w-full">
+          <DialogContent wide className="max-w-[min(94vw,1700px)]" title={expanded.name}>
+            <div className="h-[min(78vh,56.4vw)] w-full">
               <CameraTile instanceId={instanceId} camera={expanded} quality="main" />
             </div>
           </DialogContent>
@@ -207,14 +207,19 @@ function CameraTile({
     const container = containerRef.current;
     if (!container) return;
     const key = `${instanceId}/${camera.id}/${quality}`;
-    const engine = acquireLive(key, container, async () => {
-      const grant = unwrap(
-        await api.POST("/nvr/{id}/cameras/{cameraId}/stream-token", {
-          params: { path: { id: instanceId, cameraId: camera.id } },
-        }),
-      );
-      return quality === "sub" && grant.hasSub ? `${grant.wsUrl}&q=sub` : grant.wsUrl;
-    });
+    const engine = acquireLive(
+      key,
+      container,
+      async (useSub) => {
+        const grant = unwrap(
+          await api.POST("/nvr/{id}/cameras/{cameraId}/stream-token", {
+            params: { path: { id: instanceId, cameraId: camera.id } },
+          }),
+        );
+        return useSub && grant.hasSub ? `${grant.wsUrl}&q=sub` : grant.wsUrl;
+      },
+      quality === "sub",
+    );
     const unsubscribe = engine.onState(setLive);
     return () => {
       unsubscribe();
