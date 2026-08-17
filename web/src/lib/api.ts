@@ -94,6 +94,7 @@ export type BackupSchedule = ApiSchemas["BackupSchedule"];
 export type TruenasInstance = ApiSchemas["TruenasInstance"];
 export type TruenasSystemInfo = ApiSchemas["TruenasSystemInfo"];
 export type TruenasOverview = ApiSchemas["TruenasOverview"];
+export type TruenasMemory = ApiSchemas["TruenasMemory"];
 export type TruenasPool = ApiSchemas["TruenasPool"];
 export type TruenasDisk = ApiSchemas["TruenasDisk"];
 export type TruenasDataset = ApiSchemas["TruenasDataset"];

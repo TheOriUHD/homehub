@@ -2043,14 +2043,38 @@
     },
     "overview": {
       "alerts": "Alerts",
+      "pools": "Pools",
       "disks": "Disks",
       "healthy": "Healthy",
       "unhealthy": "Unhealthy",
       "usedOfTotal": "{{used}} of {{total}}",
       "percentFull": "{{pct}}% full",
+      "pct": "{{pct}}%",
       "free": "{{size}} free",
       "fragmentation": "{{pct}}% fragmented",
       "celsius": "{{value}}°C",
+      "system": {
+        "title": "System",
+        "version": "Version",
+        "model": "Model",
+        "cores": "Cores",
+        "uptime": "Uptime",
+        "unavailable": "System details are unavailable."
+      },
+      "memory": {
+        "title": "Memory",
+        "total": "Total",
+        "zfsCache": "ZFS Cache",
+        "services": "Services",
+        "free": "Free",
+        "unavailable": "Memory reporting is unavailable on this system.",
+        "dial": "Memory: {{total}} total — {{segments}}",
+        "segment": "{{name}}: {{size}} ({{pct}}%)"
+      },
+      "storage": {
+        "title": "Storage",
+        "unavailable": "No pool capacity to summarize."
+      },
       "noDisks": "No disks reported.",
       "noPools": {
         "title": "No pools",

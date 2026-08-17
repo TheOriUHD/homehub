@@ -1,10 +1,17 @@
+import type { ReactNode } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, HardDrive } from "lucide-react";
-import type { TruenasAlert, TruenasDisk, TruenasPool } from "@/lib/api";
+import type {
+  TruenasAlert,
+  TruenasDisk,
+  TruenasMemory,
+  TruenasPool,
+  TruenasSystemInfo,
+} from "@/lib/api";
 import { cn, formatBytes, formatRelative } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
-import { Card } from "@/ui/card";
+import { Card, CardBody, CardHeader } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
@@ -19,8 +26,10 @@ import {
 } from "./shared";
 
 /**
- * TruenasOverviewPage is the module's default tab: a capacity card per pool,
- * the disk inventory, and any active alerts.
+ * TruenasOverviewPage is the module's default tab, laid out as a dashboard:
+ * a top row of System / Memory / Storage summary cards (the memory card is
+ * the TrueNAS-style RAM dial), then the per-pool capacity cards, then any
+ * active alerts followed by the disk inventory.
  */
 export function TruenasOverviewPage() {
   const { t } = useTranslation();
@@ -38,28 +47,37 @@ export function TruenasOverviewPage() {
     );
   }
 
-  const { pools, disks } = overview.data!;
+  const { info, memory, pools, disks } = overview.data!;
   const activeAlerts = (alerts.data ?? []).filter((a) => !a.dismissed);
 
   return (
     <div className="space-y-5">
-      {activeAlerts.length > 0 && <AlertsSection alerts={activeAlerts} />}
+      <div className="grid items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <SystemCard info={info} />
+        <MemoryCard memory={memory} />
+        <StorageSummaryCard pools={pools} className="md:col-span-2 xl:col-span-1" />
+      </div>
 
-      {pools.length === 0 ? (
-        <Card>
-          <EmptyState
-            icon={HardDrive}
-            title={t("truenas.overview.noPools.title")}
-            body={t("truenas.overview.noPools.body")}
-          />
-        </Card>
-      ) : (
-        <div className="grid items-start gap-3 md:grid-cols-2">
-          {pools.map((pool) => (
-            <PoolCard key={pool.name} pool={pool} />
-          ))}
-        </div>
-      )}
+      <section className="space-y-2.5">
+        <h2 className="text-fg text-[15px] font-semibold">{t("truenas.overview.pools")}</h2>
+        {pools.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon={HardDrive}
+              title={t("truenas.overview.noPools.title")}
+              body={t("truenas.overview.noPools.body")}
+            />
+          </Card>
+        ) : (
+          <div className="grid items-start gap-3 md:grid-cols-2">
+            {pools.map((pool) => (
+              <PoolCard key={pool.name} pool={pool} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {activeAlerts.length > 0 && <AlertsSection alerts={activeAlerts} />}
 
       <section className="space-y-2.5">
         <h2 className="text-fg text-[15px] font-semibold">{t("truenas.overview.disks")}</h2>
@@ -91,6 +109,280 @@ export function TruenasOverviewPage() {
     </div>
   );
 }
+
+/** Muted inline note for a summary card whose data source is absent. */
+function CardNote({ children }: { children: ReactNode }) {
+  return <p className="text-fg-subtle py-6 text-center text-[13px]">{children}</p>;
+}
+
+/* ---- system card ---------------------------------------------------------- */
+
+function SystemCard({ info }: { info: TruenasSystemInfo | null | undefined }) {
+  const { t } = useTranslation();
+
+  const rows: Array<{ key: string; value: string }> = [];
+  if (info) {
+    // The hostname leads; the version becomes its subtitle. If the hostname
+    // is missing the version takes the lead slot instead of repeating below.
+    if (info.model) rows.push({ key: "model", value: info.model });
+    if (typeof info.cores === "number") rows.push({ key: "cores", value: String(info.cores) });
+    if (info.uptime) rows.push({ key: "uptime", value: info.uptime });
+  }
+  const lead = info?.hostname || info?.version;
+
+  return (
+    <Card>
+      <CardHeader title={t("truenas.overview.system.title")} />
+      <CardBody>
+        {!info || !lead ? (
+          <CardNote>{t("truenas.overview.system.unavailable")}</CardNote>
+        ) : (
+          <div className="space-y-3">
+            <div className="min-w-0">
+              <p className="text-fg truncate text-lg font-semibold tracking-tight">{lead}</p>
+              {info.hostname && info.version && (
+                <p className="text-fg-muted truncate text-[13px]">{info.version}</p>
+              )}
+            </div>
+            {rows.length > 0 && (
+              <dl className="text-fg-muted space-y-1.5 text-[13px]">
+                {rows.map((row) => (
+                  <div key={row.key} className="flex justify-between gap-3">
+                    <dt>{t(`truenas.overview.system.${row.key}`)}</dt>
+                    <dd className="text-fg truncate font-medium">{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/* ---- memory card (the RAM dial) ------------------------------------------- */
+
+/**
+ * Dial geometry. Segment identity lives in the legend and per-segment
+ * <title>s, never in color alone. Hues: ZFS Cache wears the accent, Services
+ * the next categorical slot (--hh-series-2, teal — validated CVD-separable
+ * from the accent in both themes), and Free the edge tone: a deliberate
+ * neutral for the unallocated remainder, with the legend carrying its value.
+ */
+const DIAL_SIZE = 160;
+const DIAL_CENTER = DIAL_SIZE / 2;
+const DIAL_RADIUS = 64;
+const DIAL_STROKE = 15;
+/** A 2px surface gap between segments, expressed as degrees at the radius. */
+const DIAL_GAP_DEG = (2 / DIAL_RADIUS) * (180 / Math.PI);
+
+const MEMORY_SEGMENTS = [
+  { key: "zfsCache", color: "var(--hh-accent)", pick: (m: TruenasMemory) => m.arcBytes },
+  { key: "services", color: "var(--hh-series-2)", pick: (m: TruenasMemory) => m.servicesBytes },
+  { key: "free", color: "var(--hh-edge-strong)", pick: (m: TruenasMemory) => m.freeBytes },
+] as const;
+
+function dialPoint(deg: number): { x: number; y: number } {
+  const rad = ((deg - 90) * Math.PI) / 180; // 0° at 12 o'clock, clockwise
+  return {
+    x: DIAL_CENTER + DIAL_RADIUS * Math.cos(rad),
+    y: DIAL_CENTER + DIAL_RADIUS * Math.sin(rad),
+  };
+}
+
+function dialArcPath(startDeg: number, endDeg: number): string {
+  const s = dialPoint(startDeg);
+  const e = dialPoint(endDeg);
+  const large = endDeg - startDeg > 180 ? 1 : 0;
+  return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${DIAL_RADIUS} ${DIAL_RADIUS} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
+}
+
+function MemoryCard({ memory }: { memory: TruenasMemory | null | undefined }) {
+  const { t } = useTranslation();
+
+  const segments = memory
+    ? MEMORY_SEGMENTS.map((s) => ({ key: s.key, color: s.color, bytes: s.pick(memory) })).filter(
+        (s) => s.bytes > 0,
+      )
+    : [];
+  const sum = segments.reduce((acc, s) => acc + s.bytes, 0);
+
+  if (!memory || sum <= 0) {
+    return (
+      <Card>
+        <CardHeader title={t("truenas.overview.memory.title")} />
+        <CardBody>
+          <CardNote>{t("truenas.overview.memory.unavailable")}</CardNote>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  let angle = 0;
+  const arcs = segments.map((s) => {
+    const start = angle;
+    const sweep = (s.bytes / sum) * 360;
+    angle += sweep;
+    return { ...s, start, sweep, pct: Math.round((s.bytes / sum) * 100) };
+  });
+
+  const total = memory.totalBytes > 0 ? memory.totalBytes : sum;
+  const segmentLabel = (a: (typeof arcs)[number]) =>
+    t("truenas.overview.memory.segment", {
+      name: t(`truenas.overview.memory.${a.key}`),
+      size: formatBytes(a.bytes),
+      pct: a.pct,
+    });
+  const dialLabel = t("truenas.overview.memory.dial", {
+    total: formatBytes(total),
+    segments: arcs.map(segmentLabel).join(", "),
+  });
+
+  return (
+    <Card className="flex flex-col">
+      <CardHeader title={t("truenas.overview.memory.title")} />
+      <CardBody className="flex flex-1 flex-wrap content-center items-center justify-center gap-x-5 gap-y-3">
+        <div className="relative size-[160px] shrink-0">
+          <svg
+            viewBox={`0 0 ${DIAL_SIZE} ${DIAL_SIZE}`}
+            className="size-full"
+            role="img"
+            aria-label={dialLabel}
+          >
+            {arcs.length === 1 ? (
+              <circle
+                cx={DIAL_CENTER}
+                cy={DIAL_CENTER}
+                r={DIAL_RADIUS}
+                fill="none"
+                stroke={arcs[0].color}
+                strokeWidth={DIAL_STROKE}
+              >
+                <title>{segmentLabel(arcs[0])}</title>
+              </circle>
+            ) : (
+              arcs.map((a) => {
+                // Trim half the surface gap from each end; slivers keep a
+                // minimal visible sweep instead of inverting.
+                const half = DIAL_GAP_DEG / 2;
+                const a0 = a.start + half;
+                const a1 = Math.max(a.start + a.sweep - half, a0 + 0.5);
+                return (
+                  <path
+                    key={a.key}
+                    d={dialArcPath(a0, a1)}
+                    fill="none"
+                    stroke={a.color}
+                    strokeWidth={DIAL_STROKE}
+                    strokeLinecap="butt"
+                  >
+                    <title>{segmentLabel(a)}</title>
+                  </path>
+                );
+              })
+            )}
+          </svg>
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-fg text-xl font-semibold tracking-tight">
+              {formatBytes(total)}
+            </span>
+            <span className="text-fg-subtle text-xs">{t("truenas.overview.memory.total")}</span>
+          </div>
+        </div>
+
+        <ul className="min-w-36 max-w-full space-y-2">
+          {arcs.map((a) => (
+            <li key={a.key} className="flex items-center gap-2 text-[13px]">
+              <span
+                aria-hidden
+                className="size-2.5 shrink-0 rounded-full"
+                style={{ background: a.color }}
+              />
+              <span className="text-fg-muted min-w-0 flex-1 truncate">
+                {t(`truenas.overview.memory.${a.key}`)}
+              </span>
+              <span className="text-fg shrink-0 font-medium tabular-nums">
+                {formatBytes(a.bytes)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </CardBody>
+    </Card>
+  );
+}
+
+/* ---- storage summary card -------------------------------------------------- */
+
+function StorageSummaryCard({ pools, className }: { pools: TruenasPool[]; className?: string }) {
+  const { t } = useTranslation();
+
+  const totalSize = pools.reduce((acc, p) => acc + p.sizeBytes, 0);
+  const totalUsed = pools.reduce((acc, p) => acc + p.allocatedBytes, 0);
+  const overallPct = totalSize > 0 ? (totalUsed / totalSize) * 100 : 0;
+
+  return (
+    <Card className={className}>
+      <CardHeader
+        title={t("truenas.overview.storage.title")}
+        actions={<Badge tone="neutral">{t("truenas.chips.pools", { count: pools.length })}</Badge>}
+      />
+      <CardBody>
+        {pools.length === 0 || totalSize <= 0 ? (
+          <CardNote>{t("truenas.overview.storage.unavailable")}</CardNote>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                <p className="text-fg text-lg font-semibold tracking-tight">
+                  {t("truenas.overview.usedOfTotal", {
+                    used: formatBytes(totalUsed),
+                    total: formatBytes(totalSize),
+                  })}
+                </p>
+                <span className={cn("text-[13px] font-medium", capacityTextClass[capacityTone(overallPct)])}>
+                  {t("truenas.overview.percentFull", { pct: Math.round(overallPct) })}
+                </span>
+              </div>
+              <div className="bg-bg-subtle mt-2 h-2 w-full overflow-hidden rounded-full">
+                <div
+                  className={cn("h-full rounded-full transition-[width]", capacityBarClass(overallPct))}
+                  style={{ width: `${Math.min(Math.max(overallPct, 0), 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <ul className="space-y-1.5">
+              {pools.map((pool) => {
+                const pct = Math.min(Math.max(pool.usedPct, 0), 100);
+                return (
+                  <li
+                    key={pool.name}
+                    className="grid grid-cols-[minmax(3.5rem,1fr)_2fr_2.75rem] items-center gap-2.5 text-[13px]"
+                  >
+                    <span className="text-fg truncate font-medium">{pool.name}</span>
+                    <span className="bg-bg-subtle h-1.5 overflow-hidden rounded-full">
+                      <span
+                        className={cn("block h-full rounded-full", capacityBarClass(pool.usedPct))}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </span>
+                    <span className="text-fg-muted text-right text-xs tabular-nums">
+                      {t("truenas.overview.pct", { pct: Math.round(pool.usedPct) })}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/* ---- pools ----------------------------------------------------------------- */
 
 const capacityTextClass: Record<ReturnType<typeof capacityTone>, string> = {
   success: "text-success-soft-fg",
@@ -141,6 +433,8 @@ function PoolCard({ pool }: { pool: TruenasPool }) {
     </Card>
   );
 }
+
+/* ---- disks + alerts --------------------------------------------------------- */
 
 function DiskRow({ disk }: { disk: TruenasDisk }) {
   const { t } = useTranslation();
