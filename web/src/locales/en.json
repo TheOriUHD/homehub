@@ -1240,6 +1240,84 @@
       "noHistory": "No recorded history for this entity yet."
     }
   },
+  "mc": {
+    "title": "Minecraft",
+    "companionVersion": "Companion {{version}}",
+    "tabs": {
+      "console": "Console",
+      "players": "Players",
+      "setup": "Setup",
+      "performance": "Performance"
+    },
+    "chips": {
+      "tps": "{{tps}} TPS",
+      "players": "{{online}}/{{max}}",
+      "heap": "{{used}}/{{max}} MB heap",
+      "heapNoMax": "{{used}} MB heap"
+    },
+    "console": {
+      "offlineBanner": "Companion offline — showing the last captured scrollback.",
+      "loadOlder": "Load older lines",
+      "loadingOlder": "Loading…",
+      "loadOlderFailed": "Couldn't load older lines",
+      "loadFailed": "The console history couldn't be loaded.",
+      "historyBegins": "history begins here — older lines were evicted",
+      "jumpToLatest": "Jump to latest",
+      "empty": "No console output captured yet. It appears live once the companion connects.",
+      "commandPlaceholder": "Run a server command — e.g. list, say hello",
+      "commandAria": "Console command",
+      "commandFailed": "Command failed"
+    },
+    "players": {
+      "onlineTitle": "Online players",
+      "empty": {
+        "title": "Nobody online",
+        "body": "Players show up here the moment they join."
+      },
+      "offline": {
+        "title": "Companion offline",
+        "body": "Player presence returns as soon as the server reconnects."
+      },
+      "downstreamTitle": "Downstream servers",
+      "downstreamBody": "Backends behind this Velocity proxy.",
+      "playerCount_one": "{{count}} player",
+      "playerCount_other": "{{count}} players"
+    },
+    "setup": {
+      "pairingTitle": "Pairing",
+      "pairingIntro": "Pair the companion once — it stores its own token and reconnects by itself from then on.",
+      "currentCode": "Pairing code",
+      "expiresIn": "Expires in {{time}}",
+      "expired": "This code expired — generate a new one.",
+      "generate": "Generate new code",
+      "generated": "New pairing code issued",
+      "noCode": "No active pairing code. Generate one to pair a companion.",
+      "paired": "Paired {{when}}",
+      "notPaired": "Not paired yet — follow the steps below.",
+      "codePlaceholder": "<pairing code>",
+      "instructionsTitle": "Connect your server",
+      "instructionsIntro": "Four steps and the console lights up.",
+      "step1": "Download the companion for your loader",
+      "downloadMeta": "{{versions}} · {{size}}",
+      "step2": "Drop the jar into the server's plugins/ folder (mods/ on Fabric and Forge)",
+      "step3": "Point it at this HomeHub",
+      "step3Body": "Either create homehub-companion.properties next to the server jar with the contents below, or run the pair command straight from the server console.",
+      "propertiesLabel": "homehub-companion.properties",
+      "commandLabel": "…or from the server console",
+      "step4": "Start (or restart) the server",
+      "step4Body": "The companion pairs, then reconnects automatically from here on — nothing else to do."
+    },
+    "performance": {
+      "tps": "TPS",
+      "mspt": "MSPT",
+      "players": "Players online",
+      "heap": "Heap used",
+      "empty": {
+        "title": "No performance data yet",
+        "body": "Charts appear once the companion starts reporting TPS, players, and memory."
+      }
+    }
+  },
   "history": {
     "title": "History",
     "subtitle": "Any metric, any timeframe — compared on one chart.",

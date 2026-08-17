@@ -202,6 +202,12 @@ function OpenModuleLink({ row }: { row: Integration }) {
           {label}
         </Link>
       );
+    case "minecraft":
+      return (
+        <Link to="/mc/$instanceId" params={{ instanceId: row.id }} className={className}>
+          {label}
+        </Link>
+      );
     case "pihole":
     case "adguard":
       return (

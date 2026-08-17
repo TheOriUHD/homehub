@@ -14,6 +14,7 @@ import {
   KeyRound,
   LogOut,
   Moon,
+  Pickaxe,
   Server,
   Settings,
   Shield,
@@ -63,6 +64,7 @@ export function CommandPalette({
   const dockerRows = rows.filter((row) => row.type === "docker");
   const dnsRows = rows.filter((row) => row.type === "pihole" || row.type === "adguard");
   const haRows = rows.filter((row) => row.type === "homeassistant");
+  const mcRows = rows.filter((row) => row.type === "minecraft");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
 
   const systemEntries = [
@@ -81,6 +83,13 @@ export function CommandPalette({
           label: t("systems.types.homeassistant"),
           icon: House,
           to: haRows.length === 1 ? `/ha/${haRows[0].id}` : "/ha",
+        }]
+      : []),
+    ...(mcRows.length > 0
+      ? [{
+          label: t("systems.types.minecraft"),
+          icon: Pickaxe,
+          to: mcRows.length === 1 ? `/mc/${mcRows[0].id}` : "/mc",
         }]
       : []),
   ];

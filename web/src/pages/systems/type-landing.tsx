@@ -15,16 +15,26 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 
-type LandingType = "proxmox" | "homeassistant";
+type LandingType = "proxmox" | "homeassistant" | "minecraft";
 
 /** InstanceLink wraps a card in the typed route for its module. */
 function InstanceLink({ row, children }: { row: Integration; children: React.ReactNode }) {
   const className = "block";
-  return row.type === "proxmox" ? (
-    <Link to="/pve/$instanceId" params={{ instanceId: row.id }} className={className}>
-      {children}
-    </Link>
-  ) : (
+  if (row.type === "proxmox") {
+    return (
+      <Link to="/pve/$instanceId" params={{ instanceId: row.id }} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  if (row.type === "minecraft") {
+    return (
+      <Link to="/mc/$instanceId" params={{ instanceId: row.id }} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  return (
     <Link to="/ha/$instanceId" params={{ instanceId: row.id }} className={className}>
       {children}
     </Link>
@@ -76,11 +86,13 @@ export function SystemTypeLanding({ type }: { type: LandingType }) {
 
   if (rows.length === 1) {
     const only = rows[0];
-    return only.type === "proxmox" ? (
-      <Navigate to="/pve/$instanceId" params={{ instanceId: only.id }} replace />
-    ) : (
-      <Navigate to="/ha/$instanceId" params={{ instanceId: only.id }} replace />
-    );
+    if (only.type === "proxmox") {
+      return <Navigate to="/pve/$instanceId" params={{ instanceId: only.id }} replace />;
+    }
+    if (only.type === "minecraft") {
+      return <Navigate to="/mc/$instanceId" params={{ instanceId: only.id }} replace />;
+    }
+    return <Navigate to="/ha/$instanceId" params={{ instanceId: only.id }} replace />;
   }
 
   return (
