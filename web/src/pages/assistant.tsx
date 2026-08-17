@@ -1,13 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Eraser, Send, Settings2, Sparkles, Wrench } from "lucide-react";
+import { Settings2, Sparkles } from "lucide-react";
 import { api, isApiError, unwrap } from "@/lib/api";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/ui/badge";
+import { AssistantChatPane } from "@/components/assistant-chat";
 import { Button } from "@/ui/button";
-import { Card, CardBody, CardHeader } from "@/ui/card";
-import { ConfirmDialog } from "@/ui/confirm";
+import { Card, CardBody } from "@/ui/card";
 import { Dialog, DialogContent } from "@/ui/dialog";
 import { Field } from "@/ui/field";
 import { Input } from "@/ui/input";
@@ -68,7 +66,11 @@ export function AssistantPage() {
       </div>
 
       {info.enabled ? (
-        <ChatPane />
+        <Card className="flex min-h-0 flex-1 flex-col">
+          <CardBody className="flex min-h-0 flex-1 flex-col">
+            <AssistantChatPane variant="page" />
+          </CardBody>
+        </Card>
       ) : (
         <Card>
           <EmptyState
@@ -92,159 +94,6 @@ export function AssistantPage() {
           onClose={() => setSettingsOpen(false)}
         />
       )}
-    </div>
-  );
-}
-
-type HistoryItem = {
-  id: number;
-  role: "user" | "assistant";
-  content: string;
-  tools?: string[];
-  ts: string;
-  pending?: boolean;
-};
-
-function ChatPane() {
-  const { t } = useTranslation();
-  const toast = useToast();
-  const queryClient = useQueryClient();
-  const [draft, setDraft] = useState("");
-  const [confirmClear, setConfirmClear] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  const history = useQuery({
-    queryKey: ["assistant", "history"],
-    queryFn: async () => unwrap(await api.GET("/assistant/history")),
-  });
-
-  const send = useMutation({
-    mutationFn: async (message: string) =>
-      unwrap(await api.POST("/assistant/chat", { body: { message } })),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["assistant", "history"] }),
-    onError: (err) => {
-      void queryClient.invalidateQueries({ queryKey: ["assistant", "history"] });
-      toast("error", t("assistant.failed"), isApiError(err) ? err.message : t("common.unknownError"));
-    },
-  });
-
-  const clear = useMutation({
-    mutationFn: async () => {
-      unwrap(await api.DELETE("/assistant/history"));
-    },
-    onSuccess: () => {
-      setConfirmClear(false);
-      void queryClient.invalidateQueries({ queryKey: ["assistant", "history"] });
-    },
-  });
-
-  const items: HistoryItem[] = [...((history.data as HistoryItem[] | undefined) ?? [])];
-  if (send.isPending && send.variables) {
-    items.push({ id: -1, role: "user", content: send.variables, ts: "", pending: false });
-    items.push({ id: -2, role: "assistant", content: "", ts: "", pending: true });
-  }
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [items.length, send.isPending]);
-
-  const submit = () => {
-    const message = draft.trim();
-    if (!message || send.isPending) return;
-    setDraft("");
-    send.mutate(message);
-  };
-
-  return (
-    <Card className="flex min-h-0 flex-1 flex-col">
-      <CardHeader
-        title={t("assistant.chatTitle")}
-        actions={
-          items.length > 0 ? (
-            <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)}>
-              <Eraser className="size-3.5" />
-              {t("assistant.clear")}
-            </Button>
-          ) : undefined
-        }
-      />
-      <CardBody className="flex min-h-0 flex-1 flex-col gap-3">
-        <div className="min-h-[300px] flex-1 space-y-3 overflow-y-auto pr-1">
-          {history.isLoading && <PageLoader className="py-10" />}
-          {!history.isLoading && items.length === 0 && (
-            <div className="text-fg-muted flex h-full flex-col items-center justify-center gap-1 py-10 text-center text-sm">
-              <Sparkles className="text-fg-subtle mb-1 size-5" />
-              {t("assistant.emptyHint")}
-              <span className="text-fg-subtle text-[12.5px]">{t("assistant.emptyExamples")}</span>
-            </div>
-          )}
-          {items.map((item) => (
-            <MessageBubble key={item.id} item={item} />
-          ))}
-          <div ref={bottomRef} />
-        </div>
-
-        <div className="flex items-end gap-2">
-          <Input
-            value={draft}
-            placeholder={t("assistant.placeholder")}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submit();
-              }
-            }}
-          />
-          <Button variant="primary" disabled={!draft.trim() || send.isPending} onClick={submit} aria-label={t("assistant.send")}>
-            <Send className="size-4" />
-          </Button>
-        </div>
-      </CardBody>
-
-      <ConfirmDialog
-        open={confirmClear}
-        onOpenChange={setConfirmClear}
-        title={t("assistant.clearTitle")}
-        body={t("assistant.clearBody")}
-        confirmLabel={t("assistant.clear")}
-        loading={clear.isPending}
-        onConfirm={() => clear.mutate()}
-      />
-    </Card>
-  );
-}
-
-function MessageBubble({ item }: { item: HistoryItem }) {
-  const { t } = useTranslation();
-  const isUser = item.role === "user";
-  return (
-    <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
-      <div
-        className={cn(
-          "max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm",
-          isUser ? "bg-accent text-accent-fg" : "bg-bg-subtle text-fg",
-        )}
-      >
-        {item.pending ? (
-          <span className="text-fg-muted flex items-center gap-2 text-[13px]">
-            <Sparkles className="size-3.5 animate-pulse" />
-            {t("assistant.thinking")}
-          </span>
-        ) : (
-          <p className="whitespace-pre-wrap">{item.content}</p>
-        )}
-        {!isUser && (item.tools?.length ?? 0) > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {[...new Set(item.tools)].map((tool) => (
-              <Badge key={tool} tone="neutral">
-                <Wrench className="size-2.5" />
-                {tool}
-              </Badge>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

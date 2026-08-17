@@ -227,16 +227,20 @@ func (tb *Toolbox) haEntities(ctx context.Context, _ Access, input json.RawMessa
 	if err != nil {
 		return nil, err
 	}
-	var entities []struct {
-		EntityID string         `json:"entityId"`
-		Name     string         `json:"name"`
-		State    string         `json:"state"`
-		Area     *string        `json:"area"`
-		Attrs    map[string]any `json:"attributes"`
+	// The endpoint returns {areas, entities}, not a bare list.
+	var payload struct {
+		Entities []struct {
+			EntityID string         `json:"entityId"`
+			Name     string         `json:"name"`
+			State    string         `json:"state"`
+			Area     *string        `json:"area"`
+			Attrs    map[string]any `json:"attributes"`
+		} `json:"entities"`
 	}
-	if err := json.Unmarshal(raw, &entities); err != nil {
+	if err := json.Unmarshal(raw, &payload); err != nil {
 		return nil, fmt.Errorf("unexpected entities response")
 	}
+	entities := payload.Entities
 
 	needle := strings.ToLower(strings.TrimSpace(args.Search))
 	type slim struct {

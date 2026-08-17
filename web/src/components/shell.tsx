@@ -37,6 +37,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { RES } from "@/lib/perms";
+import { AssistantWidget } from "./assistant-widget";
 import { api, unwrap } from "@/lib/api";
 import { SYSTEMS_RES, useIntegrations, worstStatus } from "@/lib/systems";
 import { useTheme } from "@/lib/theme";
@@ -399,6 +400,7 @@ export function AppShell() {
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">
           <Outlet />
+          <AssistantWidget />
         </main>
       </div>
 
