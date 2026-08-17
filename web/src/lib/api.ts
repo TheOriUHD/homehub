@@ -102,6 +102,13 @@ export type TruenasShare = ApiSchemas["TruenasShare"];
 export type TruenasSnapshot = ApiSchemas["TruenasSnapshot"];
 export type TruenasAlert = ApiSchemas["TruenasAlert"];
 
+export type CaddySitesState = ApiSchemas["CaddySitesState"];
+export type CaddySite = ApiSchemas["CaddySite"];
+export type CaddySiteInput = ApiSchemas["CaddySiteInput"];
+export type CaddyRawSite = ApiSchemas["CaddyRawSite"];
+export type CaddyHeaderUp = ApiSchemas["CaddyHeaderUp"];
+export type CaddyServed = ApiSchemas["CaddyServed"];
+
 export type TsTailnet = ApiSchemas["TsTailnet"];
 export type TsDevice = ApiSchemas["TsDevice"];
 export type TsKey = ApiSchemas["TsKey"];

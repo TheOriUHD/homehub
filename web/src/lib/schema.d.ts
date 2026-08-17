@@ -2459,6 +2459,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/caddy/pair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pair a caddy-reader helper and create the integration
+         * @description Redeems a six-digit pairing code server-side — the helper token never touches the browser — and creates the Caddy system in one step. Audited.
+         */
+        post: operations["caddyPair"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/caddy/{id}/repair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-pair an existing helper with a fresh code
+         * @description Replaces the stored token. Audited.
+         */
+        post: operations["caddyRepair"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/caddy/{id}/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The manager state, read live from the Caddyfile
+         * @description No cache, ever — the Caddyfile is the source of truth. Editable entries, the blocks the splitter refused to model (shown with their reasons), the global options block, and whether the helper allows writes.
+         */
+        get: operations["caddySites"];
+        put?: never;
+        /**
+         * Add a site
+         * @description Caddy validates the resulting file before anything touches disk; a refused config is a non-event. Returns the whole re-listed state. Audited.
+         */
+        post: operations["caddyCreateSite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/caddy/{id}/sites/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change the site serving a domain
+         * @description Unknown directives in the block are carried across — changing a port never drops the line above it. Audited.
+         */
+        put: operations["caddyUpdateSite"];
+        post?: never;
+        /**
+         * Remove the site serving a domain
+         * @description Audited.
+         */
+        delete: operations["caddyRemoveSite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/caddy/{id}/served": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the running config is actually serving
+         * @description The helper's projected running config — which domain points at which upstream, domains that are proxied somewhere unknowable (with reasons), and domains served by something that is not a reverse proxy.
+         */
+        get: operations["caddyServed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ha/instances": {
         parameters: {
             query?: never;
@@ -3915,6 +4023,54 @@ export interface components {
             sizeBytes: number;
             /** @description Human-readable supported range, e.g. "1.16.5 – 1.21.x" */
             mcVersions: string;
+        };
+        CaddyHeaderUp: {
+            name: string;
+            value: string;
+        };
+        CaddySiteInput: {
+            domain: string;
+            extraDomains?: string[];
+            upstreamScheme?: string;
+            upstreamHost: string;
+            upstreamPort?: string;
+            dnsProvider?: string;
+            /** @description Kept verbatim — usually an {env.*} placeholder; never re-quoted or expanded. */
+            dnsArgs?: string;
+            encode?: string;
+            headerUp?: components["schemas"]["CaddyHeaderUp"][];
+            insecureUpstream?: boolean;
+        };
+        CaddySite: components["schemas"]["CaddySiteInput"] & {
+            /** @description Directives the model does not know, preserved verbatim and carried across edits. */
+            unknownDirectives: string[];
+        };
+        CaddyRawSite: {
+            addresses: string[];
+            reason: string;
+            raw: string;
+        };
+        CaddySitesState: {
+            path: string;
+            writable: boolean;
+            refusal?: string;
+            global?: string;
+            entries: components["schemas"]["CaddySite"][];
+            rawSites: components["schemas"]["CaddyRawSite"][];
+        };
+        CaddyServed: {
+            upstreams: {
+                domain: string;
+                host: string;
+                port?: string;
+                dial: string;
+            }[];
+            unresolvable: {
+                domain: string;
+                reason: string;
+            }[];
+            domainsWithoutProxy: string[];
+            warnings: string[];
         };
         TsTailnet: {
             /** Format: uuid */
@@ -8594,6 +8750,207 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    caddyPair: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    baseUrl: string;
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Paired and created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integration"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    caddyRepair: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Re-paired */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    caddySites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Manager state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaddySitesState"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    caddyCreateSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaddySiteInput"];
+            };
+        };
+        responses: {
+            /** @description Saved and reloaded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaddySitesState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    caddyUpdateSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaddySiteInput"];
+            };
+        };
+        responses: {
+            /** @description Saved and reloaded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaddySitesState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    caddyRemoveSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed and reloaded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaddySitesState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    caddyServed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Served domains */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaddyServed"];
+                };
+            };
             404: components["responses"]["NotFound"];
             502: components["responses"]["UpstreamError"];
         };

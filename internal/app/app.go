@@ -29,6 +29,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/integration"
 	"github.com/TheOriUHD/homehub/internal/integrations/adguard"
 	"github.com/TheOriUHD/homehub/internal/integrations/amp"
+	"github.com/TheOriUHD/homehub/internal/integrations/caddy"
 	"github.com/TheOriUHD/homehub/internal/integrations/dbsql"
 	"github.com/TheOriUHD/homehub/internal/integrations/docker"
 	"github.com/TheOriUHD/homehub/internal/integrations/homeassistant"
@@ -124,6 +125,7 @@ func Run(ctx context.Context) error {
 	manager.Register(truenas.Driver{})
 	manager.Register(amp.Driver{})
 	manager.Register(tailscale.Driver{})
+	manager.Register(caddy.Driver{})
 	mcRegistry := minecraft.NewRegistry(st, v, logger)
 	mcRegistry.Publish = func(instanceID uuid.UUID, event string, data any) {
 		hub.Publish("integration:"+minecraft.TypeID+"/"+instanceID.String(),

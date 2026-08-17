@@ -15,7 +15,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 
-type LandingType = "proxmox" | "homeassistant" | "minecraft" | "amp" | "tailscale" | "truenas";
+type LandingType = "proxmox" | "homeassistant" | "minecraft" | "amp" | "tailscale" | "caddy" | "truenas";
 
 /** InstanceLink wraps a card in the typed route for its module. */
 function InstanceLink({ row, children }: { row: Integration; children: React.ReactNode }) {
@@ -44,6 +44,13 @@ function InstanceLink({ row, children }: { row: Integration; children: React.Rea
   if (row.type === "tailscale") {
     return (
       <Link to="/ts/$instanceId" params={{ instanceId: row.id }} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  if (row.type === "caddy") {
+    return (
+      <Link to="/caddy/$instanceId" params={{ instanceId: row.id }} className={className}>
         {children}
       </Link>
     );

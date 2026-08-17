@@ -15,6 +15,7 @@ import {
   Gamepad2,
   HardDrive,
   Network,
+  Waypoints,
   Home,
   House,
   KeyRound,
@@ -132,6 +133,7 @@ export function AppShell() {
   const mcRows = rows.filter((row) => row.type === "minecraft");
   const ampRows = rows.filter((row) => row.type === "amp");
   const tsRows = rows.filter((row) => row.type === "tailscale");
+  const caddyRows = rows.filter((row) => row.type === "caddy");
   const truenasRows = rows.filter((row) => row.type === "truenas");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
 
@@ -207,6 +209,15 @@ export function AppShell() {
           icon: Network,
           status: worstStatus(tsRows),
           prefix: "/ts",
+        }]
+      : []),
+    ...(caddyRows.length > 0
+      ? [{
+          to: caddyRows.length === 1 ? `/caddy/${caddyRows[0].id}` : "/caddy",
+          label: t("systems.types.caddy"),
+          icon: Waypoints,
+          status: worstStatus(caddyRows),
+          prefix: "/caddy",
         }]
       : []),
     ...(truenasRows.length > 0
