@@ -117,23 +117,34 @@ export function SystemTypeLanding({ type }: { type: LandingType }) {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {rows.map((row) => (
-          <InstanceLink key={row.id} row={row}>
-            <Card className="hover:border-accent p-4 transition-colors">
-              <p className="text-fg flex items-center gap-2 text-sm font-semibold">
-                <StatusDot tone={statusTone[row.status]} pulse={row.status !== "connected"} />
-                <span className="truncate">{row.name}</span>
-                <Badge tone={statusTone[row.status]} className="ml-auto">
-                  {t(`integrations.status.${row.status}`)}
-                </Badge>
-              </p>
-              {row.statusMessage && (
-                <p className="text-danger-soft-fg mt-2 text-[13px]">{row.statusMessage}</p>
-              )}
-            </Card>
-          </InstanceLink>
-        ))}
+      <div className="grid items-start gap-3 md:grid-cols-2">
+        {rows.map((row) => {
+          const RowIcon = systemTypeIcon(row.type);
+          return (
+            <InstanceLink key={row.id} row={row}>
+              <Card className="hover:border-accent p-4 transition-colors">
+                <div className="flex items-center gap-3">
+                  <span className="bg-accent-soft text-accent-soft-fg flex size-9 shrink-0 items-center justify-center rounded-lg">
+                    <RowIcon className="size-4.5" aria-hidden />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-fg flex items-center gap-2 text-sm font-semibold">
+                      <span className="truncate">{row.name}</span>
+                      <StatusDot tone={statusTone[row.status]} pulse={row.status !== "connected"} />
+                    </p>
+                    <p className="text-fg-muted truncate text-xs">{systemTypeLabel(t, row.type)}</p>
+                  </div>
+                  <Badge tone={statusTone[row.status]} className="shrink-0">
+                    {t(`integrations.status.${row.status}`)}
+                  </Badge>
+                </div>
+                {row.statusMessage && (
+                  <p className="text-danger-soft-fg mt-2.5 text-[13px]">{row.statusMessage}</p>
+                )}
+              </Card>
+            </InstanceLink>
+          );
+        })}
       </div>
     </div>
   );

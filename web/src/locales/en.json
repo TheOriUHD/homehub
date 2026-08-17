@@ -542,11 +542,19 @@
       "standalone": "Standalone node",
       "quorate": "Quorate",
       "noQuorum": "No quorum",
-      "nodesOnline": "{{online}}/{{total}} nodes online",
-      "storageUsed": "Storage used",
-      "guestsRunning": "{{running}}/{{total}} running",
+      "nodesLabel": "Nodes online",
+      "guestsLabel": "Guests running",
+      "nodes": "Nodes",
+      "cores": "{{count}} core",
+      "cores_other": "{{count}} cores",
+      "nodeCpu": "{{pct}}% of {{count}} core",
+      "nodeCpu_other": "{{pct}}% of {{count}} cores",
+      "memValue": "{{used}} / {{total}} · {{pct}}%",
       "cpuChart": "CPU",
-      "memChart": "Memory"
+      "memChart": "Memory",
+      "chartCpu": "Node CPU — last hour",
+      "chartMem": "Node memory — last hour",
+      "collecting": "Collecting data…"
     },
     "guests": {
       "searchPlaceholder": "Filter by name, vmid, node…",
@@ -909,7 +917,15 @@
         "host": "Host"
       },
       "unreachableHosts": "Some hosts could not be reached: {{hosts}}",
-      "containerCount": "{{running}} running · {{total}} containers",
+      "stats": {
+        "hostsOnline": "Hosts online",
+        "running": "Containers running",
+        "stopped": "Stopped",
+        "unreachable": "Unreachable hosts"
+      },
+      "socket": "local socket",
+      "stateCount": "{{n}} {{state}}",
+      "open": "Open",
       "countUnavailable": "Containers unavailable",
       "emptyBody": "No containers match the current filters.",
       "empty": {
@@ -1610,10 +1626,14 @@
       "performance": "Performance"
     },
     "chips": {
-      "tps": "{{tps}} TPS",
-      "players": "{{online}}/{{max}}",
-      "heap": "{{used}}/{{max}} MB heap",
-      "heapNoMax": "{{used}} MB heap"
+      "players": "{{online}}/{{max}}"
+    },
+    "stats": {
+      "tps": "TPS",
+      "players": "Players",
+      "heap": "Heap",
+      "heapValue": "{{used}}/{{max}} MB",
+      "heapValueNoMax": "{{used}} MB"
     },
     "console": {
       "offlineBanner": "Companion offline — showing the last captured scrollback.",

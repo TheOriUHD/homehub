@@ -16,19 +16,10 @@ export function truenasDiskResource(instanceId: string, disk: string): string {
   return `${truenasResource(instanceId)}/disk/${disk}`;
 }
 
-/** Badge/bar tone for a pool's fill level: <70% ok, <90% warning, ≥90% danger. */
-export function capacityTone(usedPct: number): "success" | "warning" | "danger" {
-  if (usedPct >= 90) return "danger";
-  if (usedPct >= 70) return "warning";
-  return "success";
-}
-
-/** Solid fill class for the capacity bar, matching {@link capacityTone}. */
-export function capacityBarClass(usedPct: number): string {
-  if (usedPct >= 90) return "bg-danger";
-  if (usedPct >= 70) return "bg-warning";
-  return "bg-success";
-}
+// Capacity fill tones live in lib/capacity so Proxmox nodes and TrueNAS
+// pools share the exact same thresholds; re-exported here for existing
+// imports.
+export { capacityBarClass, capacityTone } from "@/lib/capacity";
 
 /**
  * Health tone for a pool. An unhealthy pool, or a status naming DEGRADED,
