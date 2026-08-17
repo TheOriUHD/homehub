@@ -34,6 +34,10 @@ type Registry struct {
 	// Publish emits an event on the instance's WS topic, wired to the hub in
 	// app wiring with the same {event, data} envelope the manager uses.
 	Publish func(instanceID uuid.UUID, event string, data any)
+	// StatusChanged fires when a companion binds or drops, wired to the
+	// integration manager's Kick so the instance status follows within a
+	// second instead of the next poll cycle.
+	StatusChanged func(instanceID uuid.UUID)
 
 	mu       sync.RWMutex
 	sessions map[uuid.UUID]*Session
@@ -41,11 +45,12 @@ type Registry struct {
 
 func NewRegistry(st *store.Store, v *vault.Vault, logger *slog.Logger) *Registry {
 	return &Registry{
-		store:    st,
-		vault:    v,
-		logger:   logger.With("component", "minecraft"),
-		sessions: map[uuid.UUID]*Session{},
-		Publish:  func(uuid.UUID, string, any) {},
+		store:         st,
+		vault:         v,
+		logger:        logger.With("component", "minecraft"),
+		sessions:      map[uuid.UUID]*Session{},
+		Publish:       func(uuid.UUID, string, any) {},
+		StatusChanged: func(uuid.UUID) {},
 	}
 }
 
@@ -216,6 +221,7 @@ func (r *Registry) HandleAgent(w http.ResponseWriter, req *http.Request, clientI
 	r.logger.Info("companion connected",
 		"instance", instanceID, "server", first.ServerName, "loader", first.Loader, "mc", first.McVersion)
 	r.Publish(instanceID, "companion-changed", nil)
+	r.StatusChanged(instanceID)
 
 	r.pump(ctx, sess)
 
@@ -227,6 +233,7 @@ func (r *Registry) HandleAgent(w http.ResponseWriter, req *http.Request, clientI
 	sess.close()
 	r.logger.Info("companion disconnected", "instance", instanceID, "server", first.ServerName)
 	r.Publish(instanceID, "companion-changed", nil)
+	r.StatusChanged(instanceID)
 }
 
 // pair redeems a 6-digit code and issues the permanent token.

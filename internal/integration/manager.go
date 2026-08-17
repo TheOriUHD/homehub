@@ -38,6 +38,10 @@ type Manager struct {
 type runner struct {
 	cancel context.CancelFunc
 	done   chan struct{}
+	// kick wakes the runner out of a reconnect backoff or straight into a
+	// health check — used when an inbound upstream (companion-style) binds
+	// or drops, so status follows within a second instead of a poll cycle.
+	kick chan struct{}
 
 	mu   sync.Mutex
 	conn Connection
@@ -141,6 +145,21 @@ func (m *Manager) Connection(id uuid.UUID) (Connection, error) {
 	return r.conn, nil
 }
 
+// Kick nudges an instance's runner to re-evaluate immediately — out of a
+// reconnect backoff or into an instant health check. Safe on unknown ids.
+func (m *Manager) Kick(id uuid.UUID) {
+	m.mu.Lock()
+	r, ok := m.runners[id]
+	m.mu.Unlock()
+	if !ok {
+		return
+	}
+	select {
+	case r.kick <- struct{}{}:
+	default:
+	}
+}
+
 // Stop terminates all runners (app shutdown).
 func (m *Manager) Stop() {
 	m.mu.Lock()
@@ -176,7 +195,7 @@ func (m *Manager) launch(inst Instance) {
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &runner{cancel: cancel, done: make(chan struct{})}
+	r := &runner{cancel: cancel, done: make(chan struct{}), kick: make(chan struct{}, 1)}
 	m.runners[inst.ID] = r
 	m.mu.Unlock()
 
@@ -217,6 +236,7 @@ func (m *Manager) run(ctx context.Context, r *runner, d Driver, inst Instance) {
 			case <-ctx.Done():
 				return
 			case <-time.After(backoff):
+			case <-r.kick:
 			}
 			backoff = min(backoff*2, reconnectMax)
 			continue
@@ -235,6 +255,7 @@ func (m *Manager) run(ctx context.Context, r *runner, d Driver, inst Instance) {
 			case <-ctx.Done():
 				return
 			case <-time.After(backoff):
+			case <-r.kick:
 			}
 			backoff = min(backoff*2, reconnectMax)
 			continue
@@ -270,6 +291,18 @@ func (m *Manager) watch(ctx context.Context, r *runner, inst Instance, conn Conn
 		select {
 		case <-ctx.Done():
 			return
+		case <-r.kick:
+			// An inbound upstream just bound or dropped — re-check now.
+			hctx, cancel := context.WithTimeout(ctx, upstreamCallTime)
+			h := conn.Health(hctx)
+			cancel()
+			switch h.Status {
+			case StatusUnreachable:
+				m.transition(ctx, r, inst, StatusUnreachable, h.Message)
+				return // reconnect from scratch
+			default:
+				m.transition(ctx, r, inst, h.Status, h.Message)
+			}
 		case <-healthTick.C:
 			hctx, cancel := context.WithTimeout(ctx, upstreamCallTime)
 			h := conn.Health(hctx)

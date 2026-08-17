@@ -128,12 +128,18 @@ public final class HomeHubCompanionVelocity {
             proxy.getCommandManager()
                     .executeImmediatelyAsync(proxy.getConsoleCommandSource(), command)
                     .whenComplete((ok, err) -> {
+                        // A real console prints failures as output; mirror that
+                        // so every viewer of the stream sees them, then report
+                        // the result honestly.
                         if (err != null) {
-                            String m = err.getMessage();
-                            c.sendCmdResult(id, false, m != null ? m : err.getClass().getSimpleName());
+                            String m = err.getMessage() != null ? err.getMessage() : err.getClass().getSimpleName();
+                            logger.warn("Command '{}' failed: {}", command, m);
+                            c.sendCmdResult(id, false, m);
+                        } else if (Boolean.TRUE.equals(ok)) {
+                            c.sendCmdResult(id, true, null);
                         } else {
-                            c.sendCmdResult(id, Boolean.TRUE.equals(ok),
-                                    Boolean.TRUE.equals(ok) ? null : "unknown or failed command");
+                            logger.warn("Unknown command '{}' — not a command this proxy knows", command);
+                            c.sendCmdResult(id, false, "unknown or failed command");
                         }
                     });
         }
