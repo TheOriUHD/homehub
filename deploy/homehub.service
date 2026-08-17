@@ -1,0 +1,27 @@
+# HomeHub systemd unit — installs the app as a boot service on a host that
+# runs the binary directly (rather than via docker compose).
+#
+#   sudo cp deploy/homehub.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now homehub
+#
+# Adjust the paths and HOMEHUB_DATABASE_URL for your install. The data dir
+# holds master.key — back it up; without it stored credentials are lost.
+[Unit]
+Description=HomeHub homelab control plane
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+ExecStart=/opt/homehub/bin/homehub
+Environment=HOMEHUB_DATABASE_URL=postgres://homehub:homehub@127.0.0.1:5432/homehub?sslmode=disable
+Environment=HOMEHUB_DATA_DIR=/opt/homehub/data
+# Restart=always so the restore flow (which SIGTERMs the process to reload
+# every subsystem from the restored database) comes back up. An explicit
+# `systemctl stop` still stops it — systemd suppresses restart on manual stop.
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
