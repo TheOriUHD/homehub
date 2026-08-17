@@ -6,12 +6,17 @@ import {
   ArrowLeft,
   ArrowRightLeft,
   Camera,
+  ChevronDown,
   Copy,
   HardDrive,
+  KeyRound,
+  Monitor,
+  Network,
   Play,
   Power,
   RotateCcw,
   Square,
+  Terminal,
   Trash2,
 } from "lucide-react";
 import {
@@ -33,12 +38,15 @@ import { ConfirmDialog } from "@/ui/confirm";
 import { Field } from "@/ui/field";
 import { Input, PasswordInput, Textarea } from "@/ui/input";
 import { Checkbox, PageLoader } from "@/ui/misc";
+import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
+import { Switch } from "@/ui/switch";
 import { ErrorState, EmptyState } from "@/ui/states";
 import { useToast } from "@/ui/toast";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { lazy, Suspense } from "react";
 import { TimeSeriesChart } from "@/components/time-series-chart";
+import { agentAddresses, primaryIpv4, useGuestAgent } from "./agent";
 
 // Consoles pull in xterm.js and noVNC — loaded only when a console opens.
 const TerminalPane = lazy(() =>
@@ -50,7 +58,7 @@ const VncViewer = lazy(() =>
 import { useMetricSeries } from "@/lib/metrics";
 import { guestStatusLabel, guestStatusTone } from "./guests";
 
-type TabKey = "overview" | "hardware" | "snapshots" | "backup" | "console" | "ssh";
+type TabKey = "overview" | "hardware" | "snapshots" | "backup" | "console";
 
 export function PveGuestDetailPage() {
   const { t } = useTranslation();
@@ -126,7 +134,6 @@ export function PveGuestDetailPage() {
     { key: "snapshots", label: t("pve.guest.snapshots"), show: true },
     { key: "backup", label: t("pve.guest.backup"), show: canControl },
     { key: "console", label: t("pve.guest.console"), show: canControl },
-    { key: "ssh", label: t("pve.guest.terminal"), show: canControl },
   ];
 
   return (
@@ -159,6 +166,7 @@ export function PveGuestDetailPage() {
             <p className="text-fg-muted text-sm">
               {vmid} · {t("pve.guest.onNode", { node: guest.node })}
             </p>
+            {guest.kind === "qemu" && <AgentSummary instanceId={instanceId} vmid={vmid} />}
           </div>
 
           {canControl && (
@@ -215,13 +223,18 @@ export function PveGuestDetailPage() {
 
       {tab === "overview" && <OverviewTab instanceId={instanceId} vmid={vmid} guest={guest} />}
       {tab === "hardware" && (
-        <HardwareTab instanceId={instanceId} vmid={vmid} config={detail.data!.config} canConfigure={canConfigure} />
+        <HardwareTab
+          instanceId={instanceId}
+          vmid={vmid}
+          kind={guest.kind}
+          config={detail.data!.config}
+          canConfigure={canConfigure}
+        />
       )}
       {tab === "snapshots" && <SnapshotsTab instanceId={instanceId} vmid={vmid} canControl={canControl} />}
       {tab === "backup" && canControl && <BackupTab instanceId={instanceId} vmid={vmid} />}
-      {tab === "console" && canControl && <ConsoleTab instanceId={instanceId} vmid={vmid} kind={guest.kind} />}
-      {tab === "ssh" && canControl && (
-        <SSHTab instanceId={instanceId} vmid={vmid} canConfigure={canConfigure} />
+      {tab === "console" && canControl && (
+        <ConsoleTab instanceId={instanceId} vmid={vmid} kind={guest.kind} canConfigure={canConfigure} />
       )}
 
       <ConfirmDialog
@@ -260,6 +273,71 @@ export function PveGuestDetailPage() {
       {cloneOpen && (
         <CloneDialog instanceId={instanceId} vmid={vmid} name={guest.name} onClose={() => setCloneOpen(false)} />
       )}
+    </div>
+  );
+}
+
+// ---- guest agent header line ----------------------------------------------
+
+/**
+ * AgentSummary surfaces what the QEMU guest agent reports — primary IPv4,
+ * hostname, OS — right in the header. When the agent isn't talking it shows a
+ * single quiet line with the reason and stays out of the way.
+ */
+function AgentSummary({ instanceId, vmid }: { instanceId: string; vmid: number }) {
+  const { t } = useTranslation();
+  const agent = useGuestAgent(instanceId, vmid, true);
+  const info = agent.data;
+  if (!info) return null;
+
+  if (!info.available) {
+    return (
+      <p className="text-fg-subtle mt-1 text-xs">
+        {t("pve.guest.agentUnavailable")}
+        {info.reason ? ` — ${info.reason}` : ""}
+      </p>
+    );
+  }
+
+  const ip = primaryIpv4(info);
+  const addrs = agentAddresses(info);
+  const moreCount = ip ? addrs.length - 1 : addrs.length;
+
+  return (
+    <div className="text-fg-muted mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+      {ip && (
+        <span className="inline-flex items-center gap-1.5">
+          <Network className="text-fg-subtle size-3.5" />
+          <code className="text-fg font-mono text-xs font-medium">{ip}</code>
+        </span>
+      )}
+      {moreCount > 0 && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="text-fg-subtle hover:text-fg cursor-pointer text-xs underline-offset-2 hover:underline">
+              {t("pve.guest.agentMoreIps", { count: moreCount })}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-80">
+            <p className="text-fg-subtle mb-2 text-xs font-semibold tracking-wide uppercase">
+              {t("pve.guest.agentAddresses")}
+            </p>
+            <ul className="space-y-1.5">
+              {addrs.map(({ iface, addr }) => (
+                <li key={iface + addr.address} className="flex items-baseline justify-between gap-3 text-xs">
+                  <span className="text-fg-subtle shrink-0">{iface}</span>
+                  <code className="text-fg font-mono break-all">
+                    {addr.address}
+                    {addr.prefix != null ? `/${addr.prefix}` : ""}
+                  </code>
+                </li>
+              ))}
+            </ul>
+          </PopoverContent>
+        </Popover>
+      )}
+      {info.hostname && <span className="truncate">{info.hostname}</span>}
+      {info.os && <span className="text-fg-subtle max-w-72 truncate">{info.os}</span>}
     </div>
   );
 }
@@ -316,16 +394,153 @@ function MiniStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-// ---- hardware --------------------------------------------------------------
+// ---- hardware: config parsing helpers --------------------------------------
 
+type Token = { k: string; v: string | null };
+
+/** tokenize splits a Proxmox value string ("a=1,b,c=x") into ordered tokens. */
+function tokenize(raw: string): Token[] {
+  if (!raw.trim()) return [];
+  return raw
+    .split(",")
+    .map((part) => {
+      const i = part.indexOf("=");
+      return i === -1
+        ? { k: part.trim(), v: null }
+        : { k: part.slice(0, i).trim(), v: part.slice(i + 1) };
+    })
+    .filter((tk) => tk.k !== "");
+}
+
+function serializeTokens(tokens: Token[]): string {
+  return tokens.map((tk) => (tk.v === null ? tk.k : `${tk.k}=${tk.v}`)).join(",");
+}
+
+const NET_MODELS = ["virtio", "e1000", "e1000e", "rtl8139", "vmxnet3"];
+const NET_KEY = /^net\d+$/;
+const DISK_KEY = /^(?:rootfs$|(?:scsi|virtio|ide|sata|mp|efidisk|tpmstate|unused)\d+$)/;
+
+type NetView = { model: string; mac: string; bridge: string; vlan: string; extras: string };
+
+/** netView pulls the fields we edit out of a netN value; extras stays raw. */
+function netView(kind: "qemu" | "lxc", raw: string): NetView {
+  let model = "";
+  let mac = "";
+  let bridge = "";
+  let vlan = "";
+  const rest: Token[] = [];
+  for (const tk of tokenize(raw)) {
+    if (kind === "qemu" && NET_MODELS.includes(tk.k)) {
+      model = tk.k;
+      mac = tk.v ?? "";
+    } else if (kind === "lxc" && tk.k === "hwaddr") {
+      mac = tk.v ?? "";
+    } else if (tk.k === "bridge") {
+      bridge = tk.v ?? "";
+    } else if (tk.k === "tag") {
+      vlan = tk.v ?? "";
+    } else {
+      rest.push(tk);
+    }
+  }
+  return { model, mac, bridge, vlan, extras: serializeTokens(rest) };
+}
+
+/**
+ * netEdit rewrites one field and re-serializes, keeping every token it does
+ * not understand (firewall, mtu, queues, …) byte-for-byte where it was.
+ */
+function netEdit(
+  kind: "qemu" | "lxc",
+  raw: string,
+  patch: Partial<Pick<NetView, "model" | "mac" | "bridge" | "vlan">>,
+): string {
+  const view = { ...netView(kind, raw), ...patch };
+  const out: Token[] = [];
+  let sawModel = false;
+  let sawHwaddr = false;
+  let sawBridge = false;
+  let sawTag = false;
+  for (const tk of tokenize(raw)) {
+    if (kind === "qemu" && NET_MODELS.includes(tk.k)) {
+      sawModel = true;
+      if (view.model) out.push({ k: view.model, v: view.mac || null });
+    } else if (kind === "lxc" && tk.k === "hwaddr") {
+      sawHwaddr = true;
+      if (view.mac) out.push({ k: "hwaddr", v: view.mac });
+    } else if (tk.k === "bridge") {
+      sawBridge = true;
+      if (view.bridge) out.push({ k: "bridge", v: view.bridge });
+    } else if (tk.k === "tag") {
+      sawTag = true;
+      if (view.vlan) out.push({ k: "tag", v: view.vlan });
+    } else {
+      out.push(tk);
+    }
+  }
+  if (kind === "qemu" && !sawModel && view.model) out.unshift({ k: view.model, v: view.mac || null });
+  if (kind === "lxc" && !sawHwaddr && view.mac) out.push({ k: "hwaddr", v: view.mac });
+  if (!sawBridge && view.bridge) out.push({ k: "bridge", v: view.bridge });
+  if (!sawTag && view.vlan) out.push({ k: "tag", v: view.vlan });
+  return serializeTokens(out);
+}
+
+/** agentEnabled reads the QEMU agent flag from "1", "0", "enabled=1,…", … */
+function agentEnabled(raw: string): boolean {
+  const tokens = tokenize(raw);
+  const enabledTk = tokens.find((tk) => tk.k === "enabled");
+  if (enabledTk) return enabledTk.v === "1";
+  return tokens[0]?.k === "1";
+}
+
+/** agentToggle flips the flag while keeping extra agent options intact. */
+function agentToggle(raw: string, on: boolean): string {
+  const flag = on ? "1" : "0";
+  const tokens = tokenize(raw);
+  if (tokens.length === 0) return flag;
+  const enabledTk = tokens.find((tk) => tk.k === "enabled");
+  if (enabledTk) {
+    enabledTk.v = flag;
+    return serializeTokens(tokens);
+  }
+  if (tokens[0].k === "0" || tokens[0].k === "1") {
+    tokens[0] = { k: flag, v: null };
+    return serializeTokens(tokens);
+  }
+  return serializeTokens([{ k: flag, v: null }, ...tokens]);
+}
+
+function diskView(raw: string): { volume: string; size: string; extras: string } {
+  const tokens = tokenize(raw);
+  let volume = "";
+  let size = "";
+  const rest: Token[] = [];
+  tokens.forEach((tk, i) => {
+    if (i === 0) volume = tk.v === null ? tk.k : `${tk.k}=${tk.v}`;
+    else if (tk.k === "size") size = tk.v ?? "";
+    else rest.push(tk);
+  });
+  return { volume, size, extras: serializeTokens(rest) };
+}
+
+// ---- hardware tab ----------------------------------------------------------
+
+/**
+ * HardwareTab is a structured editor over the raw Proxmox config: typed
+ * controls for the common knobs, parsed network devices, read-only disks, and
+ * a raw-value escape hatch. Every edit lands in one pending-changes set and a
+ * single PUT applies the whole batch after an explicit confirmation.
+ */
 function HardwareTab({
   instanceId,
   vmid,
+  kind,
   config,
   canConfigure,
 }: {
   instanceId: string;
   vmid: number;
+  kind: "qemu" | "lxc";
   config: Record<string, unknown>;
   canConfigure: boolean;
 }) {
@@ -334,15 +549,47 @@ function HardwareTab({
   const queryClient = useQueryClient();
 
   const [changes, setChanges] = useState<Record<string, string>>({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [newKey, setNewKey] = useState("");
 
-  const entries = useMemo(
-    () =>
-      Object.entries(config)
-        .filter(([k]) => k !== "digest")
-        .sort(([a], [b]) => a.localeCompare(b)),
+  const orig = (key: string): string | undefined =>
+    key in config ? String(config[key] ?? "") : undefined;
+  const current = (key: string): string => changes[key] ?? orig(key) ?? "";
+  const isModified = (key: string): boolean => key in changes;
+
+  /** setKey stages a change; a value equal to the original un-stages it. */
+  const setKey = (key: string, value: string, fallback = "") => {
+    setChanges((prev) => {
+      const next = { ...prev };
+      if (value === (orig(key) ?? fallback)) delete next[key];
+      else next[key] = value;
+      return next;
+    });
+  };
+
+  const nameKey = kind === "qemu" ? "name" : "hostname";
+
+  const netKeys = useMemo(
+    () => Object.keys(config).filter((k) => NET_KEY.test(k)).sort(),
     [config],
   );
+  const diskKeys = useMemo(
+    () => Object.keys(config).filter((k) => DISK_KEY.test(k)).sort(),
+    [config],
+  );
+  const generalKeys = useMemo(
+    () => (kind === "qemu" ? [nameKey, "cores", "memory", "onboot", "agent", "boot"] : [nameKey, "cores", "memory", "onboot"]),
+    [kind, nameKey],
+  );
+  const otherKeys = useMemo(() => {
+    const known = new Set(["digest", ...generalKeys, ...netKeys, ...diskKeys]);
+    const keys = Object.keys(config).filter((k) => !known.has(k));
+    // Keys staged via "set another key" that aren't in the config yet.
+    for (const k of Object.keys(changes)) {
+      if (!known.has(k) && !(k in config) && !keys.includes(k)) keys.push(k);
+    }
+    return keys.sort();
+  }, [config, changes, generalKeys, netKeys, diskKeys]);
 
   const apply = useMutation({
     mutationFn: async () =>
@@ -355,78 +602,380 @@ function HardwareTab({
     onSuccess: () => {
       toast("success", t("pve.guest.hardwareApplied"));
       setChanges({});
+      setConfirmOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["pve", instanceId, "guest", vmid] });
     },
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
-  const dirty = Object.keys(changes).length > 0;
+  const pending = Object.keys(changes).length;
+  const memoryMb = Number(current("memory"));
+  const memoryHint =
+    Number.isFinite(memoryMb) && memoryMb > 0
+      ? t("pve.guest.hwMemoryGb", { gb: (memoryMb / 1024).toFixed(memoryMb % 1024 === 0 ? 0 : 1) })
+      : undefined;
 
   return (
-    <Card>
-      <CardHeader
-        title={t("pve.guest.hardware")}
-        description={t("pve.guest.hardwareIntro")}
-        actions={
-          canConfigure && dirty ? (
-            <Button variant="primary" size="sm" loading={apply.isPending} onClick={() => apply.mutate()}>
+    <div className="space-y-4">
+      {/* General */}
+      <Card>
+        <CardHeader title={t("pve.guest.hwGeneral")} />
+        <CardBody className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+          <MarkedField modified={isModified(nameKey)}>
+            <Field label={t("pve.guest.hwName")}>
+              {(p) => (
+                <Input
+                  {...p}
+                  disabled={!canConfigure}
+                  value={current(nameKey)}
+                  onChange={(e) => setKey(nameKey, e.target.value)}
+                />
+              )}
+            </Field>
+          </MarkedField>
+          <div className="grid grid-cols-2 gap-3">
+            <MarkedField modified={isModified("cores")}>
+              <Field label={t("pve.guest.hwCores")}>
+                {(p) => (
+                  <Input
+                    {...p}
+                    disabled={!canConfigure}
+                    type="number"
+                    min={1}
+                    step={1}
+                    placeholder="1"
+                    value={current("cores")}
+                    onChange={(e) => setKey("cores", e.target.value)}
+                  />
+                )}
+              </Field>
+            </MarkedField>
+            <MarkedField modified={isModified("memory")}>
+              <Field label={t("pve.guest.hwMemory")} hint={memoryHint}>
+                {(p) => (
+                  <Input
+                    {...p}
+                    disabled={!canConfigure}
+                    type="number"
+                    min={16}
+                    step={128}
+                    value={current("memory")}
+                    onChange={(e) => setKey("memory", e.target.value)}
+                  />
+                )}
+              </Field>
+            </MarkedField>
+          </div>
+          <MarkedField modified={isModified("onboot")}>
+            <div className="flex items-center justify-between gap-3 py-1">
+              <span className="text-fg text-[13px] font-medium">{t("pve.guest.hwOnboot")}</span>
+              <Switch
+                disabled={!canConfigure}
+                checked={current("onboot") === "1"}
+                onCheckedChange={(on) => setKey("onboot", on ? "1" : "0", "0")}
+              />
+            </div>
+          </MarkedField>
+          {kind === "qemu" && (
+            <>
+              <MarkedField modified={isModified("agent")}>
+                <div className="flex items-center justify-between gap-3 py-1">
+                  <span className="text-fg text-[13px] font-medium">{t("pve.guest.hwAgent")}</span>
+                  <Switch
+                    disabled={!canConfigure}
+                    checked={agentEnabled(current("agent"))}
+                    onCheckedChange={(on) => setKey("agent", agentToggle(orig("agent") ?? "", on), "")}
+                  />
+                </div>
+              </MarkedField>
+              <MarkedField modified={isModified("boot")}>
+                <Field label={t("pve.guest.hwBoot")} hint={t("pve.guest.hwBootHint")}>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      disabled={!canConfigure}
+                      className="font-mono text-xs"
+                      value={current("boot")}
+                      onChange={(e) => setKey("boot", e.target.value)}
+                    />
+                  )}
+                </Field>
+              </MarkedField>
+            </>
+          )}
+        </CardBody>
+      </Card>
+
+      {/* Network devices */}
+      <Card>
+        <CardHeader title={t("pve.guest.hwNetwork")} />
+        <CardBody className="space-y-3">
+          {netKeys.length === 0 && (
+            <p className="text-fg-subtle py-2 text-center text-[13px]">{t("pve.guest.hwNoNet")}</p>
+          )}
+          {netKeys.map((key) => (
+            <NetDeviceRow
+              key={key}
+              keyName={key}
+              kind={kind}
+              raw={current(key)}
+              modified={isModified(key)}
+              disabled={!canConfigure}
+              onChange={(next) => setKey(key, next)}
+            />
+          ))}
+        </CardBody>
+      </Card>
+
+      {/* Disks — read-only */}
+      <Card>
+        <CardHeader title={t("pve.guest.hwDisks")} description={t("pve.guest.hwDisksHint")} />
+        <CardBody className="px-0 py-0">
+          {diskKeys.length === 0 ? (
+            <p className="text-fg-subtle px-5 py-4 text-center text-[13px]">{t("pve.guest.hwNoDisks")}</p>
+          ) : (
+            <ul>
+              {diskKeys.map((key) => {
+                const disk = diskView(current(key));
+                return (
+                  <li key={key} className="border-edge flex flex-wrap items-center gap-3 border-b px-5 py-3 last:border-b-0">
+                    <HardDrive className="text-fg-subtle size-4 shrink-0" />
+                    <code className="bg-bg-subtle text-fg rounded px-1.5 py-0.5 font-mono text-xs font-semibold">{key}</code>
+                    <code className="text-fg-muted min-w-0 flex-1 truncate font-mono text-xs">{disk.volume}</code>
+                    {disk.size && <Badge tone="neutral">{disk.size}</Badge>}
+                    {disk.extras && (
+                      <span className="text-fg-subtle w-full pl-7 font-mono text-[11px] sm:w-auto sm:pl-0">
+                        {disk.extras}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardBody>
+      </Card>
+
+      {/* Everything else — raw values */}
+      <Card>
+        <CardHeader title={t("pve.guest.hwOther")} description={t("pve.guest.hwOtherHint")} />
+        <CardBody className="px-0 py-0">
+          <Table>
+            <THead>
+              <tr>
+                <TH className="w-52">{t("pve.guest.hardwareKey")}</TH>
+                <TH>{t("pve.guest.hardwareValue")}</TH>
+              </tr>
+            </THead>
+            <TBody>
+              {otherKeys.map((key) => (
+                <TR key={key} className={isModified(key) ? "bg-accent-soft/35" : undefined}>
+                  <TD>
+                    <span className="flex items-center gap-2">
+                      <code className="text-fg font-mono text-xs">{key}</code>
+                      {isModified(key) && <Badge tone="accent">{t("pve.guest.hwModified")}</Badge>}
+                    </span>
+                  </TD>
+                  <TD>
+                    {canConfigure ? (
+                      <Input
+                        className="h-7.5 font-mono text-xs"
+                        value={current(key)}
+                        onChange={(e) => setKey(key, e.target.value)}
+                      />
+                    ) : (
+                      <code className="text-fg-muted font-mono text-xs break-all">{current(key)}</code>
+                    )}
+                  </TD>
+                </TR>
+              ))}
+              {canConfigure && (
+                <TR>
+                  <TD>
+                    <Input
+                      className="h-7.5 font-mono text-xs"
+                      placeholder={t("pve.guest.hardwareAddKey")}
+                      value={newKey}
+                      onChange={(e) => setNewKey(e.target.value)}
+                    />
+                  </TD>
+                  <TD>
+                    {newKey.trim() && (
+                      <Input
+                        className="h-7.5 font-mono text-xs"
+                        value={changes[newKey.trim()] ?? ""}
+                        onChange={(e) => setKey(newKey.trim(), e.target.value)}
+                      />
+                    )}
+                  </TD>
+                </TR>
+              )}
+            </TBody>
+          </Table>
+        </CardBody>
+      </Card>
+
+      {/* Pending-changes bar */}
+      {canConfigure && pending > 0 && (
+        <div className="bg-overlay border-edge sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 shadow-3">
+          <span className="text-fg flex items-center gap-2 text-sm font-medium">
+            <Badge tone="accent">{pending}</Badge>
+            {t("pve.guest.hwPending", { count: pending })}
+          </span>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setChanges({})}>
+              {t("pve.guest.hwDiscard")}
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => setConfirmOpen(true)}>
               {t("pve.guest.hardwareApply")}
             </Button>
-          ) : undefined
-        }
-      />
-      <CardBody className="px-0 py-0">
-        <Table>
-          <THead>
-            <tr>
-              <TH className="w-48">{t("pve.guest.hardwareKey")}</TH>
-              <TH>{t("pve.guest.hardwareValue")}</TH>
-            </tr>
-          </THead>
-          <TBody>
-            {entries.map(([key, value]) => (
-              <TR key={key}>
-                <TD>
-                  <code className="text-fg font-mono text-xs">{key}</code>
-                </TD>
-                <TD>
-                  {canConfigure ? (
-                    <Input
-                      className="h-7.5 font-mono text-xs"
-                      value={changes[key] ?? String(value)}
-                      onChange={(e) => setChanges((prev) => ({ ...prev, [key]: e.target.value }))}
-                    />
-                  ) : (
-                    <code className="text-fg-muted font-mono text-xs break-all">{String(value)}</code>
-                  )}
-                </TD>
-              </TR>
-            ))}
-            {canConfigure && (
-              <TR>
-                <TD>
-                  <Input
-                    className="h-7.5 font-mono text-xs"
-                    placeholder={t("pve.guest.hardwareAddKey")}
-                    value={newKey}
-                    onChange={(e) => setNewKey(e.target.value)}
-                  />
-                </TD>
-                <TD>
-                  {newKey.trim() && (
-                    <Input
-                      className="h-7.5 font-mono text-xs"
-                      value={changes[newKey.trim()] ?? ""}
-                      onChange={(e) => setChanges((prev) => ({ ...prev, [newKey.trim()]: e.target.value }))}
-                    />
-                  )}
-                </TD>
-              </TR>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm: list every change, then one batched PUT */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent
+          wide
+          title={t("pve.guest.hwConfirmTitle", { count: pending })}
+          description={t("pve.guest.hwConfirmBody")}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setConfirmOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button variant="primary" loading={apply.isPending} onClick={() => apply.mutate()}>
+                {t("pve.guest.hardwareApply")}
+              </Button>
+            </>
+          }
+        >
+          <ul className="space-y-3">
+            {Object.entries(changes).map(([key, value]) => {
+              const before = orig(key);
+              return (
+                <li key={key} className="text-xs">
+                  <code className="text-fg font-mono font-semibold">{key}</code>
+                  <div className="mt-1 space-y-0.5 pl-3">
+                    <p>
+                      <code className={cn("text-fg-subtle font-mono break-all", before !== undefined && "line-through")}>
+                        {before !== undefined && before !== "" ? before : t("pve.guest.hwUnset")}
+                      </code>
+                    </p>
+                    <p>
+                      <code className="text-fg font-mono break-all">{value || t("pve.guest.hwUnset")}</code>
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/** MarkedField draws the pending-change marker along a field's left edge. */
+function MarkedField({ modified, children }: { modified: boolean; children: React.ReactNode }) {
+  return (
+    <div className={cn("-ml-3 border-l-2 pl-3 transition-colors", modified ? "border-accent" : "border-transparent")}>
+      {children}
+    </div>
+  );
+}
+
+/** NetDeviceRow edits one netN entry via typed fields; unknown options ride along untouched. */
+function NetDeviceRow({
+  keyName,
+  kind,
+  raw,
+  modified,
+  disabled,
+  onChange,
+}: {
+  keyName: string;
+  kind: "qemu" | "lxc";
+  raw: string;
+  modified: boolean;
+  disabled: boolean;
+  onChange: (next: string) => void;
+}) {
+  const { t } = useTranslation();
+  const view = netView(kind, raw);
+  const edit = (patch: Partial<Pick<NetView, "model" | "mac" | "bridge" | "vlan">>) =>
+    onChange(netEdit(kind, raw, patch));
+
+  return (
+    <div className={cn("rounded-lg border p-4 transition-colors", modified ? "border-accent" : "border-edge")}>
+      <div className="mb-3 flex items-center gap-2">
+        <Network className="text-fg-subtle size-4" />
+        <code className="bg-bg-subtle text-fg rounded px-1.5 py-0.5 font-mono text-xs font-semibold">{keyName}</code>
+        {modified && <Badge tone="accent">{t("pve.guest.hwModified")}</Badge>}
+      </div>
+      <div className={cn("grid gap-3 sm:grid-cols-2", kind === "qemu" ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
+        {kind === "qemu" && (
+          <Field label={t("pve.guest.hwModel")}>
+            {() => (
+              <Select value={view.model || "virtio"} onValueChange={(v) => edit({ model: v })}>
+                <SelectTrigger disabled={disabled}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {NET_MODELS.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
-          </TBody>
-        </Table>
-      </CardBody>
-    </Card>
+          </Field>
+        )}
+        <Field label={t("pve.guest.hwBridge")}>
+          {(p) => (
+            <Input
+              {...p}
+              disabled={disabled}
+              className="font-mono text-xs"
+              placeholder="vmbr0"
+              value={view.bridge}
+              onChange={(e) => edit({ bridge: e.target.value })}
+            />
+          )}
+        </Field>
+        <Field label={t("pve.guest.hwVlan")} hint={t("pve.guest.hwVlanHint")}>
+          {(p) => (
+            <Input
+              {...p}
+              disabled={disabled}
+              type="number"
+              min={1}
+              max={4094}
+              value={view.vlan}
+              onChange={(e) => edit({ vlan: e.target.value })}
+            />
+          )}
+        </Field>
+        <Field label={t("pve.guest.hwMac")}>
+          {(p) => (
+            <Input
+              {...p}
+              disabled={disabled}
+              className="font-mono text-xs"
+              placeholder="auto"
+              value={view.mac}
+              onChange={(e) => edit({ mac: e.target.value })}
+            />
+          )}
+        </Field>
+      </div>
+      {view.extras && (
+        <p className="text-fg-subtle mt-2.5 text-[11px]">
+          {t("pve.guest.hwAlsoSet")} <code className="font-mono">{view.extras}</code>
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -686,23 +1235,42 @@ function BackupTab({ instanceId, vmid }: { instanceId: string; vmid: number }) {
   );
 }
 
-// ---- console ---------------------------------------------------------------
+// ---- console (native console first, SSH demoted) ---------------------------
 
-function ConsoleTab({ instanceId, vmid, kind }: { instanceId: string; vmid: number; kind: string }) {
+type ConsoleMode = "vnc" | "serial" | "ssh";
+
+/**
+ * ConsoleTab leads with the guest's own console — noVNC for VMs, the serial
+ * terminal for containers — one prominent Connect, no credentials involved.
+ * SSH still exists but lives in a collapsed secondary section below, clearly
+ * labeled as the option that needs stored guest credentials.
+ */
+function ConsoleTab({
+  instanceId,
+  vmid,
+  kind,
+  canConfigure,
+}: {
+  instanceId: string;
+  vmid: number;
+  kind: "qemu" | "lxc";
+  canConfigure: boolean;
+}) {
   const { t } = useTranslation();
   const toast = useToast();
-  const [session, setSession] = useState<(TermSession & { consoleKind: "vnc" | "serial" }) | null>(null);
-  const [consoleKind, setConsoleKind] = useState<"vnc" | "serial">(kind === "lxc" ? "serial" : "vnc");
+  const [session, setSession] = useState<(TermSession & { mode: ConsoleMode }) | null>(null);
 
   const open = useMutation({
-    mutationFn: async () =>
-      unwrap(
+    mutationFn: async (consoleKind: "vnc" | "serial") => {
+      const data = unwrap(
         await api.POST("/proxmox/{id}/guests/{vmid}/console", {
           params: { path: { id: instanceId, vmid } },
           body: { kind: consoleKind },
         }),
-      ),
-    onSuccess: (data) => setSession({ ...data, consoleKind }),
+      );
+      return { ...data, mode: consoleKind as ConsoleMode };
+    },
+    onSuccess: setSession,
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
@@ -710,55 +1278,101 @@ function ConsoleTab({ instanceId, vmid, kind }: { instanceId: string; vmid: numb
     `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${path}`;
 
   if (session) {
+    const label =
+      session.mode === "vnc"
+        ? t("pve.guest.consoleVnc")
+        : session.mode === "serial"
+          ? t("pve.guest.consoleSerial")
+          : t("pve.guest.consoleSsh");
     return (
-      <div className="border-edge overflow-hidden rounded-lg border" style={{ height: 520 }}>
-        <Suspense fallback={<PageLoader className="h-full" />}>
-          {session.consoleKind === "vnc" ? (
-            <VncViewer wsUrl={wsUrl(session.wsPath)} credential={session.credential ?? undefined} className="h-full" />
-          ) : (
-            <TerminalPane wsUrl={wsUrl(session.wsPath)} className="h-full" onExit={() => setSession(null)} />
-          )}
-        </Suspense>
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-fg-muted flex items-center gap-2 text-[13px] font-medium">
+            {session.mode === "vnc" ? <Monitor className="size-4" /> : <Terminal className="size-4" />}
+            {label}
+          </p>
+          <Button size="sm" variant="secondary" onClick={() => setSession(null)}>
+            {t("pve.guest.consoleDisconnect")}
+          </Button>
+        </div>
+        <div className="border-edge overflow-hidden rounded-lg border" style={{ height: 520 }}>
+          <Suspense fallback={<PageLoader className="h-full" />}>
+            {session.mode === "vnc" ? (
+              <VncViewer wsUrl={wsUrl(session.wsPath)} credential={session.credential ?? undefined} className="h-full" />
+            ) : (
+              <TerminalPane wsUrl={wsUrl(session.wsPath)} className="h-full" onExit={() => setSession(null)} />
+            )}
+          </Suspense>
+        </div>
       </div>
     );
   }
 
   return (
-    <Card className="max-w-xl">
-      <CardHeader title={t("pve.guest.console")} description={kind === "lxc" ? t("pve.guest.consoleHintLxc") : undefined} />
-      <CardBody className="space-y-4">
-        {kind !== "lxc" && (
-          <Field label={t("pve.guest.consoleKind")}>
-            {() => (
-              <Select value={consoleKind} onValueChange={(v) => setConsoleKind(v as "vnc" | "serial")}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="vnc">{t("pve.guest.consoleVnc")}</SelectItem>
-                  <SelectItem value="serial">{t("pve.guest.consoleSerial")}</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </Field>
-        )}
-        <div className="flex justify-end">
-          <Button variant="primary" loading={open.isPending} onClick={() => open.mutate()}>
-            {t("pve.guest.consoleOpen")}
+    <div className="space-y-4">
+      <Card>
+        <CardBody className="flex flex-col items-center gap-4 py-12 text-center">
+          <span className="bg-accent-soft text-accent-soft-fg flex size-12 items-center justify-center rounded-2xl">
+            {kind === "qemu" ? <Monitor className="size-6" /> : <Terminal className="size-6" />}
+          </span>
+          <div className="max-w-md">
+            <h3 className="text-fg text-[15px] font-semibold">
+              {kind === "qemu" ? t("pve.guest.consoleQemuTitle") : t("pve.guest.consoleLxcTitle")}
+            </h3>
+            <p className="text-fg-muted mt-1 text-[13px]">{t("pve.guest.consoleLead")}</p>
+          </div>
+          <Button
+            variant="primary"
+            size="lg"
+            loading={open.isPending}
+            onClick={() => open.mutate(kind === "lxc" ? "serial" : "vnc")}
+          >
+            {kind === "qemu" ? <Monitor className="size-4" /> : <Terminal className="size-4" />}
+            {t("pve.guest.consoleConnect")}
           </Button>
-        </div>
-      </CardBody>
-    </Card>
+          {kind === "qemu" && (
+            <button
+              className="text-fg-subtle hover:text-fg cursor-pointer text-[13px] underline-offset-2 transition-colors hover:underline"
+              onClick={() => open.mutate("serial")}
+            >
+              {t("pve.guest.consoleSerialInstead")}
+            </button>
+          )}
+        </CardBody>
+      </Card>
+
+      <SshSection
+        instanceId={instanceId}
+        vmid={vmid}
+        canConfigure={canConfigure}
+        onSession={(s) => setSession({ ...s, mode: "ssh" })}
+      />
+    </div>
   );
 }
 
-// ---- ssh -------------------------------------------------------------------
-
-function SSHTab({ instanceId, vmid, canConfigure }: { instanceId: string; vmid: number; canConfigure: boolean }) {
+/**
+ * SshSection is the demoted path into the guest: collapsed by default, opens
+ * to the stored-credential settings plus a Connect button. Uses the guest OS
+ * network stack, so it only works when sshd is reachable — the native console
+ * above never needs any of that.
+ */
+function SshSection({
+  instanceId,
+  vmid,
+  canConfigure,
+  onSession,
+}: {
+  instanceId: string;
+  vmid: number;
+  canConfigure: boolean;
+  onSession: (s: TermSession) => void;
+}) {
   const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
   const resource = `proxmox/${instanceId}/guest/${vmid}`;
+  const [expanded, setExpanded] = useState(false);
 
   const cred = useQuery({
     queryKey: ["ssh-cred", resource],
@@ -770,6 +1384,7 @@ function SSHTab({ instanceId, vmid, canConfigure }: { instanceId: string; vmid: 
         throw err;
       }
     },
+    enabled: expanded,
     retry: false,
   });
 
@@ -809,102 +1424,103 @@ function SSHTab({ instanceId, vmid, canConfigure }: { instanceId: string; vmid: 
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
-  const [session, setSession] = useState<TermSession | null>(null);
   const connect = useMutation({
     mutationFn: async () =>
       unwrap(await api.POST("/proxmox/{id}/guests/{vmid}/ssh", { params: { path: { id: instanceId, vmid } } })),
-    onSuccess: setSession,
+    onSuccess: onSession,
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
-  const wsUrl = (path: string) =>
-    `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${path}`;
-
-  if (session) {
-    return (
-      <div className="border-edge overflow-hidden rounded-lg border" style={{ height: 520 }}>
-        <Suspense fallback={<PageLoader className="h-full" />}>
-          <TerminalPane wsUrl={wsUrl(session.wsPath)} className="h-full" onExit={() => setSession(null)} />
-        </Suspense>
-      </div>
-    );
-  }
-
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
-      <Card>
-        <CardHeader title={t("pve.guest.sshSettings")} description={t("pve.guest.sshIntro")} />
-        <CardBody className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <Field label={t("pve.guest.sshHost")} className="col-span-2">
-              {(p) => <Input {...p} disabled={!canConfigure} placeholder="10.0.0.14" value={host} onChange={(e) => setHost(e.target.value)} />}
-            </Field>
-            <Field label={t("pve.guest.sshPort")}>
-              {(p) => <Input {...p} disabled={!canConfigure} type="number" value={port} onChange={(e) => setPort(e.target.value)} />}
-            </Field>
-          </div>
-          <Field label={t("pve.guest.sshUser")}>
-            {(p) => <Input {...p} disabled={!canConfigure} value={username} onChange={(e) => setUsername(e.target.value)} />}
-          </Field>
-          {canConfigure && (
-            <>
-              <Field label={t("pve.guest.consoleKind")}>
-                {() => (
-                  <Select value={authType} onValueChange={(v) => setAuthType(v as "password" | "key")}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="password">{t("pve.guest.sshAuthPassword")}</SelectItem>
-                      <SelectItem value="key">{t("pve.guest.sshAuthKey")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+    <Card>
+      <button
+        className="flex w-full cursor-pointer items-center gap-3 px-5 py-3.5 text-left"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <KeyRound className="text-fg-subtle size-4 shrink-0" />
+        <span className="min-w-0 flex-1">
+          <span className="text-fg block text-sm font-medium">{t("pve.guest.sshSecondaryTitle")}</span>
+          <span className="text-fg-subtle block text-xs">{t("pve.guest.sshSecondaryHint")}</span>
+        </span>
+        <ChevronDown className={cn("text-fg-subtle size-4 shrink-0 transition-transform", expanded && "rotate-180")} />
+      </button>
+
+      {expanded && (
+        <div className="border-edge grid items-start gap-6 border-t px-5 py-4 lg:grid-cols-2">
+          <div className="space-y-4">
+            <p className="text-fg-muted text-[13px]">{t("pve.guest.sshIntro")}</p>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label={t("pve.guest.sshHost")} className="col-span-2">
+                {(p) => <Input {...p} disabled={!canConfigure} placeholder="10.0.0.14" value={host} onChange={(e) => setHost(e.target.value)} />}
               </Field>
-              <Field
-                label={authType === "password" ? t("pve.guest.sshSecretPassword") : t("pve.guest.sshSecretKey")}
-                hint={cred.data ? t("pve.guest.sshSecretKeep") : undefined}
-              >
-                {(p) =>
-                  authType === "password" ? (
-                    <PasswordInput {...p} value={secret} onChange={(e) => setSecret(e.target.value)} />
-                  ) : (
-                    <Textarea {...p} className="font-mono text-xs" rows={5} placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" value={secret} onChange={(e) => setSecret(e.target.value)} />
-                  )
-                }
+              <Field label={t("pve.guest.sshPort")}>
+                {(p) => <Input {...p} disabled={!canConfigure} type="number" value={port} onChange={(e) => setPort(e.target.value)} />}
               </Field>
-              <div className="flex justify-end">
-                <Button
-                  variant="primary"
-                  disabled={!host.trim() || !username.trim() || (!secret && !cred.data)}
-                  loading={save.isPending}
-                  onClick={() => save.mutate()}
+            </div>
+            <Field label={t("pve.guest.sshUser")}>
+              {(p) => <Input {...p} disabled={!canConfigure} value={username} onChange={(e) => setUsername(e.target.value)} />}
+            </Field>
+            {canConfigure && (
+              <>
+                <Field label={t("pve.guest.sshAuthType")}>
+                  {() => (
+                    <Select value={authType} onValueChange={(v) => setAuthType(v as "password" | "key")}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="password">{t("pve.guest.sshAuthPassword")}</SelectItem>
+                        <SelectItem value="key">{t("pve.guest.sshAuthKey")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </Field>
+                <Field
+                  label={authType === "password" ? t("pve.guest.sshSecretPassword") : t("pve.guest.sshSecretKey")}
+                  hint={cred.data ? t("pve.guest.sshSecretKeep") : undefined}
                 >
-                  {t("common.save")}
+                  {(p) =>
+                    authType === "password" ? (
+                      <PasswordInput {...p} value={secret} onChange={(e) => setSecret(e.target.value)} />
+                    ) : (
+                      <Textarea {...p} className="font-mono text-xs" rows={5} placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" value={secret} onChange={(e) => setSecret(e.target.value)} />
+                    )
+                  }
+                </Field>
+                <div className="flex justify-end">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={!host.trim() || !username.trim() || (!secret && !cred.data)}
+                    loading={save.isPending}
+                    onClick={() => save.mutate()}
+                  >
+                    {t("common.save")}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="bg-bg-subtle rounded-lg">
+            {cred.data ? (
+              <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+                <p className="text-fg-muted font-mono text-[13px]">
+                  {cred.data.username}@{cred.data.host}:{cred.data.port}
+                </p>
+                <Button variant="secondary" loading={connect.isPending} onClick={() => connect.mutate()}>
+                  <KeyRound className="size-3.5" />
+                  {t("pve.guest.sshConnect")}
                 </Button>
               </div>
-            </>
-          )}
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardBody>
-          {cred.data ? (
-            <div className="flex flex-col items-center gap-3 py-8 text-center">
-              <p className="text-fg-muted text-sm">
-                {cred.data.username}@{cred.data.host}:{cred.data.port}
-              </p>
-              <Button variant="primary" loading={connect.isPending} onClick={() => connect.mutate()}>
-                {t("pve.guest.sshConnect")}
-              </Button>
-            </div>
-          ) : (
-            <EmptyState title={t("pve.guest.sshNotConfigured")} className="py-8" />
-          )}
-        </CardBody>
-      </Card>
-    </div>
+            ) : (
+              <EmptyState title={t("pve.guest.sshNotConfigured")} className="py-10" />
+            )}
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 

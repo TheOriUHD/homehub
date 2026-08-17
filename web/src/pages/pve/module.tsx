@@ -7,7 +7,7 @@ import { useLiveInvalidate } from "@/lib/live";
 import { cn } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { PageLoader } from "@/ui/misc";
-import { ErrorState } from "@/ui/states";
+import { EmptyState, ErrorState } from "@/ui/states";
 import { Card } from "@/ui/card";
 import { statusTone } from "@/lib/systems";
 
@@ -42,9 +42,11 @@ export function PveModulePage() {
   }
   const instance = integrations.data?.find((row) => row.id === instanceId);
   if (!instance) {
+    // Not an ErrorState(new Error(...)): ErrorState only surfaces ApiFailure
+    // messages and would flatten this into the generic "something went wrong".
     return (
       <Card>
-        <ErrorState error={new Error(t("errors.notFound.body"))} />
+        <EmptyState icon={AlertTriangle} title={t("errors.notFound.title")} body={t("errors.notFound.body")} />
       </Card>
     );
   }

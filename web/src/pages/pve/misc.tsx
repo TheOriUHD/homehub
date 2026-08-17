@@ -2,14 +2,14 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { CalendarClock, Database } from "lucide-react";
-import { api, unwrap, isApiError, type PveBackupJob, type PveTask } from "@/lib/api";
+import { CalendarClock, Database, Share2 } from "lucide-react";
+import { api, unwrap, isApiError, type PveBackupJob, type PveStorage, type PveTask } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLiveInvalidate } from "@/lib/live";
 import { cn, formatBytes, formatDateTime } from "@/lib/utils";
 import { Card, CardBody, CardHeader } from "@/ui/card";
 import { Button } from "@/ui/button";
-import { Badge } from "@/ui/badge";
+import { Badge, StatusDot } from "@/ui/badge";
 import { Dialog, DialogContent } from "@/ui/dialog";
 import { Field } from "@/ui/field";
 import { Input } from "@/ui/input";
@@ -22,6 +22,24 @@ import { useToast } from "@/ui/toast";
 
 // ---- storage ---------------------------------------------------------------
 
+/**
+ * Storage types that are cluster-wide by nature. Name-based detection is
+ * wrong here — "local" exists on every node but is a different disk each
+ * time — so the type decides: these get deduplicated into one "Shared
+ * storage" section, everything else lists under the node that owns it.
+ */
+const SHARED_STORAGE_TYPES = new Set([
+  "nfs",
+  "cifs",
+  "pbs",
+  "cephfs",
+  "rbd",
+  "glusterfs",
+  "iscsi",
+  "iscsidirect",
+  "zfs",
+]);
+
 export function PveStoragePage() {
   const { t } = useTranslation();
   const { instanceId } = useParams({ from: "/shell/pve/$instanceId/storage" });
@@ -31,6 +49,12 @@ export function PveStoragePage() {
     queryFn: async () =>
       unwrap(await api.GET("/proxmox/{id}/storage", { params: { path: { id: instanceId } } })),
     refetchInterval: 60_000,
+  });
+  // Node status for the section heading dots; shares the summary tab's cache.
+  const summary = useQuery({
+    queryKey: ["pve", instanceId, "summary"],
+    queryFn: async () =>
+      unwrap(await api.GET("/proxmox/{id}/summary", { params: { path: { id: instanceId } } })),
   });
 
   if (storage.isLoading) return <SkeletonRows rows={4} />;
@@ -42,31 +66,107 @@ export function PveStoragePage() {
     );
   }
 
+  const rows = storage.data!;
+  const nodeStatus = new Map((summary.data?.nodes ?? []).map((n) => [n.name, n.status]));
+
+  const byNode = new Map<string, PveStorage[]>();
+  const sharedByName = new Map<string, PveStorage[]>();
+  for (const pool of rows) {
+    if (SHARED_STORAGE_TYPES.has(pool.type)) {
+      const list = sharedByName.get(pool.storage) ?? [];
+      list.push(pool);
+      sharedByName.set(pool.storage, list);
+    } else {
+      const list = byNode.get(pool.node) ?? [];
+      list.push(pool);
+      byNode.set(pool.node, list);
+    }
+  }
+  const nodes = [...byNode.keys()].sort();
+  // One row per shared pool: capacity is a single backing store, so repeating
+  // it under every node would just double-count. Prefer an active mount.
+  const shared = [...sharedByName.entries()]
+    .map(([, mounts]) => ({
+      pool: mounts.find((m) => m.active) ?? mounts[0],
+      nodeCount: new Set(mounts.map((m) => m.node)).size,
+    }))
+    .sort((a, b) => a.pool.storage.localeCompare(b.pool.storage));
+
   return (
-    <Card>
-      <Table>
-        <THead>
-          <tr>
-            <TH>{t("pve.storage.columns.pool")}</TH>
-            <TH>{t("pve.storage.columns.node")}</TH>
-            <TH className="hidden sm:table-cell">{t("pve.storage.columns.type")}</TH>
-            <TH className="hidden md:table-cell">{t("pve.storage.columns.content")}</TH>
-            <TH className="w-64">{t("pve.storage.columns.usage")}</TH>
-          </tr>
-        </THead>
-        <TBody>
-          {storage.data!.map((pool) => {
+    <div className="space-y-4">
+      {nodes.map((node) => (
+        <Card key={node}>
+          <div className="border-edge flex items-center gap-2.5 border-b px-5 py-3">
+            <StatusDot
+              tone={
+                nodeStatus.get(node) === "online" ? "success" : nodeStatus.has(node) ? "danger" : "neutral"
+              }
+            />
+            <h2 className="text-fg text-sm font-semibold">{node}</h2>
+            <span className="text-fg-subtle text-xs">
+              {t("pve.storage.poolCount", { count: byNode.get(node)!.length })}
+            </span>
+          </div>
+          <StorageTable pools={byNode.get(node)!} />
+        </Card>
+      ))}
+
+      {shared.length > 0 && (
+        <Card>
+          <div className="border-edge flex items-center gap-2.5 border-b px-5 py-3">
+            <Share2 className="text-fg-subtle size-4" />
+            <h2 className="text-fg text-sm font-semibold">{t("pve.storage.sharedSection")}</h2>
+            <span className="text-fg-subtle text-xs">
+              {t("pve.storage.poolCount", { count: shared.length })}
+            </span>
+          </div>
+          <StorageTable pools={shared.map((s) => s.pool)} sharedNodeCounts={new Map(shared.map((s) => [s.pool.storage, s.nodeCount]))} />
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function StorageTable({
+  pools,
+  sharedNodeCounts,
+}: {
+  pools: PveStorage[];
+  sharedNodeCounts?: Map<string, number>;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Table>
+      <THead>
+        <tr>
+          <TH>{t("pve.storage.columns.pool")}</TH>
+          <TH className="hidden sm:table-cell">{t("pve.storage.columns.type")}</TH>
+          <TH className="hidden md:table-cell">{t("pve.storage.columns.content")}</TH>
+          <TH className="w-64">{t("pve.storage.columns.usage")}</TH>
+        </tr>
+      </THead>
+      <TBody>
+        {pools
+          .slice()
+          .sort((a, b) => a.storage.localeCompare(b.storage))
+          .map((pool) => {
             const fraction = pool.totalBytes > 0 ? pool.usedBytes / pool.totalBytes : 0;
+            const nodeCount = sharedNodeCounts?.get(pool.storage);
             return (
               <TR key={pool.storage + pool.node}>
                 <TD>
                   <span className="text-fg flex items-center gap-2 font-medium">
                     <Database className="text-fg-subtle size-4" />
                     {pool.storage}
+                    {nodeCount !== undefined && (
+                      <Badge tone="info">
+                        {t("pve.storage.shared")}
+                        {nodeCount > 1 ? ` · ${t("pve.storage.sharedNodes", { count: nodeCount })}` : ""}
+                      </Badge>
+                    )}
                     {!pool.active && <Badge tone="neutral">{t("pve.storage.inactive")}</Badge>}
                   </span>
                 </TD>
-                <TD className="text-fg-muted">{pool.node}</TD>
                 <TD className="text-fg-muted hidden sm:table-cell">{pool.type}</TD>
                 <TD className="text-fg-subtle hidden max-w-44 truncate text-xs md:table-cell">{pool.content}</TD>
                 <TD>
@@ -88,9 +188,8 @@ export function PveStoragePage() {
               </TR>
             );
           })}
-        </TBody>
-      </Table>
-    </Card>
+      </TBody>
+    </Table>
   );
 }
 

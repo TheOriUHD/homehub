@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
@@ -17,6 +17,7 @@ import { EmptyState, ErrorState } from "@/ui/states";
 import { SkeletonRows } from "@/ui/skeleton";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { useToast } from "@/ui/toast";
+import { primaryIpv4, useGuestAgent } from "./agent";
 
 export const guestStatusTone = {
   running: "success",
@@ -156,6 +157,7 @@ export function PveGuestsPage() {
                 <TH>{t("pve.guests.columns.guest")}</TH>
                 <TH className="hidden sm:table-cell">{t("pve.guests.columns.node")}</TH>
                 <TH>{t("pve.guests.columns.status")}</TH>
+                <TH className="hidden lg:table-cell">{t("pve.guests.columns.ip")}</TH>
                 <TH className="hidden md:table-cell">{t("pve.guests.columns.cpu")}</TH>
                 <TH className="hidden md:table-cell">{t("pve.guests.columns.memory")}</TH>
                 <TH className="hidden lg:table-cell">{t("pve.guests.columns.uptime")}</TH>
@@ -216,6 +218,9 @@ export function PveGuestsPage() {
                       </Badge>
                     )}
                   </TD>
+                  <TD className="hidden lg:table-cell">
+                    <AgentIpCell instanceId={instanceId} guest={guest} />
+                  </TD>
                   <TD className="text-fg-muted hidden md:table-cell">
                     {guest.status === "running" ? `${Math.round(guest.cpu * 100)}%` : "—"}
                   </TD>
@@ -244,5 +249,36 @@ export function PveGuestsPage() {
         onConfirm={() => confirmBulk && bulk.mutate(confirmBulk)}
       />
     </div>
+  );
+}
+
+/**
+ * AgentIpCell lazily shows the agent-reported primary IPv4. The fetch fires
+ * only once the cell scrolls into view, and only for running QEMU guests —
+ * a long list never fans out into hundreds of eager requests.
+ */
+function AgentIpCell({ instanceId, guest }: { instanceId: string; guest: PveGuest }) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  const [seen, setSeen] = useState(false);
+  const eligible = guest.kind === "qemu" && guest.status === "running" && !guest.template;
+
+  useEffect(() => {
+    if (!eligible || seen) return;
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) setSeen(true);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [eligible, seen]);
+
+  const agent = useGuestAgent(instanceId, guest.vmid, eligible && seen);
+  const ip = agent.data?.available ? primaryIpv4(agent.data) : null;
+
+  return (
+    <span ref={ref} className={cn("font-mono text-xs", ip ? "text-fg" : "text-fg-subtle")}>
+      {ip ?? "—"}
+    </span>
   );
 }
