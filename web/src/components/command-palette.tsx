@@ -10,6 +10,7 @@ import {
   Database,
   DatabaseBackup,
   FileClock,
+  HardDrive,
   Home,
   House,
   KeyRound,
@@ -67,6 +68,7 @@ export function CommandPalette({
   const dbRows = rows.filter((row) => row.type === "mysql" || row.type === "mongodb");
   const haRows = rows.filter((row) => row.type === "homeassistant");
   const mcRows = rows.filter((row) => row.type === "minecraft");
+  const truenasRows = rows.filter((row) => row.type === "truenas");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
 
   const systemEntries = [
@@ -93,6 +95,13 @@ export function CommandPalette({
           label: t("systems.types.minecraft"),
           icon: Pickaxe,
           to: mcRows.length === 1 ? `/mc/${mcRows[0].id}` : "/mc",
+        }]
+      : []),
+    ...(truenasRows.length > 0
+      ? [{
+          label: t("systems.types.truenas"),
+          icon: HardDrive,
+          to: truenasRows.length === 1 ? `/truenas/${truenasRows[0].id}` : "/truenas",
         }]
       : []),
   ];

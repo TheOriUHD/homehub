@@ -222,6 +222,12 @@ function OpenModuleLink({ row }: { row: Integration }) {
           {label}
         </Link>
       );
+    case "truenas":
+      return (
+        <Link to="/truenas/$instanceId" params={{ instanceId: row.id }} className={className}>
+          {label}
+        </Link>
+      );
     default:
       return null;
   }

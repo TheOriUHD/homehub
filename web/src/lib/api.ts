@@ -89,6 +89,15 @@ export type BackupArchive = ApiSchemas["BackupArchive"];
 export type BackupManifest = ApiSchemas["BackupManifest"];
 export type BackupRun = ApiSchemas["BackupRun"];
 export type BackupSchedule = ApiSchemas["BackupSchedule"];
+export type TruenasInstance = ApiSchemas["TruenasInstance"];
+export type TruenasSystemInfo = ApiSchemas["TruenasSystemInfo"];
+export type TruenasOverview = ApiSchemas["TruenasOverview"];
+export type TruenasPool = ApiSchemas["TruenasPool"];
+export type TruenasDisk = ApiSchemas["TruenasDisk"];
+export type TruenasDataset = ApiSchemas["TruenasDataset"];
+export type TruenasShare = ApiSchemas["TruenasShare"];
+export type TruenasSnapshot = ApiSchemas["TruenasSnapshot"];
+export type TruenasAlert = ApiSchemas["TruenasAlert"];
 
 export const api = createClient<paths>({ baseUrl: "/api" });
 

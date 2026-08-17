@@ -514,7 +514,8 @@
       "homeassistant": "Home Assistant",
       "minecraft": "Minecraft",
       "mysql": "MySQL / MariaDB",
-      "mongodb": "MongoDB"
+      "mongodb": "MongoDB",
+      "truenas": "TrueNAS"
     },
     "landing": {
       "pickInstance": "Choose an instance",
@@ -1916,6 +1917,96 @@
         "job": "Docker job results"
       },
       "security": "Security events"
+    }
+  },
+  "truenas": {
+    "tabs": {
+      "overview": "Overview",
+      "datasets": "Datasets",
+      "shares": "Shares",
+      "snapshots": "Snapshots",
+      "performance": "Performance"
+    },
+    "chips": {
+      "pools": "{{count}} pool",
+      "pools_other": "{{count}} pools",
+      "capacity": "{{size}} capacity",
+      "memory": "{{size}} RAM"
+    },
+    "overview": {
+      "alerts": "Alerts",
+      "disks": "Disks",
+      "healthy": "Healthy",
+      "unhealthy": "Unhealthy",
+      "usedOfTotal": "{{used}} of {{total}}",
+      "percentFull": "{{pct}}% full",
+      "free": "{{size}} free",
+      "fragmentation": "{{pct}}% fragmented",
+      "celsius": "{{value}}°C",
+      "noDisks": "No disks reported.",
+      "noPools": {
+        "title": "No pools",
+        "body": "This TrueNAS system has no pools you can see, or none are configured."
+      },
+      "diskColumns": {
+        "name": "Device",
+        "model": "Model",
+        "serial": "Serial",
+        "size": "Size",
+        "type": "Type",
+        "temperature": "Temp",
+        "pool": "Pool"
+      }
+    },
+    "datasets": {
+      "columns": {
+        "name": "Dataset",
+        "type": "Type",
+        "used": "Used",
+        "available": "Available",
+        "compression": "Compression",
+        "mountpoint": "Mount point"
+      },
+      "empty": {
+        "title": "No datasets",
+        "body": "No datasets are visible on this system."
+      }
+    },
+    "shares": {
+      "on": "Enabled",
+      "off": "Disabled",
+      "columns": {
+        "type": "Type",
+        "name": "Name",
+        "path": "Path",
+        "enabled": "Status",
+        "comment": "Comment"
+      },
+      "empty": {
+        "title": "No shares",
+        "body": "No SMB, NFS, or iSCSI shares are configured."
+      }
+    },
+    "snapshots": {
+      "columns": {
+        "name": "Snapshot",
+        "dataset": "Dataset",
+        "used": "Used",
+        "created": "Created"
+      },
+      "empty": {
+        "title": "No snapshots",
+        "body": "No ZFS snapshots were found."
+      }
+    },
+    "performance": {
+      "poolCapacity": "Pool capacity",
+      "diskTemps": "Disk temperatures",
+      "collecting": "Collecting data…",
+      "empty": {
+        "title": "No history yet",
+        "body": "Capacity and temperature history appears here once the metrics engine has collected a few samples."
+      }
     }
   }
 }

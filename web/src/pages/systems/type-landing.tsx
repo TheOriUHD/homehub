@@ -15,7 +15,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 
-type LandingType = "proxmox" | "homeassistant" | "minecraft";
+type LandingType = "proxmox" | "homeassistant" | "minecraft" | "truenas";
 
 /** InstanceLink wraps a card in the typed route for its module. */
 function InstanceLink({ row, children }: { row: Integration; children: React.ReactNode }) {
@@ -34,6 +34,13 @@ function InstanceLink({ row, children }: { row: Integration; children: React.Rea
       </Link>
     );
   }
+  if (row.type === "truenas") {
+    return (
+      <Link to="/truenas/$instanceId" params={{ instanceId: row.id }} className={className}>
+        {children}
+      </Link>
+    );
+  }
   return (
     <Link to="/ha/$instanceId" params={{ instanceId: row.id }} className={className}>
       {children}
@@ -42,9 +49,9 @@ function InstanceLink({ row, children }: { row: Integration; children: React.Rea
 }
 
 /**
- * SystemTypeLanding is the minimal landing for types without a unified module
- * (Proxmox, Home Assistant): one card per instance linking into its module.
- * With exactly one instance it forwards straight to that module.
+ * SystemTypeLanding is the minimal landing for types without a bespoke landing
+ * (Proxmox, Home Assistant, Minecraft, TrueNAS): one card per instance linking
+ * into its module. With exactly one instance it forwards straight to it.
  */
 export function SystemTypeLanding({ type }: { type: LandingType }) {
   const { t } = useTranslation();
@@ -91,6 +98,9 @@ export function SystemTypeLanding({ type }: { type: LandingType }) {
     }
     if (only.type === "minecraft") {
       return <Navigate to="/mc/$instanceId" params={{ instanceId: only.id }} replace />;
+    }
+    if (only.type === "truenas") {
+      return <Navigate to="/truenas/$instanceId" params={{ instanceId: only.id }} replace />;
     }
     return <Navigate to="/ha/$instanceId" params={{ instanceId: only.id }} replace />;
   }
