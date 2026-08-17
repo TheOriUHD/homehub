@@ -152,19 +152,49 @@ func (e GrantInputLevels) Valid() bool {
 
 // Defines values for HealthReportIntegrationsStatus.
 const (
-	Connected   HealthReportIntegrationsStatus = "connected"
-	Degraded    HealthReportIntegrationsStatus = "degraded"
-	Unreachable HealthReportIntegrationsStatus = "unreachable"
+	HealthReportIntegrationsStatusConnected   HealthReportIntegrationsStatus = "connected"
+	HealthReportIntegrationsStatusDegraded    HealthReportIntegrationsStatus = "degraded"
+	HealthReportIntegrationsStatusUnreachable HealthReportIntegrationsStatus = "unreachable"
 )
 
 // Valid indicates whether the value is a known member of the HealthReportIntegrationsStatus enum.
 func (e HealthReportIntegrationsStatus) Valid() bool {
 	switch e {
-	case Connected:
+	case HealthReportIntegrationsStatusConnected:
 		return true
-	case Degraded:
+	case HealthReportIntegrationsStatusDegraded:
 		return true
-	case Unreachable:
+	case HealthReportIntegrationsStatusUnreachable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IntegrationStatus.
+const (
+	IntegrationStatusConnected   IntegrationStatus = "connected"
+	IntegrationStatusConnecting  IntegrationStatus = "connecting"
+	IntegrationStatusDegraded    IntegrationStatus = "degraded"
+	IntegrationStatusDisabled    IntegrationStatus = "disabled"
+	IntegrationStatusPending     IntegrationStatus = "pending"
+	IntegrationStatusUnreachable IntegrationStatus = "unreachable"
+)
+
+// Valid indicates whether the value is a known member of the IntegrationStatus enum.
+func (e IntegrationStatus) Valid() bool {
+	switch e {
+	case IntegrationStatusConnected:
+		return true
+	case IntegrationStatusConnecting:
+		return true
+	case IntegrationStatusDegraded:
+		return true
+	case IntegrationStatusDisabled:
+		return true
+	case IntegrationStatusPending:
+		return true
+	case IntegrationStatusUnreachable:
 		return true
 	default:
 		return false
@@ -228,6 +258,93 @@ func (e NotificationSeverity) Valid() bool {
 	case NotificationSeveritySuccess:
 		return true
 	case NotificationSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PveBackupJobSpecMode.
+const (
+	PveBackupJobSpecModeSnapshot PveBackupJobSpecMode = "snapshot"
+	PveBackupJobSpecModeStop     PveBackupJobSpecMode = "stop"
+	PveBackupJobSpecModeSuspend  PveBackupJobSpecMode = "suspend"
+)
+
+// Valid indicates whether the value is a known member of the PveBackupJobSpecMode enum.
+func (e PveBackupJobSpecMode) Valid() bool {
+	switch e {
+	case PveBackupJobSpecModeSnapshot:
+		return true
+	case PveBackupJobSpecModeStop:
+		return true
+	case PveBackupJobSpecModeSuspend:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PveGuestKind.
+const (
+	Lxc  PveGuestKind = "lxc"
+	Qemu PveGuestKind = "qemu"
+)
+
+// Valid indicates whether the value is a known member of the PveGuestKind enum.
+func (e PveGuestKind) Valid() bool {
+	switch e {
+	case Lxc:
+		return true
+	case Qemu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PveGuestAction.
+const (
+	PveGuestActionReboot   PveGuestAction = "reboot"
+	PveGuestActionResume   PveGuestAction = "resume"
+	PveGuestActionShutdown PveGuestAction = "shutdown"
+	PveGuestActionStart    PveGuestAction = "start"
+	PveGuestActionStop     PveGuestAction = "stop"
+	PveGuestActionSuspend  PveGuestAction = "suspend"
+)
+
+// Valid indicates whether the value is a known member of the PveGuestAction enum.
+func (e PveGuestAction) Valid() bool {
+	switch e {
+	case PveGuestActionReboot:
+		return true
+	case PveGuestActionResume:
+		return true
+	case PveGuestActionShutdown:
+		return true
+	case PveGuestActionStart:
+		return true
+	case PveGuestActionStop:
+		return true
+	case PveGuestActionSuspend:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SSHCredentialInfoAuthType.
+const (
+	SSHCredentialInfoAuthTypeKey      SSHCredentialInfoAuthType = "key"
+	SSHCredentialInfoAuthTypePassword SSHCredentialInfoAuthType = "password"
+)
+
+// Valid indicates whether the value is a known member of the SSHCredentialInfoAuthType enum.
+func (e SSHCredentialInfoAuthType) Valid() bool {
+	switch e {
+	case SSHCredentialInfoAuthTypeKey:
+		return true
+	case SSHCredentialInfoAuthTypePassword:
 		return true
 	default:
 		return false
@@ -306,6 +423,87 @@ func (e ExportAuditParamsOutcome) Valid() bool {
 	case ExportAuditParamsOutcomeFailure:
 		return true
 	case ExportAuditParamsOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PveBackupGuestJSONBodyCompress.
+const (
+	Gzip PveBackupGuestJSONBodyCompress = "gzip"
+	Lzo  PveBackupGuestJSONBodyCompress = "lzo"
+	N0   PveBackupGuestJSONBodyCompress = "0"
+	Zstd PveBackupGuestJSONBodyCompress = "zstd"
+)
+
+// Valid indicates whether the value is a known member of the PveBackupGuestJSONBodyCompress enum.
+func (e PveBackupGuestJSONBodyCompress) Valid() bool {
+	switch e {
+	case Gzip:
+		return true
+	case Lzo:
+		return true
+	case N0:
+		return true
+	case Zstd:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PveBackupGuestJSONBodyMode.
+const (
+	PveBackupGuestJSONBodyModeSnapshot PveBackupGuestJSONBodyMode = "snapshot"
+	PveBackupGuestJSONBodyModeStop     PveBackupGuestJSONBodyMode = "stop"
+	PveBackupGuestJSONBodyModeSuspend  PveBackupGuestJSONBodyMode = "suspend"
+)
+
+// Valid indicates whether the value is a known member of the PveBackupGuestJSONBodyMode enum.
+func (e PveBackupGuestJSONBodyMode) Valid() bool {
+	switch e {
+	case PveBackupGuestJSONBodyModeSnapshot:
+		return true
+	case PveBackupGuestJSONBodyModeStop:
+		return true
+	case PveBackupGuestJSONBodyModeSuspend:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PveOpenConsoleJSONBodyKind.
+const (
+	Serial PveOpenConsoleJSONBodyKind = "serial"
+	Vnc    PveOpenConsoleJSONBodyKind = "vnc"
+)
+
+// Valid indicates whether the value is a known member of the PveOpenConsoleJSONBodyKind enum.
+func (e PveOpenConsoleJSONBodyKind) Valid() bool {
+	switch e {
+	case Serial:
+		return true
+	case Vnc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PutSSHCredentialJSONBodyAuthType.
+const (
+	PutSSHCredentialJSONBodyAuthTypeKey      PutSSHCredentialJSONBodyAuthType = "key"
+	PutSSHCredentialJSONBodyAuthTypePassword PutSSHCredentialJSONBodyAuthType = "password"
+)
+
+// Valid indicates whether the value is a known member of the PutSSHCredentialJSONBodyAuthType enum.
+func (e PutSSHCredentialJSONBodyAuthType) Valid() bool {
+	switch e {
+	case PutSSHCredentialJSONBodyAuthTypeKey:
+		return true
+	case PutSSHCredentialJSONBodyAuthTypePassword:
 		return true
 	default:
 		return false
@@ -473,6 +671,30 @@ type HealthReport struct {
 // HealthReportIntegrationsStatus defines model for HealthReport.Integrations.Status.
 type HealthReportIntegrationsStatus string
 
+// Integration defines model for Integration.
+type Integration struct {
+	Config          map[string]interface{} `json:"config"`
+	CreatedAt       time.Time              `json:"createdAt"`
+	Enabled         bool                   `json:"enabled"`
+	Id              openapi_types.UUID     `json:"id"`
+	Name            string                 `json:"name"`
+	Status          IntegrationStatus      `json:"status"`
+	StatusChangedAt time.Time              `json:"statusChangedAt"`
+	StatusMessage   string                 `json:"statusMessage"`
+	Type            string                 `json:"type"`
+}
+
+// IntegrationStatus defines model for Integration.Status.
+type IntegrationStatus string
+
+// IntegrationType defines model for IntegrationType.
+type IntegrationType struct {
+	Description string   `json:"description"`
+	Id          string   `json:"id"`
+	Name        string   `json:"name"`
+	SecretNames []string `json:"secretNames"`
+}
+
 // LoginResult defines model for LoginResult.
 type LoginResult struct {
 	Methods *[]LoginResultMethods `json:"methods,omitempty"`
@@ -495,6 +717,16 @@ type Me struct {
 	Grants       []Grant             `json:"grants"`
 	User         User                `json:"user"`
 	ViewAsRoleId *openapi_types.UUID `json:"viewAsRoleId,omitempty"`
+}
+
+// MetricQueryResult defines model for MetricQueryResult.
+type MetricQueryResult struct {
+	Points []struct {
+		Avg float32   `json:"avg"`
+		Max float32   `json:"max"`
+		Min float32   `json:"min"`
+		Ts  time.Time `json:"ts"`
+	} `json:"points"`
 }
 
 // Notification defines model for Notification.
@@ -521,6 +753,138 @@ type Passkey struct {
 	Transports *[]string          `json:"transports,omitempty"`
 }
 
+// PveBackupJob defines model for PveBackupJob.
+type PveBackupJob struct {
+	Enabled  bool   `json:"enabled"`
+	Id       string `json:"id"`
+	Mode     string `json:"mode"`
+	Schedule string `json:"schedule"`
+	Storage  string `json:"storage"`
+
+	// Vmids Comma-separated vmid list, or empty for all
+	Vmids string `json:"vmids"`
+}
+
+// PveBackupJobSpec defines model for PveBackupJobSpec.
+type PveBackupJobSpec struct {
+	Enabled *bool                 `json:"enabled,omitempty"`
+	Mode    *PveBackupJobSpecMode `json:"mode,omitempty"`
+
+	// Schedule Proxmox calendar event, e.g. "02:30" or "sat 03:00"
+	Schedule string `json:"schedule"`
+	Storage  string `json:"storage"`
+	Vmids    string `json:"vmids"`
+}
+
+// PveBackupJobSpecMode defines model for PveBackupJobSpec.Mode.
+type PveBackupJobSpecMode string
+
+// PveBulkResult defines model for PveBulkResult.
+type PveBulkResult struct {
+	Results []struct {
+		Error *string `json:"error,omitempty"`
+		Upid  *string `json:"upid,omitempty"`
+		Vmid  int     `json:"vmid"`
+	} `json:"results"`
+}
+
+// PveGuest defines model for PveGuest.
+type PveGuest struct {
+	Cpu           float32      `json:"cpu"`
+	DiskBytes     int64        `json:"diskBytes"`
+	Kind          PveGuestKind `json:"kind"`
+	MaxCpu        int          `json:"maxCpu"`
+	MaxDiskBytes  int64        `json:"maxDiskBytes"`
+	MaxMemBytes   int64        `json:"maxMemBytes"`
+	MemBytes      int64        `json:"memBytes"`
+	Name          string       `json:"name"`
+	Node          string       `json:"node"`
+	Status        string       `json:"status"`
+	Tags          *string      `json:"tags,omitempty"`
+	Template      bool         `json:"template"`
+	UptimeSeconds int64        `json:"uptimeSeconds"`
+	Vmid          int          `json:"vmid"`
+}
+
+// PveGuestKind defines model for PveGuest.Kind.
+type PveGuestKind string
+
+// PveGuestAction defines model for PveGuestAction.
+type PveGuestAction string
+
+// PveGuestDetail defines model for PveGuestDetail.
+type PveGuestDetail struct {
+	// Config Raw Proxmox configuration keys as the API reports them
+	Config map[string]interface{} `json:"config"`
+	Guest  PveGuest               `json:"guest"`
+}
+
+// PveNode defines model for PveNode.
+type PveNode struct {
+	// Cpu Load as a 0..1 fraction of all cores
+	Cpu           float32 `json:"cpu"`
+	MaxCpu        int     `json:"maxCpu"`
+	MaxMemBytes   int64   `json:"maxMemBytes"`
+	MemBytes      int64   `json:"memBytes"`
+	Name          string  `json:"name"`
+	PveVersion    *string `json:"pveVersion,omitempty"`
+	Status        string  `json:"status"`
+	UptimeSeconds int64   `json:"uptimeSeconds"`
+}
+
+// PveSnapshot defines model for PveSnapshot.
+type PveSnapshot struct {
+	Description string     `json:"description"`
+	Name        string     `json:"name"`
+	Snaptime    *time.Time `json:"snaptime,omitempty"`
+	Vmstate     bool       `json:"vmstate"`
+}
+
+// PveStorage defines model for PveStorage.
+type PveStorage struct {
+	Active     bool   `json:"active"`
+	Content    string `json:"content"`
+	Node       string `json:"node"`
+	Storage    string `json:"storage"`
+	TotalBytes int64  `json:"totalBytes"`
+	Type       string `json:"type"`
+	UsedBytes  int64  `json:"usedBytes"`
+}
+
+// PveSummary defines model for PveSummary.
+type PveSummary struct {
+	ClusterName       string    `json:"clusterName"`
+	Nodes             []PveNode `json:"nodes"`
+	Quorate           *bool     `json:"quorate"`
+	StorageTotalBytes int64     `json:"storageTotalBytes"`
+	StorageUsedBytes  int64     `json:"storageUsedBytes"`
+}
+
+// PveTask defines model for PveTask.
+type PveTask struct {
+	EndTime    *time.Time `json:"endTime,omitempty"`
+	ExitStatus *string    `json:"exitStatus,omitempty"`
+	Id         string     `json:"id"`
+	Node       string     `json:"node"`
+	Running    bool       `json:"running"`
+	StartTime  time.Time  `json:"startTime"`
+	Type       string     `json:"type"`
+	Upid       string     `json:"upid"`
+	User       string     `json:"user"`
+}
+
+// PveTaskDetail defines model for PveTaskDetail.
+type PveTaskDetail struct {
+	Lines []string `json:"lines"`
+	Task  PveTask  `json:"task"`
+}
+
+// PveTaskRef defines model for PveTaskRef.
+type PveTaskRef struct {
+	Node string `json:"node"`
+	Upid string `json:"upid"`
+}
+
 // RecoveryCodes defines model for RecoveryCodes.
 type RecoveryCodes struct {
 	RecoveryCodes []string `json:"recoveryCodes"`
@@ -538,6 +902,19 @@ type Role struct {
 	UpdatedAt   time.Time          `json:"updatedAt"`
 }
 
+// SSHCredentialInfo defines model for SSHCredentialInfo.
+type SSHCredentialInfo struct {
+	AuthType  SSHCredentialInfoAuthType `json:"authType"`
+	Host      string                    `json:"host"`
+	Port      int                       `json:"port"`
+	Resource  string                    `json:"resource"`
+	UpdatedAt time.Time                 `json:"updatedAt"`
+	Username  string                    `json:"username"`
+}
+
+// SSHCredentialInfoAuthType defines model for SSHCredentialInfo.AuthType.
+type SSHCredentialInfoAuthType string
+
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
 	CreatedAt  time.Time          `json:"createdAt"`
@@ -547,6 +924,23 @@ type SessionInfo struct {
 	Ip         string             `json:"ip"`
 	LastSeenAt time.Time          `json:"lastSeenAt"`
 	UserAgent  string             `json:"userAgent"`
+}
+
+// TermSession defines model for TermSession.
+type TermSession struct {
+	// Credential For VNC sessions, the one-time password noVNC must answer RFB authentication with
+	Credential *string `json:"credential,omitempty"`
+	SessionId  string  `json:"sessionId"`
+
+	// WsPath One-time WebSocket path, valid for 30 seconds
+	WsPath string `json:"wsPath"`
+}
+
+// TestConnectionResult defines model for TestConnectionResult.
+type TestConnectionResult struct {
+	Detail  *map[string]interface{} `json:"detail,omitempty"`
+	Message string                  `json:"message"`
+	Ok      bool                    `json:"ok"`
 }
 
 // User defines model for User.
@@ -601,6 +995,9 @@ type WebauthnPayload map[string]interface{}
 // IdParam defines model for idParam.
 type IdParam = openapi_types.UUID
 
+// VmidParam defines model for vmidParam.
+type VmidParam = int
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
@@ -618,11 +1015,17 @@ type SessionUser struct {
 	User User `json:"user"`
 }
 
+// TaskStarted defines model for TaskStarted.
+type TaskStarted = PveTaskRef
+
 // TooManyRequests defines model for TooManyRequests.
 type TooManyRequests = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
+
+// UpstreamError defines model for UpstreamError.
+type UpstreamError = Error
 
 // ListAuditParams defines parameters for ListAudit.
 type ListAuditParams struct {
@@ -734,9 +1137,42 @@ type SetViewAsJSONBody struct {
 	RoleId *openapi_types.UUID `json:"roleId,omitempty"`
 }
 
+// CreateIntegrationJSONBody defines parameters for CreateIntegration.
+type CreateIntegrationJSONBody struct {
+	Config  map[string]interface{} `json:"config"`
+	Name    string                 `json:"name"`
+	Secrets *map[string]string     `json:"secrets,omitempty"`
+	Type    string                 `json:"type"`
+}
+
+// TestIntegrationConfigJSONBody defines parameters for TestIntegrationConfig.
+type TestIntegrationConfigJSONBody struct {
+	Config  map[string]interface{} `json:"config"`
+	Secrets *map[string]string     `json:"secrets,omitempty"`
+	Type    string                 `json:"type"`
+}
+
+// UpdateIntegrationJSONBody defines parameters for UpdateIntegration.
+type UpdateIntegrationJSONBody struct {
+	Config  *map[string]interface{} `json:"config,omitempty"`
+	Enabled *bool                   `json:"enabled,omitempty"`
+	Name    *string                 `json:"name,omitempty"`
+
+	// Secrets Only provided keys are replaced
+	Secrets *map[string]string `json:"secrets,omitempty"`
+}
+
 // AcceptInviteJSONBody defines parameters for AcceptInvite.
 type AcceptInviteJSONBody struct {
 	Password string `json:"password"`
+}
+
+// QueryMetricsParams defines parameters for QueryMetrics.
+type QueryMetricsParams struct {
+	Resource string    `form:"resource" json:"resource"`
+	Metric   string    `form:"metric" json:"metric"`
+	From     time.Time `form:"from" json:"from"`
+	To       time.Time `form:"to" json:"to"`
 }
 
 // ListNotificationsParams defines parameters for ListNotifications.
@@ -751,6 +1187,101 @@ type MarkNotificationsReadJSONBody struct {
 	All *bool    `json:"all,omitempty"`
 	Ids *[]int64 `json:"ids,omitempty"`
 }
+
+// PveBulkActionJSONBody defines parameters for PveBulkAction.
+type PveBulkActionJSONBody struct {
+	Action PveGuestAction `json:"action"`
+	Vmids  []int          `json:"vmids"`
+}
+
+// PveDeleteGuestParams defines parameters for PveDeleteGuest.
+type PveDeleteGuestParams struct {
+	Purge *bool `form:"purge,omitempty" json:"purge,omitempty"`
+}
+
+// PveGuestActionJSONBody defines parameters for PveGuestAction.
+type PveGuestActionJSONBody struct {
+	Action PveGuestAction `json:"action"`
+}
+
+// PveBackupGuestJSONBody defines parameters for PveBackupGuest.
+type PveBackupGuestJSONBody struct {
+	Compress *PveBackupGuestJSONBodyCompress `json:"compress,omitempty"`
+	Mode     *PveBackupGuestJSONBodyMode     `json:"mode,omitempty"`
+	Storage  string                          `json:"storage"`
+}
+
+// PveBackupGuestJSONBodyCompress defines parameters for PveBackupGuest.
+type PveBackupGuestJSONBodyCompress string
+
+// PveBackupGuestJSONBodyMode defines parameters for PveBackupGuest.
+type PveBackupGuestJSONBodyMode string
+
+// PveCloneGuestJSONBody defines parameters for PveCloneGuest.
+type PveCloneGuestJSONBody struct {
+	Full   *bool   `json:"full,omitempty"`
+	Name   *string `json:"name,omitempty"`
+	Newid  int     `json:"newid"`
+	Target *string `json:"target,omitempty"`
+}
+
+// PveSetGuestConfigJSONBody defines parameters for PveSetGuestConfig.
+type PveSetGuestConfigJSONBody struct {
+	Changes map[string]string `json:"changes"`
+}
+
+// PveOpenConsoleJSONBody defines parameters for PveOpenConsole.
+type PveOpenConsoleJSONBody struct {
+	Kind PveOpenConsoleJSONBodyKind `json:"kind"`
+}
+
+// PveOpenConsoleJSONBodyKind defines parameters for PveOpenConsole.
+type PveOpenConsoleJSONBodyKind string
+
+// PveMigrateGuestJSONBody defines parameters for PveMigrateGuest.
+type PveMigrateGuestJSONBody struct {
+	Online *bool  `json:"online,omitempty"`
+	Target string `json:"target"`
+}
+
+// PveCreateSnapshotJSONBody defines parameters for PveCreateSnapshot.
+type PveCreateSnapshotJSONBody struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+	Vmstate     *bool   `json:"vmstate,omitempty"`
+}
+
+// PveListTasksParams defines parameters for PveListTasks.
+type PveListTasksParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// DeleteSSHCredentialParams defines parameters for DeleteSSHCredential.
+type DeleteSSHCredentialParams struct {
+	Resource string `form:"resource" json:"resource"`
+}
+
+// GetSSHCredentialParams defines parameters for GetSSHCredential.
+type GetSSHCredentialParams struct {
+	Resource string `form:"resource" json:"resource"`
+}
+
+// PutSSHCredentialJSONBody defines parameters for PutSSHCredential.
+type PutSSHCredentialJSONBody struct {
+	AuthType PutSSHCredentialJSONBodyAuthType `json:"authType"`
+
+	// Host Hostname or IP; required until guest-agent address discovery lands
+	Host     *string `json:"host,omitempty"`
+	Port     *int    `json:"port,omitempty"`
+	Resource string  `json:"resource"`
+
+	// Secret Password or PEM private key; omit to keep the stored secret
+	Secret   *string `json:"secret,omitempty"`
+	Username string  `json:"username"`
+}
+
+// PutSSHCredentialJSONBodyAuthType defines parameters for PutSSHCredential.
+type PutSSHCredentialJSONBodyAuthType string
 
 // CreateRoleJSONBody defines parameters for CreateRole.
 type CreateRoleJSONBody struct {
@@ -853,11 +1384,53 @@ type DisableTotpJSONRequestBody DisableTotpJSONBody
 // SetViewAsJSONRequestBody defines body for SetViewAs for application/json ContentType.
 type SetViewAsJSONRequestBody SetViewAsJSONBody
 
+// CreateIntegrationJSONRequestBody defines body for CreateIntegration for application/json ContentType.
+type CreateIntegrationJSONRequestBody CreateIntegrationJSONBody
+
+// TestIntegrationConfigJSONRequestBody defines body for TestIntegrationConfig for application/json ContentType.
+type TestIntegrationConfigJSONRequestBody TestIntegrationConfigJSONBody
+
+// UpdateIntegrationJSONRequestBody defines body for UpdateIntegration for application/json ContentType.
+type UpdateIntegrationJSONRequestBody UpdateIntegrationJSONBody
+
 // AcceptInviteJSONRequestBody defines body for AcceptInvite for application/json ContentType.
 type AcceptInviteJSONRequestBody AcceptInviteJSONBody
 
 // MarkNotificationsReadJSONRequestBody defines body for MarkNotificationsRead for application/json ContentType.
 type MarkNotificationsReadJSONRequestBody MarkNotificationsReadJSONBody
+
+// PveCreateBackupJobJSONRequestBody defines body for PveCreateBackupJob for application/json ContentType.
+type PveCreateBackupJobJSONRequestBody = PveBackupJobSpec
+
+// PveUpdateBackupJobJSONRequestBody defines body for PveUpdateBackupJob for application/json ContentType.
+type PveUpdateBackupJobJSONRequestBody = PveBackupJobSpec
+
+// PveBulkActionJSONRequestBody defines body for PveBulkAction for application/json ContentType.
+type PveBulkActionJSONRequestBody PveBulkActionJSONBody
+
+// PveGuestActionJSONRequestBody defines body for PveGuestAction for application/json ContentType.
+type PveGuestActionJSONRequestBody PveGuestActionJSONBody
+
+// PveBackupGuestJSONRequestBody defines body for PveBackupGuest for application/json ContentType.
+type PveBackupGuestJSONRequestBody PveBackupGuestJSONBody
+
+// PveCloneGuestJSONRequestBody defines body for PveCloneGuest for application/json ContentType.
+type PveCloneGuestJSONRequestBody PveCloneGuestJSONBody
+
+// PveSetGuestConfigJSONRequestBody defines body for PveSetGuestConfig for application/json ContentType.
+type PveSetGuestConfigJSONRequestBody PveSetGuestConfigJSONBody
+
+// PveOpenConsoleJSONRequestBody defines body for PveOpenConsole for application/json ContentType.
+type PveOpenConsoleJSONRequestBody PveOpenConsoleJSONBody
+
+// PveMigrateGuestJSONRequestBody defines body for PveMigrateGuest for application/json ContentType.
+type PveMigrateGuestJSONRequestBody PveMigrateGuestJSONBody
+
+// PveCreateSnapshotJSONRequestBody defines body for PveCreateSnapshot for application/json ContentType.
+type PveCreateSnapshotJSONRequestBody PveCreateSnapshotJSONBody
+
+// PutSSHCredentialJSONRequestBody defines body for PutSSHCredential for application/json ContentType.
+type PutSSHCredentialJSONRequestBody PutSSHCredentialJSONBody
 
 // CreateRoleJSONRequestBody defines body for CreateRole for application/json ContentType.
 type CreateRoleJSONRequestBody CreateRoleJSONBody
@@ -960,18 +1533,120 @@ type ServerInterface interface {
 	// GetHealth Application health
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// ListIntegrationTypes Integration types available to add
+	// (GET /integration-types)
+	ListIntegrationTypes(w http.ResponseWriter, r *http.Request)
+	// ListIntegrations List configured integrations
+	// (GET /integrations)
+	ListIntegrations(w http.ResponseWriter, r *http.Request)
+	// CreateIntegration Add an integration
+	// (POST /integrations)
+	CreateIntegration(w http.ResponseWriter, r *http.Request)
+	// TestIntegrationConfig Test a connection before saving
+	// (POST /integrations/test)
+	TestIntegrationConfig(w http.ResponseWriter, r *http.Request)
+	// DeleteIntegration Remove an integration and its stored secrets
+	// (DELETE /integrations/{id})
+	DeleteIntegration(w http.ResponseWriter, r *http.Request, id IdParam)
+	// GetIntegration Get an integration
+	// (GET /integrations/{id})
+	GetIntegration(w http.ResponseWriter, r *http.Request, id IdParam)
+	// UpdateIntegration Update name, config, secrets, or enabled state
+	// (PATCH /integrations/{id})
+	UpdateIntegration(w http.ResponseWriter, r *http.Request, id IdParam)
+	// TestIntegration Re-test an existing integration
+	// (POST /integrations/{id}/test)
+	TestIntegration(w http.ResponseWriter, r *http.Request, id IdParam)
 	// GetInvite Inspect an invite link
 	// (GET /invites/{token})
 	GetInvite(w http.ResponseWriter, r *http.Request, token string)
 	// AcceptInvite Accept an invite and set a password
 	// (POST /invites/{token})
 	AcceptInvite(w http.ResponseWriter, r *http.Request, token string)
+	// QueryMetrics Historical metric points for one resource metric
+	// (GET /metrics/query)
+	QueryMetrics(w http.ResponseWriter, r *http.Request, params QueryMetricsParams)
 	// ListNotifications List the current user's notifications
 	// (GET /notifications)
 	ListNotifications(w http.ResponseWriter, r *http.Request, params ListNotificationsParams)
 	// MarkNotificationsRead Mark notifications as read
 	// (POST /notifications/read)
 	MarkNotificationsRead(w http.ResponseWriter, r *http.Request)
+	// PveListBackupJobs Scheduled vzdump jobs
+	// (GET /proxmox/{id}/backup-jobs)
+	PveListBackupJobs(w http.ResponseWriter, r *http.Request, id IdParam)
+	// PveCreateBackupJob Create a scheduled vzdump job
+	// (POST /proxmox/{id}/backup-jobs)
+	PveCreateBackupJob(w http.ResponseWriter, r *http.Request, id IdParam)
+	// PveUpdateBackupJob Update a scheduled vzdump job
+	// (PUT /proxmox/{id}/backup-jobs/{jobId})
+	PveUpdateBackupJob(w http.ResponseWriter, r *http.Request, id IdParam, jobId string)
+	// PveBulkAction Run one action across selected guests
+	// (POST /proxmox/{id}/bulk)
+	PveBulkAction(w http.ResponseWriter, r *http.Request, id IdParam)
+	// PveListGuests All VMs and containers
+	// (GET /proxmox/{id}/guests)
+	PveListGuests(w http.ResponseWriter, r *http.Request, id IdParam)
+	// PveDeleteGuest Delete a guest
+	// (DELETE /proxmox/{id}/guests/{vmid})
+	PveDeleteGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam, params PveDeleteGuestParams)
+	// PveGetGuest Guest status and configuration
+	// (GET /proxmox/{id}/guests/{vmid})
+	PveGetGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam)
+	// PveGuestAction Start, stop, shutdown, reboot, suspend, or resume
+	// (POST /proxmox/{id}/guests/{vmid}/action)
+	PveGuestAction(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam)
+	// PveBackupGuest Back up a guest now (vzdump)
+	// (POST /proxmox/{id}/guests/{vmid}/backup)
+	PveBackupGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam)
+	// PveCloneGuest Clone a guest or template
+	// (POST /proxmox/{id}/guests/{vmid}/clone)
+	PveCloneGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam)
+	// PveSetGuestConfig Edit guest hardware and options
+	// (PUT /proxmox/{id}/guests/{vmid}/config)
+	PveSetGuestConfig(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam)
+	// PveOpenConsole Open a VNC or serial console session
+	// (POST /proxmox/{id}/guests/{vmid}/console)
+	PveOpenConsole(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam)
+	// PveMigrateGuest Migrate a guest to another node
+	// (POST /proxmox/{id}/guests/{vmid}/migrate)
+	PveMigrateGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam)
+	// PveListSnapshots List snapshots
+	// (GET /proxmox/{id}/guests/{vmid}/snapshots)
+	PveListSnapshots(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam)
+	// PveCreateSnapshot Take a snapshot
+	// (POST /proxmox/{id}/guests/{vmid}/snapshots)
+	PveCreateSnapshot(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam)
+	// PveDeleteSnapshot Delete a snapshot
+	// (DELETE /proxmox/{id}/guests/{vmid}/snapshots/{name})
+	PveDeleteSnapshot(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam, name string)
+	// PveRollbackSnapshot Roll back to a snapshot
+	// (POST /proxmox/{id}/guests/{vmid}/snapshots/{name}/rollback)
+	PveRollbackSnapshot(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam, name string)
+	// PveOpenSSH Open an SSH terminal to the guest
+	// (POST /proxmox/{id}/guests/{vmid}/ssh)
+	PveOpenSSH(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam)
+	// PveListStorage Storage pools with usage
+	// (GET /proxmox/{id}/storage)
+	PveListStorage(w http.ResponseWriter, r *http.Request, id IdParam)
+	// PveSummary Cluster and node overview
+	// (GET /proxmox/{id}/summary)
+	PveSummary(w http.ResponseWriter, r *http.Request, id IdParam)
+	// PveListTasks Recent tasks across all nodes
+	// (GET /proxmox/{id}/tasks)
+	PveListTasks(w http.ResponseWriter, r *http.Request, id IdParam, params PveListTasksParams)
+	// PveTaskLog Task status and log
+	// (GET /proxmox/{id}/tasks/{node}/{upid}/log)
+	PveTaskLog(w http.ResponseWriter, r *http.Request, id IdParam, node string, upid string)
+	// DeleteSSHCredential Remove SSH access for a resource
+	// (DELETE /resources/ssh)
+	DeleteSSHCredential(w http.ResponseWriter, r *http.Request, params DeleteSSHCredentialParams)
+	// GetSSHCredential SSH credential metadata for a resource
+	// (GET /resources/ssh)
+	GetSSHCredential(w http.ResponseWriter, r *http.Request, params GetSSHCredentialParams)
+	// PutSSHCredential Store SSH access for a resource
+	// (PUT /resources/ssh)
+	PutSSHCredential(w http.ResponseWriter, r *http.Request)
 	// ListRoles List roles with their grants
 	// (GET /roles)
 	ListRoles(w http.ResponseWriter, r *http.Request)
@@ -1185,6 +1860,54 @@ func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListIntegrationTypes Integration types available to add
+// (GET /integration-types)
+func (_ Unimplemented) ListIntegrationTypes(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListIntegrations List configured integrations
+// (GET /integrations)
+func (_ Unimplemented) ListIntegrations(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateIntegration Add an integration
+// (POST /integrations)
+func (_ Unimplemented) CreateIntegration(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// TestIntegrationConfig Test a connection before saving
+// (POST /integrations/test)
+func (_ Unimplemented) TestIntegrationConfig(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteIntegration Remove an integration and its stored secrets
+// (DELETE /integrations/{id})
+func (_ Unimplemented) DeleteIntegration(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetIntegration Get an integration
+// (GET /integrations/{id})
+func (_ Unimplemented) GetIntegration(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateIntegration Update name, config, secrets, or enabled state
+// (PATCH /integrations/{id})
+func (_ Unimplemented) UpdateIntegration(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// TestIntegration Re-test an existing integration
+// (POST /integrations/{id}/test)
+func (_ Unimplemented) TestIntegration(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetInvite Inspect an invite link
 // (GET /invites/{token})
 func (_ Unimplemented) GetInvite(w http.ResponseWriter, r *http.Request, token string) {
@@ -1197,6 +1920,12 @@ func (_ Unimplemented) AcceptInvite(w http.ResponseWriter, r *http.Request, toke
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// QueryMetrics Historical metric points for one resource metric
+// (GET /metrics/query)
+func (_ Unimplemented) QueryMetrics(w http.ResponseWriter, r *http.Request, params QueryMetricsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListNotifications List the current user's notifications
 // (GET /notifications)
 func (_ Unimplemented) ListNotifications(w http.ResponseWriter, r *http.Request, params ListNotificationsParams) {
@@ -1206,6 +1935,156 @@ func (_ Unimplemented) ListNotifications(w http.ResponseWriter, r *http.Request,
 // MarkNotificationsRead Mark notifications as read
 // (POST /notifications/read)
 func (_ Unimplemented) MarkNotificationsRead(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveListBackupJobs Scheduled vzdump jobs
+// (GET /proxmox/{id}/backup-jobs)
+func (_ Unimplemented) PveListBackupJobs(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveCreateBackupJob Create a scheduled vzdump job
+// (POST /proxmox/{id}/backup-jobs)
+func (_ Unimplemented) PveCreateBackupJob(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveUpdateBackupJob Update a scheduled vzdump job
+// (PUT /proxmox/{id}/backup-jobs/{jobId})
+func (_ Unimplemented) PveUpdateBackupJob(w http.ResponseWriter, r *http.Request, id IdParam, jobId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveBulkAction Run one action across selected guests
+// (POST /proxmox/{id}/bulk)
+func (_ Unimplemented) PveBulkAction(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveListGuests All VMs and containers
+// (GET /proxmox/{id}/guests)
+func (_ Unimplemented) PveListGuests(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveDeleteGuest Delete a guest
+// (DELETE /proxmox/{id}/guests/{vmid})
+func (_ Unimplemented) PveDeleteGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam, params PveDeleteGuestParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveGetGuest Guest status and configuration
+// (GET /proxmox/{id}/guests/{vmid})
+func (_ Unimplemented) PveGetGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveGuestAction Start, stop, shutdown, reboot, suspend, or resume
+// (POST /proxmox/{id}/guests/{vmid}/action)
+func (_ Unimplemented) PveGuestAction(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveBackupGuest Back up a guest now (vzdump)
+// (POST /proxmox/{id}/guests/{vmid}/backup)
+func (_ Unimplemented) PveBackupGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveCloneGuest Clone a guest or template
+// (POST /proxmox/{id}/guests/{vmid}/clone)
+func (_ Unimplemented) PveCloneGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveSetGuestConfig Edit guest hardware and options
+// (PUT /proxmox/{id}/guests/{vmid}/config)
+func (_ Unimplemented) PveSetGuestConfig(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveOpenConsole Open a VNC or serial console session
+// (POST /proxmox/{id}/guests/{vmid}/console)
+func (_ Unimplemented) PveOpenConsole(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveMigrateGuest Migrate a guest to another node
+// (POST /proxmox/{id}/guests/{vmid}/migrate)
+func (_ Unimplemented) PveMigrateGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveListSnapshots List snapshots
+// (GET /proxmox/{id}/guests/{vmid}/snapshots)
+func (_ Unimplemented) PveListSnapshots(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveCreateSnapshot Take a snapshot
+// (POST /proxmox/{id}/guests/{vmid}/snapshots)
+func (_ Unimplemented) PveCreateSnapshot(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveDeleteSnapshot Delete a snapshot
+// (DELETE /proxmox/{id}/guests/{vmid}/snapshots/{name})
+func (_ Unimplemented) PveDeleteSnapshot(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam, name string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveRollbackSnapshot Roll back to a snapshot
+// (POST /proxmox/{id}/guests/{vmid}/snapshots/{name}/rollback)
+func (_ Unimplemented) PveRollbackSnapshot(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam, name string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveOpenSSH Open an SSH terminal to the guest
+// (POST /proxmox/{id}/guests/{vmid}/ssh)
+func (_ Unimplemented) PveOpenSSH(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveListStorage Storage pools with usage
+// (GET /proxmox/{id}/storage)
+func (_ Unimplemented) PveListStorage(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveSummary Cluster and node overview
+// (GET /proxmox/{id}/summary)
+func (_ Unimplemented) PveSummary(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveListTasks Recent tasks across all nodes
+// (GET /proxmox/{id}/tasks)
+func (_ Unimplemented) PveListTasks(w http.ResponseWriter, r *http.Request, id IdParam, params PveListTasksParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PveTaskLog Task status and log
+// (GET /proxmox/{id}/tasks/{node}/{upid}/log)
+func (_ Unimplemented) PveTaskLog(w http.ResponseWriter, r *http.Request, id IdParam, node string, upid string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteSSHCredential Remove SSH access for a resource
+// (DELETE /resources/ssh)
+func (_ Unimplemented) DeleteSSHCredential(w http.ResponseWriter, r *http.Request, params DeleteSSHCredentialParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetSSHCredential SSH credential metadata for a resource
+// (GET /resources/ssh)
+func (_ Unimplemented) GetSSHCredential(w http.ResponseWriter, r *http.Request, params GetSSHCredentialParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutSSHCredential Store SSH access for a resource
+// (PUT /resources/ssh)
+func (_ Unimplemented) PutSSHCredential(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1914,6 +2793,166 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// ListIntegrationTypes operation middleware
+func (siw *ServerInterfaceWrapper) ListIntegrationTypes(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListIntegrationTypes(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListIntegrations operation middleware
+func (siw *ServerInterfaceWrapper) ListIntegrations(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListIntegrations(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateIntegration operation middleware
+func (siw *ServerInterfaceWrapper) CreateIntegration(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateIntegration(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestIntegrationConfig operation middleware
+func (siw *ServerInterfaceWrapper) TestIntegrationConfig(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestIntegrationConfig(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteIntegration operation middleware
+func (siw *ServerInterfaceWrapper) DeleteIntegration(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteIntegration(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetIntegration operation middleware
+func (siw *ServerInterfaceWrapper) GetIntegration(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetIntegration(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateIntegration operation middleware
+func (siw *ServerInterfaceWrapper) UpdateIntegration(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateIntegration(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestIntegration operation middleware
+func (siw *ServerInterfaceWrapper) TestIntegration(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestIntegration(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetInvite operation middleware
 func (siw *ServerInterfaceWrapper) GetInvite(w http.ResponseWriter, r *http.Request) {
 
@@ -1957,6 +2996,78 @@ func (siw *ServerInterfaceWrapper) AcceptInvite(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AcceptInvite(w, r, token)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// QueryMetrics operation middleware
+func (siw *ServerInterfaceWrapper) QueryMetrics(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params QueryMetricsParams
+
+	// ------------- Required query parameter "resource" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "resource", r.URL.Query(), &params.Resource, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "resource"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "resource", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "metric" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "metric", r.URL.Query(), &params.Metric, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "metric"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "metric", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.QueryMetrics(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2030,6 +3141,852 @@ func (siw *ServerInterfaceWrapper) MarkNotificationsRead(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.MarkNotificationsRead(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveListBackupJobs operation middleware
+func (siw *ServerInterfaceWrapper) PveListBackupJobs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveListBackupJobs(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveCreateBackupJob operation middleware
+func (siw *ServerInterfaceWrapper) PveCreateBackupJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveCreateBackupJob(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveUpdateBackupJob operation middleware
+func (siw *ServerInterfaceWrapper) PveUpdateBackupJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "jobId" -------------
+	var jobId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "jobId", chi.URLParam(r, "jobId"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jobId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveUpdateBackupJob(w, r, id, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveBulkAction operation middleware
+func (siw *ServerInterfaceWrapper) PveBulkAction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveBulkAction(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveListGuests operation middleware
+func (siw *ServerInterfaceWrapper) PveListGuests(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveListGuests(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveDeleteGuest operation middleware
+func (siw *ServerInterfaceWrapper) PveDeleteGuest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PveDeleteGuestParams
+
+	// ------------- Optional query parameter "purge" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "purge", r.URL.Query(), &params.Purge, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "purge"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "purge", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveDeleteGuest(w, r, id, vmid, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveGetGuest operation middleware
+func (siw *ServerInterfaceWrapper) PveGetGuest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveGetGuest(w, r, id, vmid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveGuestAction operation middleware
+func (siw *ServerInterfaceWrapper) PveGuestAction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveGuestAction(w, r, id, vmid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveBackupGuest operation middleware
+func (siw *ServerInterfaceWrapper) PveBackupGuest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveBackupGuest(w, r, id, vmid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveCloneGuest operation middleware
+func (siw *ServerInterfaceWrapper) PveCloneGuest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveCloneGuest(w, r, id, vmid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveSetGuestConfig operation middleware
+func (siw *ServerInterfaceWrapper) PveSetGuestConfig(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveSetGuestConfig(w, r, id, vmid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveOpenConsole operation middleware
+func (siw *ServerInterfaceWrapper) PveOpenConsole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveOpenConsole(w, r, id, vmid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveMigrateGuest operation middleware
+func (siw *ServerInterfaceWrapper) PveMigrateGuest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveMigrateGuest(w, r, id, vmid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveListSnapshots operation middleware
+func (siw *ServerInterfaceWrapper) PveListSnapshots(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveListSnapshots(w, r, id, vmid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveCreateSnapshot operation middleware
+func (siw *ServerInterfaceWrapper) PveCreateSnapshot(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveCreateSnapshot(w, r, id, vmid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveDeleteSnapshot operation middleware
+func (siw *ServerInterfaceWrapper) PveDeleteSnapshot(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", chi.URLParam(r, "name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveDeleteSnapshot(w, r, id, vmid, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveRollbackSnapshot operation middleware
+func (siw *ServerInterfaceWrapper) PveRollbackSnapshot(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", chi.URLParam(r, "name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveRollbackSnapshot(w, r, id, vmid, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveOpenSSH operation middleware
+func (siw *ServerInterfaceWrapper) PveOpenSSH(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "vmid" -------------
+	var vmid VmidParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "vmid", chi.URLParam(r, "vmid"), &vmid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "vmid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveOpenSSH(w, r, id, vmid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveListStorage operation middleware
+func (siw *ServerInterfaceWrapper) PveListStorage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveListStorage(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveSummary operation middleware
+func (siw *ServerInterfaceWrapper) PveSummary(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveSummary(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveListTasks operation middleware
+func (siw *ServerInterfaceWrapper) PveListTasks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PveListTasksParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveListTasks(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PveTaskLog operation middleware
+func (siw *ServerInterfaceWrapper) PveTaskLog(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "node" -------------
+	var node string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "node", chi.URLParam(r, "node"), &node, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "node", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "upid" -------------
+	var upid string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "upid", chi.URLParam(r, "upid"), &upid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "upid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PveTaskLog(w, r, id, node, upid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteSSHCredential operation middleware
+func (siw *ServerInterfaceWrapper) DeleteSSHCredential(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteSSHCredentialParams
+
+	// ------------- Required query parameter "resource" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "resource", r.URL.Query(), &params.Resource, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "resource"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "resource", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteSSHCredential(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSSHCredential operation middleware
+func (siw *ServerInterfaceWrapper) GetSSHCredential(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSSHCredentialParams
+
+	// ------------- Required query parameter "resource" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "resource", r.URL.Query(), &params.Resource, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "resource"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "resource", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSSHCredential(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutSSHCredential operation middleware
+func (siw *ServerInterfaceWrapper) PutSSHCredential(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutSSHCredential(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2639,6 +4596,108 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/settings", wrapper.UpdateSettings)
 	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/integration-types", wrapper.ListIntegrationTypes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/integrations", wrapper.ListIntegrations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/integrations", wrapper.CreateIntegration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/integrations/test", wrapper.TestIntegrationConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/integrations/{id}", wrapper.DeleteIntegration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/integrations/{id}", wrapper.GetIntegration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/integrations/{id}", wrapper.UpdateIntegration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/integrations/{id}/test", wrapper.TestIntegration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/proxmox/{id}/summary", wrapper.PveSummary)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/proxmox/{id}/guests", wrapper.PveListGuests)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/proxmox/{id}/guests/{vmid}", wrapper.PveDeleteGuest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/proxmox/{id}/guests/{vmid}", wrapper.PveGetGuest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/proxmox/{id}/guests/{vmid}/action", wrapper.PveGuestAction)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/proxmox/{id}/guests/{vmid}/config", wrapper.PveSetGuestConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/proxmox/{id}/guests/{vmid}/migrate", wrapper.PveMigrateGuest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/proxmox/{id}/guests/{vmid}/clone", wrapper.PveCloneGuest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/proxmox/{id}/guests/{vmid}/snapshots", wrapper.PveListSnapshots)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/proxmox/{id}/guests/{vmid}/snapshots", wrapper.PveCreateSnapshot)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/proxmox/{id}/guests/{vmid}/snapshots/{name}", wrapper.PveDeleteSnapshot)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/proxmox/{id}/guests/{vmid}/snapshots/{name}/rollback", wrapper.PveRollbackSnapshot)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/proxmox/{id}/guests/{vmid}/backup", wrapper.PveBackupGuest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/proxmox/{id}/guests/{vmid}/console", wrapper.PveOpenConsole)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/proxmox/{id}/guests/{vmid}/ssh", wrapper.PveOpenSSH)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/proxmox/{id}/bulk", wrapper.PveBulkAction)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/proxmox/{id}/tasks", wrapper.PveListTasks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/proxmox/{id}/tasks/{node}/{upid}/log", wrapper.PveTaskLog)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/proxmox/{id}/storage", wrapper.PveListStorage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/proxmox/{id}/backup-jobs", wrapper.PveListBackupJobs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/proxmox/{id}/backup-jobs", wrapper.PveCreateBackupJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/proxmox/{id}/backup-jobs/{jobId}", wrapper.PveUpdateBackupJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/resources/ssh", wrapper.DeleteSSHCredential)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/resources/ssh", wrapper.GetSSHCredential)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/resources/ssh", wrapper.PutSSHCredential)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/metrics/query", wrapper.QueryMetrics)
+	})
 
 	return r
 }
@@ -2655,9 +4714,13 @@ type SessionUserJSONResponse struct {
 	User User `json:"user"`
 }
 
+type TaskStartedJSONResponse PveTaskRef
+
 type TooManyRequestsJSONResponse Error
 
 type UnauthorizedJSONResponse Error
+
+type UpstreamErrorJSONResponse Error
 
 type ListAuditRequestObject struct {
 	Params ListAuditParams
@@ -3557,6 +5620,385 @@ func (response GetHealth403JSONResponse) VisitGetHealthResponse(w http.ResponseW
 	return err
 }
 
+type ListIntegrationTypesRequestObject struct {
+}
+
+type ListIntegrationTypesResponseObject interface {
+	VisitListIntegrationTypesResponse(w http.ResponseWriter) error
+}
+
+type ListIntegrationTypes200JSONResponse []IntegrationType
+
+func (response ListIntegrationTypes200JSONResponse) VisitListIntegrationTypesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListIntegrationTypes403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListIntegrationTypes403JSONResponse) VisitListIntegrationTypesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListIntegrationsRequestObject struct {
+}
+
+type ListIntegrationsResponseObject interface {
+	VisitListIntegrationsResponse(w http.ResponseWriter) error
+}
+
+type ListIntegrations200JSONResponse []Integration
+
+func (response ListIntegrations200JSONResponse) VisitListIntegrationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateIntegrationRequestObject struct {
+	Body *CreateIntegrationJSONRequestBody
+}
+
+type CreateIntegrationResponseObject interface {
+	VisitCreateIntegrationResponse(w http.ResponseWriter) error
+}
+
+type CreateIntegration201JSONResponse Integration
+
+func (response CreateIntegration201JSONResponse) VisitCreateIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateIntegration400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateIntegration400JSONResponse) VisitCreateIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateIntegration403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateIntegration403JSONResponse) VisitCreateIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateIntegration409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateIntegration409JSONResponse) VisitCreateIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestIntegrationConfigRequestObject struct {
+	Body *TestIntegrationConfigJSONRequestBody
+}
+
+type TestIntegrationConfigResponseObject interface {
+	VisitTestIntegrationConfigResponse(w http.ResponseWriter) error
+}
+
+type TestIntegrationConfig200JSONResponse TestConnectionResult
+
+func (response TestIntegrationConfig200JSONResponse) VisitTestIntegrationConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestIntegrationConfig400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response TestIntegrationConfig400JSONResponse) VisitTestIntegrationConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestIntegrationConfig403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response TestIntegrationConfig403JSONResponse) VisitTestIntegrationConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteIntegrationRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type DeleteIntegrationResponseObject interface {
+	VisitDeleteIntegrationResponse(w http.ResponseWriter) error
+}
+
+type DeleteIntegration204Response struct {
+}
+
+func (response DeleteIntegration204Response) VisitDeleteIntegrationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteIntegration403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteIntegration403JSONResponse) VisitDeleteIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteIntegration404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteIntegration404JSONResponse) VisitDeleteIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetIntegrationRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type GetIntegrationResponseObject interface {
+	VisitGetIntegrationResponse(w http.ResponseWriter) error
+}
+
+type GetIntegration200JSONResponse Integration
+
+func (response GetIntegration200JSONResponse) VisitGetIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetIntegration403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetIntegration403JSONResponse) VisitGetIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetIntegration404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetIntegration404JSONResponse) VisitGetIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateIntegrationRequestObject struct {
+	Id   IdParam `json:"id"`
+	Body *UpdateIntegrationJSONRequestBody
+}
+
+type UpdateIntegrationResponseObject interface {
+	VisitUpdateIntegrationResponse(w http.ResponseWriter) error
+}
+
+type UpdateIntegration200JSONResponse Integration
+
+func (response UpdateIntegration200JSONResponse) VisitUpdateIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateIntegration400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateIntegration400JSONResponse) VisitUpdateIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateIntegration403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateIntegration403JSONResponse) VisitUpdateIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateIntegration404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateIntegration404JSONResponse) VisitUpdateIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestIntegrationRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type TestIntegrationResponseObject interface {
+	VisitTestIntegrationResponse(w http.ResponseWriter) error
+}
+
+type TestIntegration200JSONResponse TestConnectionResult
+
+func (response TestIntegration200JSONResponse) VisitTestIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestIntegration403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response TestIntegration403JSONResponse) VisitTestIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestIntegration404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response TestIntegration404JSONResponse) VisitTestIntegrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetInviteRequestObject struct {
 	Token string `json:"token"`
 }
@@ -3647,6 +6089,42 @@ func (response AcceptInvite404JSONResponse) VisitAcceptInviteResponse(w http.Res
 	return err
 }
 
+type QueryMetricsRequestObject struct {
+	Params QueryMetricsParams
+}
+
+type QueryMetricsResponseObject interface {
+	VisitQueryMetricsResponse(w http.ResponseWriter) error
+}
+
+type QueryMetrics200JSONResponse MetricQueryResult
+
+func (response QueryMetrics200JSONResponse) VisitQueryMetricsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type QueryMetrics403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response QueryMetrics403JSONResponse) VisitQueryMetricsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListNotificationsRequestObject struct {
 	Params ListNotificationsParams
 }
@@ -3693,6 +6171,1584 @@ func (response MarkNotificationsRead200JSONResponse) VisitMarkNotificationsReadR
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListBackupJobsRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type PveListBackupJobsResponseObject interface {
+	VisitPveListBackupJobsResponse(w http.ResponseWriter) error
+}
+
+type PveListBackupJobs200JSONResponse []PveBackupJob
+
+func (response PveListBackupJobs200JSONResponse) VisitPveListBackupJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListBackupJobs403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveListBackupJobs403JSONResponse) VisitPveListBackupJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListBackupJobs404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveListBackupJobs404JSONResponse) VisitPveListBackupJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListBackupJobs502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveListBackupJobs502JSONResponse) VisitPveListBackupJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCreateBackupJobRequestObject struct {
+	Id   IdParam `json:"id"`
+	Body *PveCreateBackupJobJSONRequestBody
+}
+
+type PveCreateBackupJobResponseObject interface {
+	VisitPveCreateBackupJobResponse(w http.ResponseWriter) error
+}
+
+type PveCreateBackupJob204Response struct {
+}
+
+func (response PveCreateBackupJob204Response) VisitPveCreateBackupJobResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PveCreateBackupJob400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PveCreateBackupJob400JSONResponse) VisitPveCreateBackupJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCreateBackupJob403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveCreateBackupJob403JSONResponse) VisitPveCreateBackupJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCreateBackupJob404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveCreateBackupJob404JSONResponse) VisitPveCreateBackupJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCreateBackupJob502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveCreateBackupJob502JSONResponse) VisitPveCreateBackupJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveUpdateBackupJobRequestObject struct {
+	Id    IdParam `json:"id"`
+	JobId string  `json:"jobId"`
+	Body  *PveUpdateBackupJobJSONRequestBody
+}
+
+type PveUpdateBackupJobResponseObject interface {
+	VisitPveUpdateBackupJobResponse(w http.ResponseWriter) error
+}
+
+type PveUpdateBackupJob204Response struct {
+}
+
+func (response PveUpdateBackupJob204Response) VisitPveUpdateBackupJobResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PveUpdateBackupJob400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PveUpdateBackupJob400JSONResponse) VisitPveUpdateBackupJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveUpdateBackupJob403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveUpdateBackupJob403JSONResponse) VisitPveUpdateBackupJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveUpdateBackupJob404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveUpdateBackupJob404JSONResponse) VisitPveUpdateBackupJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveUpdateBackupJob502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveUpdateBackupJob502JSONResponse) VisitPveUpdateBackupJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveBulkActionRequestObject struct {
+	Id   IdParam `json:"id"`
+	Body *PveBulkActionJSONRequestBody
+}
+
+type PveBulkActionResponseObject interface {
+	VisitPveBulkActionResponse(w http.ResponseWriter) error
+}
+
+type PveBulkAction200JSONResponse PveBulkResult
+
+func (response PveBulkAction200JSONResponse) VisitPveBulkActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveBulkAction404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveBulkAction404JSONResponse) VisitPveBulkActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListGuestsRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type PveListGuestsResponseObject interface {
+	VisitPveListGuestsResponse(w http.ResponseWriter) error
+}
+
+type PveListGuests200JSONResponse []PveGuest
+
+func (response PveListGuests200JSONResponse) VisitPveListGuestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListGuests404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveListGuests404JSONResponse) VisitPveListGuestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListGuests502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveListGuests502JSONResponse) VisitPveListGuestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveDeleteGuestRequestObject struct {
+	Id     IdParam   `json:"id"`
+	Vmid   VmidParam `json:"vmid"`
+	Params PveDeleteGuestParams
+}
+
+type PveDeleteGuestResponseObject interface {
+	VisitPveDeleteGuestResponse(w http.ResponseWriter) error
+}
+
+type PveDeleteGuest200JSONResponse struct{ TaskStartedJSONResponse }
+
+func (response PveDeleteGuest200JSONResponse) VisitPveDeleteGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveDeleteGuest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveDeleteGuest403JSONResponse) VisitPveDeleteGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveDeleteGuest404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveDeleteGuest404JSONResponse) VisitPveDeleteGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveDeleteGuest502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveDeleteGuest502JSONResponse) VisitPveDeleteGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveGetGuestRequestObject struct {
+	Id   IdParam   `json:"id"`
+	Vmid VmidParam `json:"vmid"`
+}
+
+type PveGetGuestResponseObject interface {
+	VisitPveGetGuestResponse(w http.ResponseWriter) error
+}
+
+type PveGetGuest200JSONResponse PveGuestDetail
+
+func (response PveGetGuest200JSONResponse) VisitPveGetGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveGetGuest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveGetGuest403JSONResponse) VisitPveGetGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveGetGuest404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveGetGuest404JSONResponse) VisitPveGetGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveGetGuest502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveGetGuest502JSONResponse) VisitPveGetGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveGuestActionRequestObject struct {
+	Id   IdParam   `json:"id"`
+	Vmid VmidParam `json:"vmid"`
+	Body *PveGuestActionJSONRequestBody
+}
+
+type PveGuestActionResponseObject interface {
+	VisitPveGuestActionResponse(w http.ResponseWriter) error
+}
+
+type PveGuestAction200JSONResponse struct{ TaskStartedJSONResponse }
+
+func (response PveGuestAction200JSONResponse) VisitPveGuestActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveGuestAction403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveGuestAction403JSONResponse) VisitPveGuestActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveGuestAction404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveGuestAction404JSONResponse) VisitPveGuestActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveGuestAction502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveGuestAction502JSONResponse) VisitPveGuestActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveBackupGuestRequestObject struct {
+	Id   IdParam   `json:"id"`
+	Vmid VmidParam `json:"vmid"`
+	Body *PveBackupGuestJSONRequestBody
+}
+
+type PveBackupGuestResponseObject interface {
+	VisitPveBackupGuestResponse(w http.ResponseWriter) error
+}
+
+type PveBackupGuest200JSONResponse struct{ TaskStartedJSONResponse }
+
+func (response PveBackupGuest200JSONResponse) VisitPveBackupGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveBackupGuest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveBackupGuest403JSONResponse) VisitPveBackupGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveBackupGuest404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveBackupGuest404JSONResponse) VisitPveBackupGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveBackupGuest502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveBackupGuest502JSONResponse) VisitPveBackupGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCloneGuestRequestObject struct {
+	Id   IdParam   `json:"id"`
+	Vmid VmidParam `json:"vmid"`
+	Body *PveCloneGuestJSONRequestBody
+}
+
+type PveCloneGuestResponseObject interface {
+	VisitPveCloneGuestResponse(w http.ResponseWriter) error
+}
+
+type PveCloneGuest200JSONResponse struct{ TaskStartedJSONResponse }
+
+func (response PveCloneGuest200JSONResponse) VisitPveCloneGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCloneGuest400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PveCloneGuest400JSONResponse) VisitPveCloneGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCloneGuest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveCloneGuest403JSONResponse) VisitPveCloneGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCloneGuest404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveCloneGuest404JSONResponse) VisitPveCloneGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCloneGuest502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveCloneGuest502JSONResponse) VisitPveCloneGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveSetGuestConfigRequestObject struct {
+	Id   IdParam   `json:"id"`
+	Vmid VmidParam `json:"vmid"`
+	Body *PveSetGuestConfigJSONRequestBody
+}
+
+type PveSetGuestConfigResponseObject interface {
+	VisitPveSetGuestConfigResponse(w http.ResponseWriter) error
+}
+
+type PveSetGuestConfig204Response struct {
+}
+
+func (response PveSetGuestConfig204Response) VisitPveSetGuestConfigResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PveSetGuestConfig400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PveSetGuestConfig400JSONResponse) VisitPveSetGuestConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveSetGuestConfig403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveSetGuestConfig403JSONResponse) VisitPveSetGuestConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveSetGuestConfig404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveSetGuestConfig404JSONResponse) VisitPveSetGuestConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveSetGuestConfig502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveSetGuestConfig502JSONResponse) VisitPveSetGuestConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveOpenConsoleRequestObject struct {
+	Id   IdParam   `json:"id"`
+	Vmid VmidParam `json:"vmid"`
+	Body *PveOpenConsoleJSONRequestBody
+}
+
+type PveOpenConsoleResponseObject interface {
+	VisitPveOpenConsoleResponse(w http.ResponseWriter) error
+}
+
+type PveOpenConsole200JSONResponse TermSession
+
+func (response PveOpenConsole200JSONResponse) VisitPveOpenConsoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveOpenConsole403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveOpenConsole403JSONResponse) VisitPveOpenConsoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveOpenConsole404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveOpenConsole404JSONResponse) VisitPveOpenConsoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveOpenConsole502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveOpenConsole502JSONResponse) VisitPveOpenConsoleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveMigrateGuestRequestObject struct {
+	Id   IdParam   `json:"id"`
+	Vmid VmidParam `json:"vmid"`
+	Body *PveMigrateGuestJSONRequestBody
+}
+
+type PveMigrateGuestResponseObject interface {
+	VisitPveMigrateGuestResponse(w http.ResponseWriter) error
+}
+
+type PveMigrateGuest200JSONResponse struct{ TaskStartedJSONResponse }
+
+func (response PveMigrateGuest200JSONResponse) VisitPveMigrateGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveMigrateGuest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveMigrateGuest403JSONResponse) VisitPveMigrateGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveMigrateGuest404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveMigrateGuest404JSONResponse) VisitPveMigrateGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveMigrateGuest502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveMigrateGuest502JSONResponse) VisitPveMigrateGuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListSnapshotsRequestObject struct {
+	Id   IdParam   `json:"id"`
+	Vmid VmidParam `json:"vmid"`
+}
+
+type PveListSnapshotsResponseObject interface {
+	VisitPveListSnapshotsResponse(w http.ResponseWriter) error
+}
+
+type PveListSnapshots200JSONResponse []PveSnapshot
+
+func (response PveListSnapshots200JSONResponse) VisitPveListSnapshotsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListSnapshots403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveListSnapshots403JSONResponse) VisitPveListSnapshotsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListSnapshots404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveListSnapshots404JSONResponse) VisitPveListSnapshotsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListSnapshots502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveListSnapshots502JSONResponse) VisitPveListSnapshotsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCreateSnapshotRequestObject struct {
+	Id   IdParam   `json:"id"`
+	Vmid VmidParam `json:"vmid"`
+	Body *PveCreateSnapshotJSONRequestBody
+}
+
+type PveCreateSnapshotResponseObject interface {
+	VisitPveCreateSnapshotResponse(w http.ResponseWriter) error
+}
+
+type PveCreateSnapshot200JSONResponse struct{ TaskStartedJSONResponse }
+
+func (response PveCreateSnapshot200JSONResponse) VisitPveCreateSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCreateSnapshot400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PveCreateSnapshot400JSONResponse) VisitPveCreateSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCreateSnapshot403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveCreateSnapshot403JSONResponse) VisitPveCreateSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCreateSnapshot404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveCreateSnapshot404JSONResponse) VisitPveCreateSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveCreateSnapshot502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveCreateSnapshot502JSONResponse) VisitPveCreateSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveDeleteSnapshotRequestObject struct {
+	Id   IdParam   `json:"id"`
+	Vmid VmidParam `json:"vmid"`
+	Name string    `json:"name"`
+}
+
+type PveDeleteSnapshotResponseObject interface {
+	VisitPveDeleteSnapshotResponse(w http.ResponseWriter) error
+}
+
+type PveDeleteSnapshot200JSONResponse struct{ TaskStartedJSONResponse }
+
+func (response PveDeleteSnapshot200JSONResponse) VisitPveDeleteSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveDeleteSnapshot403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveDeleteSnapshot403JSONResponse) VisitPveDeleteSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveDeleteSnapshot404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveDeleteSnapshot404JSONResponse) VisitPveDeleteSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveDeleteSnapshot502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveDeleteSnapshot502JSONResponse) VisitPveDeleteSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveRollbackSnapshotRequestObject struct {
+	Id   IdParam   `json:"id"`
+	Vmid VmidParam `json:"vmid"`
+	Name string    `json:"name"`
+}
+
+type PveRollbackSnapshotResponseObject interface {
+	VisitPveRollbackSnapshotResponse(w http.ResponseWriter) error
+}
+
+type PveRollbackSnapshot200JSONResponse struct{ TaskStartedJSONResponse }
+
+func (response PveRollbackSnapshot200JSONResponse) VisitPveRollbackSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveRollbackSnapshot403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveRollbackSnapshot403JSONResponse) VisitPveRollbackSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveRollbackSnapshot404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveRollbackSnapshot404JSONResponse) VisitPveRollbackSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveRollbackSnapshot502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveRollbackSnapshot502JSONResponse) VisitPveRollbackSnapshotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveOpenSSHRequestObject struct {
+	Id   IdParam   `json:"id"`
+	Vmid VmidParam `json:"vmid"`
+}
+
+type PveOpenSSHResponseObject interface {
+	VisitPveOpenSSHResponse(w http.ResponseWriter) error
+}
+
+type PveOpenSSH200JSONResponse TermSession
+
+func (response PveOpenSSH200JSONResponse) VisitPveOpenSSHResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveOpenSSH400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PveOpenSSH400JSONResponse) VisitPveOpenSSHResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveOpenSSH403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveOpenSSH403JSONResponse) VisitPveOpenSSHResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveOpenSSH404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveOpenSSH404JSONResponse) VisitPveOpenSSHResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListStorageRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type PveListStorageResponseObject interface {
+	VisitPveListStorageResponse(w http.ResponseWriter) error
+}
+
+type PveListStorage200JSONResponse []PveStorage
+
+func (response PveListStorage200JSONResponse) VisitPveListStorageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListStorage403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveListStorage403JSONResponse) VisitPveListStorageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListStorage404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveListStorage404JSONResponse) VisitPveListStorageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListStorage502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveListStorage502JSONResponse) VisitPveListStorageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveSummaryRequestObject struct {
+	Id IdParam `json:"id"`
+}
+
+type PveSummaryResponseObject interface {
+	VisitPveSummaryResponse(w http.ResponseWriter) error
+}
+
+type PveSummary200JSONResponse PveSummary
+
+func (response PveSummary200JSONResponse) VisitPveSummaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveSummary403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveSummary403JSONResponse) VisitPveSummaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveSummary404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveSummary404JSONResponse) VisitPveSummaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveSummary502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveSummary502JSONResponse) VisitPveSummaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListTasksRequestObject struct {
+	Id     IdParam `json:"id"`
+	Params PveListTasksParams
+}
+
+type PveListTasksResponseObject interface {
+	VisitPveListTasksResponse(w http.ResponseWriter) error
+}
+
+type PveListTasks200JSONResponse []PveTask
+
+func (response PveListTasks200JSONResponse) VisitPveListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListTasks403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveListTasks403JSONResponse) VisitPveListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListTasks404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveListTasks404JSONResponse) VisitPveListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveListTasks502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveListTasks502JSONResponse) VisitPveListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveTaskLogRequestObject struct {
+	Id   IdParam `json:"id"`
+	Node string  `json:"node"`
+	Upid string  `json:"upid"`
+}
+
+type PveTaskLogResponseObject interface {
+	VisitPveTaskLogResponse(w http.ResponseWriter) error
+}
+
+type PveTaskLog200JSONResponse PveTaskDetail
+
+func (response PveTaskLog200JSONResponse) VisitPveTaskLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveTaskLog403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PveTaskLog403JSONResponse) VisitPveTaskLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveTaskLog404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PveTaskLog404JSONResponse) VisitPveTaskLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PveTaskLog502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response PveTaskLog502JSONResponse) VisitPveTaskLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteSSHCredentialRequestObject struct {
+	Params DeleteSSHCredentialParams
+}
+
+type DeleteSSHCredentialResponseObject interface {
+	VisitDeleteSSHCredentialResponse(w http.ResponseWriter) error
+}
+
+type DeleteSSHCredential204Response struct {
+}
+
+func (response DeleteSSHCredential204Response) VisitDeleteSSHCredentialResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteSSHCredential403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteSSHCredential403JSONResponse) VisitDeleteSSHCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSSHCredentialRequestObject struct {
+	Params GetSSHCredentialParams
+}
+
+type GetSSHCredentialResponseObject interface {
+	VisitGetSSHCredentialResponse(w http.ResponseWriter) error
+}
+
+type GetSSHCredential200JSONResponse SSHCredentialInfo
+
+func (response GetSSHCredential200JSONResponse) VisitGetSSHCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSSHCredential403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetSSHCredential403JSONResponse) VisitGetSSHCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSSHCredential404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetSSHCredential404JSONResponse) VisitGetSSHCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutSSHCredentialRequestObject struct {
+	Body *PutSSHCredentialJSONRequestBody
+}
+
+type PutSSHCredentialResponseObject interface {
+	VisitPutSSHCredentialResponse(w http.ResponseWriter) error
+}
+
+type PutSSHCredential200JSONResponse SSHCredentialInfo
+
+func (response PutSSHCredential200JSONResponse) VisitPutSSHCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutSSHCredential400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutSSHCredential400JSONResponse) VisitPutSSHCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutSSHCredential403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutSSHCredential403JSONResponse) VisitPutSSHCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -4647,18 +8703,120 @@ type StrictServerInterface interface {
 	// GetHealth Application health
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
+	// ListIntegrationTypes Integration types available to add
+	// (GET /integration-types)
+	ListIntegrationTypes(ctx context.Context, request ListIntegrationTypesRequestObject) (ListIntegrationTypesResponseObject, error)
+	// ListIntegrations List configured integrations
+	// (GET /integrations)
+	ListIntegrations(ctx context.Context, request ListIntegrationsRequestObject) (ListIntegrationsResponseObject, error)
+	// CreateIntegration Add an integration
+	// (POST /integrations)
+	CreateIntegration(ctx context.Context, request CreateIntegrationRequestObject) (CreateIntegrationResponseObject, error)
+	// TestIntegrationConfig Test a connection before saving
+	// (POST /integrations/test)
+	TestIntegrationConfig(ctx context.Context, request TestIntegrationConfigRequestObject) (TestIntegrationConfigResponseObject, error)
+	// DeleteIntegration Remove an integration and its stored secrets
+	// (DELETE /integrations/{id})
+	DeleteIntegration(ctx context.Context, request DeleteIntegrationRequestObject) (DeleteIntegrationResponseObject, error)
+	// GetIntegration Get an integration
+	// (GET /integrations/{id})
+	GetIntegration(ctx context.Context, request GetIntegrationRequestObject) (GetIntegrationResponseObject, error)
+	// UpdateIntegration Update name, config, secrets, or enabled state
+	// (PATCH /integrations/{id})
+	UpdateIntegration(ctx context.Context, request UpdateIntegrationRequestObject) (UpdateIntegrationResponseObject, error)
+	// TestIntegration Re-test an existing integration
+	// (POST /integrations/{id}/test)
+	TestIntegration(ctx context.Context, request TestIntegrationRequestObject) (TestIntegrationResponseObject, error)
 	// GetInvite Inspect an invite link
 	// (GET /invites/{token})
 	GetInvite(ctx context.Context, request GetInviteRequestObject) (GetInviteResponseObject, error)
 	// AcceptInvite Accept an invite and set a password
 	// (POST /invites/{token})
 	AcceptInvite(ctx context.Context, request AcceptInviteRequestObject) (AcceptInviteResponseObject, error)
+	// QueryMetrics Historical metric points for one resource metric
+	// (GET /metrics/query)
+	QueryMetrics(ctx context.Context, request QueryMetricsRequestObject) (QueryMetricsResponseObject, error)
 	// ListNotifications List the current user's notifications
 	// (GET /notifications)
 	ListNotifications(ctx context.Context, request ListNotificationsRequestObject) (ListNotificationsResponseObject, error)
 	// MarkNotificationsRead Mark notifications as read
 	// (POST /notifications/read)
 	MarkNotificationsRead(ctx context.Context, request MarkNotificationsReadRequestObject) (MarkNotificationsReadResponseObject, error)
+	// PveListBackupJobs Scheduled vzdump jobs
+	// (GET /proxmox/{id}/backup-jobs)
+	PveListBackupJobs(ctx context.Context, request PveListBackupJobsRequestObject) (PveListBackupJobsResponseObject, error)
+	// PveCreateBackupJob Create a scheduled vzdump job
+	// (POST /proxmox/{id}/backup-jobs)
+	PveCreateBackupJob(ctx context.Context, request PveCreateBackupJobRequestObject) (PveCreateBackupJobResponseObject, error)
+	// PveUpdateBackupJob Update a scheduled vzdump job
+	// (PUT /proxmox/{id}/backup-jobs/{jobId})
+	PveUpdateBackupJob(ctx context.Context, request PveUpdateBackupJobRequestObject) (PveUpdateBackupJobResponseObject, error)
+	// PveBulkAction Run one action across selected guests
+	// (POST /proxmox/{id}/bulk)
+	PveBulkAction(ctx context.Context, request PveBulkActionRequestObject) (PveBulkActionResponseObject, error)
+	// PveListGuests All VMs and containers
+	// (GET /proxmox/{id}/guests)
+	PveListGuests(ctx context.Context, request PveListGuestsRequestObject) (PveListGuestsResponseObject, error)
+	// PveDeleteGuest Delete a guest
+	// (DELETE /proxmox/{id}/guests/{vmid})
+	PveDeleteGuest(ctx context.Context, request PveDeleteGuestRequestObject) (PveDeleteGuestResponseObject, error)
+	// PveGetGuest Guest status and configuration
+	// (GET /proxmox/{id}/guests/{vmid})
+	PveGetGuest(ctx context.Context, request PveGetGuestRequestObject) (PveGetGuestResponseObject, error)
+	// PveGuestAction Start, stop, shutdown, reboot, suspend, or resume
+	// (POST /proxmox/{id}/guests/{vmid}/action)
+	PveGuestAction(ctx context.Context, request PveGuestActionRequestObject) (PveGuestActionResponseObject, error)
+	// PveBackupGuest Back up a guest now (vzdump)
+	// (POST /proxmox/{id}/guests/{vmid}/backup)
+	PveBackupGuest(ctx context.Context, request PveBackupGuestRequestObject) (PveBackupGuestResponseObject, error)
+	// PveCloneGuest Clone a guest or template
+	// (POST /proxmox/{id}/guests/{vmid}/clone)
+	PveCloneGuest(ctx context.Context, request PveCloneGuestRequestObject) (PveCloneGuestResponseObject, error)
+	// PveSetGuestConfig Edit guest hardware and options
+	// (PUT /proxmox/{id}/guests/{vmid}/config)
+	PveSetGuestConfig(ctx context.Context, request PveSetGuestConfigRequestObject) (PveSetGuestConfigResponseObject, error)
+	// PveOpenConsole Open a VNC or serial console session
+	// (POST /proxmox/{id}/guests/{vmid}/console)
+	PveOpenConsole(ctx context.Context, request PveOpenConsoleRequestObject) (PveOpenConsoleResponseObject, error)
+	// PveMigrateGuest Migrate a guest to another node
+	// (POST /proxmox/{id}/guests/{vmid}/migrate)
+	PveMigrateGuest(ctx context.Context, request PveMigrateGuestRequestObject) (PveMigrateGuestResponseObject, error)
+	// PveListSnapshots List snapshots
+	// (GET /proxmox/{id}/guests/{vmid}/snapshots)
+	PveListSnapshots(ctx context.Context, request PveListSnapshotsRequestObject) (PveListSnapshotsResponseObject, error)
+	// PveCreateSnapshot Take a snapshot
+	// (POST /proxmox/{id}/guests/{vmid}/snapshots)
+	PveCreateSnapshot(ctx context.Context, request PveCreateSnapshotRequestObject) (PveCreateSnapshotResponseObject, error)
+	// PveDeleteSnapshot Delete a snapshot
+	// (DELETE /proxmox/{id}/guests/{vmid}/snapshots/{name})
+	PveDeleteSnapshot(ctx context.Context, request PveDeleteSnapshotRequestObject) (PveDeleteSnapshotResponseObject, error)
+	// PveRollbackSnapshot Roll back to a snapshot
+	// (POST /proxmox/{id}/guests/{vmid}/snapshots/{name}/rollback)
+	PveRollbackSnapshot(ctx context.Context, request PveRollbackSnapshotRequestObject) (PveRollbackSnapshotResponseObject, error)
+	// PveOpenSSH Open an SSH terminal to the guest
+	// (POST /proxmox/{id}/guests/{vmid}/ssh)
+	PveOpenSSH(ctx context.Context, request PveOpenSSHRequestObject) (PveOpenSSHResponseObject, error)
+	// PveListStorage Storage pools with usage
+	// (GET /proxmox/{id}/storage)
+	PveListStorage(ctx context.Context, request PveListStorageRequestObject) (PveListStorageResponseObject, error)
+	// PveSummary Cluster and node overview
+	// (GET /proxmox/{id}/summary)
+	PveSummary(ctx context.Context, request PveSummaryRequestObject) (PveSummaryResponseObject, error)
+	// PveListTasks Recent tasks across all nodes
+	// (GET /proxmox/{id}/tasks)
+	PveListTasks(ctx context.Context, request PveListTasksRequestObject) (PveListTasksResponseObject, error)
+	// PveTaskLog Task status and log
+	// (GET /proxmox/{id}/tasks/{node}/{upid}/log)
+	PveTaskLog(ctx context.Context, request PveTaskLogRequestObject) (PveTaskLogResponseObject, error)
+	// DeleteSSHCredential Remove SSH access for a resource
+	// (DELETE /resources/ssh)
+	DeleteSSHCredential(ctx context.Context, request DeleteSSHCredentialRequestObject) (DeleteSSHCredentialResponseObject, error)
+	// GetSSHCredential SSH credential metadata for a resource
+	// (GET /resources/ssh)
+	GetSSHCredential(ctx context.Context, request GetSSHCredentialRequestObject) (GetSSHCredentialResponseObject, error)
+	// PutSSHCredential Store SSH access for a resource
+	// (PUT /resources/ssh)
+	PutSSHCredential(ctx context.Context, request PutSSHCredentialRequestObject) (PutSSHCredentialResponseObject, error)
 	// ListRoles List roles with their grants
 	// (GET /roles)
 	ListRoles(ctx context.Context, request ListRolesRequestObject) (ListRolesResponseObject, error)
@@ -5476,6 +9634,227 @@ func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ListIntegrationTypes operation middleware
+func (sh *strictHandler) ListIntegrationTypes(w http.ResponseWriter, r *http.Request) {
+	var request ListIntegrationTypesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListIntegrationTypes(ctx, request.(ListIntegrationTypesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListIntegrationTypes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListIntegrationTypesResponseObject); ok {
+		if err := validResponse.VisitListIntegrationTypesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListIntegrations operation middleware
+func (sh *strictHandler) ListIntegrations(w http.ResponseWriter, r *http.Request) {
+	var request ListIntegrationsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListIntegrations(ctx, request.(ListIntegrationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListIntegrations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListIntegrationsResponseObject); ok {
+		if err := validResponse.VisitListIntegrationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateIntegration operation middleware
+func (sh *strictHandler) CreateIntegration(w http.ResponseWriter, r *http.Request) {
+	var request CreateIntegrationRequestObject
+
+	var body CreateIntegrationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateIntegration(ctx, request.(CreateIntegrationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateIntegration")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateIntegrationResponseObject); ok {
+		if err := validResponse.VisitCreateIntegrationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TestIntegrationConfig operation middleware
+func (sh *strictHandler) TestIntegrationConfig(w http.ResponseWriter, r *http.Request) {
+	var request TestIntegrationConfigRequestObject
+
+	var body TestIntegrationConfigJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TestIntegrationConfig(ctx, request.(TestIntegrationConfigRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TestIntegrationConfig")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TestIntegrationConfigResponseObject); ok {
+		if err := validResponse.VisitTestIntegrationConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteIntegration operation middleware
+func (sh *strictHandler) DeleteIntegration(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request DeleteIntegrationRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteIntegration(ctx, request.(DeleteIntegrationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteIntegration")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteIntegrationResponseObject); ok {
+		if err := validResponse.VisitDeleteIntegrationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetIntegration operation middleware
+func (sh *strictHandler) GetIntegration(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request GetIntegrationRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetIntegration(ctx, request.(GetIntegrationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetIntegration")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetIntegrationResponseObject); ok {
+		if err := validResponse.VisitGetIntegrationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateIntegration operation middleware
+func (sh *strictHandler) UpdateIntegration(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request UpdateIntegrationRequestObject
+
+	request.Id = id
+
+	var body UpdateIntegrationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateIntegration(ctx, request.(UpdateIntegrationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateIntegration")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateIntegrationResponseObject); ok {
+		if err := validResponse.VisitUpdateIntegrationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TestIntegration operation middleware
+func (sh *strictHandler) TestIntegration(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request TestIntegrationRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TestIntegration(ctx, request.(TestIntegrationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TestIntegration")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TestIntegrationResponseObject); ok {
+		if err := validResponse.VisitTestIntegrationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetInvite operation middleware
 func (sh *strictHandler) GetInvite(w http.ResponseWriter, r *http.Request, token string) {
 	var request GetInviteRequestObject
@@ -5535,6 +9914,32 @@ func (sh *strictHandler) AcceptInvite(w http.ResponseWriter, r *http.Request, to
 	}
 }
 
+// QueryMetrics operation middleware
+func (sh *strictHandler) QueryMetrics(w http.ResponseWriter, r *http.Request, params QueryMetricsParams) {
+	var request QueryMetricsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.QueryMetrics(ctx, request.(QueryMetricsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "QueryMetrics")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(QueryMetricsResponseObject); ok {
+		if err := validResponse.VisitQueryMetricsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListNotifications operation middleware
 func (sh *strictHandler) ListNotifications(w http.ResponseWriter, r *http.Request, params ListNotificationsParams) {
 	var request ListNotificationsRequestObject
@@ -5585,6 +9990,751 @@ func (sh *strictHandler) MarkNotificationsRead(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(MarkNotificationsReadResponseObject); ok {
 		if err := validResponse.VisitMarkNotificationsReadResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveListBackupJobs operation middleware
+func (sh *strictHandler) PveListBackupJobs(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request PveListBackupJobsRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveListBackupJobs(ctx, request.(PveListBackupJobsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveListBackupJobs")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveListBackupJobsResponseObject); ok {
+		if err := validResponse.VisitPveListBackupJobsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveCreateBackupJob operation middleware
+func (sh *strictHandler) PveCreateBackupJob(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request PveCreateBackupJobRequestObject
+
+	request.Id = id
+
+	var body PveCreateBackupJobJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveCreateBackupJob(ctx, request.(PveCreateBackupJobRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveCreateBackupJob")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveCreateBackupJobResponseObject); ok {
+		if err := validResponse.VisitPveCreateBackupJobResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveUpdateBackupJob operation middleware
+func (sh *strictHandler) PveUpdateBackupJob(w http.ResponseWriter, r *http.Request, id IdParam, jobId string) {
+	var request PveUpdateBackupJobRequestObject
+
+	request.Id = id
+	request.JobId = jobId
+
+	var body PveUpdateBackupJobJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveUpdateBackupJob(ctx, request.(PveUpdateBackupJobRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveUpdateBackupJob")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveUpdateBackupJobResponseObject); ok {
+		if err := validResponse.VisitPveUpdateBackupJobResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveBulkAction operation middleware
+func (sh *strictHandler) PveBulkAction(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request PveBulkActionRequestObject
+
+	request.Id = id
+
+	var body PveBulkActionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveBulkAction(ctx, request.(PveBulkActionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveBulkAction")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveBulkActionResponseObject); ok {
+		if err := validResponse.VisitPveBulkActionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveListGuests operation middleware
+func (sh *strictHandler) PveListGuests(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request PveListGuestsRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveListGuests(ctx, request.(PveListGuestsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveListGuests")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveListGuestsResponseObject); ok {
+		if err := validResponse.VisitPveListGuestsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveDeleteGuest operation middleware
+func (sh *strictHandler) PveDeleteGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam, params PveDeleteGuestParams) {
+	var request PveDeleteGuestRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveDeleteGuest(ctx, request.(PveDeleteGuestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveDeleteGuest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveDeleteGuestResponseObject); ok {
+		if err := validResponse.VisitPveDeleteGuestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveGetGuest operation middleware
+func (sh *strictHandler) PveGetGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	var request PveGetGuestRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveGetGuest(ctx, request.(PveGetGuestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveGetGuest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveGetGuestResponseObject); ok {
+		if err := validResponse.VisitPveGetGuestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveGuestAction operation middleware
+func (sh *strictHandler) PveGuestAction(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	var request PveGuestActionRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+
+	var body PveGuestActionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveGuestAction(ctx, request.(PveGuestActionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveGuestAction")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveGuestActionResponseObject); ok {
+		if err := validResponse.VisitPveGuestActionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveBackupGuest operation middleware
+func (sh *strictHandler) PveBackupGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	var request PveBackupGuestRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+
+	var body PveBackupGuestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveBackupGuest(ctx, request.(PveBackupGuestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveBackupGuest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveBackupGuestResponseObject); ok {
+		if err := validResponse.VisitPveBackupGuestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveCloneGuest operation middleware
+func (sh *strictHandler) PveCloneGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	var request PveCloneGuestRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+
+	var body PveCloneGuestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveCloneGuest(ctx, request.(PveCloneGuestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveCloneGuest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveCloneGuestResponseObject); ok {
+		if err := validResponse.VisitPveCloneGuestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveSetGuestConfig operation middleware
+func (sh *strictHandler) PveSetGuestConfig(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	var request PveSetGuestConfigRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+
+	var body PveSetGuestConfigJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveSetGuestConfig(ctx, request.(PveSetGuestConfigRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveSetGuestConfig")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveSetGuestConfigResponseObject); ok {
+		if err := validResponse.VisitPveSetGuestConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveOpenConsole operation middleware
+func (sh *strictHandler) PveOpenConsole(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	var request PveOpenConsoleRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+
+	var body PveOpenConsoleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveOpenConsole(ctx, request.(PveOpenConsoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveOpenConsole")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveOpenConsoleResponseObject); ok {
+		if err := validResponse.VisitPveOpenConsoleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveMigrateGuest operation middleware
+func (sh *strictHandler) PveMigrateGuest(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	var request PveMigrateGuestRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+
+	var body PveMigrateGuestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveMigrateGuest(ctx, request.(PveMigrateGuestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveMigrateGuest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveMigrateGuestResponseObject); ok {
+		if err := validResponse.VisitPveMigrateGuestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveListSnapshots operation middleware
+func (sh *strictHandler) PveListSnapshots(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	var request PveListSnapshotsRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveListSnapshots(ctx, request.(PveListSnapshotsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveListSnapshots")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveListSnapshotsResponseObject); ok {
+		if err := validResponse.VisitPveListSnapshotsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveCreateSnapshot operation middleware
+func (sh *strictHandler) PveCreateSnapshot(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	var request PveCreateSnapshotRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+
+	var body PveCreateSnapshotJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveCreateSnapshot(ctx, request.(PveCreateSnapshotRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveCreateSnapshot")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveCreateSnapshotResponseObject); ok {
+		if err := validResponse.VisitPveCreateSnapshotResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveDeleteSnapshot operation middleware
+func (sh *strictHandler) PveDeleteSnapshot(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam, name string) {
+	var request PveDeleteSnapshotRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveDeleteSnapshot(ctx, request.(PveDeleteSnapshotRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveDeleteSnapshot")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveDeleteSnapshotResponseObject); ok {
+		if err := validResponse.VisitPveDeleteSnapshotResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveRollbackSnapshot operation middleware
+func (sh *strictHandler) PveRollbackSnapshot(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam, name string) {
+	var request PveRollbackSnapshotRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveRollbackSnapshot(ctx, request.(PveRollbackSnapshotRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveRollbackSnapshot")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveRollbackSnapshotResponseObject); ok {
+		if err := validResponse.VisitPveRollbackSnapshotResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveOpenSSH operation middleware
+func (sh *strictHandler) PveOpenSSH(w http.ResponseWriter, r *http.Request, id IdParam, vmid VmidParam) {
+	var request PveOpenSSHRequestObject
+
+	request.Id = id
+	request.Vmid = vmid
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveOpenSSH(ctx, request.(PveOpenSSHRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveOpenSSH")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveOpenSSHResponseObject); ok {
+		if err := validResponse.VisitPveOpenSSHResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveListStorage operation middleware
+func (sh *strictHandler) PveListStorage(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request PveListStorageRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveListStorage(ctx, request.(PveListStorageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveListStorage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveListStorageResponseObject); ok {
+		if err := validResponse.VisitPveListStorageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveSummary operation middleware
+func (sh *strictHandler) PveSummary(w http.ResponseWriter, r *http.Request, id IdParam) {
+	var request PveSummaryRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveSummary(ctx, request.(PveSummaryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveSummary")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveSummaryResponseObject); ok {
+		if err := validResponse.VisitPveSummaryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveListTasks operation middleware
+func (sh *strictHandler) PveListTasks(w http.ResponseWriter, r *http.Request, id IdParam, params PveListTasksParams) {
+	var request PveListTasksRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveListTasks(ctx, request.(PveListTasksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveListTasks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveListTasksResponseObject); ok {
+		if err := validResponse.VisitPveListTasksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PveTaskLog operation middleware
+func (sh *strictHandler) PveTaskLog(w http.ResponseWriter, r *http.Request, id IdParam, node string, upid string) {
+	var request PveTaskLogRequestObject
+
+	request.Id = id
+	request.Node = node
+	request.Upid = upid
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PveTaskLog(ctx, request.(PveTaskLogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PveTaskLog")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PveTaskLogResponseObject); ok {
+		if err := validResponse.VisitPveTaskLogResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteSSHCredential operation middleware
+func (sh *strictHandler) DeleteSSHCredential(w http.ResponseWriter, r *http.Request, params DeleteSSHCredentialParams) {
+	var request DeleteSSHCredentialRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteSSHCredential(ctx, request.(DeleteSSHCredentialRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteSSHCredential")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteSSHCredentialResponseObject); ok {
+		if err := validResponse.VisitDeleteSSHCredentialResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSSHCredential operation middleware
+func (sh *strictHandler) GetSSHCredential(w http.ResponseWriter, r *http.Request, params GetSSHCredentialParams) {
+	var request GetSSHCredentialRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSSHCredential(ctx, request.(GetSSHCredentialRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSSHCredential")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSSHCredentialResponseObject); ok {
+		if err := validResponse.VisitGetSSHCredentialResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutSSHCredential operation middleware
+func (sh *strictHandler) PutSSHCredential(w http.ResponseWriter, r *http.Request) {
+	var request PutSSHCredentialRequestObject
+
+	var body PutSSHCredentialJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutSSHCredential(ctx, request.(PutSSHCredentialRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutSSHCredential")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutSSHCredentialResponseObject); ok {
+		if err := validResponse.VisitPutSSHCredentialResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -6072,100 +11222,160 @@ func (sh *strictHandler) ListUserSessions(w http.ResponseWriter, r *http.Request
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"+38BAAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

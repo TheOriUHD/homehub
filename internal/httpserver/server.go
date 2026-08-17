@@ -23,6 +23,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/httpctx"
 	"github.com/TheOriUHD/homehub/internal/settings"
 	"github.com/TheOriUHD/homehub/internal/store"
+	"github.com/TheOriUHD/homehub/internal/term"
 	"github.com/TheOriUHD/homehub/internal/ws"
 )
 
@@ -32,6 +33,7 @@ type Deps struct {
 	API      *api.Server
 	Hub      *ws.Hub
 	Settings *settings.Service
+	Term     *term.Manager
 	// UI is the embedded frontend; nil in development builds, where the Vite
 	// dev server serves the frontend and proxies /api here.
 	UI fs.FS
@@ -52,6 +54,7 @@ func Handler(deps Deps) http.Handler {
 		apiRouter.Use(originGuard(deps))
 
 		apiRouter.Get("/ws", wsHandler(deps))
+		apiRouter.Get("/term/{sessionID}", termHandler(deps))
 		apiRouter.Get("/openapi.json", specHandler(deps.Logger))
 
 		strict := api.NewStrictHandlerWithOptions(deps.API, nil, api.StrictHTTPServerOptions{
@@ -199,6 +202,44 @@ func wsHandler(deps Deps) http.HandlerFunc {
 		}
 		deps.Hub.Serve(r.Context(), conn, id.User.ID, id.ViewAsRole)
 		conn.Close(websocket.StatusNormalClosure, "bye")
+	}
+}
+
+// termHandler upgrades a one-time terminal session ticket to its bridged
+// WebSocket (SSH shell, VNC console, or serial console).
+func termHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := httpctx.IdentityFrom(r.Context())
+		if id == nil {
+			writeJSONError(w, http.StatusUnauthorized, "unauthorized", "sign in to continue")
+			return
+		}
+		session, ok := deps.Term.Take(chi.URLParam(r, "sessionID"), id.User.ID)
+		if !ok {
+			writeJSONError(w, http.StatusNotFound, "session_expired",
+				"terminal session expired or already used — reopen the console")
+			return
+		}
+		patterns := []string{r.Host}
+		if appURL := deps.Settings.AppURL(r.Context()); appURL != "" {
+			if u, err := url.Parse(appURL); err == nil && u.Host != "" {
+				patterns = append(patterns, u.Host)
+			}
+		}
+		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+			OriginPatterns: patterns,
+			// Terminal streams are raw byte pipes; permessage-deflate only
+			// adds latency here.
+			CompressionMode: websocket.CompressionDisabled,
+		})
+		if err != nil {
+			return
+		}
+		if err := session.Open(r.Context(), conn); err != nil {
+			deps.Logger.Warn("terminal session ended with error", "error", err)
+			term.SendControl(r.Context(), conn, term.ControlFrame{Type: "error", Message: err.Error()})
+		}
+		conn.Close(websocket.StatusNormalClosure, "session closed")
 	}
 }
 

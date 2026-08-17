@@ -1070,6 +1070,841 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /integration-types:
+    get:
+      operationId: listIntegrationTypes
+      summary: Integration types available to add
+      tags: [integrations]
+      responses:
+        "200":
+          description: Registered integration types
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/IntegrationType" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /integrations:
+    get:
+      operationId: listIntegrations
+      summary: List configured integrations
+      description: Filtered to instances the caller may see (any grant on or beneath the instance).
+      tags: [integrations]
+      responses:
+        "200":
+          description: Configured instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Integration" }
+    post:
+      operationId: createIntegration
+      summary: Add an integration
+      description: Secrets are stored encrypted and never returned. Test first with /integrations/test.
+      tags: [integrations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, name, config]
+              properties:
+                type: { type: string }
+                name: { type: string, minLength: 1, maxLength: 128 }
+                config:
+                  type: object
+                  additionalProperties: true
+                secrets:
+                  type: object
+                  additionalProperties: { type: string }
+      responses:
+        "201":
+          description: Created instance (connection supervision starts immediately)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Integration" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /integrations/test:
+    post:
+      operationId: testIntegrationConfig
+      summary: Test a connection before saving
+      tags: [integrations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, config]
+              properties:
+                type: { type: string }
+                config:
+                  type: object
+                  additionalProperties: true
+                secrets:
+                  type: object
+                  additionalProperties: { type: string }
+      responses:
+        "200":
+          description: Test outcome with a specific, actionable message
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestConnectionResult" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /integrations/{id}:
+    get:
+      operationId: getIntegration
+      summary: Get an integration
+      tags: [integrations]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Instance detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Integration" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateIntegration
+      summary: Update name, config, secrets, or enabled state
+      description: The connection reloads live; no restart, no interruption elsewhere.
+      tags: [integrations]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 1, maxLength: 128 }
+                config:
+                  type: object
+                  additionalProperties: true
+                secrets:
+                  type: object
+                  description: Only provided keys are replaced
+                  additionalProperties: { type: string }
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: Updated instance
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Integration" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteIntegration
+      summary: Remove an integration and its stored secrets
+      tags: [integrations]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Removed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /integrations/{id}/test:
+    post:
+      operationId: testIntegration
+      summary: Re-test an existing integration
+      tags: [integrations]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Test outcome
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestConnectionResult" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /proxmox/{id}/summary:
+    get:
+      operationId: pveSummary
+      summary: Cluster and node overview
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Cluster status, nodes, and storage totals
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PveSummary" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/guests:
+    get:
+      operationId: pveListGuests
+      summary: All VMs and containers
+      description: Filtered per guest by the caller's view permission.
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Guests across all nodes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PveGuest" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/guests/{vmid}:
+    get:
+      operationId: pveGetGuest
+      summary: Guest status and configuration
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+      responses:
+        "200":
+          description: Guest detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PveGuestDetail" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+    delete:
+      operationId: pveDeleteGuest
+      summary: Delete a guest
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+        - name: purge
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          $ref: "#/components/responses/TaskStarted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/guests/{vmid}/action:
+    post:
+      operationId: pveGuestAction
+      summary: Start, stop, shutdown, reboot, suspend, or resume
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { $ref: "#/components/schemas/PveGuestAction" }
+      responses:
+        "200":
+          $ref: "#/components/responses/TaskStarted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/guests/{vmid}/config:
+    put:
+      operationId: pveSetGuestConfig
+      summary: Edit guest hardware and options
+      description: Accepts raw Proxmox config keys (cores, memory, name, netN, onboot, …) exactly as the API defines them.
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [changes]
+              properties:
+                changes:
+                  type: object
+                  additionalProperties: { type: string }
+      responses:
+        "204":
+          description: Configuration applied
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/guests/{vmid}/migrate:
+    post:
+      operationId: pveMigrateGuest
+      summary: Migrate a guest to another node
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target]
+              properties:
+                target: { type: string }
+                online: { type: boolean, default: false }
+      responses:
+        "200":
+          $ref: "#/components/responses/TaskStarted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/guests/{vmid}/clone:
+    post:
+      operationId: pveCloneGuest
+      summary: Clone a guest or template
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newid]
+              properties:
+                newid: { type: integer }
+                name: { type: string }
+                full: { type: boolean, default: false }
+                target: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/TaskStarted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/guests/{vmid}/snapshots:
+    get:
+      operationId: pveListSnapshots
+      summary: List snapshots
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+      responses:
+        "200":
+          description: Snapshots, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PveSnapshot" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+    post:
+      operationId: pveCreateSnapshot
+      summary: Take a snapshot
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, pattern: "^[A-Za-z0-9_][A-Za-z0-9_-]*$", maxLength: 40 }
+                description: { type: string, maxLength: 512 }
+                vmstate: { type: boolean, default: false }
+      responses:
+        "200":
+          $ref: "#/components/responses/TaskStarted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/guests/{vmid}/snapshots/{name}:
+    delete:
+      operationId: pveDeleteSnapshot
+      summary: Delete a snapshot
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/TaskStarted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/guests/{vmid}/snapshots/{name}/rollback:
+    post:
+      operationId: pveRollbackSnapshot
+      summary: Roll back to a snapshot
+      description: The guest's current state is replaced by the snapshot. This cannot be undone.
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/TaskStarted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/guests/{vmid}/backup:
+    post:
+      operationId: pveBackupGuest
+      summary: Back up a guest now (vzdump)
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [storage]
+              properties:
+                storage: { type: string }
+                mode: { type: string, enum: [snapshot, suspend, stop], default: snapshot }
+                compress: { type: string, enum: [zstd, gzip, lzo, "0"], default: zstd }
+      responses:
+        "200":
+          $ref: "#/components/responses/TaskStarted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/guests/{vmid}/console:
+    post:
+      operationId: pveOpenConsole
+      summary: Open a VNC or serial console session
+      description: Returns a one-time WebSocket path; connect within 30 seconds. VNC sessions speak RFB (noVNC-compatible); serial sessions use the terminal protocol described for /api/ws.
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind: { type: string, enum: [vnc, serial] }
+      responses:
+        "200":
+          description: Session created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermSession" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/guests/{vmid}/ssh:
+    post:
+      operationId: pveOpenSSH
+      summary: Open an SSH terminal to the guest
+      description: Uses the SSH credential stored for this guest (see /resources/ssh). 400 when none is configured.
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/vmidParam"
+      responses:
+        "200":
+          description: Session created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermSession" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /proxmox/{id}/bulk:
+    post:
+      operationId: pveBulkAction
+      summary: Run one action across selected guests
+      description: Permission is checked per guest; unauthorized guests fail individually without aborting the rest.
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vmids, action]
+              properties:
+                vmids:
+                  type: array
+                  minItems: 1
+                  items: { type: integer }
+                action: { $ref: "#/components/schemas/PveGuestAction" }
+      responses:
+        "200":
+          description: Per-guest outcomes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PveBulkResult" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /proxmox/{id}/tasks:
+    get:
+      operationId: pveListTasks
+      summary: Recent tasks across all nodes
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: Tasks, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PveTask" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/tasks/{node}/{upid}/log:
+    get:
+      operationId: pveTaskLog
+      summary: Task status and log
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: node
+          in: path
+          required: true
+          schema: { type: string }
+        - name: upid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Task state with log lines
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PveTaskDetail" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/storage:
+    get:
+      operationId: pveListStorage
+      summary: Storage pools with usage
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Storage per node
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PveStorage" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/backup-jobs:
+    get:
+      operationId: pveListBackupJobs
+      summary: Scheduled vzdump jobs
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Backup jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PveBackupJob" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+    post:
+      operationId: pveCreateBackupJob
+      summary: Create a scheduled vzdump job
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PveBackupJobSpec" }
+      responses:
+        "204":
+          description: Job created
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /proxmox/{id}/backup-jobs/{jobId}:
+    put:
+      operationId: pveUpdateBackupJob
+      summary: Update a scheduled vzdump job
+      tags: [proxmox]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PveBackupJobSpec" }
+      responses:
+        "204":
+          description: Job updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /resources/ssh:
+    get:
+      operationId: getSSHCredential
+      summary: SSH credential metadata for a resource
+      description: The secret itself is never returned.
+      tags: [resources]
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Stored credential metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SSHCredentialInfo" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: putSSHCredential
+      summary: Store SSH access for a resource
+      tags: [resources]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resource, username, authType]
+              properties:
+                resource: { type: string }
+                host:
+                  type: string
+                  description: Hostname or IP; required until guest-agent address discovery lands
+                port: { type: integer, minimum: 1, maximum: 65535, default: 22 }
+                username: { type: string, minLength: 1 }
+                authType: { type: string, enum: [password, key] }
+                secret:
+                  type: string
+                  description: Password or PEM private key; omit to keep the stored secret
+      responses:
+        "200":
+          description: Stored credential metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SSHCredentialInfo" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      operationId: deleteSSHCredential
+      summary: Remove SSH access for a resource
+      tags: [resources]
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Removed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /metrics/query:
+    get:
+      operationId: queryMetrics
+      summary: Historical metric points for one resource metric
+      description: Tier (raw, 5-minute, hourly) is chosen automatically from the time span.
+      tags: [metrics]
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema: { type: string }
+        - name: metric
+          in: query
+          required: true
+          schema: { type: string }
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Time-ordered points
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MetricQueryResult" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     session:
@@ -1083,6 +1918,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    vmidParam:
+      name: vmid
+      in: path
+      required: true
+      schema: { type: integer }
 
   responses:
     SessionUser:
@@ -1124,6 +1964,16 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    UpstreamError:
+      description: The upstream system rejected or failed the request; message carries its actual error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TaskStarted:
+      description: The upstream accepted the operation as an asynchronous task
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/PveTaskRef" }
 
   schemas:
     Error:
@@ -1367,3 +2217,231 @@ components:
           type: string
           description: External base URL, used for invite links and passkey origin validation
         sessionTtlHours: { type: integer }
+
+    IntegrationType:
+      type: object
+      required: [id, name, description, secretNames]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        secretNames:
+          type: array
+          items: { type: string }
+
+    Integration:
+      type: object
+      required: [id, type, name, config, enabled, status, statusMessage, statusChangedAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string }
+        name: { type: string }
+        config:
+          type: object
+          additionalProperties: true
+        enabled: { type: boolean }
+        status:
+          type: string
+          enum: [pending, connecting, connected, degraded, unreachable, disabled]
+        statusMessage: { type: string }
+        statusChangedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    TestConnectionResult:
+      type: object
+      required: [ok, message]
+      properties:
+        ok: { type: boolean }
+        message: { type: string }
+        detail:
+          type: object
+          additionalProperties: true
+
+    PveGuestAction:
+      type: string
+      enum: [start, stop, shutdown, reboot, suspend, resume]
+
+    PveTaskRef:
+      type: object
+      required: [upid, node]
+      properties:
+        upid: { type: string }
+        node: { type: string }
+
+    PveSummary:
+      type: object
+      required: [clusterName, quorate, nodes, storageUsedBytes, storageTotalBytes]
+      properties:
+        clusterName: { type: string }
+        quorate: { type: boolean, nullable: true }
+        nodes:
+          type: array
+          items: { $ref: "#/components/schemas/PveNode" }
+        storageUsedBytes: { type: integer, format: int64 }
+        storageTotalBytes: { type: integer, format: int64 }
+
+    PveNode:
+      type: object
+      required: [name, status, cpu, maxCpu, memBytes, maxMemBytes, uptimeSeconds]
+      properties:
+        name: { type: string }
+        status: { type: string }
+        cpu:
+          type: number
+          description: Load as a 0..1 fraction of all cores
+        maxCpu: { type: integer }
+        memBytes: { type: integer, format: int64 }
+        maxMemBytes: { type: integer, format: int64 }
+        uptimeSeconds: { type: integer, format: int64 }
+        pveVersion: { type: string }
+
+    PveGuest:
+      type: object
+      required: [vmid, name, kind, node, status, cpu, maxCpu, memBytes, maxMemBytes, diskBytes, maxDiskBytes, uptimeSeconds, template]
+      properties:
+        vmid: { type: integer }
+        name: { type: string }
+        kind: { type: string, enum: [qemu, lxc] }
+        node: { type: string }
+        status: { type: string }
+        cpu: { type: number }
+        maxCpu: { type: integer }
+        memBytes: { type: integer, format: int64 }
+        maxMemBytes: { type: integer, format: int64 }
+        diskBytes: { type: integer, format: int64 }
+        maxDiskBytes: { type: integer, format: int64 }
+        uptimeSeconds: { type: integer, format: int64 }
+        template: { type: boolean }
+        tags: { type: string }
+
+    PveGuestDetail:
+      type: object
+      required: [guest, config]
+      properties:
+        guest: { $ref: "#/components/schemas/PveGuest" }
+        config:
+          type: object
+          description: Raw Proxmox configuration keys as the API reports them
+          additionalProperties: true
+
+    PveSnapshot:
+      type: object
+      required: [name, description, vmstate]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        snaptime: { type: string, format: date-time, nullable: true }
+        vmstate: { type: boolean }
+
+    PveTask:
+      type: object
+      required: [upid, node, type, id, user, running, startTime]
+      properties:
+        upid: { type: string }
+        node: { type: string }
+        type: { type: string }
+        id: { type: string }
+        user: { type: string }
+        running: { type: boolean }
+        exitStatus: { type: string, nullable: true }
+        startTime: { type: string, format: date-time }
+        endTime: { type: string, format: date-time, nullable: true }
+
+    PveTaskDetail:
+      type: object
+      required: [task, lines]
+      properties:
+        task: { $ref: "#/components/schemas/PveTask" }
+        lines:
+          type: array
+          items: { type: string }
+
+    PveStorage:
+      type: object
+      required: [storage, node, type, content, active, usedBytes, totalBytes]
+      properties:
+        storage: { type: string }
+        node: { type: string }
+        type: { type: string }
+        content: { type: string }
+        active: { type: boolean }
+        usedBytes: { type: integer, format: int64 }
+        totalBytes: { type: integer, format: int64 }
+
+    PveBackupJob:
+      type: object
+      required: [id, schedule, storage, mode, enabled, vmids]
+      properties:
+        id: { type: string }
+        schedule: { type: string }
+        storage: { type: string }
+        mode: { type: string }
+        enabled: { type: boolean }
+        vmids:
+          type: string
+          description: Comma-separated vmid list, or empty for all
+
+    PveBackupJobSpec:
+      type: object
+      required: [schedule, storage, vmids]
+      properties:
+        schedule:
+          type: string
+          description: Proxmox calendar event, e.g. "02:30" or "sat 03:00"
+        storage: { type: string }
+        mode: { type: string, enum: [snapshot, suspend, stop], default: snapshot }
+        enabled: { type: boolean, default: true }
+        vmids: { type: string }
+
+    PveBulkResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            required: [vmid]
+            properties:
+              vmid: { type: integer }
+              upid: { type: string, nullable: true }
+              error: { type: string, nullable: true }
+
+    TermSession:
+      type: object
+      required: [sessionId, wsPath]
+      properties:
+        sessionId: { type: string }
+        wsPath:
+          type: string
+          description: One-time WebSocket path, valid for 30 seconds
+        credential:
+          type: string
+          nullable: true
+          description: For VNC sessions, the one-time password noVNC must answer RFB authentication with
+
+    SSHCredentialInfo:
+      type: object
+      required: [resource, host, port, username, authType, updatedAt]
+      properties:
+        resource: { type: string }
+        host: { type: string }
+        port: { type: integer }
+        username: { type: string }
+        authType: { type: string, enum: [password, key] }
+        updatedAt: { type: string, format: date-time }
+
+    MetricQueryResult:
+      type: object
+      required: [points]
+      properties:
+        points:
+          type: array
+          items:
+            type: object
+            required: [ts, avg, min, max]
+            properties:
+              ts: { type: string, format: date-time }
+              avg: { type: number }
+              min: { type: number }
+              max: { type: number }
