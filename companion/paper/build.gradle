@@ -1,0 +1,45 @@
+// Paper/Spigot adapter. Compiled against spigot-api 1.16.5 so a single jar
+// loads on Spigot AND Paper from 1.16.5 through 1.21.x; Paper-only extras
+// (TPS/MSPT) are reached via reflection.
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version '8.3.5'
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
+    maven { url = 'https://oss.sonatype.org/content/repositories/snapshots/' }
+}
+
+dependencies {
+    implementation project(':core')
+    compileOnly 'org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT'
+    // Provided by the server at runtime.
+    compileOnly 'com.google.code.gson:gson:2.8.9'
+    compileOnly 'org.apache.logging.log4j:log4j-core:2.17.1'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 8
+    options.encoding = 'UTF-8'
+}
+
+processResources {
+    filesMatching('plugin.yml') {
+        expand version: project.version
+    }
+}
+
+shadowJar {
+    archiveBaseName = 'homehub-companion-paper'
+    archiveClassifier = ''
+    // The websocket client must not leak its original package into the
+    // server classpath — relocate it wholesale.
+    relocate 'com.neovisionaries.ws', 'dev.homehub.companion.shaded.ws'
+}
+
+jar {
+    enabled = false
+}
+build.dependsOn shadowJar

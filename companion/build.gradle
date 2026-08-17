@@ -1,0 +1,30 @@
+// HomeHub Companion — Minecraft server plugin workspace.
+// `gradle dist` builds the shaded paper jar and stages it (plus manifest.json)
+// under companion/dist/ where HomeHub's `go build -tags companion` embeds it.
+
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+
+tasks.register('dist') {
+    dependsOn ':paper:shadowJar'
+    def distDir = file('dist')
+    doLast {
+        distDir.mkdirs()
+        def shadow = project(':paper').tasks.named('shadowJar').get()
+        def built = shadow.archiveFile.get().asFile
+        def jarName = "homehub-companion-paper-${project.version}.jar"
+        def target = new File(distDir, jarName)
+        Files.copy(built.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+
+        // One jar serves both Paper and Spigot (1.16.5+); the manifest lists
+        // both loaders pointing at the same file.
+        def manifest = new File(distDir, 'manifest.json')
+        manifest.setText(
+            '[\n' +
+            "  {\"loader\":\"paper\",\"file\":\"${jarName}\",\"mcVersions\":\"1.16.5 – 1.21.x\"},\n" +
+            "  {\"loader\":\"spigot\",\"file\":\"${jarName}\",\"mcVersions\":\"1.16.5 – 1.21.x\"}\n" +
+            ']\n', 'UTF-8')
+        println "dist: ${target}"
+        println "dist: ${manifest}"
+    }
+}

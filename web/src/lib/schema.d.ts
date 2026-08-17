@@ -1770,6 +1770,123 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mc/{id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Minecraft server overview
+         * @description Companion connection state, server metadata, live performance snapshot, online players, and (for configure-level callers) the pending pairing code.
+         */
+        get: operations["mcOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mc/{id}/pairing-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue a fresh pairing code
+         * @description Generates a new 6-digit code valid for 15 minutes, replacing any outstanding code. The companion pairs once; afterwards it authenticates with its own token.
+         */
+        post: operations["mcCreatePairingCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mc/{id}/console": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Console scrollback
+         * @description Lines after a sequence number, oldest first. The buffer holds the full scrollback from server start (backfilled from the server's own log); poll with nextSeq or ride the WS topic's console events for live lines.
+         */
+        get: operations["mcConsole"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mc/{id}/command": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute a console command
+         * @description Runs the command on the server's main thread and reports the companion's acknowledgment. Audited.
+         */
+        post: operations["mcCommand"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mc/downloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Companion plugin downloads
+         * @description The companion builds shipped inside this HomeHub, one per loader, with the Minecraft versions each supports.
+         */
+        get: operations["mcDownloads"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mc/downloads/{file}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a companion build */
+        get: operations["mcDownloadFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/backups/targets": {
         parameters: {
             query?: never;
@@ -2779,6 +2896,82 @@ export interface components {
             enabled: boolean;
             /** Format: date-time */
             until?: string | null;
+        };
+        McOverview: {
+            connected: boolean;
+            serverName?: string;
+            /** @description paper, spigot, velocity, fabric, or forge */
+            loader?: string;
+            mcVersion?: string;
+            companionVersion?: string;
+            /** Format: date-time */
+            pairedAt?: string;
+            /** Format: date-time */
+            lastConnectedAt?: string;
+            remoteIp?: string;
+            status?: components["schemas"]["McStatus"] | null;
+            players?: components["schemas"]["McPlayer"][];
+            /** @description Present only for configure-level callers while a code is outstanding */
+            pendingPairing?: components["schemas"]["McPairingCode"] | null;
+        };
+        McStatus: {
+            /** Format: double */
+            tps?: number;
+            /** Format: double */
+            mspt?: number;
+            playersOnline: number;
+            playersMax: number;
+            /** Format: double */
+            heapUsedMb?: number;
+            /** Format: double */
+            heapMaxMb?: number;
+            /** @description Backends behind a Velocity proxy */
+            downstream?: {
+                name: string;
+                players: number;
+            }[];
+        };
+        McPlayer: {
+            name: string;
+            uuid?: string;
+        };
+        McPairingCode: {
+            code: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        McConsole: {
+            lines: components["schemas"]["McConsoleLine"][];
+            /**
+             * Format: int64
+             * @description Sequence of the oldest line still held — history before this has been evicted
+             */
+            oldestSeq: number;
+            /**
+             * Format: int64
+             * @description Pass as `after` on the next poll
+             */
+            nextSeq: number;
+            connected: boolean;
+        };
+        McConsoleLine: {
+            /** Format: int64 */
+            seq: number;
+            /**
+             * Format: int64
+             * @description Server-side unix milliseconds
+             */
+            ts: number;
+            level?: string;
+            text: string;
+        };
+        McDownload: {
+            loader: string;
+            file: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            /** @description Human-readable supported range, e.g. "1.16.5 – 1.21.x" */
+            mcVersions: string;
         };
         HaInstance: {
             /** Format: uuid */
@@ -6131,6 +6324,159 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             502: components["responses"]["UpstreamError"];
+        };
+    };
+    mcOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McOverview"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    mcCreatePairingCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The code */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McPairingCode"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    mcConsole: {
+        parameters: {
+            query?: {
+                /** @description Return lines with seq greater than this; -1 (default) starts at the oldest held line */
+                after?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Console lines */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McConsole"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    mcCommand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    command: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Acknowledged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                        message?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    mcDownloads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Available builds */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McDownload"][];
+                };
+            };
+        };
+    };
+    mcDownloadFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The jar */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/java-archive": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
         };
     };
     listBackupTargets: {
