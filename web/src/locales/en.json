@@ -425,7 +425,8 @@
       "secretKeep": "Leave empty to keep the stored value",
       "nameHintAmp": "How this panel appears in HomeHub, e.g. “Game node”",
       "nameHintTailscale": "How this tailnet appears in HomeHub, e.g. “Home tailnet”",
-      "nameHintCaddy": "How this proxy appears in HomeHub, e.g. “Edge proxy”"
+      "nameHintCaddy": "How this proxy appears in HomeHub, e.g. “Edge proxy”",
+      "nameHintAperture": "How this NVR appears in HomeHub, e.g. “Cameras”"
     },
     "pve": {
       "host": "Host",
@@ -546,6 +547,12 @@
       "codeHint": "Run `sudo caddy-reader pair` on the Caddy host and type the six digits it prints. The code is single-use and expires in 15 minutes.",
       "repairNote": "To replace the stored token, remove this system and pair it again with a fresh code.",
       "adminWarning": "Do not point this at Caddy's admin API (port 2019) — it has no authentication and must never leave loopback. The helper is the only safe surface."
+    },
+    "aperture": {
+      "baseUrl": "Aperture address",
+      "baseUrlHint": "The origin your browser also reaches, e.g. https://aperture.example.com",
+      "apiKey": "API token",
+      "apiKeyHint": "Settings → Integrations → API tokens in Aperture, created by an admin with scopes media:live, system:read, storage:read, cameras:read (starts with apt_)"
     }
   },
   "systems": {
@@ -586,7 +593,8 @@
       "truenas": "TrueNAS",
       "amp": "AMP (CubeCoders)",
       "tailscale": "Tailscale",
-      "caddy": "Caddy"
+      "caddy": "Caddy",
+      "aperture": "Aperture"
     },
     "landing": {
       "pickInstance": "Choose an instance",
@@ -2535,6 +2543,26 @@
       "unresolvableBody": "These domains are proxied, but where they go can't be answered statically.",
       "noProxyTitle": "Served without a proxy",
       "noProxyBody": "Domains answered by something other than a reverse proxy — a file server, a redirect."
+    }
+  },
+  "nvr": {
+    "subtitle": "Aperture NVR",
+    "openAperture": "Open Aperture",
+    "overview": {
+      "recording": "cameras recording",
+      "retention": "shortest retention",
+      "days": "{{days}} days",
+      "hours": "{{hours}} h",
+      "throughput": "recording throughput"
+    },
+    "grid": {
+      "emptyTitle": "No cameras visible",
+      "emptyBody": "Aperture reports no cameras this account may view.",
+      "connecting": "Connecting…",
+      "retrying": "retrying in {{seconds}}s",
+      "coverage": "{{pct}}% coverage",
+      "notRecording": "not recording",
+      "expand": "Expand {{name}}"
     }
   }
 }

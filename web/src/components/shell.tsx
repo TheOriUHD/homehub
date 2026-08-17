@@ -14,6 +14,7 @@ import {
   FileClock,
   Gamepad2,
   HardDrive,
+  Cctv,
   Network,
   Waypoints,
   Home,
@@ -134,6 +135,7 @@ export function AppShell() {
   const ampRows = rows.filter((row) => row.type === "amp");
   const tsRows = rows.filter((row) => row.type === "tailscale");
   const caddyRows = rows.filter((row) => row.type === "caddy");
+  const nvrRows = rows.filter((row) => row.type === "aperture");
   const truenasRows = rows.filter((row) => row.type === "truenas");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
 
@@ -218,6 +220,15 @@ export function AppShell() {
           icon: Waypoints,
           status: worstStatus(caddyRows),
           prefix: "/caddy",
+        }]
+      : []),
+    ...(nvrRows.length > 0
+      ? [{
+          to: nvrRows.length === 1 ? `/nvr/${nvrRows[0].id}` : "/nvr",
+          label: t("systems.types.aperture"),
+          icon: Cctv,
+          status: worstStatus(nvrRows),
+          prefix: "/nvr",
         }]
       : []),
     ...(truenasRows.length > 0

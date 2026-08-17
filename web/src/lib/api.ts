@@ -102,6 +102,10 @@ export type TruenasShare = ApiSchemas["TruenasShare"];
 export type TruenasSnapshot = ApiSchemas["TruenasSnapshot"];
 export type TruenasAlert = ApiSchemas["TruenasAlert"];
 
+export type ApertureOverview = ApiSchemas["ApertureOverview"];
+export type ApertureCamera = ApiSchemas["ApertureCamera"];
+export type ApertureStreamGrant = ApiSchemas["ApertureStreamGrant"];
+
 export type CaddySitesState = ApiSchemas["CaddySitesState"];
 export type CaddySite = ApiSchemas["CaddySite"];
 export type CaddySiteInput = ApiSchemas["CaddySiteInput"];
