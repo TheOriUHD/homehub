@@ -139,7 +139,17 @@ export function PveSummaryPage() {
 
       <section className="space-y-2.5">
         <h2 className="text-fg text-[15px] font-semibold">{t("pve.summary.nodes")}</h2>
-        <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {/* Columns follow the node count so small clusters fill the row
+            instead of leaving empty grid tracks. */}
+        <div
+          className={
+            data.nodes.length <= 1
+              ? "grid items-start gap-4"
+              : data.nodes.length === 2
+                ? "grid items-start gap-4 md:grid-cols-2"
+                : "grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3"
+          }
+        >
           {data.nodes.map((node) => (
             <NodeCard key={node.name} node={node} />
           ))}
