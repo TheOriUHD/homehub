@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Navigate, useParams } from "@tanstack/react-router";
+import { Link, Navigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Download, RefreshCw } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Download, RefreshCw } from "lucide-react";
 import {
   api,
   unwrap,
@@ -40,17 +40,36 @@ export function McSetupPage() {
   const generate = useMutation({
     mutationFn: async () =>
       unwrap(await api.POST("/mc/{id}/pairing-code", { params: { path: { id: instanceId } } })),
-    onSuccess: (code) => {
+    onSuccess: (code, _vars, _ctx) => {
       queryClient.setQueryData<McOverview>(mcOverviewKey(instanceId), (prev) =>
         prev ? { ...prev, pendingPairing: code } : prev,
       );
-      toast("success", t("mc.setup.generated"));
     },
     onError: (err) =>
       toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
-  if (!can(mcResource(instanceId), "configure")) {
+  const allowed = can(mcResource(instanceId), "configure");
+
+  // A code exists whenever this page is open, so the copyable command below
+  // is always real — never a placeholder waiting for a click.
+  const autoRequested = useRef(false);
+  const hasPending = Boolean(overview.data?.pendingPairing);
+  useEffect(() => {
+    if (!allowed || overview.isLoading || hasPending || generate.isPending) return;
+    if (autoRequested.current) return;
+    autoRequested.current = true;
+    generate.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowed, overview.isLoading, hasPending]);
+  // When a code expires the flag flips back — allow one fresh auto-mint.
+  useEffect(() => {
+    if (hasPending) autoRequested.current = false;
+  }, [hasPending]);
+
+  const [cmdMode, setCmdMode] = useState<"ingame" | "console">("ingame");
+
+  if (!allowed) {
     return <Navigate to="/mc/$instanceId" params={{ instanceId }} replace />;
   }
 
@@ -68,7 +87,7 @@ export function McSetupPage() {
   const origin = window.location.origin;
   const code = pending?.code ?? t("mc.setup.codePlaceholder");
   const propertiesSnippet = `url=${origin}\ncode=${code}`;
-  const pairCommand = `/homehub pair ${origin} ${code}`;
+  const pairCommand = `${cmdMode === "ingame" ? "/" : ""}homehub pair ${origin} ${code}`;
 
   const pairedParts = [
     data.remoteIp || null,
@@ -77,6 +96,14 @@ export function McSetupPage() {
 
   return (
     <div className="space-y-4">
+      <Link
+        to="/mc/$instanceId"
+        params={{ instanceId }}
+        className="text-fg-muted hover:text-fg flex w-fit items-center gap-1 text-[13px] transition-colors"
+      >
+        <ArrowLeft className="size-3.5" />
+        {t("mc.setup.back")}
+      </Link>
       <Card>
         <CardHeader
           title={t("mc.setup.pairingTitle")}
@@ -166,7 +193,28 @@ export function McSetupPage() {
             <p className="text-fg-muted mb-3 text-[13px]">{t("mc.setup.step3Body")}</p>
             <div className="space-y-3">
               <CopyBlock label={t("mc.setup.propertiesLabel")} value={propertiesSnippet} />
-              <CopyBlock label={t("mc.setup.commandLabel")} value={pairCommand} />
+              <div>
+                <div className="mb-1.5 flex items-center gap-2">
+                  <p className="text-fg-subtle font-mono text-xs">{t("mc.setup.commandLabel")}</p>
+                  <div className="border-edge flex overflow-hidden rounded-md border text-[12px]">
+                    {(["ingame", "console"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => setCmdMode(mode)}
+                        className={cn(
+                          "px-2.5 py-0.5 font-medium transition-colors",
+                          cmdMode === mode
+                            ? "bg-accent-soft text-accent-soft-fg"
+                            : "text-fg-muted hover:text-fg",
+                        )}
+                      >
+                        {t(mode === "ingame" ? "mc.setup.modeInGame" : "mc.setup.modeConsole")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <CopyBlock value={pairCommand} />
+              </div>
             </div>
           </Step>
 
@@ -256,10 +304,10 @@ function Step({ index, title, children }: { index: number; title: string; childr
   );
 }
 
-function CopyBlock({ label, value }: { label: string; value: string }) {
+function CopyBlock({ label, value }: { label?: string; value: string }) {
   return (
     <div>
-      <p className="text-fg-subtle mb-1 font-mono text-xs">{label}</p>
+      {label && <p className="text-fg-subtle mb-1 font-mono text-xs">{label}</p>}
       <div className="bg-bg-subtle border-edge flex items-start justify-between gap-2 rounded-md border px-3 py-2">
         <pre className="text-fg min-w-0 flex-1 overflow-x-auto font-mono text-[12.5px] whitespace-pre select-all">
           {value}
