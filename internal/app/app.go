@@ -26,6 +26,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/httpserver"
 	"github.com/TheOriUHD/homehub/internal/integration"
 	"github.com/TheOriUHD/homehub/internal/integrations/adguard"
+	"github.com/TheOriUHD/homehub/internal/integrations/homeassistant"
 	"github.com/TheOriUHD/homehub/internal/integrations/docker"
 	"github.com/TheOriUHD/homehub/internal/integrations/pihole"
 	"github.com/TheOriUHD/homehub/internal/integrations/proxmox"
@@ -109,6 +110,7 @@ func Run(ctx context.Context) error {
 	manager.Register(docker.Driver{})
 	manager.Register(pihole.Driver{})
 	manager.Register(adguard.Driver{})
+	manager.Register(homeassistant.Driver{})
 	manager.StatusChanged = statusNotifier(engine, notifySvc)
 
 	docker.RegisterJobs(func(kind string, fn func(ctx context.Context, payload json.RawMessage) error) {

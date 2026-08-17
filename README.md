@@ -29,6 +29,13 @@ query log, blocklist and custom-rule management, client and group management,
 timed blocking disable with countdown, and cross-instance rule comparison
 with one-way sync.
 
+**Home Assistant** — native WebSocket integration with instant state push:
+an area-grouped dashboard with real controls per domain (lights with
+brightness, climate, covers, media, locks, scenes, scripts), automations
+with trigger and enable/disable, and sensor history recorded into the
+metrics engine for graphs and alerting. Permissions scope down to a single
+entity or a whole domain.
+
 More integrations land as vertical slices — each ships complete or not at
 all.
 

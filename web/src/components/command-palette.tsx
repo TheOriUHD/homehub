@@ -1,5 +1,6 @@
 import { Command } from "cmdk";
 import { useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   Activity,
@@ -8,6 +9,7 @@ import {
   DatabaseBackup,
   FileClock,
   Home,
+  House,
   KeyRound,
   LogOut,
   Moon,
@@ -17,6 +19,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import { api, unwrap } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { RES } from "@/lib/perms";
 import { useTheme } from "@/lib/theme";
@@ -47,6 +50,17 @@ export function CommandPalette({
 
   // Same probe-driven visibility as the sidebar entry.
   const backupsVisible = useBackupsVisible();
+
+  // Shares the sidebar's integrations cache; the server already filters by
+  // permission, so every listed instance is navigable.
+  const integrations = useQuery({
+    queryKey: ["integrations"],
+    queryFn: async () => unwrap(await api.GET("/integrations")),
+    staleTime: 30_000,
+  });
+  const haInstances = (integrations.data ?? []).filter(
+    (row) => row.enabled && row.type === "homeassistant",
+  );
 
   const pages = [
     { label: t("nav.overview"), icon: Home, to: "/" },
@@ -88,6 +102,15 @@ export function CommandPalette({
                 {pages.map((p) => (
                   <PaletteItem key={p.to} icon={<p.icon className="size-4" />} onSelect={() => go(p.to)}>
                     {p.label}
+                  </PaletteItem>
+                ))}
+                {haInstances.map((instance) => (
+                  <PaletteItem
+                    key={instance.id}
+                    icon={<House className="size-4" />}
+                    onSelect={() => go(`/ha/${instance.id}`)}
+                  >
+                    {instance.name}
                   </PaletteItem>
                 ))}
               </Command.Group>
