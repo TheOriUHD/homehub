@@ -308,6 +308,96 @@ func (c *Conn) Replications(ctx context.Context) ([]Replication, error) {
 	return reps, nil
 }
 
+// MemoryStats is the RAM allocation breakdown for the dashboard dial.
+type MemoryStats struct {
+	TotalBytes    int64 `json:"totalBytes"`
+	ArcBytes      int64 `json:"arcBytes"`      // ZFS cache
+	ServicesBytes int64 `json:"servicesBytes"` // everything else in use
+	FreeBytes     int64 `json:"freeBytes"`
+}
+
+// reportingData is one graph from POST /reporting/get_data.
+type reportingData struct {
+	Name         string      `json:"name"`
+	Legend       []string    `json:"legend"`
+	Data         [][]float64 `json:"data"`
+	Latest       []float64   `json:"latest"`
+	Aggregations struct {
+		Mean []float64 `json:"mean"`
+	} `json:"aggregations"`
+}
+
+// lastPoint returns the newest non-empty row of a graph.
+func (r reportingData) lastPoint() []float64 {
+	if len(r.Latest) > 0 {
+		return r.Latest
+	}
+	for i := len(r.Data) - 1; i >= 0; i-- {
+		if len(r.Data[i]) > 0 {
+			return r.Data[i]
+		}
+	}
+	return nil
+}
+
+// legendValue finds a column by legend name in a data row (skipping the
+// leading timestamp column when present).
+func (r reportingData) legendValue(point []float64, name string) (float64, bool) {
+	offset := len(point) - len(r.Legend)
+	if offset < 0 {
+		return 0, false
+	}
+	for i, l := range r.Legend {
+		if l == name {
+			return point[offset+i], true
+		}
+	}
+	return 0, false
+}
+
+// Memory fetches the RAM breakdown via the reporting API: the memory graph
+// (free/used) plus the arcsize graph (ZFS cache). Values arrive in bytes.
+func (c *Conn) Memory(ctx context.Context) (*MemoryStats, error) {
+	var info SystemInfo
+	if err := c.client.call(ctx, "GET", "/system/info", nil, &info); err != nil {
+		return nil, err
+	}
+	body := map[string]any{
+		"graphs":          []map[string]string{{"name": "memory"}, {"name": "arcsize"}},
+		"reporting_query": map[string]any{"unit": "HOUR", "page": 0},
+	}
+	var graphs []reportingData
+	if err := c.client.call(ctx, "POST", "/reporting/get_data", body, &graphs); err != nil {
+		return nil, err
+	}
+	stats := &MemoryStats{TotalBytes: info.PhysicalMem}
+	for _, g := range graphs {
+		point := g.lastPoint()
+		if point == nil {
+			continue
+		}
+		switch g.Name {
+		case "memory":
+			if v, ok := g.legendValue(point, "free"); ok {
+				stats.FreeBytes = int64(v)
+			}
+			if v, ok := g.legendValue(point, "available"); ok && stats.FreeBytes == 0 {
+				stats.FreeBytes = int64(v)
+			}
+		case "arcsize":
+			if v, ok := g.legendValue(point, "arc_size"); ok {
+				stats.ArcBytes = int64(v)
+			} else if len(point) > 0 {
+				stats.ArcBytes = int64(point[len(point)-1])
+			}
+		}
+	}
+	if used := stats.TotalBytes - stats.FreeBytes - stats.ArcBytes; used > 0 {
+		stats.ServicesBytes = used
+	}
+	return stats, nil
+}
+
 // ---- integration.Connection ------------------------------------------------
 
 func (c *Conn) Health(ctx context.Context) integration.Health {

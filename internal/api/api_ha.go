@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 
@@ -166,6 +167,55 @@ func (s *Server) HaGetEntity(ctx context.Context, req HaGetEntityRequestObject) 
 		return HaGetEntity404JSONResponse{notFoundErr("entity")}, nil
 	}
 	return HaGetEntity200JSONResponse(toAPIHaEntity(entity)), nil
+}
+
+func (s *Server) HaGetDashboard(ctx context.Context, req HaGetDashboardRequestObject) (HaGetDashboardResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	if _, _, _, err := s.haConn(ctx, id, req.Id); err != nil && err == store.ErrNotFound {
+		return HaGetDashboard404JSONResponse{notFoundErr("instance")}, nil
+	}
+	raw, err := s.store.GetHaDashboard(ctx, id.User.ID, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	var board HaDashboard
+	if err := json.Unmarshal(raw, &board); err != nil || board.Cards == nil {
+		board = HaDashboard{Cards: []HaDashboardCard{}}
+	}
+	return HaGetDashboard200JSONResponse(board), nil
+}
+
+func (s *Server) HaPutDashboard(ctx context.Context, req HaPutDashboardRequestObject) (HaPutDashboardResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	if _, _, _, err := s.haConn(ctx, id, req.Id); err != nil && err == store.ErrNotFound {
+		return HaPutDashboard404JSONResponse{notFoundErr("instance")}, nil
+	}
+	board := *req.Body
+	if len(board.Cards) > 100 {
+		return HaPutDashboard400JSONResponse{BadRequestJSONResponse(errBody("too_many_cards", "a dashboard holds at most 100 cards"))}, nil
+	}
+	for _, card := range board.Cards {
+		if card.Type != Entity && card.Type != Group {
+			return HaPutDashboard400JSONResponse{BadRequestJSONResponse(errBody("bad_card", "card type must be entity or group"))}, nil
+		}
+		if len(card.EntityIds) == 0 || len(card.EntityIds) > 50 {
+			return HaPutDashboard400JSONResponse{BadRequestJSONResponse(errBody("bad_card", "each card needs 1–50 entities"))}, nil
+		}
+	}
+	raw, err := json.Marshal(board)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.store.PutHaDashboard(ctx, id.User.ID, req.Id, raw); err != nil {
+		return nil, err
+	}
+	return HaPutDashboard204Response{}, nil
 }
 
 // validHaServiceName mirrors the spec pattern ^[a-z0-9_]+$.

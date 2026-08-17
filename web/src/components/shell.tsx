@@ -218,16 +218,12 @@ export function AppShell() {
             <SidebarLink key={item.to} item={item} active={pathname === item.to} />
           ))}
         </div>
-        {systemsVisible && (
+        {typeEntries.length > 0 && (
           <div>
             <p className="text-fg-subtle mb-1.5 px-2.5 text-[11px] font-semibold tracking-wider uppercase">
               {t("nav.systems")}
             </p>
             <div className="space-y-0.5">
-              <SidebarLink
-                item={{ to: "/systems", label: t("nav.systems"), icon: Boxes }}
-                active={pathname.startsWith("/systems")}
-              />
               {typeEntries.map((entry) => (
                 <SidebarLink
                   key={entry.prefix}
@@ -239,12 +235,18 @@ export function AppShell() {
             </div>
           </div>
         )}
-        {adminVisible.length > 0 && (
+        {(adminVisible.length > 0 || systemsVisible) && (
           <div>
             <p className="text-fg-subtle mb-1.5 px-2.5 text-[11px] font-semibold tracking-wider uppercase">
               {t("nav.administration")}
             </p>
             <div className="space-y-0.5">
+              {systemsVisible && (
+                <SidebarLink
+                  item={{ to: "/systems", label: t("nav.systems"), icon: Boxes }}
+                  active={pathname.startsWith("/systems")}
+                />
+              )}
               {adminVisible.map((item) => (
                 <SidebarLink key={item.to} item={item} active={pathname.startsWith(item.to)} />
               ))}

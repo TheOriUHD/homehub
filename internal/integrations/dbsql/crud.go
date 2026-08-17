@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -43,12 +44,12 @@ type RowFilter struct {
 
 // RowPage is a page of table data.
 type RowPage struct {
-	Columns    []string   `json:"columns"`
+	Columns    []string    `json:"columns"`
 	Rows       [][]*string `json:"rows"` // nil = SQL NULL
-	Total      int64      `json:"total"`
-	Limit      int        `json:"limit"`
-	Offset     int        `json:"offset"`
-	DurationMS float64    `json:"durationMs"`
+	Total      int64       `json:"total"`
+	Limit      int         `json:"limit"`
+	Offset     int         `json:"offset"`
+	DurationMS float64     `json:"durationMs"`
 }
 
 // TableSchema loads columns, primary key, and indexes for one table.
@@ -340,6 +341,86 @@ func (c *Conn) DeleteRow(ctx context.Context, database, table string, schema *Ta
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+// NewColumn describes one column in a visual CREATE TABLE.
+type NewColumn struct {
+	Name          string
+	Type          string
+	Nullable      bool
+	Default       *string
+	PrimaryKey    bool
+	AutoIncrement bool
+}
+
+// columnTypePattern whitelists the type expressions the visual builder may
+// emit — common types with optional length/precision, nothing else.
+var columnTypePattern = regexp.MustCompile(`^(?i)(TINYINT|SMALLINT|INT|INTEGER|BIGINT|DECIMAL\(\d{1,2},\s?\d{1,2}\)|FLOAT|DOUBLE|BOOLEAN|BIT|CHAR\(\d{1,4}\)|VARCHAR\(\d{1,5}\)|TEXT|MEDIUMTEXT|LONGTEXT|BLOB|LONGBLOB|DATE|TIME|DATETIME|TIMESTAMP|JSON|UUID)$`)
+
+var identPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
+
+// CreateTable builds and runs a CREATE TABLE from the visual builder's
+// column list. Identifiers are validated and quoted; types are whitelisted;
+// defaults are bound expressions only when simple literals.
+func (c *Conn) CreateTable(ctx context.Context, database, table string, columns []NewColumn) error {
+	if !identPattern.MatchString(table) {
+		return fmt.Errorf("table name must be letters, digits, and underscores")
+	}
+	if len(columns) == 0 {
+		return fmt.Errorf("at least one column is required")
+	}
+	var defs []string
+	var pks []string
+	for _, col := range columns {
+		if !identPattern.MatchString(col.Name) {
+			return fmt.Errorf("column name %q must be letters, digits, and underscores", col.Name)
+		}
+		if !columnTypePattern.MatchString(strings.TrimSpace(col.Type)) {
+			return fmt.Errorf("unsupported column type %q", col.Type)
+		}
+		def := quoteIdent(col.Name) + " " + strings.ToUpper(strings.TrimSpace(col.Type))
+		if !col.Nullable {
+			def += " NOT NULL"
+		}
+		if col.AutoIncrement {
+			def += " AUTO_INCREMENT"
+		}
+		if col.Default != nil && !col.AutoIncrement {
+			d := strings.TrimSpace(*col.Default)
+			switch {
+			case strings.EqualFold(d, "NULL"):
+				def += " DEFAULT NULL"
+			case strings.EqualFold(d, "CURRENT_TIMESTAMP"):
+				def += " DEFAULT CURRENT_TIMESTAMP"
+			case regexp.MustCompile(`^-?\d+(\.\d+)?$`).MatchString(d):
+				def += " DEFAULT " + d
+			default:
+				def += " DEFAULT '" + strings.ReplaceAll(d, "'", "''") + "'"
+			}
+		}
+		defs = append(defs, def)
+		if col.PrimaryKey {
+			pks = append(pks, quoteIdent(col.Name))
+		}
+	}
+	if len(pks) > 0 {
+		defs = append(defs, "PRIMARY KEY ("+strings.Join(pks, ", ")+")")
+	}
+	query := fmt.Sprintf("CREATE TABLE %s.%s (%s)", quoteIdent(database), quoteIdent(table), strings.Join(defs, ", "))
+	_, err := c.db.ExecContext(ctx, query)
+	return err
+}
+
+// CreateDatabase creates a schema.
+func (c *Conn) CreateDatabase(ctx context.Context, name string) error {
+	if !identPattern.MatchString(name) {
+		return fmt.Errorf("database name must be letters, digits, and underscores")
+	}
+	if systemSchemas[name] {
+		return fmt.Errorf("that name is reserved")
+	}
+	_, err := c.db.ExecContext(ctx, "CREATE DATABASE "+quoteIdent(name))
+	return err
 }
 
 // TruncateTable empties a table.

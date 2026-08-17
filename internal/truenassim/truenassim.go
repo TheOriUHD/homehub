@@ -48,6 +48,7 @@ func Handler(apiKey string) http.Handler {
 	mux.HandleFunc("/api/v2.0/iscsi/target", auth(s.iscsi))
 	mux.HandleFunc("/api/v2.0/replication", auth(s.replication))
 	mux.HandleFunc("/api/v2.0/alert/list", auth(s.alerts))
+	mux.HandleFunc("/api/v2.0/reporting/get_data", auth(s.reporting))
 	return mux
 }
 
@@ -165,6 +166,24 @@ func (s *state) seed() {
 	s.alertList = []map[string]any{
 		{"level": "INFO", "formatted": "Scrub of pool 'tank' finished.", "dismissed": false, "datetime": map[string]any{"$date": int64(1755390000000)}},
 	}
+}
+
+// reporting serves the memory + arcsize graphs the RAM dial consumes:
+// 64 GiB total, 21 GiB free, 24 GiB ZFS ARC (services = the remainder).
+func (s *state) reporting(w http.ResponseWriter, _ *http.Request) {
+	const gib = float64(int64(1) << 30)
+	writeJSON(w, 200, []map[string]any{
+		{
+			"name":   "memory",
+			"legend": []string{"free", "used", "cached"},
+			"data":   [][]float64{{1755400000, 21 * gib, 19 * gib, 24 * gib}},
+		},
+		{
+			"name":   "arcsize",
+			"legend": []string{"arc_size"},
+			"data":   [][]float64{{1755400000, 24 * gib}},
+		},
+	})
 }
 
 func (s *state) systemInfo(w http.ResponseWriter, _ *http.Request)  { writeJSON(w, 200, s.info) }

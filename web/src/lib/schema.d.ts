@@ -1726,7 +1726,31 @@ export interface paths {
          */
         get: operations["dbListDatabases"];
         put?: never;
-        post?: never;
+        /**
+         * Create a database
+         * @description SQL engines only (MongoDB databases materialize with their first collection). Requires control on the instance. Audited.
+         */
+        post: operations["dbCreateDatabase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/db/{id}/databases/{database}/objects/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a table or collection
+         * @description The visual builder — SQL takes a typed column list (whitelisted types, PK and auto-increment flags), MongoDB takes just the collection name. Requires control on the database. Audited.
+         */
+        post: operations["dbCreateObject"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2092,6 +2116,27 @@ export interface paths {
          */
         get: operations["haListInstances"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ha/{id}/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's dashboard for this instance
+         * @description Per-user board layout; empty card list until the user saves one.
+         */
+        get: operations["haGetDashboard"];
+        /** Save the caller's dashboard */
+        put: operations["haPutDashboard"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3345,6 +3390,10 @@ export interface components {
             /** @enum {string} */
             status: "pending" | "connecting" | "connected" | "degraded" | "unreachable" | "disabled";
             statusMessage: string;
+            /** @description The configured upstream address */
+            host?: string;
+            /** @description The username HomeHub connects with — shown beside the console so it is clear whose privileges statements run under */
+            connectionUser?: string;
             stats?: components["schemas"]["DbStats"] | null;
         };
         DbStats: {
@@ -3515,8 +3564,26 @@ export interface components {
         };
         TruenasOverview: {
             info?: components["schemas"]["TruenasSystemInfo"] | null;
+            /** @description RAM allocation for the dashboard dial; null when reporting data is unavailable */
+            memory?: components["schemas"]["TruenasMemory"] | null;
             pools: components["schemas"]["TruenasPool"][];
             disks: components["schemas"]["TruenasDisk"][];
+        };
+        TruenasMemory: {
+            /** Format: int64 */
+            totalBytes: number;
+            /**
+             * Format: int64
+             * @description ZFS cache (ARC)
+             */
+            arcBytes: number;
+            /**
+             * Format: int64
+             * @description Everything else in use
+             */
+            servicesBytes: number;
+            /** Format: int64 */
+            freeBytes: number;
         };
         TruenasPool: {
             name: string;
@@ -3612,6 +3679,18 @@ export interface components {
             lastChanged: string;
             /** Format: date-time */
             lastUpdated: string;
+        };
+        HaDashboard: {
+            cards: components["schemas"]["HaDashboardCard"][];
+        };
+        HaDashboardCard: {
+            id: string;
+            /** @enum {string} */
+            type: "entity" | "group";
+            title?: string;
+            entityIds: string[];
+            /** @enum {string} */
+            size?: "small" | "medium" | "large";
         };
         HaServiceCall: {
             /** @description Service name within the entity's domain, e.g. turn_on */
@@ -6869,6 +6948,78 @@ export interface operations {
             502: components["responses"]["UpstreamError"];
         };
     };
+    dbCreateDatabase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    dbCreateObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                database: components["parameters"]["dbNameParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    columns?: {
+                        name: string;
+                        type: string;
+                        /** @default false */
+                        nullable?: boolean;
+                        default?: string;
+                        /** @default false */
+                        primaryKey?: boolean;
+                        /** @default false */
+                        autoIncrement?: boolean;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
     dbListObjects: {
         parameters: {
             query?: never;
@@ -7422,6 +7573,55 @@ export interface operations {
                     "application/json": components["schemas"]["HaInstance"][];
                 };
             };
+        };
+    };
+    haGetDashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The layout */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HaDashboard"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    haPutDashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HaDashboard"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
     haListEntities: {

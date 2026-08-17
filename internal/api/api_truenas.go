@@ -121,6 +121,12 @@ func (s *Server) TruenasOverview(ctx context.Context, req TruenasOverviewRequest
 	if info, ierr := conn.Info(ctx); ierr == nil {
 		out.Info = toAPITruenasInfo(info)
 	}
+	if mem, merr := conn.Memory(ctx); merr == nil && mem.TotalBytes > 0 {
+		out.Memory = &TruenasMemory{
+			TotalBytes: mem.TotalBytes, ArcBytes: mem.ArcBytes,
+			ServicesBytes: mem.ServicesBytes, FreeBytes: mem.FreeBytes,
+		}
+	}
 	pools, perr := conn.Pools(ctx)
 	if perr != nil {
 		return TruenasOverview502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", perr.Error()))}, nil

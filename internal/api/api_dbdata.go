@@ -391,6 +391,81 @@ func (s *Server) DbDropObject(ctx context.Context, req DbDropObjectRequestObject
 	return DbDropObject204Response{}, nil
 }
 
+func (s *Server) DbCreateDatabase(ctx context.Context, req DbCreateDatabaseRequestObject) (DbCreateDatabaseResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	conn, _, resource, err := s.dbConn(ctx, id, req.Id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return DbCreateDatabase404JSONResponse{notFoundErr("instance")}, nil
+		}
+		return DbCreateDatabase502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+	}
+	if !s.can(ctx, id, resource, rbac.LevelControl) {
+		s.deniedAudit(ctx, id, "db.create_database", resource)
+		return DbCreateDatabase403JSONResponse{forbidden()}, nil
+	}
+	sqlConn, ok := conn.(*dbsql.Conn)
+	if !ok {
+		return DbCreateDatabase400JSONResponse{BadRequestJSONResponse(errBody("wrong_engine", "MongoDB databases appear when their first collection is created"))}, nil
+	}
+	if err := sqlConn.CreateDatabase(ctx, req.Body.Name); err != nil {
+		return DbCreateDatabase502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+	}
+	s.audit.Log(ctx, actorFor(id), "db.create_database", resource, "success", map[string]any{"name": req.Body.Name})
+	return DbCreateDatabase204Response{}, nil
+}
+
+func (s *Server) DbCreateObject(ctx context.Context, req DbCreateObjectRequestObject) (DbCreateObjectResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	conn, dbRes, err := s.dbObjectAccess(ctx, id, req.Id, req.Database, rbac.LevelControl, "db.create_object")
+	if err != nil {
+		switch dbErrKind(err) {
+		case "notfound":
+			return DbCreateObject404JSONResponse{notFoundErr("database")}, nil
+		case "forbidden":
+			return DbCreateObject403JSONResponse{forbidden()}, nil
+		default:
+			return DbCreateObject502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+		}
+	}
+	switch c := conn.(type) {
+	case *dbsql.Conn:
+		if req.Body.Columns == nil || len(*req.Body.Columns) == 0 {
+			return DbCreateObject400JSONResponse{BadRequestJSONResponse(errBody("no_columns", "a table needs at least one column"))}, nil
+		}
+		cols := make([]dbsql.NewColumn, 0, len(*req.Body.Columns))
+		for _, in := range *req.Body.Columns {
+			col := dbsql.NewColumn{Name: in.Name, Type: in.Type}
+			if in.Nullable != nil {
+				col.Nullable = *in.Nullable
+			}
+			col.Default = in.Default
+			if in.PrimaryKey != nil {
+				col.PrimaryKey = *in.PrimaryKey
+			}
+			if in.AutoIncrement != nil {
+				col.AutoIncrement = *in.AutoIncrement
+			}
+			cols = append(cols, col)
+		}
+		if err := c.CreateTable(ctx, req.Database, req.Body.Name, cols); err != nil {
+			return DbCreateObject502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+		}
+	case *mongodb.Conn:
+		if err := c.CreateCollection(ctx, req.Database, req.Body.Name); err != nil {
+			return DbCreateObject502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+		}
+	}
+	s.audit.Log(ctx, actorFor(id), "db.create_object", dbRes, "success", map[string]any{"name": req.Body.Name})
+	return DbCreateObject204Response{}, nil
+}
+
 // ---- helpers ---------------------------------------------------------------
 
 func derefMap(m *map[string]*string) map[string]*string {
