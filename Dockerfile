@@ -19,7 +19,8 @@ RUN CGO_ENABLED=0 go build -trimpath -tags ui \
 
 # ---- runtime ----
 FROM alpine:3.22
-RUN apk add --no-cache ca-certificates tzdata \
+# postgresql client provides pg_dump/pg_restore for the backup system.
+RUN apk add --no-cache ca-certificates tzdata postgresql17-client \
     && addgroup -g 10001 homehub \
     && adduser -D -u 10001 -G homehub homehub \
     && mkdir -p /data && chown homehub:homehub /data

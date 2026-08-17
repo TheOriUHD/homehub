@@ -24,6 +24,9 @@ services:
       - homehub-data:/data
       # Uncomment to manage this host's Docker with the "socket" transport:
       # - /var/run/docker.sock:/var/run/docker.sock
+      # Uncomment to give "local disk" backup targets a path on the host
+      # (point the target at /backups in the app):
+      # - /srv/homehub-backups:/backups
     depends_on:
       db:
         condition: service_healthy

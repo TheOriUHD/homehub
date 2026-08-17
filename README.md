@@ -23,8 +23,33 @@ CPU/memory history, image management with registry update detection and
 private registry credentials, volumes, networks, and compose-stack views
 with pull-and-recreate redeploys.
 
+**DNS filtering** — Pi-hole (v5 and v6, autodetected) and AdGuard Home under
+one normalized surface: query rates and block percentage with history, live
+query log, blocklist and custom-rule management, client and group management,
+timed blocking disable with countdown, and cross-instance rule comparison
+with one-way sync.
+
 More integrations land as vertical slices — each ships complete or not at
 all.
+
+## Platform
+
+**History** — every integration feeds a metrics engine (raw samples rolled
+into 5-minute and 1-hour tiers, retention configurable in-app). The History
+page graphs any recorded series across systems on one timeline.
+
+**Alerting** — threshold rules over any metric with sustained-for windows,
+edge-triggered firing/resolved notifications, and delivery to webhook, email,
+ntfy, Gotify, Telegram, or Discord channels — all configured at runtime.
+Per-user routing decides which events reach which channels.
+
+**Backups** — scheduled application backups (`pg_dump` of the full state)
+to local disk, SMB shares, NFS exports, or S3-compatible storage, with
+per-target retention and optional age encryption. Targets are managed and
+write-tested in the app; restore replays an archive and restarts cleanly.
+The encryption key is exportable (audited) — store it offline. The database
+dump never contains the master key, so a restored instance needs the
+original `master.key` to unlock stored credentials.
 
 ## Quickstart
 
