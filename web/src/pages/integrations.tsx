@@ -37,6 +37,13 @@ export const statusTone = {
   disabled: "neutral",
 } as const;
 
+const typeLabels: Record<string, string> = {
+  proxmox: "Proxmox VE",
+  docker: "Docker",
+  pihole: "Pi-hole",
+  adguard: "AdGuard Home",
+};
+
 export function IntegrationsPage() {
   const { t } = useTranslation();
   const { can } = useAuth();
@@ -126,7 +133,7 @@ export function IntegrationsPage() {
                     {row.name}
                   </p>
                   <p className="text-fg-subtle mt-0.5 text-xs">
-                    {row.type === "proxmox" ? "Proxmox VE" : row.type === "docker" ? "Docker" : row.type} ·{" "}
+                    {typeLabels[row.type] ?? row.type} ·{" "}
                     {t(`integrations.status.${row.status}`)} · {formatRelative(row.statusChangedAt)}
                   </p>
                 </div>
@@ -170,6 +177,11 @@ export function IntegrationsPage() {
                     params={{ instanceId: row.id }}
                     className="text-accent text-[13px] font-medium hover:underline"
                   >
+                    {t("integrations.openModule")} →
+                  </Link>
+                )}
+                {(row.type === "pihole" || row.type === "adguard") && row.enabled && (
+                  <Link to="/dns" className="text-accent text-[13px] font-medium hover:underline">
                     {t("integrations.openModule")} →
                   </Link>
                 )}
@@ -251,6 +263,31 @@ const emptyDockerForm: DockerFormState = {
   sshSecret: "",
 };
 
+type PiholeFormState = {
+  name: string;
+  host: string;
+  password: string;
+  insecureTls: boolean;
+};
+
+type AdguardFormState = {
+  name: string;
+  host: string;
+  username: string;
+  password: string;
+  insecureTls: boolean;
+};
+
+const emptyPiholeForm: PiholeFormState = { name: "", host: "", password: "", insecureTls: false };
+
+const emptyAdguardForm: AdguardFormState = {
+  name: "",
+  host: "",
+  username: "",
+  password: "",
+  insecureTls: false,
+};
+
 type FormPayload = { config: Record<string, unknown>; secrets: Record<string, string> };
 
 function pvePayload(form: PveFormState): FormPayload {
@@ -290,6 +327,19 @@ function dockerPayload(form: DockerFormState): FormPayload {
   };
 }
 
+function piholePayload(form: PiholeFormState): FormPayload {
+  const secrets: Record<string, string> = {};
+  if (form.password) secrets.password = form.password;
+  return { config: { host: form.host, insecureTls: form.insecureTls }, secrets };
+}
+
+function adguardPayload(form: AdguardFormState): FormPayload {
+  const secrets: Record<string, string> = {};
+  if (form.username) secrets.username = form.username;
+  if (form.password) secrets.password = form.password;
+  return { config: { host: form.host, insecureTls: form.insecureTls }, secrets };
+}
+
 function pveComplete(form: PveFormState, isNew: boolean): boolean {
   return Boolean(
     form.name.trim() && form.host.trim() && form.tokenId.trim() && (form.tokenSecret.trim() || !isNew),
@@ -308,6 +358,18 @@ function dockerComplete(form: DockerFormState, isNew: boolean): boolean {
   }
 }
 
+function piholeComplete(form: PiholeFormState, isNew: boolean): boolean {
+  return Boolean(form.name.trim() && form.host.trim() && (form.password.trim() || !isNew));
+}
+
+function adguardComplete(form: AdguardFormState, isNew: boolean): boolean {
+  return Boolean(
+    form.name.trim() &&
+      form.host.trim() &&
+      ((form.username.trim() && form.password.trim()) || !isNew),
+  );
+}
+
 function AddIntegrationDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -321,10 +383,35 @@ function AddIntegrationDialog({ onClose }: { onClose: () => void }) {
   const [type, setType] = useState<IntegrationType | null>(null);
   const [pveForm, setPveForm] = useState<PveFormState>(emptyPveForm);
   const [dockerForm, setDockerForm] = useState<DockerFormState>(emptyDockerForm);
+  const [piholeForm, setPiholeForm] = useState<PiholeFormState>(emptyPiholeForm);
+  const [adguardForm, setAdguardForm] = useState<AdguardFormState>(emptyAdguardForm);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
-  const isDocker = type?.id === "docker";
-  const payload = () => (isDocker ? dockerPayload(dockerForm) : pvePayload(pveForm));
+  const kind = type?.id ?? "";
+  const payload = () => {
+    switch (kind) {
+      case "docker":
+        return dockerPayload(dockerForm);
+      case "pihole":
+        return piholePayload(piholeForm);
+      case "adguard":
+        return adguardPayload(adguardForm);
+      default:
+        return pvePayload(pveForm);
+    }
+  };
+  const formName = () => {
+    switch (kind) {
+      case "docker":
+        return dockerForm.name;
+      case "pihole":
+        return piholeForm.name;
+      case "adguard":
+        return adguardForm.name;
+      default:
+        return pveForm.name;
+    }
+  };
 
   const test = useMutation({
     mutationFn: async () =>
@@ -337,7 +424,7 @@ function AddIntegrationDialog({ onClose }: { onClose: () => void }) {
     mutationFn: async () =>
       unwrap(
         await api.POST("/integrations", {
-          body: { type: type!.id, name: isDocker ? dockerForm.name : pveForm.name, ...payload() },
+          body: { type: type!.id, name: formName(), ...payload() },
         }),
       ),
     onSuccess: () => {
@@ -369,7 +456,16 @@ function AddIntegrationDialog({ onClose }: { onClose: () => void }) {
     );
   }
 
-  const complete = isDocker ? dockerComplete(dockerForm, true) : pveComplete(pveForm, true);
+  const complete =
+    kind === "docker"
+      ? dockerComplete(dockerForm, true)
+      : kind === "pihole"
+        ? piholeComplete(piholeForm, true)
+        : kind === "adguard"
+          ? adguardComplete(adguardForm, true)
+          : pveComplete(pveForm, true);
+
+  const clearTest = () => setTestResult(null);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -395,10 +491,14 @@ function AddIntegrationDialog({ onClose }: { onClose: () => void }) {
           </>
         }
       >
-        {isDocker ? (
-          <DockerForm form={dockerForm} setForm={setDockerForm} isNew testResult={testResult} onFormChange={() => setTestResult(null)} />
+        {kind === "docker" ? (
+          <DockerForm form={dockerForm} setForm={setDockerForm} isNew testResult={testResult} onFormChange={clearTest} />
+        ) : kind === "pihole" ? (
+          <PiholeForm form={piholeForm} setForm={setPiholeForm} isNew testResult={testResult} onFormChange={clearTest} />
+        ) : kind === "adguard" ? (
+          <AdguardForm form={adguardForm} setForm={setAdguardForm} isNew testResult={testResult} onFormChange={clearTest} />
         ) : (
-          <PveForm form={pveForm} setForm={setPveForm} isNew testResult={testResult} onFormChange={() => setTestResult(null)} />
+          <PveForm form={pveForm} setForm={setPveForm} isNew testResult={testResult} onFormChange={clearTest} />
         )}
         {!testResult && <p className="text-fg-subtle mt-3 text-[13px]">{t("integrations.testFirst")}</p>}
       </DialogContent>
@@ -411,7 +511,7 @@ function EditIntegrationDialog({ row, onClose }: { row: Integration; onClose: ()
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const isDocker = row.type === "docker";
+  const kind = row.type;
   const cfg = row.config as Record<string, unknown>;
   const [pveForm, setPveForm] = useState<PveFormState>({
     name: row.name,
@@ -432,15 +532,42 @@ function EditIntegrationDialog({ row, onClose }: { row: Integration; onClose: ()
     authType: cfg.authType === "key" ? "key" : "password",
     tls: Boolean(cfg.tls),
   });
+  const [piholeForm, setPiholeForm] = useState<PiholeFormState>({
+    ...emptyPiholeForm,
+    name: row.name,
+    host: String(cfg.host ?? ""),
+    insecureTls: Boolean(cfg.insecureTls),
+  });
+  const [adguardForm, setAdguardForm] = useState<AdguardFormState>({
+    ...emptyAdguardForm,
+    name: row.name,
+    host: String(cfg.host ?? ""),
+    insecureTls: Boolean(cfg.insecureTls),
+  });
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const save = useMutation({
     mutationFn: async () => {
-      const { config, secrets } = isDocker ? dockerPayload(dockerForm) : pvePayload(pveForm);
+      const { config, secrets } =
+        kind === "docker"
+          ? dockerPayload(dockerForm)
+          : kind === "pihole"
+            ? piholePayload(piholeForm)
+            : kind === "adguard"
+              ? adguardPayload(adguardForm)
+              : pvePayload(pveForm);
+      const name =
+        kind === "docker"
+          ? dockerForm.name
+          : kind === "pihole"
+            ? piholeForm.name
+            : kind === "adguard"
+              ? adguardForm.name
+              : pveForm.name;
       return unwrap(
         await api.PATCH("/integrations/{id}", {
           params: { path: { id: row.id } },
-          body: { name: isDocker ? dockerForm.name : pveForm.name, config, secrets },
+          body: { name, config, secrets },
         }),
       );
     },
@@ -451,7 +578,16 @@ function EditIntegrationDialog({ row, onClose }: { row: Integration; onClose: ()
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
-  const complete = isDocker ? dockerComplete(dockerForm, false) : pveComplete(pveForm, false);
+  const complete =
+    kind === "docker"
+      ? dockerComplete(dockerForm, false)
+      : kind === "pihole"
+        ? piholeComplete(piholeForm, false)
+        : kind === "adguard"
+          ? adguardComplete(adguardForm, false)
+          : pveComplete(pveForm, false);
+
+  const clearTest = () => setTestResult(null);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -469,10 +605,14 @@ function EditIntegrationDialog({ row, onClose }: { row: Integration; onClose: ()
           </>
         }
       >
-        {isDocker ? (
-          <DockerForm form={dockerForm} setForm={setDockerForm} isNew={false} testResult={testResult} onFormChange={() => setTestResult(null)} />
+        {kind === "docker" ? (
+          <DockerForm form={dockerForm} setForm={setDockerForm} isNew={false} testResult={testResult} onFormChange={clearTest} />
+        ) : kind === "pihole" ? (
+          <PiholeForm form={piholeForm} setForm={setPiholeForm} isNew={false} testResult={testResult} onFormChange={clearTest} />
+        ) : kind === "adguard" ? (
+          <AdguardForm form={adguardForm} setForm={setAdguardForm} isNew={false} testResult={testResult} onFormChange={clearTest} />
         ) : (
-          <PveForm form={pveForm} setForm={setPveForm} isNew={false} testResult={testResult} onFormChange={() => setTestResult(null)} />
+          <PveForm form={pveForm} setForm={setPveForm} isNew={false} testResult={testResult} onFormChange={clearTest} />
         )}
       </DialogContent>
     </Dialog>
@@ -665,6 +805,110 @@ function DockerForm({
           </Field>
         </>
       )}
+
+      <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
+function PiholeForm({
+  form,
+  setForm,
+  isNew,
+  testResult,
+  onFormChange,
+}: {
+  form: PiholeFormState;
+  setForm: (fn: (prev: PiholeFormState) => PiholeFormState) => void;
+  isNew: boolean;
+  testResult: TestConnectionResult | null;
+  onFormChange: () => void;
+}) {
+  const { t } = useTranslation();
+  const update = (patch: Partial<PiholeFormState>) => {
+    onFormChange();
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.form.name")} hint={t("integrations.form.nameHintPihole")}>
+          {(p) => <Input {...p} autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.pihole.host")} hint={t("integrations.pihole.hostHint")}>
+          {(p) => <Input {...p} placeholder="pihole.lan" value={form.host} onChange={(e) => update({ host: e.target.value })} />}
+        </Field>
+      </div>
+      <Field
+        label={t("integrations.pihole.password")}
+        hint={isNew ? t("integrations.pihole.passwordHint") : t("integrations.pihole.passwordKeep")}
+      >
+        {(p) => (
+          <PasswordInput {...p} className="font-mono text-[13px]" value={form.password} onChange={(e) => update({ password: e.target.value })} />
+        )}
+      </Field>
+      <Checkbox
+        checked={form.insecureTls}
+        onCheckedChange={(checked) => update({ insecureTls: checked })}
+        label={t("integrations.dns.insecureTls")}
+        hint={t("integrations.dns.insecureTlsHint")}
+      />
+
+      <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
+function AdguardForm({
+  form,
+  setForm,
+  isNew,
+  testResult,
+  onFormChange,
+}: {
+  form: AdguardFormState;
+  setForm: (fn: (prev: AdguardFormState) => AdguardFormState) => void;
+  isNew: boolean;
+  testResult: TestConnectionResult | null;
+  onFormChange: () => void;
+}) {
+  const { t } = useTranslation();
+  const update = (patch: Partial<AdguardFormState>) => {
+    onFormChange();
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.form.name")} hint={t("integrations.form.nameHintAdguard")}>
+          {(p) => <Input {...p} autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.adguard.host")} hint={t("integrations.adguard.hostHint")}>
+          {(p) => <Input {...p} placeholder="192.168.1.5:3000" value={form.host} onChange={(e) => update({ host: e.target.value })} />}
+        </Field>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label={t("integrations.adguard.username")}
+          hint={isNew ? undefined : t("integrations.adguard.usernameKeep")}
+        >
+          {(p) => <Input {...p} value={form.username} onChange={(e) => update({ username: e.target.value })} />}
+        </Field>
+        <Field
+          label={t("integrations.adguard.password")}
+          hint={isNew ? undefined : t("integrations.adguard.passwordKeep")}
+        >
+          {(p) => <PasswordInput {...p} value={form.password} onChange={(e) => update({ password: e.target.value })} />}
+        </Field>
+      </div>
+      <Checkbox
+        checked={form.insecureTls}
+        onCheckedChange={(checked) => update({ insecureTls: checked })}
+        label={t("integrations.dns.insecureTls")}
+        hint={t("integrations.dns.insecureTlsHint")}
+      />
 
       <TestResultNote result={testResult} />
     </div>

@@ -22,7 +22,9 @@ import (
 	"homehub/internal/db"
 	"homehub/internal/httpserver"
 	"homehub/internal/integration"
+	"homehub/internal/integrations/adguard"
 	"homehub/internal/integrations/docker"
+	"homehub/internal/integrations/pihole"
 	"homehub/internal/integrations/proxmox"
 	"homehub/internal/jobs"
 	"homehub/internal/metrics"
@@ -84,6 +86,8 @@ func Run(ctx context.Context) error {
 	manager := integration.NewManager(st, v, metricsSvc, hub, logger)
 	manager.Register(proxmox.Driver{})
 	manager.Register(docker.Driver{})
+	manager.Register(pihole.Driver{})
+	manager.Register(adguard.Driver{})
 	manager.StatusChanged = statusNotifier(st, engine, hub, logger)
 
 	docker.RegisterJobs(func(kind string, fn func(ctx context.Context, payload json.RawMessage) error) {
