@@ -1,30 +1,55 @@
 // HomeHub Companion — Minecraft server plugin workspace.
-// `gradle dist` builds the shaded paper jar and stages it (plus manifest.json)
-// under companion/dist/ where HomeHub's `go build -tags companion` embeds it.
+// `gradle dist` builds every loader jar and stages them (plus manifest.json)
+// under companion/dist/ where HomeHub's `go build -tags companion` embeds them.
+//
+// paper/velocity/fabric are subprojects; forge/ is a standalone Gradle build
+// (ForgeGradle can't share a multi-project with fabric-loom) driven here via
+// the forgeBuild task.
 
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
+tasks.register('forgeBuild', Exec) {
+    dependsOn ':core:jar' // forge's build consumes core/build/libs/core-<v>.jar
+    workingDir file('forge')
+    // The forge build carries its own Gradle wrapper: ForgeGradle 7 (required
+    // by Forge 1.21.9+) needs Gradle 9.3+, newer than this root build's Gradle.
+    commandLine file('forge/gradlew').absolutePath, 'build', '--console=plain'
+}
+
 tasks.register('dist') {
-    dependsOn ':paper:shadowJar'
+    dependsOn ':paper:shadowJar', ':velocity:shadowJar', ':fabric:remapJar', 'forgeBuild'
     def distDir = file('dist')
     doLast {
         distDir.mkdirs()
-        def shadow = project(':paper').tasks.named('shadowJar').get()
-        def built = shadow.archiveFile.get().asFile
-        def jarName = "homehub-companion-paper-${project.version}.jar"
-        def target = new File(distDir, jarName)
-        Files.copy(built.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+
+        def stage = { File built, String jarName ->
+            Files.copy(built.toPath(), new File(distDir, jarName).toPath(),
+                    StandardCopyOption.REPLACE_EXISTING)
+            println "dist: ${new File(distDir, jarName)}"
+        }
+
+        def paperJar = "homehub-companion-paper-${project.version}.jar"
+        def velocityJar = "homehub-companion-velocity-${project.version}.jar"
+        def fabricJar = "homehub-companion-fabric-${project.version}.jar"
+        def forgeJar = "homehub-companion-forge-${project.version}.jar"
+
+        stage(project(':paper').tasks.named('shadowJar').get().archiveFile.get().asFile, paperJar)
+        stage(project(':velocity').tasks.named('shadowJar').get().archiveFile.get().asFile, velocityJar)
+        stage(project(':fabric').tasks.named('remapJar').get().archiveFile.get().asFile, fabricJar)
+        stage(file("forge/build/libs/${forgeJar}"), forgeJar)
 
         // One jar serves both Paper and Spigot (1.16.5+); the manifest lists
         // both loaders pointing at the same file.
         def manifest = new File(distDir, 'manifest.json')
         manifest.setText(
             '[\n' +
-            "  {\"loader\":\"paper\",\"file\":\"${jarName}\",\"mcVersions\":\"1.16.5 – 1.21.x\"},\n" +
-            "  {\"loader\":\"spigot\",\"file\":\"${jarName}\",\"mcVersions\":\"1.16.5 – 1.21.x\"}\n" +
+            "  {\"loader\":\"paper\",\"file\":\"${paperJar}\",\"mcVersions\":\"1.16.5 – 1.21.x\"},\n" +
+            "  {\"loader\":\"spigot\",\"file\":\"${paperJar}\",\"mcVersions\":\"1.16.5 – 1.21.x\"},\n" +
+            "  {\"loader\":\"velocity\",\"file\":\"${velocityJar}\",\"mcVersions\":\"Velocity 3.3+\"},\n" +
+            "  {\"loader\":\"fabric\",\"file\":\"${fabricJar}\",\"mcVersions\":\"1.21.x\"},\n" +
+            "  {\"loader\":\"forge\",\"file\":\"${forgeJar}\",\"mcVersions\":\"1.21.x\"}\n" +
             ']\n', 'UTF-8')
-        println "dist: ${target}"
         println "dist: ${manifest}"
     }
 }

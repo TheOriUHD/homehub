@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "homehubcompanion",
+  "version": "${version}",
+  "name": "HomeHub Companion",
+  "description": "Connects this server to HomeHub for console, players, metrics, and remote commands.",
+  "authors": ["HomeHub"],
+  "license": "MIT",
+  "environment": "server",
+  "entrypoints": {
+    "server": ["dev.homehub.companion.fabric.HomeHubCompanionFabric"]
+  },
+  "mixins": ["homehubcompanion.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": ">=1.21"
+  }
+}

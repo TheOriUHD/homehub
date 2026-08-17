@@ -1,0 +1,49 @@
+// Fabric dedicated-server adapter. Dependency-free at runtime (no fabric-api):
+// the server instance and tick timings come from two small mixins, and the
+// /homehub command registers straight into the Brigadier dispatcher.
+plugins {
+    id 'fabric-loom' version '1.8.13'
+    id 'com.gradleup.shadow' version '8.3.5'
+}
+
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    shade
+    implementation.extendsFrom shade
+}
+
+dependencies {
+    minecraft 'com.mojang:minecraft:1.21.11'
+    mappings loom.officialMojangMappings()
+    modImplementation 'net.fabricmc:fabric-loader:0.19.3'
+
+    shade project(':core')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+    options.encoding = 'UTF-8'
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand version: project.version
+    }
+}
+
+shadowJar {
+    configurations = [project.configurations.shade]
+    archiveClassifier = 'dev-shadow'
+    relocate 'com.neovisionaries.ws', 'dev.homehub.companion.shaded.ws'
+}
+
+remapJar {
+    dependsOn shadowJar
+    inputFile.set(shadowJar.archiveFile)
+    archiveBaseName = 'homehub-companion-fabric'
+    archiveClassifier = ''
+}

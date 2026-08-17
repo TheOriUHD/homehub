@@ -76,6 +76,16 @@ public final class Frames {
         st.addProperty("playersMax", s.playersMax);
         st.addProperty("heapUsedMb", s.heapUsedMb);
         st.addProperty("heapMaxMb", s.heapMaxMb);
+        if (s.downstream != null) {
+            JsonArray ds = new JsonArray();
+            for (DownstreamInfo d : s.downstream) {
+                JsonObject jd = new JsonObject();
+                jd.addProperty("name", d.name);
+                jd.addProperty("players", d.players);
+                ds.add(jd);
+            }
+            st.add("downstream", ds);
+        }
         JsonObject o = new JsonObject();
         o.addProperty("type", "status");
         o.add("status", st);

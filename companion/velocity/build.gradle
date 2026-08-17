@@ -1,0 +1,36 @@
+// Velocity proxy adapter. Compiled against velocity-api 3.3.0; the proxy
+// reports downstream servers instead of TPS/MSPT.
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version '8.3.5'
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    implementation project(':core')
+    compileOnly 'com.velocitypowered:velocity-api:3.3.0-SNAPSHOT'
+    annotationProcessor 'com.velocitypowered:velocity-api:3.3.0-SNAPSHOT'
+    // Provided by the proxy at runtime.
+    compileOnly 'com.google.code.gson:gson:2.8.9'
+    compileOnly 'org.apache.logging.log4j:log4j-core:2.17.1'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+}
+
+shadowJar {
+    archiveBaseName = 'homehub-companion-velocity'
+    archiveClassifier = ''
+    relocate 'com.neovisionaries.ws', 'dev.homehub.companion.shaded.ws'
+}
+
+jar {
+    enabled = false
+}
+build.dependsOn shadowJar

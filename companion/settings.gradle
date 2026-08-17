@@ -1,4 +1,15 @@
+pluginManagement {
+    repositories {
+        maven { url = 'https://maven.fabricmc.net/' }
+        gradlePluginPortal()
+    }
+}
+
 rootProject.name = 'homehub-companion'
 
 include 'core'
 include 'paper'
+include 'velocity'
+include 'fabric'
+// forge/ is a standalone Gradle build (ForgeGradle rewires too much of the
+// build to share a multi-project with loom); the root dist task drives it.
