@@ -3156,6 +3156,122 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /truenas/instances:
+    get:
+      operationId: truenasListInstances
+      summary: All TrueNAS instances with live system info
+      tags: [truenas]
+      responses:
+        "200":
+          description: Visible instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TruenasInstance" }
+
+  /truenas/{id}/overview:
+    get:
+      operationId: truenasOverview
+      summary: Pools, disks, and system summary
+      description: The storage dashboard — pools with capacity and health (filtered to pools the caller may view), disks with temperature, and system info.
+      tags: [truenas]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TruenasOverview" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /truenas/{id}/datasets:
+    get:
+      operationId: truenasDatasets
+      summary: Datasets and zvols
+      tags: [truenas]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Datasets
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TruenasDataset" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /truenas/{id}/shares:
+    get:
+      operationId: truenasShares
+      summary: SMB, NFS, and iSCSI shares
+      tags: [truenas]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Shares
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TruenasShare" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /truenas/{id}/snapshots:
+    get:
+      operationId: truenasSnapshots
+      summary: Recent ZFS snapshots
+      tags: [truenas]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        "200":
+          description: Snapshots, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TruenasSnapshot" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /truenas/{id}/alerts:
+    get:
+      operationId: truenasAlerts
+      summary: Active system alerts
+      tags: [truenas]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TruenasAlert" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /ha/instances:
     get:
       operationId: haListInstances
@@ -5176,6 +5292,112 @@ components:
         mcVersions:
           type: string
           description: Human-readable supported range, e.g. "1.16.5 – 1.21.x"
+
+    TruenasInstance:
+      type: object
+      required: [id, name, status, statusMessage]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status:
+          type: string
+          enum: [pending, connecting, connected, degraded, unreachable, disabled]
+        statusMessage: { type: string }
+        info:
+          allOf:
+            - $ref: "#/components/schemas/TruenasSystemInfo"
+          nullable: true
+        poolCount: { type: integer }
+
+    TruenasSystemInfo:
+      type: object
+      required: [version, hostname]
+      properties:
+        version: { type: string }
+        hostname: { type: string }
+        uptime: { type: string }
+        model: { type: string }
+        cores: { type: integer }
+        physicalMemoryBytes: { type: integer, format: int64 }
+
+    TruenasOverview:
+      type: object
+      required: [pools, disks]
+      properties:
+        info:
+          allOf:
+            - $ref: "#/components/schemas/TruenasSystemInfo"
+          nullable: true
+        pools:
+          type: array
+          items: { $ref: "#/components/schemas/TruenasPool" }
+        disks:
+          type: array
+          items: { $ref: "#/components/schemas/TruenasDisk" }
+
+    TruenasPool:
+      type: object
+      required: [name, status, healthy, sizeBytes, allocatedBytes, freeBytes, usedPct]
+      properties:
+        name: { type: string }
+        status: { type: string }
+        healthy: { type: boolean }
+        sizeBytes: { type: integer, format: int64 }
+        allocatedBytes: { type: integer, format: int64 }
+        freeBytes: { type: integer, format: int64 }
+        usedPct: { type: number, format: double }
+        fragmentation: { type: string }
+
+    TruenasDisk:
+      type: object
+      required: [name, size, type]
+      properties:
+        name: { type: string }
+        serial: { type: string }
+        model: { type: string }
+        size: { type: integer, format: int64 }
+        type: { type: string }
+        temperature: { type: integer, nullable: true }
+        pool: { type: string }
+
+    TruenasDataset:
+      type: object
+      required: [name, type, usedBytes, availableBytes]
+      properties:
+        name: { type: string }
+        type: { type: string }
+        usedBytes: { type: integer, format: int64 }
+        availableBytes: { type: integer, format: int64 }
+        compression: { type: string }
+        mountpoint: { type: string }
+
+    TruenasShare:
+      type: object
+      required: [type, name, enabled]
+      properties:
+        type: { type: string, enum: [smb, nfs, iscsi] }
+        name: { type: string }
+        path: { type: string }
+        enabled: { type: boolean }
+        comment: { type: string }
+
+    TruenasSnapshot:
+      type: object
+      required: [name, dataset]
+      properties:
+        name: { type: string }
+        dataset: { type: string }
+        usedBytes: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time, nullable: true }
+
+    TruenasAlert:
+      type: object
+      required: [level, message, dismissed]
+      properties:
+        level: { type: string }
+        message: { type: string }
+        dismissed: { type: boolean }
+        createdAt: { type: string, format: date-time, nullable: true }
 
     HaInstance:
       type: object

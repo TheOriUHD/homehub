@@ -1974,6 +1974,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/truenas/instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All TrueNAS instances with live system info */
+        get: operations["truenasListInstances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/truenas/{id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pools, disks, and system summary
+         * @description The storage dashboard — pools with capacity and health (filtered to pools the caller may view), disks with temperature, and system info.
+         */
+        get: operations["truenasOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/truenas/{id}/datasets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Datasets and zvols */
+        get: operations["truenasDatasets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/truenas/{id}/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** SMB, NFS, and iSCSI shares */
+        get: operations["truenasShares"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/truenas/{id}/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent ZFS snapshots */
+        get: operations["truenasSnapshots"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/truenas/{id}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Active system alerts */
+        get: operations["truenasAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ha/instances": {
         parameters: {
             query?: never;
@@ -3388,6 +3493,87 @@ export interface components {
             sizeBytes: number;
             /** @description Human-readable supported range, e.g. "1.16.5 – 1.21.x" */
             mcVersions: string;
+        };
+        TruenasInstance: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            status: "pending" | "connecting" | "connected" | "degraded" | "unreachable" | "disabled";
+            statusMessage: string;
+            info?: components["schemas"]["TruenasSystemInfo"] | null;
+            poolCount?: number;
+        };
+        TruenasSystemInfo: {
+            version: string;
+            hostname: string;
+            uptime?: string;
+            model?: string;
+            cores?: number;
+            /** Format: int64 */
+            physicalMemoryBytes?: number;
+        };
+        TruenasOverview: {
+            info?: components["schemas"]["TruenasSystemInfo"] | null;
+            pools: components["schemas"]["TruenasPool"][];
+            disks: components["schemas"]["TruenasDisk"][];
+        };
+        TruenasPool: {
+            name: string;
+            status: string;
+            healthy: boolean;
+            /** Format: int64 */
+            sizeBytes: number;
+            /** Format: int64 */
+            allocatedBytes: number;
+            /** Format: int64 */
+            freeBytes: number;
+            /** Format: double */
+            usedPct: number;
+            fragmentation?: string;
+        };
+        TruenasDisk: {
+            name: string;
+            serial?: string;
+            model?: string;
+            /** Format: int64 */
+            size: number;
+            type: string;
+            temperature?: number | null;
+            pool?: string;
+        };
+        TruenasDataset: {
+            name: string;
+            type: string;
+            /** Format: int64 */
+            usedBytes: number;
+            /** Format: int64 */
+            availableBytes: number;
+            compression?: string;
+            mountpoint?: string;
+        };
+        TruenasShare: {
+            /** @enum {string} */
+            type: "smb" | "nfs" | "iscsi";
+            name: string;
+            path?: string;
+            enabled: boolean;
+            comment?: string;
+        };
+        TruenasSnapshot: {
+            name: string;
+            dataset: string;
+            /** Format: int64 */
+            usedBytes?: number;
+            /** Format: date-time */
+            createdAt?: string | null;
+        };
+        TruenasAlert: {
+            level: string;
+            message: string;
+            dismissed: boolean;
+            /** Format: date-time */
+            createdAt?: string | null;
         };
         HaInstance: {
             /** Format: uuid */
@@ -7074,6 +7260,148 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    truenasListInstances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Visible instances */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TruenasInstance"][];
+                };
+            };
+        };
+    };
+    truenasOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TruenasOverview"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    truenasDatasets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Datasets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TruenasDataset"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    truenasShares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Shares */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TruenasShare"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    truenasSnapshots: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Snapshots, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TruenasSnapshot"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    truenasAlerts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Alerts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TruenasAlert"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
         };
     };
     haListInstances: {
