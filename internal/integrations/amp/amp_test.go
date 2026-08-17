@@ -43,7 +43,7 @@ func TestTestVerdicts(t *testing.T) {
 	if !res.OK {
 		t.Fatalf("expected success, got %q", res.Message)
 	}
-	if !strings.Contains(res.Message, "3 instance(s)") {
+	if !strings.Contains(res.Message, "4 instance(s)") {
 		t.Fatalf("unexpected message %q", res.Message)
 	}
 
@@ -61,8 +61,8 @@ func TestTargetsAndMetrics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Targets: %v", err)
 	}
-	if len(targets) != 1 || len(targets[0].Instances) != 3 {
-		t.Fatalf("expected 1 target with 3 instances, got %+v", targets)
+	if len(targets) != 1 || len(targets[0].Instances) != 4 {
+		t.Fatalf("expected 1 target with 4 instances, got %+v", targets)
 	}
 	target := targets[0]
 	if target.CPUModel != "Ryzen 7 5800X" || target.RAMMB != 32768 {
@@ -250,5 +250,29 @@ func TestAmpTimeFormats(t *testing.T) {
 	}
 	if err := ts.UnmarshalJSON([]byte(`"2026-08-17T10:00:00"`)); err != nil {
 		t.Fatalf("zoneless ISO date: %v", err)
+	}
+}
+
+func TestOfflineInstance(t *testing.T) {
+	conn, _ := newTestConn(t)
+	ctx := context.Background()
+
+	targets, err := conn.Targets(ctx)
+	if err != nil {
+		t.Fatalf("Targets: %v", err)
+	}
+	var rust *NormInstance
+	for i := range targets[0].Instances {
+		if targets[0].Instances[i].ID == ampsim.RustID {
+			rust = &targets[0].Instances[i]
+		}
+	}
+	if rust == nil || rust.State != "offline" || rust.Running {
+		t.Fatalf("stopped container must report offline, got %+v", rust)
+	}
+
+	_, err = conn.InstanceStatus(ctx, ampsim.RustID)
+	if err == nil || !strings.Contains(err.Error(), "not running — start it first") {
+		t.Fatalf("expected the not-running sentence, got %v", err)
 	}
 }

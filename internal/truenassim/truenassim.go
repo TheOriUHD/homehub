@@ -170,17 +170,33 @@ func (s *state) seed() {
 
 // reporting serves the memory + arcsize graphs the RAM dial consumes:
 // 64 GiB total, 21 GiB free, 24 GiB ZFS ARC (services = the remainder).
-func (s *state) reporting(w http.ResponseWriter, _ *http.Request) {
+func (s *state) reporting(w http.ResponseWriter, r *http.Request) {
+	// Mirrors TrueNAS 25.x: the legacy reporting_query field is rejected
+	// outright, and query.page must be >= 1 when present.
+	var body struct {
+		ReportingQuery map[string]any `json:"reporting_query"`
+		Query          map[string]any `json:"query"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+		if body.ReportingQuery != nil {
+			writeJSON(w, 400, map[string]any{"message": "The following attributes are not expected: reporting_query"})
+			return
+		}
+		if page, ok := body.Query["page"].(float64); ok && page < 1 {
+			writeJSON(w, 422, map[string]any{"query.page": []map[string]any{{"message": "Input should be greater than or equal to 1", "errno": 22}}})
+			return
+		}
+	}
 	const gib = float64(int64(1) << 30)
 	writeJSON(w, 200, []map[string]any{
 		{
 			"name":   "memory",
-			"legend": []string{"free", "used", "cached"},
-			"data":   [][]float64{{1755400000, 21 * gib, 19 * gib, 24 * gib}},
+			"legend": []string{"time", "available"},
+			"data":   [][]float64{{1755400000, 21 * gib}},
 		},
 		{
 			"name":   "arcsize",
-			"legend": []string{"arc_size"},
+			"legend": []string{"time", "arc_size"},
 			"data":   [][]float64{{1755400000, 24 * gib}},
 		},
 	})

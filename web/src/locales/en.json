@@ -538,7 +538,9 @@
       "tailnet": "Tailnet",
       "tailnetHint": "Your tailnet name from the admin console, e.g. example.com — leave empty for the token's default",
       "apiKey": "API access token",
-      "apiKeyHint": "Create one under Settings → Keys in the Tailscale admin console (starts with tskey-api-)"
+      "apiKeyHint": "Create one under Settings → Keys in the Tailscale admin console (starts with tskey-api-)",
+      "autoRenew": "Renew the API token automatically",
+      "autoRenewHint": "An info notification each day of the final week; one day before expiry HomeHub mints a clearly-named replacement token, switches to it, and revokes the old one."
     },
     "caddy": {
       "baseUrl": "Helper address",
@@ -579,7 +581,15 @@
     "wizard": {
       "title": "Add system",
       "intro": "What do you want to connect?",
-      "noForm": "This system type has no setup form yet."
+      "noForm": "This system type has no setup form yet.",
+      "categories": {
+        "infrastructure": "Infrastructure",
+        "network": "Network & edge",
+        "game": "Game servers",
+        "data": "Databases",
+        "home": "Home & vision",
+        "other": "Other"
+      }
     },
     "types": {
       "proxmox": "Proxmox VE",
@@ -591,7 +601,7 @@
       "mysql": "MySQL / MariaDB",
       "mongodb": "MongoDB",
       "truenas": "TrueNAS",
-      "amp": "AMP (CubeCoders)",
+      "amp": "AMP",
       "tailscale": "Tailscale",
       "caddy": "Caddy",
       "aperture": "Aperture"
@@ -2271,7 +2281,10 @@
         "type": "Type",
         "temperature": "Temp",
         "pool": "Pool"
-      }
+      },
+      "alertCount": "{{count}} active alert(s)",
+      "alertsMore": "Show {{count}} more",
+      "alertsLess": "Show fewer"
     },
     "datasets": {
       "columns": {
@@ -2357,7 +2370,8 @@
       "failed": "Failed",
       "suspended": "Suspended",
       "maintenance": "Maintenance",
-      "indeterminate": "Indeterminate"
+      "indeterminate": "Indeterminate",
+      "offline": "Instance stopped"
     },
     "instance": {
       "back": "All servers",
@@ -2373,7 +2387,9 @@
       "lifecycleRestart": "Restart instance",
       "killTitle": "Kill the process?",
       "killBody": "“{{name}}” is terminated immediately without saving. Use Stop for a graceful shutdown.",
-      "actionFailed": "Action failed"
+      "actionFailed": "Action failed",
+      "offlineTitle": "This instance is stopped",
+      "offlineBody": "The instance container is not running, so its console and status are unreachable. Start it and everything comes back."
     },
     "console": {
       "loading": "Loading console…",

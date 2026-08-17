@@ -39,7 +39,7 @@ const TypeID = "amp"
 type Driver struct{}
 
 func (Driver) TypeID() string      { return TypeID }
-func (Driver) DisplayName() string { return "AMP (CubeCoders)" }
+func (Driver) DisplayName() string { return "AMP" }
 func (Driver) Description() string {
 	return "CubeCoders AMP game panel: every instance with live state, players, CPU and memory, full console with command dispatch, and application and instance lifecycle control."
 }
@@ -102,19 +102,53 @@ func (c *client) apiURL(scope, api string) string {
 	return c.base + "/API/ADSModule/Servers/" + url.PathEscape(scope) + "/API/" + api
 }
 
-// login opens a fresh session for a scope and stores it.
+// login opens a fresh session for a scope and stores it. Instance scopes
+// fall back to a controller-issued remote login token when direct
+// credentials are refused — ADS-managed instances often have no local
+// users of their own.
 func (c *client) login(ctx context.Context, scope string) error {
-	params := map[string]any{
-		"username":   c.username,
-		"password":   c.password,
-		"token":      "",
-		"rememberMe": false,
-	}
-	var res LoginResult
-	if err := c.post(ctx, c.apiURL(scope, "Core/Login"), params, &res); err != nil {
+	err := c.tryLogin(ctx, scope, c.username, c.password, "")
+	if err == nil || scope == "" {
 		return err
 	}
-	if !res.Success || res.SessionID == "" {
+	if errors.Is(err, errInstanceUnavailable) {
+		return err
+	}
+	// Direct credentials refused on the instance: mint a remote login
+	// token on the controller and try the two ways AMP accepts it.
+	remote, rerr := c.remoteLoginToken(ctx)
+	if rerr != nil {
+		return err // report the original refusal, not the fallback's
+	}
+	if ferr := c.tryLogin(ctx, scope, c.username, "", remote); ferr == nil {
+		return nil
+	}
+	if ferr := c.tryLogin(ctx, scope, c.username, remote, ""); ferr == nil {
+		return nil
+	}
+	return err
+}
+
+// errInstanceUnavailable marks ADS refusing to proxy at all — the instance
+// container is stopped, so no auth strategy can help.
+var errInstanceUnavailable = errors.New("the instance is not running — start it first, then its console and status become available")
+
+func (c *client) tryLogin(ctx context.Context, scope, username, password, token string) error {
+	params := map[string]any{
+		"username":   username,
+		"password":   password,
+		"token":      token,
+		"rememberMe": false,
+	}
+	var raw json.RawMessage
+	if err := c.post(ctx, c.apiURL(scope, "Core/Login"), params, &raw); err != nil {
+		return err
+	}
+	if errorTitle(raw) == "Instance Unavailable" {
+		return errInstanceUnavailable
+	}
+	var res LoginResult
+	if err := json.Unmarshal(raw, &res); err != nil || !res.Success || res.SessionID == "" {
 		reason := res.ResultReason
 		if reason == "" {
 			reason = "login failed"
@@ -125,6 +159,33 @@ func (c *client) login(ctx context.Context, scope string) error {
 	c.sessions[scope] = res.SessionID
 	c.mu.Unlock()
 	return nil
+}
+
+// remoteLoginToken asks the controller for a one-shot instance login token.
+// The endpoint answers with a bare JSON string.
+func (c *client) remoteLoginToken(ctx context.Context) (string, error) {
+	c.mu.Lock()
+	session := c.sessions[""]
+	c.mu.Unlock()
+	if session == "" {
+		if err := c.login(ctx, ""); err != nil {
+			return "", err
+		}
+		c.mu.Lock()
+		session = c.sessions[""]
+		c.mu.Unlock()
+	}
+	var raw json.RawMessage
+	if err := c.post(ctx, c.apiURL("", "Core/GetRemoteLoginToken"), map[string]any{
+		"SESSIONID": session, "Description": "HomeHub", "IsTemporary": true,
+	}, &raw); err != nil {
+		return "", err
+	}
+	var token string
+	if err := json.Unmarshal(raw, &token); err != nil || token == "" {
+		return "", errors.New("the controller did not issue a remote login token")
+	}
+	return token, nil
 }
 
 // Call performs one API call in a scope, logging in on demand and retrying

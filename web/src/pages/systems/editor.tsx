@@ -234,6 +234,7 @@ type TailscaleFormState = {
   name: string;
   tailnet: string;
   apiKey: string;
+  autoRenew: boolean;
 };
 
 type AmpFormState = {
@@ -273,7 +274,7 @@ const emptyApertureForm: ApertureFormState = { name: "", baseUrl: "", apiKey: ""
 
 const emptyAmpForm: AmpFormState = { name: "", host: "", username: "", password: "", insecureTls: false };
 
-const emptyTailscaleForm: TailscaleFormState = { name: "", tailnet: "", apiKey: "" };
+const emptyTailscaleForm: TailscaleFormState = { name: "", tailnet: "", apiKey: "", autoRenew: false };
 
 function mysqlPayload(form: MysqlFormState): FormPayload {
   const secrets: Record<string, string> = {};
@@ -343,7 +344,7 @@ function ampComplete(form: AmpFormState, isNew: boolean): boolean {
 function tailscalePayload(form: TailscaleFormState): FormPayload {
   const secrets: Record<string, string> = {};
   if (form.apiKey) secrets.apiKey = form.apiKey;
-  return { config: { tailnet: form.tailnet.trim() }, secrets };
+  return { config: { tailnet: form.tailnet.trim(), autoRenewKey: form.autoRenew }, secrets };
 }
 
 function tailscaleComplete(form: TailscaleFormState, isNew: boolean): boolean {
@@ -547,26 +548,12 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
   if (!type) {
     return (
       <Dialog open onOpenChange={(open) => !open && onClose()}>
-        <DialogContent title={t("systems.wizard.title")} description={t("systems.wizard.intro")}>
-          <div className="space-y-2">
-            {(types.data ?? []).map((typeInfo) => {
-              const Icon = systemTypeIcon(typeInfo.id);
-              return (
-                <button
-                  key={typeInfo.id}
-                  onClick={() => setType(typeInfo)}
-                  className="border-edge hover:border-accent hover:bg-accent-soft/30 w-full cursor-pointer rounded-lg border p-3.5 text-left transition-colors"
-                >
-                  <p className="text-fg flex items-center gap-2 text-sm font-semibold">
-                    <Icon className="text-fg-subtle size-4 shrink-0" />
-                    {typeInfo.name}
-                  </p>
-                  <p className="text-fg-subtle mt-1 text-[13px]">{typeInfo.description}</p>
-                </button>
-              );
-            })}
-            {types.isLoading && <SkeletonRows rows={2} />}
-          </div>
+        <DialogContent wide title={t("systems.wizard.title")} description={t("systems.wizard.intro")}>
+          {types.isLoading ? (
+            <SkeletonRows rows={4} />
+          ) : (
+            <TypePicker types={types.data ?? []} onPick={setType} />
+          )}
         </DialogContent>
       </Dialog>
     );
@@ -764,6 +751,7 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
     ...emptyTailscaleForm,
     name: row.name,
     tailnet: String(cfg.tailnet ?? ""),
+    autoRenew: Boolean(cfg.autoRenewKey),
   });
   const [caddyForm, setCaddyForm] = useState<CaddyFormState>({
     ...emptyCaddyForm,
@@ -1541,6 +1529,12 @@ function TailscaleForm({
           <PasswordInput {...p} className="font-mono text-[13px]" value={form.apiKey} onChange={(e) => update({ apiKey: e.target.value })} />
         )}
       </Field>
+      <Checkbox
+        checked={form.autoRenew}
+        onCheckedChange={(checked) => update({ autoRenew: checked })}
+        label={t("integrations.tailscale.autoRenew")}
+        hint={t("integrations.tailscale.autoRenewHint")}
+      />
       <TestResultNote result={testResult} />
     </div>
   );
@@ -1683,6 +1677,62 @@ function McForm({
 }
 
 /** UnknownTypeNotice renders when a type has no form yet — never another type's fields. */
+
+/** The type groups shown by the wizard, in display order. Types the server
+ * knows but this list doesn't fall into "other" so nothing is hidden. */
+const TYPE_CATEGORIES: { key: string; ids: string[] }[] = [
+  { key: "infrastructure", ids: ["proxmox", "docker", "truenas"] },
+  { key: "network", ids: ["caddy", "tailscale", "pihole", "adguard"] },
+  { key: "game", ids: ["minecraft", "amp"] },
+  { key: "data", ids: ["mysql", "mongodb"] },
+  { key: "home", ids: ["homeassistant", "aperture"] },
+];
+
+function TypePicker({ types, onPick }: { types: IntegrationType[]; onPick: (t: IntegrationType) => void }) {
+  const { t } = useTranslation();
+  const byId = new Map(types.map((typeInfo) => [typeInfo.id, typeInfo]));
+  const seen = new Set<string>();
+  const groups = TYPE_CATEGORIES.map((cat) => ({
+    key: cat.key,
+    entries: cat.ids
+      .map((id) => {
+        seen.add(id);
+        return byId.get(id);
+      })
+      .filter((x): x is IntegrationType => Boolean(x)),
+  })).filter((g) => g.entries.length > 0);
+  const other = types.filter((typeInfo) => !seen.has(typeInfo.id));
+  if (other.length > 0) groups.push({ key: "other", entries: other });
+
+  return (
+    <div className="space-y-4">
+      {groups.map((group) => (
+        <div key={group.key}>
+          <p className="text-fg-subtle mb-1.5 text-[11px] font-semibold tracking-wide uppercase">
+            {t(`systems.wizard.categories.${group.key}`)}
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {group.entries.map((typeInfo) => {
+              const Icon = systemTypeIcon(typeInfo.id);
+              return (
+                <button
+                  key={typeInfo.id}
+                  onClick={() => onPick(typeInfo)}
+                  title={typeInfo.description}
+                  className="border-edge hover:border-accent hover:bg-accent-soft/30 flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors"
+                >
+                  <Icon className="text-fg-subtle size-4 shrink-0" />
+                  <span className="text-fg truncate text-[13.5px] font-medium">{typeInfo.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function UnknownTypeNotice() {
   const { t } = useTranslation();
   return <p className="text-fg-muted text-sm">{t("systems.wizard.noForm")}</p>;

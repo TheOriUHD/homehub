@@ -318,13 +318,13 @@ type MemoryStats struct {
 
 // reportingData is one graph from POST /reporting/get_data.
 type reportingData struct {
-	Name         string      `json:"name"`
-	Legend       []string    `json:"legend"`
-	Data         [][]float64 `json:"data"`
-	Latest       []float64   `json:"latest"`
-	Aggregations struct {
-		Mean []float64 `json:"mean"`
-	} `json:"aggregations"`
+	Name   string      `json:"name"`
+	Legend []string    `json:"legend"`
+	Data   [][]float64 `json:"data"`
+	Latest []float64   `json:"latest"`
+	// aggregations is deliberately not decoded: its shape changed between
+	// TrueNAS releases (array pre-25.x, object after) and nothing here
+	// needs it.
 }
 
 // lastPoint returns the newest non-empty row of a graph.
@@ -362,13 +362,22 @@ func (c *Conn) Memory(ctx context.Context) (*MemoryStats, error) {
 	if err := c.client.call(ctx, "GET", "/system/info", nil, &info); err != nil {
 		return nil, err
 	}
-	body := map[string]any{
-		"graphs":          []map[string]string{{"name": "memory"}, {"name": "arcsize"}},
-		"reporting_query": map[string]any{"unit": "HOUR", "page": 0},
-	}
+	graphsParam := []map[string]string{{"name": "memory"}, {"name": "arcsize"}}
+	// TrueNAS 25.x renamed the query field and requires page >= 1; older
+	// releases only accept the reporting_query form. Try new, fall back.
 	var graphs []reportingData
-	if err := c.client.call(ctx, "POST", "/reporting/get_data", body, &graphs); err != nil {
-		return nil, err
+	newBody := map[string]any{
+		"graphs": graphsParam,
+		"query":  map[string]any{"unit": "HOUR", "page": 1},
+	}
+	if err := c.client.call(ctx, "POST", "/reporting/get_data", newBody, &graphs); err != nil {
+		legacyBody := map[string]any{
+			"graphs":          graphsParam,
+			"reporting_query": map[string]any{"unit": "HOUR", "page": 0},
+		}
+		if lerr := c.client.call(ctx, "POST", "/reporting/get_data", legacyBody, &graphs); lerr != nil {
+			return nil, err
+		}
 	}
 	stats := &MemoryStats{TotalBytes: info.PhysicalMem}
 	for _, g := range graphs {

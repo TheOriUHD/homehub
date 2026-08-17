@@ -11,6 +11,7 @@ import {
   MemoryStick,
   MoreHorizontal,
   Play,
+  Power,
   RotateCw,
   Skull,
   Square,
@@ -78,6 +79,9 @@ export function AmpInstancePage() {
     .flatMap((target) => target.instances)
     .find((candidate) => candidate.id === serverId);
 
+  const instForGate = overview.data?.targets
+    .flatMap((target) => target.instances)
+    .find((candidate) => candidate.id === serverId);
   const status = useQuery({
     queryKey: ["amp", instanceId, "status", serverId],
     queryFn: async () =>
@@ -87,6 +91,8 @@ export function AmpInstancePage() {
         }),
       ),
     refetchInterval: 5000,
+    // A stopped instance container cannot be proxied to — do not hammer it.
+    enabled: instForGate?.state !== "offline",
   });
 
   const controllable = can(`${ampResource(instanceId)}/instance/${serverId}`, "control");
@@ -119,7 +125,8 @@ export function AmpInstancePage() {
     );
   }
 
-  const state = status.data?.state ?? inst?.state ?? "undefined";
+  const offline = inst?.state === "offline";
+  const state = offline ? "offline" : (status.data?.state ?? inst?.state ?? "undefined");
   const tone = ampStateTone(state);
   const busy = ampStateBusy(state) || act.isPending;
   const players = status.data?.players ?? inst?.players;
@@ -147,7 +154,7 @@ export function AmpInstancePage() {
           </Badge>
         </h2>
 
-        {controllable && (
+        {controllable && !offline && (
           <div className="ml-auto flex items-center gap-2">
             {state === "stopped" || state === "failed" ? (
               <Button size="sm" onClick={() => act.mutate({ kind: "app", action: "start" })} disabled={busy}>
@@ -226,7 +233,27 @@ export function AmpInstancePage() {
         />
       </div>
 
-      <AmpConsolePane panelId={instanceId} serverId={serverId} controllable={controllable} />
+      {offline ? (
+        <Card>
+          <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+            <Power className="text-fg-subtle size-8" />
+            <p className="text-fg text-[15px] font-semibold">{t("amp.instance.offlineTitle")}</p>
+            <p className="text-fg-muted max-w-md text-[13px]">{t("amp.instance.offlineBody")}</p>
+            {controllable && (
+              <Button
+                className="mt-1"
+                onClick={() => act.mutate({ kind: "lifecycle", action: "start" })}
+                loading={act.isPending}
+              >
+                <Play className="size-4" />
+                {t("amp.instance.lifecycleStart")}
+              </Button>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <AmpConsolePane panelId={instanceId} serverId={serverId} controllable={controllable} />
+      )}
 
       <ConfirmDialog
         open={confirmKill}

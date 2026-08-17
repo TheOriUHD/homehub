@@ -24,6 +24,7 @@ const (
 	ControllerID = "5f4c88a1-aaaa-4bbb-8ccc-00000000ad50"
 	LobbyID      = "5f4c88a1-aaaa-4bbb-8ccc-00000010bb70"
 	ValheimID    = "5f4c88a1-aaaa-4bbb-8ccc-0000007a1e00"
+	RustID       = "5f4c88a1-aaaa-4bbb-8ccc-000000005357"
 )
 
 // Sim is a fake AMP controller with two managed instances.
@@ -45,6 +46,7 @@ type simInstance struct {
 	description  string
 	module       string
 	moduleName   string
+	containerUp  bool // the instance process itself; when false ADS cannot proxy
 	appState     int
 	suspended    bool
 	port         int
@@ -78,17 +80,24 @@ func New() *Sim {
 	s.add(&simInstance{
 		id: ControllerID, name: "ADS01", friendlyName: "Controller",
 		module: "ADS", moduleName: "Application Deployment Server",
-		appState: 20, port: 8080, startedAt: now.Add(-90 * time.Minute),
+		containerUp: true, appState: 20, port: 8080, startedAt: now.Add(-90 * time.Minute),
 	})
 	s.add(&simInstance{
 		id: LobbyID, name: "Lobby01", friendlyName: "Lobby",
 		description: "Velocity lobby server", module: "Minecraft", moduleName: "Minecraft",
-		appState: 20, port: 25565, startedAt: now.Add(-42 * time.Minute),
+		containerUp: true, appState: 20, port: 25565, startedAt: now.Add(-42 * time.Minute),
 	})
 	s.add(&simInstance{
 		id: ValheimID, name: "Valheim01", friendlyName: "Valheim",
 		description: "Weekend world", module: "GenericModule", moduleName: "Generic",
-		appState: 0, port: 2456,
+		containerUp: true, appState: 0, port: 2456,
+	})
+	s.add(&simInstance{
+		id: RustID, name: "Rust01", friendlyName: "Rust",
+		description: "Container stopped", module: "GenericModule", moduleName: "Generic",
+		// Stale AppState on purpose: real AMP reports the last known app
+		// state even when the instance container is down.
+		containerUp: false, appState: 10, port: 28015,
 	})
 	for _, inst := range s.instances {
 		if inst.appState == 20 {
@@ -127,8 +136,12 @@ func (s *Sim) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case len(parts) == 7 && parts[0] == "API" && parts[1] == "ADSModule" && parts[2] == "Servers" && parts[4] == "API":
 		scope, module, method = parts[3], parts[5], parts[6]
-		if _, ok := s.instances[scope]; !ok || scope == ControllerID {
-			s.reply(w, map[string]any{"Title": "Instance Unavailable"})
+		inst, ok := s.instances[scope]
+		if !ok || scope == ControllerID || !inst.containerUp {
+			s.reply(w, map[string]any{
+				"Title":   "Instance Unavailable",
+				"Message": "The requested instance is not available at this time.",
+			})
 			return
 		}
 	case len(parts) == 3 && parts[0] == "API":
@@ -399,7 +412,7 @@ func (s *Sim) instancePayload(inst *simInstance) map[string]any {
 		"IP":                   "127.0.0.1",
 		"Port":                 inst.port,
 		"Daemon":               false,
-		"Running":              inst.appState != 0 && inst.appState != 100,
+		"Running":              inst.containerUp,
 		"AppState":             inst.appState,
 		"Tags":                 []string{},
 		"DiskUsageMB":          2048,
