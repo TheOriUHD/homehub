@@ -1,0 +1,18 @@
+// Standalone build: ForgeGradle rewires dependency resolution too aggressively
+// to share a multi-project with fabric-loom. The root `dist` task drives this
+// build and collects its jar.
+pluginManagement {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+// FG7's mavenizer step needs a newer JDK toolchain than the system one;
+// foojay auto-provisions it (the official MDK ships this too).
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'homehub-companion-forge'
