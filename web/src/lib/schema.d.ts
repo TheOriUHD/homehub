@@ -2157,6 +2157,282 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patchpilot/{id}/hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List hosts in a fleet */
+        get: operations["patchpilotHosts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/hosts/detect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Probe a host over SSH before onboarding */
+        post: operations["patchpilotDetect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/hosts/onboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bootstrap and add a host (streams steps over WS) */
+        post: operations["patchpilotOnboard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/hosts/{hostId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One host */
+        get: operations["patchpilotHost"];
+        /** Update a host's mutable fields */
+        put: operations["patchpilotUpdateHost"];
+        post?: never;
+        /** Remove a host from the fleet */
+        delete: operations["patchpilotDeleteHost"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/hosts/{hostId}/dry-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check for available updates without applying them */
+        post: operations["patchpilotDryRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/hosts/{hostId}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Update one host now */
+        post: operations["patchpilotRunHost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/hosts/{hostId}/reboot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reboot a host (explicit) */
+        post: operations["patchpilotRebootHost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/hosts/{hostId}/repair-sudoers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rewrite the least-privilege sudoers rule */
+        post: operations["patchpilotRepairSudoers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/hosts/{hostId}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A host's recent run slices */
+        get: operations["patchpilotHostRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/publickey": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The fleet's orchestrator public key (for manual installs) */
+        get: operations["patchpilotPublicKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Update hosts now (all enabled, or a selection) */
+        post: operations["patchpilotRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Run history */
+        get: operations["patchpilotRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One run with its per-host slices */
+        get: operations["patchpilotRunDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List schedules */
+        get: operations["patchpilotSchedules"];
+        put?: never;
+        /** Create a schedule */
+        post: operations["patchpilotCreateSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/schedules/{scheduleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a schedule */
+        put: operations["patchpilotUpdateSchedule"];
+        post?: never;
+        /** Delete a schedule */
+        delete: operations["patchpilotDeleteSchedule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/schedules/{scheduleId}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a schedule now */
+        post: operations["patchpilotRunSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/amp/instances": {
         parameters: {
             query?: never;
@@ -5287,6 +5563,124 @@ export interface components {
             totalMemoryBytes: number;
             interfaces: components["schemas"]["TruenasInterfaceTraffic"][];
         };
+        PatchpilotHost: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            hostname: string;
+            sshPort: number;
+            sshUser: string;
+            hostType: string;
+            packageManager: string;
+            osPretty?: string;
+            arch?: string;
+            isProxmox: boolean;
+            enabled: boolean;
+            autoReboot: boolean;
+            notes?: string;
+            updatesPending: number;
+            rebootRequired: boolean;
+            /** Format: date-time */
+            lastCheckedAt?: string | null;
+            lastRunStatus?: string;
+            /** Format: date-time */
+            lastRunAt?: string | null;
+        };
+        PatchpilotHostCredential: {
+            hostname: string;
+            sshPort?: number;
+            sshUser: string;
+            password?: string;
+            rootPassword?: string;
+        };
+        PatchpilotOnboardInput: {
+            name: string;
+            hostname: string;
+            sshPort?: number;
+            sshUser: string;
+            password?: string;
+            rootPassword?: string;
+            notes?: string;
+        };
+        PatchpilotDetectResult: {
+            reachable: boolean;
+            osPretty?: string;
+            arch?: string;
+            hostname?: string;
+            packageManager?: string;
+            isProxmox?: boolean;
+            escalation?: string;
+            needsPassword?: boolean;
+            refusal?: string;
+            blocker?: string;
+            message: string;
+        };
+        PatchpilotDryRunResult: {
+            packagesUpgraded: number;
+            packagesRemoved: number;
+            rebootRequired: boolean;
+            summary: string;
+            rawOutput: string;
+        };
+        PatchpilotSchedule: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            cronExpr: string;
+            enabled: boolean;
+            suppressReboot: boolean;
+            hostIds: string[];
+            /** Format: date-time */
+            lastRunAt?: string | null;
+            /** Format: date-time */
+            nextRunAt?: string | null;
+            /** Format: date-time */
+            lastSkippedAt?: string | null;
+            lastSkipReason?: string;
+        };
+        PatchpilotScheduleInput: {
+            name: string;
+            cronExpr: string;
+            enabled?: boolean;
+            suppressReboot?: boolean;
+            hostIds: string[];
+        };
+        PatchpilotRun: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            scheduleId?: string | null;
+            trigger: string;
+            status: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt?: string | null;
+            summary: string;
+        };
+        PatchpilotHostRun: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            runId: string;
+            /** Format: uuid */
+            hostId: string;
+            hostName: string;
+            status: string;
+            exitCode?: number | null;
+            packagesUpgraded: number;
+            rebootRequired: boolean;
+            errorSummary?: string;
+            log?: string;
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: date-time */
+            finishedAt?: string | null;
+        };
+        PatchpilotRunDetail: {
+            run: components["schemas"]["PatchpilotRun"];
+            hostRuns: components["schemas"]["PatchpilotHostRun"][];
+        };
         HaInstance: {
             /** Format: uuid */
             id: string;
@@ -5524,6 +5918,7 @@ export interface components {
         /** @description Table name (SQL) or collection name (MongoDB) */
         dbObjectParam: string;
         vmidParam: number;
+        patchpilotHostIdParam: string;
         containerName: string;
     };
     requestBodies: never;
@@ -9284,6 +9679,516 @@ export interface operations {
             };
             404: components["responses"]["NotFound"];
             502: components["responses"]["UpstreamError"];
+        };
+    };
+    patchpilotHosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Hosts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotHost"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotDetect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchpilotHostCredential"];
+            };
+        };
+        responses: {
+            /** @description Detection result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotDetectResult"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotOnboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchpilotOnboardInput"];
+            };
+        };
+        responses: {
+            /** @description Host onboarded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotHost"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    patchpilotHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                hostId: components["parameters"]["patchpilotHostIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Host */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotHost"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotUpdateHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                hostId: components["parameters"]["patchpilotHostIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    enabled?: boolean;
+                    autoReboot?: boolean;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotHost"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotDeleteHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                hostId: components["parameters"]["patchpilotHostIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotDryRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                hostId: components["parameters"]["patchpilotHostIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dry-run result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotDryRunResult"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    patchpilotRunHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                hostId: components["parameters"]["patchpilotHostIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Run started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotRun"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    patchpilotRebootHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                hostId: components["parameters"]["patchpilotHostIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reboot issued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    patchpilotRepairSudoers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                hostId: components["parameters"]["patchpilotHostIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Repaired */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    patchpilotHostRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                hostId: components["parameters"]["patchpilotHostIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Host runs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotHostRun"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotPublicKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        publicKey: string;
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    hostIds?: string[];
+                    suppressReboot?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Run started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotRun"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    patchpilotRuns: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Runs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotRun"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotRunDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Run detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotRunDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotSchedules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Schedules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotSchedule"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotCreateSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchpilotScheduleInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotSchedule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotUpdateSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchpilotScheduleInput"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotSchedule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotDeleteSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotRunSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Run started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotRun"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     ampListInstances: {

@@ -3407,6 +3407,342 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /patchpilot/{id}/hosts:
+    get:
+      operationId: patchpilotHosts
+      summary: List hosts in a fleet
+      tags: [patchpilot]
+      parameters: [{ $ref: "#/components/parameters/idParam" }]
+      responses:
+        "200":
+          description: Hosts
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/PatchpilotHost" } }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /patchpilot/{id}/hosts/detect:
+    post:
+      operationId: patchpilotDetect
+      summary: Probe a host over SSH before onboarding
+      tags: [patchpilot]
+      parameters: [{ $ref: "#/components/parameters/idParam" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchpilotHostCredential" }
+      responses:
+        "200":
+          description: Detection result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotDetectResult" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /patchpilot/{id}/hosts/onboard:
+    post:
+      operationId: patchpilotOnboard
+      summary: Bootstrap and add a host (streams steps over WS)
+      tags: [patchpilot]
+      parameters: [{ $ref: "#/components/parameters/idParam" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchpilotOnboardInput" }
+      responses:
+        "201":
+          description: Host onboarded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotHost" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/UpstreamError" }
+
+  /patchpilot/{id}/hosts/{hostId}:
+    get:
+      operationId: patchpilotHost
+      summary: One host
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { $ref: "#/components/parameters/patchpilotHostIdParam" }
+      responses:
+        "200":
+          description: Host
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotHost" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      operationId: patchpilotUpdateHost
+      summary: Update a host's mutable fields
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { $ref: "#/components/parameters/patchpilotHostIdParam" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                enabled: { type: boolean }
+                autoReboot: { type: boolean }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotHost" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: patchpilotDeleteHost
+      summary: Remove a host from the fleet
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { $ref: "#/components/parameters/patchpilotHostIdParam" }
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /patchpilot/{id}/hosts/{hostId}/dry-run:
+    post:
+      operationId: patchpilotDryRun
+      summary: Check for available updates without applying them
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { $ref: "#/components/parameters/patchpilotHostIdParam" }
+      responses:
+        "200":
+          description: Dry-run result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotDryRunResult" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/UpstreamError" }
+
+  /patchpilot/{id}/hosts/{hostId}/run:
+    post:
+      operationId: patchpilotRunHost
+      summary: Update one host now
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { $ref: "#/components/parameters/patchpilotHostIdParam" }
+      responses:
+        "202":
+          description: Run started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotRun" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /patchpilot/{id}/hosts/{hostId}/reboot:
+    post:
+      operationId: patchpilotRebootHost
+      summary: Reboot a host (explicit)
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { $ref: "#/components/parameters/patchpilotHostIdParam" }
+      responses:
+        "200": { description: Reboot issued }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/UpstreamError" }
+
+  /patchpilot/{id}/hosts/{hostId}/repair-sudoers:
+    post:
+      operationId: patchpilotRepairSudoers
+      summary: Rewrite the least-privilege sudoers rule
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { $ref: "#/components/parameters/patchpilotHostIdParam" }
+      responses:
+        "200": { description: Repaired }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/UpstreamError" }
+
+  /patchpilot/{id}/hosts/{hostId}/runs:
+    get:
+      operationId: patchpilotHostRuns
+      summary: A host's recent run slices
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { $ref: "#/components/parameters/patchpilotHostIdParam" }
+      responses:
+        "200":
+          description: Host runs
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/PatchpilotHostRun" } }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /patchpilot/{id}/publickey:
+    get:
+      operationId: patchpilotPublicKey
+      summary: The fleet's orchestrator public key (for manual installs)
+      tags: [patchpilot]
+      parameters: [{ $ref: "#/components/parameters/idParam" }]
+      responses:
+        "200":
+          description: Public key
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [publicKey]
+                properties: { publicKey: { type: string } }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /patchpilot/{id}/run:
+    post:
+      operationId: patchpilotRun
+      summary: Update hosts now (all enabled, or a selection)
+      tags: [patchpilot]
+      parameters: [{ $ref: "#/components/parameters/idParam" }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hostIds: { type: array, items: { type: string, format: uuid } }
+                suppressReboot: { type: boolean }
+      responses:
+        "202":
+          description: Run started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotRun" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /patchpilot/{id}/runs:
+    get:
+      operationId: patchpilotRuns
+      summary: Run history
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { name: limit, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: Runs
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/PatchpilotRun" } }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /patchpilot/{id}/runs/{runId}:
+    get:
+      operationId: patchpilotRunDetail
+      summary: One run with its per-host slices
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Run detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotRunDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /patchpilot/{id}/schedules:
+    get:
+      operationId: patchpilotSchedules
+      summary: List schedules
+      tags: [patchpilot]
+      parameters: [{ $ref: "#/components/parameters/idParam" }]
+      responses:
+        "200":
+          description: Schedules
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/PatchpilotSchedule" } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: patchpilotCreateSchedule
+      summary: Create a schedule
+      tags: [patchpilot]
+      parameters: [{ $ref: "#/components/parameters/idParam" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchpilotScheduleInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotSchedule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /patchpilot/{id}/schedules/{scheduleId}:
+    put:
+      operationId: patchpilotUpdateSchedule
+      summary: Update a schedule
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { name: scheduleId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchpilotScheduleInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotSchedule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: patchpilotDeleteSchedule
+      summary: Delete a schedule
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { name: scheduleId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /patchpilot/{id}/schedules/{scheduleId}/run:
+    post:
+      operationId: patchpilotRunSchedule
+      summary: Run a schedule now
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { name: scheduleId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "202":
+          description: Run started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotRun" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+
   /amp/instances:
     get:
       operationId: ampListInstances
@@ -5884,6 +6220,11 @@ components:
       in: path
       required: true
       schema: { type: integer }
+    patchpilotHostIdParam:
+      name: hostId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     containerName:
       name: name
       in: path
@@ -7849,6 +8190,129 @@ components:
         interfaces:
           type: array
           items: { $ref: "#/components/schemas/TruenasInterfaceTraffic" }
+
+    PatchpilotHost:
+      type: object
+      required: [id, name, hostname, sshPort, sshUser, hostType, packageManager, isProxmox, enabled, autoReboot, updatesPending, rebootRequired]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        hostname: { type: string }
+        sshPort: { type: integer }
+        sshUser: { type: string }
+        hostType: { type: string }
+        packageManager: { type: string }
+        osPretty: { type: string }
+        arch: { type: string }
+        isProxmox: { type: boolean }
+        enabled: { type: boolean }
+        autoReboot: { type: boolean }
+        notes: { type: string }
+        updatesPending: { type: integer }
+        rebootRequired: { type: boolean }
+        lastCheckedAt: { type: string, format: date-time, nullable: true }
+        lastRunStatus: { type: string }
+        lastRunAt: { type: string, format: date-time, nullable: true }
+    PatchpilotHostCredential:
+      type: object
+      required: [hostname, sshUser]
+      properties:
+        hostname: { type: string }
+        sshPort: { type: integer }
+        sshUser: { type: string }
+        password: { type: string }
+        rootPassword: { type: string }
+    PatchpilotOnboardInput:
+      type: object
+      required: [name, hostname, sshUser]
+      properties:
+        name: { type: string }
+        hostname: { type: string }
+        sshPort: { type: integer }
+        sshUser: { type: string }
+        password: { type: string }
+        rootPassword: { type: string }
+        notes: { type: string }
+    PatchpilotDetectResult:
+      type: object
+      required: [reachable, message]
+      properties:
+        reachable: { type: boolean }
+        osPretty: { type: string }
+        arch: { type: string }
+        hostname: { type: string }
+        packageManager: { type: string }
+        isProxmox: { type: boolean }
+        escalation: { type: string }
+        needsPassword: { type: boolean }
+        refusal: { type: string }
+        blocker: { type: string }
+        message: { type: string }
+    PatchpilotDryRunResult:
+      type: object
+      required: [packagesUpgraded, packagesRemoved, rebootRequired, summary, rawOutput]
+      properties:
+        packagesUpgraded: { type: integer }
+        packagesRemoved: { type: integer }
+        rebootRequired: { type: boolean }
+        summary: { type: string }
+        rawOutput: { type: string }
+    PatchpilotSchedule:
+      type: object
+      required: [id, name, cronExpr, enabled, suppressReboot, hostIds]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        cronExpr: { type: string }
+        enabled: { type: boolean }
+        suppressReboot: { type: boolean }
+        hostIds: { type: array, items: { type: string, format: uuid } }
+        lastRunAt: { type: string, format: date-time, nullable: true }
+        nextRunAt: { type: string, format: date-time, nullable: true }
+        lastSkippedAt: { type: string, format: date-time, nullable: true }
+        lastSkipReason: { type: string }
+    PatchpilotScheduleInput:
+      type: object
+      required: [name, cronExpr, hostIds]
+      properties:
+        name: { type: string }
+        cronExpr: { type: string }
+        enabled: { type: boolean }
+        suppressReboot: { type: boolean }
+        hostIds: { type: array, items: { type: string, format: uuid } }
+    PatchpilotRun:
+      type: object
+      required: [id, trigger, status, startedAt, summary]
+      properties:
+        id: { type: string, format: uuid }
+        scheduleId: { type: string, format: uuid, nullable: true }
+        trigger: { type: string }
+        status: { type: string }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time, nullable: true }
+        summary: { type: string }
+    PatchpilotHostRun:
+      type: object
+      required: [id, runId, hostId, hostName, status, packagesUpgraded, rebootRequired]
+      properties:
+        id: { type: string, format: uuid }
+        runId: { type: string, format: uuid }
+        hostId: { type: string, format: uuid }
+        hostName: { type: string }
+        status: { type: string }
+        exitCode: { type: integer, nullable: true }
+        packagesUpgraded: { type: integer }
+        rebootRequired: { type: boolean }
+        errorSummary: { type: string }
+        log: { type: string }
+        startedAt: { type: string, format: date-time, nullable: true }
+        finishedAt: { type: string, format: date-time, nullable: true }
+    PatchpilotRunDetail:
+      type: object
+      required: [run, hostRuns]
+      properties:
+        run: { $ref: "#/components/schemas/PatchpilotRun" }
+        hostRuns: { type: array, items: { $ref: "#/components/schemas/PatchpilotHostRun" } }
 
     HaInstance:
       type: object

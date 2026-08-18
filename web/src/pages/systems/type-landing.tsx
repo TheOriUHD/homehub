@@ -15,7 +15,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 
-type LandingType = "proxmox" | "homeassistant" | "minecraft" | "amp" | "tailscale" | "caddy" | "aperture" | "truenas";
+type LandingType = "proxmox" | "homeassistant" | "minecraft" | "amp" | "tailscale" | "caddy" | "aperture" | "truenas" | "patchpilot";
 
 /** InstanceLink wraps a card in the typed route for its module. */
 function InstanceLink({ row, children }: { row: Integration; children: React.ReactNode }) {
@@ -58,6 +58,13 @@ function InstanceLink({ row, children }: { row: Integration; children: React.Rea
   if (row.type === "aperture") {
     return (
       <Link to="/nvr/$instanceId" params={{ instanceId: row.id }} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  if (row.type === "patchpilot") {
+    return (
+      <Link to="/patchpilot/$instanceId" params={{ instanceId: row.id }} className={className}>
         {children}
       </Link>
     );
@@ -129,6 +136,9 @@ export function SystemTypeLanding({ type }: { type: LandingType }) {
     }
     if (only.type === "truenas") {
       return <Navigate to="/truenas/$instanceId" params={{ instanceId: only.id }} replace />;
+    }
+    if (only.type === "patchpilot") {
+      return <Navigate to="/patchpilot/$instanceId" params={{ instanceId: only.id }} replace />;
     }
     if (only.type === "amp") {
       return <Navigate to="/amp/$instanceId" params={{ instanceId: only.id }} replace />;

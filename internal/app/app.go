@@ -38,6 +38,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/integrations/homeassistant"
 	"github.com/TheOriUHD/homehub/internal/integrations/minecraft"
 	"github.com/TheOriUHD/homehub/internal/integrations/mongodb"
+	"github.com/TheOriUHD/homehub/internal/integrations/patchpilot"
 	"github.com/TheOriUHD/homehub/internal/integrations/pihole"
 	"github.com/TheOriUHD/homehub/internal/integrations/proxmox"
 	"github.com/TheOriUHD/homehub/internal/integrations/tailscale"
@@ -140,6 +141,18 @@ func Run(ctx context.Context) error {
 	// badge follows within a second instead of the next poll or backoff.
 	mcRegistry.StatusChanged = manager.Kick
 	manager.Register(minecraft.Driver{Registry: mcRegistry})
+
+	// PatchPilot: agentless SSH update manager. Local-only driver; the
+	// registry owns onboarding, runs, and the per-fleet orchestrator key.
+	ppRegistry := patchpilot.NewRegistry(st, v, logger)
+	ppRegistry.SetJobs(jobEngine)
+	ppRegistry.Publish = func(instanceID uuid.UUID, event string, data any) {
+		hub.Publish("integration:"+patchpilot.TypeID+"/"+instanceID.String(),
+			map[string]any{"event": event, "data": data})
+	}
+	manager.Register(patchpilot.Driver{Registry: ppRegistry})
+	_ = st.RecoverPatchpilotRuns(ctx)
+	registerPatchpilotJobs(jobEngine, st, ppRegistry, logger)
 	manager.StatusChanged = statusNotifier(engine, notifySvc)
 	registerTailscaleRenewal(jobEngine, st, v, manager, engine, notifySvc, logger)
 
@@ -234,7 +247,7 @@ func Run(ctx context.Context) error {
 	convertSvc.SweepOnStartup(ctx)
 
 	apiServer := api.NewServer(st, authSvc, engine, auditSvc, settingsSvc, jobEngine, hub, v,
-		manager, metricsSvc, termMgr, backupSvc, mcRegistry, convertSvc, companion.FS(), logger)
+		manager, metricsSvc, termMgr, backupSvc, mcRegistry, ppRegistry, convertSvc, companion.FS(), logger)
 
 	// Telegram bridge: linked chats talk to the assistant. The bot reads its
 	// token from the vault and its switch from settings on every reload.
@@ -435,5 +448,12 @@ func ensureMaintenanceSchedule(ctx context.Context, st *store.Store) error {
 	if err != nil {
 		return err
 	}
-	return st.EnsureSchedule(ctx, "Alert evaluation", "alerts.evaluate", map[string]any{}, "* * * * *", next)
+	if err := st.EnsureSchedule(ctx, "Alert evaluation", "alerts.evaluate", map[string]any{}, "* * * * *", next); err != nil {
+		return err
+	}
+	next, err = jobs.NextRun("* * * * *", time.Now())
+	if err != nil {
+		return err
+	}
+	return st.EnsureSchedule(ctx, "PatchPilot due check", "patchpilot.check", map[string]any{}, "* * * * *", next)
 }

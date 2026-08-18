@@ -679,7 +679,8 @@
       "amp": "AMP",
       "tailscale": "Tailscale",
       "caddy": "Caddy",
-      "aperture": "Aperture"
+      "aperture": "Aperture",
+      "patchpilot": "PatchPilot"
     },
     "landing": {
       "pickInstance": "Choose an instance",
@@ -2919,5 +2920,181 @@
     },
     "recent": "Recent files",
     "apps": "Built-in apps"
+  },
+  "patchpilot": {
+    "subtitle": "Agentless updates across your Linux fleet",
+    "tabs": {
+      "hosts": "Hosts",
+      "schedules": "Schedules",
+      "runs": "Runs"
+    },
+    "chips": {
+      "hosts_one": "{{count}} host",
+      "hosts_other": "{{count}} hosts",
+      "updates_one": "{{count}} update",
+      "updates_other": "{{count}} updates",
+      "reboot_one": "{{count}} needs reboot",
+      "reboot_other": "{{count}} need reboot"
+    },
+    "wizard": {
+      "nameHint": "A label for this fleet — the machines you patch together.",
+      "intro": "After creating the fleet, add each host over SSH. HomeHub installs a dedicated least-privilege account; nothing else is left behind."
+    },
+    "hosts": {
+      "title": "Hosts",
+      "add": "Add host",
+      "empty": {
+        "title": "No hosts yet",
+        "body": "Add a machine over SSH. HomeHub sets up passwordless access and manages updates from there."
+      },
+      "runAll": "Update all",
+      "col": {
+        "name": "Host",
+        "os": "OS",
+        "manager": "Manager",
+        "updates": "Updates",
+        "lastRun": "Last run",
+        "status": "Status"
+      },
+      "upToDate": "Up to date",
+      "pending_one": "{{count}} update",
+      "pending_other": "{{count}} updates",
+      "rebootRequired": "Reboot required",
+      "never": "Never",
+      "disabled": "Disabled",
+      "runAllStarted": "Update started on all hosts"
+    },
+    "addHost": {
+      "title": "Add a host",
+      "hostname": "Hostname or IP",
+      "port": "SSH port",
+      "user": "SSH username",
+      "userHint": "An existing login with sudo (or root). Used once to set up the patchpilot account, then discarded.",
+      "password": "Password",
+      "passwordHint": "For the login above. Never stored — used only during setup.",
+      "rootPassword": "Root password",
+      "rootPasswordHint": "Only needed if this account uses su to become root.",
+      "name": "Display name",
+      "detect": "Test connection",
+      "detecting": "Probing…",
+      "onboard": "Add host",
+      "onboarding": "Setting up…",
+      "detected": "{{os}} · {{manager}} · elevates via {{escalation}}",
+      "refusal": "This host can't be onboarded here",
+      "manualKey": "Prefer to install the key yourself? Add this fleet's public key to the target's authorized_keys and grant it passwordless sudo for the package manager.",
+      "steps": "Setup progress",
+      "intro": "HomeHub sets up passwordless access over SSH, then manages updates from here. The login below is used once and never stored.",
+      "manualKeyTitle": "Install the key manually instead",
+      "onboarded": "Host added"
+    },
+    "hostDetail": {
+      "back": "All hosts",
+      "dryRun": "Check for updates",
+      "dryRunning": "Checking…",
+      "run": "Update now",
+      "running": "Updating…",
+      "reboot": "Reboot",
+      "rebootConfirm": "Reboot {{name}} now?",
+      "repair": "Repair sudoers",
+      "remove": "Remove host",
+      "removeConfirm": "Remove {{name}} from the fleet? The patchpilot account is left on the host; delete it there if you want it gone.",
+      "enabled": "Enabled",
+      "enabledHint": "Disabled hosts are skipped by schedules and 'update all'.",
+      "autoReboot": "Auto-reboot after updates",
+      "autoRebootHint": "When a run leaves this host needing a reboot, reboot it automatically.",
+      "notes": "Notes",
+      "history": "Recent runs",
+      "noHistory": "No runs yet.",
+      "updatesAvailable": "{{count}} update(s) available",
+      "dryRunUpToDate": "No updates available."
+    },
+    "schedules": {
+      "title": "Schedules",
+      "add": "New schedule",
+      "empty": {
+        "title": "No schedules",
+        "body": "Create a schedule to patch a set of hosts automatically."
+      },
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteConfirm": "Delete the schedule '{{name}}'?",
+      "runNow": "Run now",
+      "enabled": "Enabled",
+      "nextRun": "Next run",
+      "lastRun": "Last run",
+      "hosts_one": "{{count}} host",
+      "hosts_other": "{{count}} hosts",
+      "suppressReboot": "Never reboot",
+      "form": {
+        "name": "Name",
+        "frequency": "Frequency",
+        "time": "Time",
+        "dayOfWeek": "Day of week",
+        "dayOfMonth": "Day of month",
+        "hosts": "Hosts",
+        "selectHosts": "Choose which hosts this schedule patches.",
+        "suppressReboot": "Skip reboot detection",
+        "suppressRebootHint": "Don't check whether hosts need a reboot after this schedule runs.",
+        "cronPreview": "Runs: {{cron}}",
+        "create": "Create schedule",
+        "save": "Save",
+        "minute": "Minute",
+        "hour": "Hour",
+        "dayOfMonthHint": "1–28 (capped so a monthly run never skips February)",
+        "namePlaceholder": "Weekly patch",
+        "noHosts": "Select at least one host."
+      },
+      "freq": {
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "hourly": "Hourly"
+      },
+      "skipped": "Last skipped: {{reason}}",
+      "created": "Schedule created",
+      "saved": "Schedule saved",
+      "deleted": "Schedule deleted",
+      "deleteTitle": "Delete schedule",
+      "editTitle": "Edit schedule",
+      "enabledLabel": "Enabled",
+      "noReboot": "Never reboots",
+      "runBusy": "A run is already in progress",
+      "runStarted": "Run started"
+    },
+    "runs": {
+      "title": "Runs",
+      "empty": {
+        "title": "No runs yet",
+        "body": "Update a host or run a schedule to see history here."
+      },
+      "col": {
+        "started": "Started",
+        "trigger": "Trigger",
+        "status": "Status",
+        "summary": "Summary"
+      },
+      "trigger": {
+        "manual": "Manual",
+        "scheduled": "Scheduled"
+      },
+      "viewLog": "View log",
+      "hostRuns": "Per-host results",
+      "running": "Running…",
+      "log": "Log",
+      "noLog": "No output captured.",
+      "startedAt": "Started",
+      "finishedAt": "Finished",
+      "packages": "Packages",
+      "rebootRequired": "Reboot required"
+    },
+    "status": {
+      "running": "Running",
+      "success": "Success",
+      "partial": "Partial",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "pending": "Pending",
+      "skipped": "Skipped"
+    }
   }
 }

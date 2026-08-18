@@ -235,6 +235,7 @@ type McFormState = {
 };
 
 type CaddyFormState = { name: string; baseUrl: string; code: string };
+type PatchpilotFormState = { name: string };
 
 type ApertureFormState = { name: string; baseUrl: string; apiKey: string };
 
@@ -277,6 +278,9 @@ const emptyTruenasForm: TruenasFormState = { name: "", host: "", username: "", a
 const emptyMcForm: McFormState = { name: "", sshHost: "", sshPort: "22", sshUser: "", sshPassword: "", sshKey: "" };
 
 const emptyCaddyForm: CaddyFormState = { name: "", baseUrl: "", code: "" };
+const emptyPatchpilotForm: PatchpilotFormState = { name: "" };
+function patchpilotPayload(): FormPayload { return { config: {}, secrets: {} }; }
+function patchpilotComplete(form: PatchpilotFormState): boolean { return form.name.trim() !== ""; }
 
 const emptyApertureForm: ApertureFormState = { name: "", baseUrl: "", apiKey: "" };
 
@@ -419,6 +423,7 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
   const [tailscaleForm, setTailscaleForm] = useState<TailscaleFormState>(emptyTailscaleForm);
   const [caddyForm, setCaddyForm] = useState<CaddyFormState>(emptyCaddyForm);
   const [apertureForm, setApertureForm] = useState<ApertureFormState>(emptyApertureForm);
+  const [patchpilotForm, setPatchpilotForm] = useState<PatchpilotFormState>(emptyPatchpilotForm);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const kind = type?.id ?? "";
@@ -448,6 +453,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return tailscalePayload(tailscaleForm);
       case "caddy":
         return caddyPayload(caddyForm);
+      case "patchpilot":
+        return patchpilotPayload();
       case "aperture":
         return aperturePayload(apertureForm);
       case "minecraft":
@@ -480,6 +487,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return tailscaleForm.name;
       case "caddy":
         return caddyForm.name;
+      case "patchpilot":
+        return patchpilotForm.name;
       case "aperture":
         return apertureForm.name;
       case "minecraft":
@@ -490,7 +499,7 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
   };
   // The Minecraft companion pairs after creation, and Caddy's pairing IS
   // the connection test — neither has anything to pre-test.
-  const needsTest = kind !== "minecraft" && kind !== "caddy";
+  const needsTest = kind !== "minecraft" && kind !== "caddy" && kind !== "patchpilot";
 
   const test = useMutation({
     mutationFn: async () =>
@@ -553,6 +562,9 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         case "caddy":
           void navigate({ to: "/caddy/$instanceId", params: { instanceId: created.id } });
           break;
+        case "patchpilot":
+          void navigate({ to: "/patchpilot/$instanceId", params: { instanceId: created.id } });
+          break;
         case "aperture":
           void navigate({ to: "/nvr/$instanceId", params: { instanceId: created.id } });
           break;
@@ -603,6 +615,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return tailscaleComplete(tailscaleForm, true);
       case "caddy":
         return caddyComplete(caddyForm, true);
+      case "patchpilot":
+        return patchpilotComplete(patchpilotForm);
       case "aperture":
         return apertureComplete(apertureForm, true);
       case "minecraft":
@@ -638,6 +652,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return <TailscaleForm form={tailscaleForm} setForm={setTailscaleForm} isNew testResult={testResult} onFormChange={clearTest} />;
       case "caddy":
         return <CaddyForm form={caddyForm} setForm={setCaddyForm} isNew onFormChange={clearTest} />;
+      case "patchpilot":
+        return <PatchpilotForm form={patchpilotForm} setForm={setPatchpilotForm} />;
       case "aperture":
         return <ApertureForm form={apertureForm} setForm={setApertureForm} isNew testResult={testResult} onFormChange={clearTest} />;
       case "minecraft":
@@ -790,6 +806,7 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
     name: row.name,
     baseUrl: String(cfg.baseUrl ?? ""),
   });
+  const [patchpilotForm, setPatchpilotForm] = useState<PatchpilotFormState>({ name: row.name });
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const editPayload = (): FormPayload => {
@@ -814,6 +831,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return tailscalePayload(tailscaleForm);
       case "caddy":
         return caddyPayload(caddyForm);
+      case "patchpilot":
+        return patchpilotPayload();
       case "aperture":
         return aperturePayload(apertureForm);
       case "minecraft":
@@ -844,6 +863,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return tailscaleForm.name;
       case "caddy":
         return caddyForm.name;
+      case "patchpilot":
+        return patchpilotForm.name;
       case "aperture":
         return apertureForm.name;
       case "minecraft":
@@ -893,6 +914,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return tailscaleComplete(tailscaleForm, false);
       case "caddy":
         return caddyComplete(caddyForm, false);
+      case "patchpilot":
+        return patchpilotComplete(patchpilotForm);
       case "aperture":
         return apertureComplete(apertureForm, false);
       case "minecraft":
@@ -942,6 +965,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
               return <TailscaleForm form={tailscaleForm} setForm={setTailscaleForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
             case "caddy":
               return <CaddyForm form={caddyForm} setForm={setCaddyForm} isNew={false} onFormChange={clearTest} />;
+            case "patchpilot":
+              return <PatchpilotForm form={patchpilotForm} setForm={setPatchpilotForm} />;
             case "aperture":
               return <ApertureForm form={apertureForm} setForm={setApertureForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
             case "minecraft":
@@ -1475,6 +1500,32 @@ function ApertureForm({
         )}
       </Field>
       <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
+function PatchpilotForm({
+  form,
+  setForm,
+}: {
+  form: PatchpilotFormState;
+  setForm: (fn: (prev: PatchpilotFormState) => PatchpilotFormState) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-4">
+      <Field label={t("integrations.form.name")} hint={t("patchpilot.wizard.nameHint")}>
+        {(p) => (
+          <Input
+            {...p}
+            autoFocus
+            value={form.name}
+            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+            placeholder="Homelab fleet"
+          />
+        )}
+      </Field>
+      <p className="text-fg-muted text-[13px]">{t("patchpilot.wizard.intro")}</p>
     </div>
   );
 }
