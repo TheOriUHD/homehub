@@ -66,11 +66,11 @@ func (tb *Toolbox) systemTools() []tool {
 		},
 		{
 			def: ToolDef{
-				Name:        "mc_restart_server",
-				Description: "Full restart of ONE Minecraft server over the network's SSH access (graceful stop, then relaunch from its start.sh). Needs SSH configured on the network. This is disruptive — only when the user explicitly asks to restart that server.",
-				InputSchema: obj(`"systemId":{"type":"string"},"serverId":{"type":"string"}`, "systemId", "serverId"),
+				Name:        "mc_power",
+				Description: "Start, stop, or restart ONE Minecraft server over the network's SSH access (start/relaunch from its start.sh; stop = graceful console stop). Needs SSH configured. Disruptive (stop/restart drop players) — only on the user's explicit request.",
+				InputSchema: obj(`"systemId":{"type":"string"},"serverId":{"type":"string"},"action":{"type":"string","enum":["start","stop","restart"]}`, "systemId", "serverId", "action"),
 			},
-			run: tb.mcRestart,
+			run: tb.mcPower,
 		},
 		{
 			def: ToolDef{
@@ -393,23 +393,29 @@ func (tb *Toolbox) mcCommand(ctx context.Context, _ Access, input json.RawMessag
 	return map[string]any{"ack": ack, "console": reaction}, nil
 }
 
-func (tb *Toolbox) mcRestart(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+func (tb *Toolbox) mcPower(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
 	id, _, err := parseSystemID(input)
 	if err != nil {
 		return nil, err
 	}
 	var args struct {
 		ServerID string `json:"serverId"`
+		Action   string `json:"action"`
 	}
 	if err := json.Unmarshal(input, &args); err != nil {
-		return nil, fmt.Errorf("serverId is required")
+		return nil, fmt.Errorf("serverId and action are required")
 	}
 	serverID, err := uuid.Parse(strings.TrimSpace(args.ServerID))
 	if err != nil {
 		return nil, fmt.Errorf("serverId must be a server uuid from system_details")
 	}
+	switch args.Action {
+	case "start", "stop", "restart":
+	default:
+		return nil, fmt.Errorf("action must be start, stop, or restart")
+	}
 	return tb.call(ctx, http.MethodPost,
-		fmt.Sprintf("/mc/%s/servers/%s/restart", id.String(), serverID.String()), nil)
+		fmt.Sprintf("/mc/%s/servers/%s/%s", id.String(), serverID.String(), args.Action), nil)
 }
 
 func (tb *Toolbox) ampAction(ctx context.Context, _ Access, input json.RawMessage) (any, error) {

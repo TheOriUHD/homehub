@@ -146,3 +146,57 @@ else
 fi
 `, shellSingleQuote(screenName), shellSingleQuote(dir), stopVerb)
 }
+
+// StopScript gracefully stops one server: send the stop verb into its
+// screen console, wait for the session to end, force-quit on timeout.
+func StopScript(screenName, stopVerb string) string {
+	return fmt.Sprintf(`NAME=%s
+if screen -S "$NAME" -Q select . >/dev/null 2>&1; then
+  echo "stopping $NAME gracefully"
+  screen -S "$NAME" -X stuff "$(printf '%s\r')" >/dev/null 2>&1 || echo "note: stop keystroke returned non-zero"
+  STOPPED=
+  i=0
+  while [ $i -lt 90 ]; do
+    if screen -S "$NAME" -Q select . >/dev/null 2>&1; then
+      i=$((i+1)); sleep 1
+    else
+      STOPPED=1; break
+    fi
+  done
+  if [ -z "$STOPPED" ]; then
+    echo "graceful stop timed out after ${i}s; forcing the session down"
+    screen -S "$NAME" -X quit >/dev/null 2>&1
+    sleep 2
+  fi
+  if screen -S "$NAME" -Q select . >/dev/null 2>&1; then
+    echo "STOP_FAIL $NAME is still running"; exit 1
+  else
+    echo "STOP_OK $NAME stopped"
+  fi
+else
+  echo "STOP_OK $NAME was already stopped"
+fi
+`, shellSingleQuote(screenName), stopVerb)
+}
+
+// StartScript launches one server from its start.sh (detached) if it is
+// not already running.
+func StartScript(screenName, dir string) string {
+	return fmt.Sprintf(`NAME=%s
+DIR=%s
+if screen -S "$NAME" -Q select . >/dev/null 2>&1; then
+  echo "START_OK $NAME is already running"; exit 0
+fi
+if [ ! -d "$DIR" ]; then echo "server directory not found: $DIR"; exit 1; fi
+cd "$DIR" || { echo "could not enter $DIR"; exit 1; }
+if [ ! -f start.sh ]; then echo "no start.sh in $DIR"; exit 1; fi
+echo "launching $NAME from start.sh (detached)"
+sed 's/screen -S /screen -dmS /' start.sh | sh
+sleep 5
+if screen -S "$NAME" -Q select . >/dev/null 2>&1; then
+  echo "START_OK $NAME is up"
+else
+  echo "START_FAIL $NAME did not come up — check its console/logs"; exit 1
+fi
+`, shellSingleQuote(screenName), shellSingleQuote(dir))
+}

@@ -4365,6 +4365,56 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /mc/{id}/servers/{serverId}/start:
+    post:
+      operationId: mcStartServer
+      summary: Start one stopped server over SSH
+      description: Launches the server from its own start.sh (detached) if it is not already running. Requires the network's SSH access and control on the server. Audited.
+      tags: [minecraft]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/mcServerIdParam"
+      responses:
+        "200":
+          description: Outcome with the script output
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, message]
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/UpstreamError" }
+
+  /mc/{id}/servers/{serverId}/stop:
+    post:
+      operationId: mcStopServer
+      summary: Stop one running server over SSH
+      description: Sends the stop command into the server's screen console and waits for it to exit. Requires the network's SSH access and control on the server. Audited.
+      tags: [minecraft]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/mcServerIdParam"
+      responses:
+        "200":
+          description: Outcome with the script output
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, message]
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/UpstreamError" }
+
   /mc/{id}/servers/{serverId}/restart:
     post:
       operationId: mcRestartServer

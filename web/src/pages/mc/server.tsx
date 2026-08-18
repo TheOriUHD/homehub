@@ -1,7 +1,7 @@
 import { Link, Outlet, useParams, useRouterState } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, RotateCw } from "lucide-react";
+import { ArrowLeft, Play, RotateCw, Square } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { api, isApiError, unwrap } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -67,7 +67,7 @@ export function McServerPage() {
         </div>
 
         {can(mcServerResource(instanceId, serverId), "control") && sshConfigured && (
-          <RestartButton instanceId={instanceId} serverId={serverId} label={server.label} />
+          <PowerControls instanceId={instanceId} serverId={serverId} label={server.label} online={server.connected} />
         )}
         {st && (
           <div className="flex flex-wrap items-stretch gap-2">
@@ -161,46 +161,89 @@ function HeaderTpsSparkline({ instanceId, serverId }: { instanceId: string; serv
 }
 
 
-/** Full restart over the network's SSH access, behind a confirm. */
-function RestartButton({ instanceId, serverId, label }: { instanceId: string; serverId: string; label: string }) {
+/**
+ * Start / Stop / Restart over the network's SSH access, shown by state:
+ * a stopped server offers only Start; a running one offers Stop and
+ * Restart. Each disruptive action confirms first.
+ */
+function PowerControls({
+  instanceId,
+  serverId,
+  label,
+  online,
+}: {
+  instanceId: string;
+  serverId: string;
+  label: string;
+  online: boolean;
+}) {
   const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const [confirm, setConfirm] = useState(false);
+  const [confirm, setConfirm] = useState<null | "start" | "stop" | "restart">(null);
 
-  const restart = useMutation({
-    mutationFn: async () =>
-      unwrap(
-        await api.POST("/mc/{id}/servers/{serverId}/restart", {
-          params: { path: { id: instanceId, serverId } },
-        }),
-      ),
-    onSuccess: (res) => {
-      setConfirm(false);
-      toast("success", t("mc.server.restartDone", { name: label }), res.message);
+  const run = useMutation({
+    mutationFn: async (action: "start" | "stop" | "restart") => {
+      const path =
+        action === "start"
+          ? "/mc/{id}/servers/{serverId}/start"
+          : action === "stop"
+            ? "/mc/{id}/servers/{serverId}/stop"
+            : "/mc/{id}/servers/{serverId}/restart";
+      return unwrap(await api.POST(path, { params: { path: { id: instanceId, serverId } } }));
+    },
+    onSuccess: (res, action) => {
+      setConfirm(null);
+      toast("success", t(`mc.server.${action}Done`, { name: label }), res.message);
       void queryClient.invalidateQueries({ queryKey: mcOverviewKey(instanceId) });
     },
     onError: (err) => {
-      setConfirm(false);
-      toast("error", t("mc.server.restartFailed"), isApiError(err) ? err.message : t("common.unknownError"));
+      setConfirm(null);
+      toast("error", t("mc.server.powerFailed"), isApiError(err) ? err.message : t("common.unknownError"));
     },
   });
 
+  // Start needs no confirmation; stop and restart drop players, so they do.
+  const start = () => run.mutate("start");
+
   return (
-    <>
-      <Button size="sm" variant="secondary" onClick={() => setConfirm(true)}>
-        <RotateCw className="size-3.5" />
-        {t("mc.server.restart")}
-      </Button>
+    <div className="flex items-center gap-2">
+      {online ? (
+        <>
+          <Button size="sm" variant="secondary" loading={run.isPending} onClick={() => setConfirm("restart")}>
+            <RotateCw className="size-3.5" />
+            {t("mc.server.restart")}
+          </Button>
+          <Button size="sm" variant="danger-ghost" loading={run.isPending} onClick={() => setConfirm("stop")}>
+            <Square className="size-3.5" />
+            {t("mc.server.stop")}
+          </Button>
+        </>
+      ) : (
+        <Button size="sm" variant="primary" loading={run.isPending} onClick={start}>
+          <Play className="size-3.5" />
+          {t("mc.server.start")}
+        </Button>
+      )}
+
       <ConfirmDialog
-        open={confirm}
-        onOpenChange={setConfirm}
+        open={confirm === "restart"}
+        onOpenChange={(o) => !o && setConfirm(null)}
         title={t("mc.server.restartTitle", { name: label })}
         body={t("mc.server.restartBody")}
         confirmLabel={t("mc.server.restart")}
-        loading={restart.isPending}
-        onConfirm={() => restart.mutate()}
+        loading={run.isPending}
+        onConfirm={() => run.mutate("restart")}
       />
-    </>
+      <ConfirmDialog
+        open={confirm === "stop"}
+        onOpenChange={(o) => !o && setConfirm(null)}
+        title={t("mc.server.stopTitle", { name: label })}
+        body={t("mc.server.stopBody")}
+        confirmLabel={t("mc.server.stop")}
+        loading={run.isPending}
+        onConfirm={() => run.mutate("stop")}
+      />
+    </div>
   );
 }
