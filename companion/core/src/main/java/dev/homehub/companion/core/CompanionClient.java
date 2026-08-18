@@ -29,6 +29,12 @@ public final class CompanionClient {
         /** Execute a console command; reply through {@link #sendCmdResult}. */
         void onCommand(long id, String command);
 
+        /** Build one player's full detail (inventory, stats, position, …) as
+         *  a JSON object string; reply through {@link #sendPlayerDetail}.
+         *  Runs on a companion thread — adapters that touch server state must
+         *  hop to the main thread themselves. */
+        void onPlayerDetail(long id, String uuid);
+
         /** Connection is authenticated (backfill already sent). Send players + a status snapshot. */
         void onAuthenticated(boolean freshlyPaired);
 
@@ -125,6 +131,12 @@ public final class CompanionClient {
 
     public void sendCmdResult(long id, boolean ok, String message) {
         sendIfAuthed(Frames.cmdResult(id, ok, message));
+    }
+
+    /** Reply to a player_detail request. detailJson is a JSON object string
+     *  (the player's full snapshot), or null when the player is offline. */
+    public void sendPlayerDetail(long id, String detailJson) {
+        sendIfAuthed(Frames.playerDetailResult(id, detailJson));
     }
 
     private boolean sendIfAuthed(String json) {
@@ -249,6 +261,8 @@ public final class CompanionClient {
             adapter.warn("HomeHub error: " + msg);
         } else if ("cmd".equals(type)) {
             adapter.onCommand(Frames.num(o, "id"), Frames.str(o, "command"));
+        } else if ("player_detail".equals(type)) {
+            adapter.onPlayerDetail(Frames.num(o, "id"), Frames.str(o, "uuid"));
         } else if ("ping".equals(type)) {
             WebSocket s = socket;
             if (s != null) s.sendText(Frames.pong());

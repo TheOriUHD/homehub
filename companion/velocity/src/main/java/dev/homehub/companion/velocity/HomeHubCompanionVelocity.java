@@ -118,6 +118,13 @@ public final class HomeHubCompanionVelocity {
 
     /** Callbacks from companion threads — the Velocity API is thread-safe. */
     private final class BridgeAdapter implements CompanionClient.Adapter {
+        @Override public void onPlayerDetail(final long id, final String uuid) {
+            // Full per-player detail (inventory, stats) is gathered on
+            // Paper/Spigot subservers; this loader reports none for now.
+            final CompanionClient c = client;
+            if (c != null) c.sendPlayerDetail(id, null);
+        }
+
         @Override public void onCommand(final long id, final String command) {
             final CompanionClient c = client;
             if (c == null) return;

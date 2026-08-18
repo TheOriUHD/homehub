@@ -9,6 +9,7 @@ import dev.homehub.companion.core.StatusSnapshot;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -134,6 +135,33 @@ public final class HomeHubCompanionPlugin extends JavaPlugin implements Listener
             }
         }
 
+        @Override public void onPlayerDetail(final long id, final String uuid) {
+            final CompanionClient c = client;
+            if (c == null) return;
+            try {
+                Bukkit.getScheduler().runTask(HomeHubCompanionPlugin.this, new Runnable() {
+                    @Override public void run() {
+                        Player target = null;
+                        if (uuid != null) {
+                            try { target = Bukkit.getPlayer(java.util.UUID.fromString(uuid)); } catch (Throwable ignored) {}
+                        }
+                        if (target == null) {
+                            c.sendPlayerDetail(id, null);
+                            return;
+                        }
+                        try {
+                            c.sendPlayerDetail(id, PlayerDetailBuilder.build(target).toString());
+                        } catch (Throwable t) {
+                            getLogger().warning("player_detail failed: " + t);
+                            c.sendPlayerDetail(id, null);
+                        }
+                    }
+                });
+            } catch (IllegalStateException e) {
+                c.sendPlayerDetail(id, null);
+            }
+        }
+
         @Override public void onAuthenticated(boolean freshlyPaired) {
             try {
                 Bukkit.getScheduler().runTask(HomeHubCompanionPlugin.this, new Runnable() {
@@ -170,9 +198,34 @@ public final class HomeHubCompanionPlugin extends JavaPlugin implements Listener
         if (c == null || !c.isConnected()) return;
         List<PlayerInfo> players = new ArrayList<PlayerInfo>();
         for (Player p : Bukkit.getOnlinePlayers()) {
-            players.add(new PlayerInfo(p.getName(), p.getUniqueId().toString()));
+            players.add(enrich(p));
         }
         c.sendPlayers(players);
+    }
+
+    /** Cheap always-useful fields for the streaming list; heavy detail is
+     *  fetched separately via player_detail. */
+    private PlayerInfo enrich(Player p) {
+        PlayerInfo info = new PlayerInfo(p.getName(), p.getUniqueId().toString());
+        try {
+            org.bukkit.Location l = p.getLocation();
+            if (l.getWorld() != null) info.world = l.getWorld().getName();
+            info.hasPos = true;
+            info.x = l.getX(); info.y = l.getY(); info.z = l.getZ();
+        } catch (Throwable ignored) {}
+        try { info.health = p.getHealth(); } catch (Throwable ignored) {}
+        try { info.maxHealth = p.getMaxHealth(); } catch (Throwable ignored) {}
+        try { info.food = p.getFoodLevel(); } catch (Throwable ignored) {}
+        try { info.level = p.getLevel(); } catch (Throwable ignored) {}
+        try {
+            GameMode gm = p.getGameMode();
+            if (gm != null) info.gameMode = gm.name().toLowerCase();
+        } catch (Throwable ignored) {}
+        try {
+            Object ping = Player.class.getMethod("getPing").invoke(p);
+            if (ping instanceof Integer) info.pingMs = (Integer) ping;
+        } catch (Throwable ignored) {}
+        return info;
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

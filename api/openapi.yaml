@@ -4365,6 +4365,30 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /mc/{id}/servers/{serverId}/players/{playerUuid}:
+    get:
+      operationId: mcPlayerDetail
+      summary: Full live detail for one player
+      description: Requests the player's inventory, armor, ender chest, effects, position, vitals, gamemode, and statistics from the companion. Requires the server companion to be connected and reasonably current.
+      tags: [minecraft]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/mcServerIdParam"
+        - name: playerUuid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The player detail document (shape produced by the companion)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/UpstreamError" }
+
   /mc/{id}/servers/{serverId}/start:
     post:
       operationId: mcStartServer
@@ -6571,6 +6595,16 @@ components:
       properties:
         name: { type: string }
         uuid: { type: string }
+        world: { type: string }
+        x: { type: number, format: double }
+        y: { type: number, format: double }
+        z: { type: number, format: double }
+        health: { type: number, format: double }
+        maxHealth: { type: number, format: double }
+        food: { type: integer }
+        level: { type: integer }
+        gameMode: { type: string }
+        pingMs: { type: integer }
 
     McPairingCode:
       type: object

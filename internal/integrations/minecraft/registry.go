@@ -102,6 +102,10 @@ type Session struct {
 	cmdSeq     int64
 	cmdWaiters map[int64]chan Frame
 
+	detailMu      sync.Mutex
+	detailSeq     int64
+	detailWaiters map[int64]chan Frame
+
 	closed chan struct{}
 	once   sync.Once
 }
@@ -145,6 +149,38 @@ func (s *Session) Command(ctx context.Context, command string) (bool, string, er
 		return false, "", errors.New("the server did not acknowledge the command in time")
 	case <-s.closed:
 		return false, "", errors.New("companion disconnected before acknowledging the command")
+	}
+}
+
+// PlayerDetail asks the companion for one player's full live detail and
+// waits for the answer. The returned document is opaque (built by the
+// plugin); an empty result means the player is offline or unsupported.
+func (s *Session) PlayerDetail(ctx context.Context, uuid string) (json.RawMessage, error) {
+	s.detailMu.Lock()
+	s.detailSeq++
+	id := s.detailSeq
+	ch := make(chan Frame, 1)
+	s.detailWaiters[id] = ch
+	s.detailMu.Unlock()
+	defer func() {
+		s.detailMu.Lock()
+		delete(s.detailWaiters, id)
+		s.detailMu.Unlock()
+	}()
+
+	if err := s.write(ctx, Frame{Type: FramePlayerDetail, ID: id, UUID: uuid}); err != nil {
+		return nil, fmt.Errorf("companion connection lost while requesting player detail")
+	}
+	select {
+	case res := <-ch:
+		if !res.OK && res.Message != "" {
+			return nil, errors.New(res.Message)
+		}
+		return res.Detail, nil
+	case <-ctx.Done():
+		return nil, errors.New("the companion did not return player detail in time")
+	case <-s.closed:
+		return nil, errors.New("companion disconnected before returning player detail")
 	}
 }
 
@@ -210,19 +246,20 @@ func (r *Registry) HandleAgent(w http.ResponseWriter, req *http.Request, clientI
 	}
 
 	sess := &Session{
-		ServerID:   server.ID,
-		NetworkID:  server.IntegrationID,
-		Label:      server.Label,
-		ServerName: first.ServerName,
-		Loader:     first.Loader,
-		McVersion:  first.McVersion,
-		Companion:  first.Companion,
-		RemoteIP:   clientIP,
-		Connected:  time.Now(),
-		Console:    NewConsoleBuffer(),
-		conn:       conn,
-		cmdWaiters: map[int64]chan Frame{},
-		closed:     make(chan struct{}),
+		ServerID:      server.ID,
+		NetworkID:     server.IntegrationID,
+		Label:         server.Label,
+		ServerName:    first.ServerName,
+		Loader:        first.Loader,
+		McVersion:     first.McVersion,
+		Companion:     first.Companion,
+		RemoteIP:      clientIP,
+		Connected:     time.Now(),
+		Console:       NewConsoleBuffer(),
+		conn:          conn,
+		cmdWaiters:    map[int64]chan Frame{},
+		detailWaiters: map[int64]chan Frame{},
+		closed:        make(chan struct{}),
 	}
 
 	// One session per server: a reconnecting companion replaces its
@@ -364,6 +401,13 @@ func (r *Registry) pump(ctx context.Context, s *Session) {
 			s.cmdMu.Lock()
 			ch := s.cmdWaiters[f.ID]
 			s.cmdMu.Unlock()
+			if ch != nil {
+				ch <- *f
+			}
+		case FramePlayerDetailResult:
+			s.detailMu.Lock()
+			ch := s.detailWaiters[f.ID]
+			s.detailMu.Unlock()
 			if ch != nil {
 				ch <- *f
 			}

@@ -100,11 +100,42 @@ public final class Frames {
             JsonObject jp = new JsonObject();
             jp.addProperty("name", p.name);
             if (p.uuid != null) jp.addProperty("uuid", p.uuid);
+            if (p.world != null) jp.addProperty("world", p.world);
+            if (p.hasPos) {
+                jp.addProperty("x", round2(p.x));
+                jp.addProperty("y", round2(p.y));
+                jp.addProperty("z", round2(p.z));
+            }
+            if (p.health != null) jp.addProperty("health", round1(p.health));
+            if (p.maxHealth != null) jp.addProperty("maxHealth", round1(p.maxHealth));
+            if (p.food != null) jp.addProperty("food", p.food.intValue());
+            if (p.level != null) jp.addProperty("level", p.level.intValue());
+            if (p.gameMode != null) jp.addProperty("gameMode", p.gameMode);
+            if (p.pingMs != null) jp.addProperty("pingMs", p.pingMs.intValue());
             arr.add(jp);
         }
         o.add("players", arr);
         return o.toString();
     }
+
+    /** Wrap a companion-built detail object under the result envelope. The
+     *  detail string is raw JSON; a null detail reports the player offline. */
+    public static String playerDetailResult(long id, String detailJson) {
+        JsonObject o = new JsonObject();
+        o.addProperty("type", "player_detail_result");
+        o.addProperty("id", id);
+        if (detailJson == null) {
+            o.addProperty("ok", false);
+            o.addProperty("message", "player is not online");
+        } else {
+            o.addProperty("ok", true);
+            o.add("detail", com.google.gson.JsonParser.parseString(detailJson));
+        }
+        return o.toString();
+    }
+
+    private static double round1(double v) { return Math.round(v * 10.0) / 10.0; }
+    private static double round2(double v) { return Math.round(v * 100.0) / 100.0; }
 
     public static String cmdResult(long id, boolean ok, String message) {
         JsonObject o = new JsonObject();

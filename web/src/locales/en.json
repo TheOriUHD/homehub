@@ -1893,7 +1893,8 @@
       "downstreamTitle": "Downstream servers",
       "downstreamBody": "Backends behind this Velocity proxy.",
       "playerCount_one": "{{count}} player",
-      "playerCount_other": "{{count}} players"
+      "playerCount_other": "{{count}} players",
+      "viewDetail": "View inventory & stats →"
     },
     "setup": {
       "pairingTitle": "Pairing",
@@ -1984,6 +1985,16 @@
       "stopTitle": "Stop {{name}}?",
       "stopBody": "Gracefully stops the server over SSH. Players are disconnected until you start it again.",
       "powerFailed": "Action failed"
+    },
+    "detail": {
+      "position": "Position",
+      "vitals": "Vitals",
+      "effects": "Active effects",
+      "inventory": "Inventory",
+      "armor": "Equipped",
+      "emptyInv": "Empty inventory",
+      "enderChest": "Ender chest",
+      "statistics": "Statistics"
     }
   },
   "history": {

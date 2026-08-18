@@ -2809,6 +2809,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mc/{id}/servers/{serverId}/players/{playerUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Full live detail for one player
+         * @description Requests the player's inventory, armor, ender chest, effects, position, vitals, gamemode, and statistics from the companion. Requires the server companion to be connected and reasonably current.
+         */
+        get: operations["mcPlayerDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mc/{id}/servers/{serverId}/start": {
         parameters: {
             query?: never;
@@ -4277,6 +4297,21 @@ export interface components {
         McPlayer: {
             name: string;
             uuid?: string;
+            world?: string;
+            /** Format: double */
+            x?: number;
+            /** Format: double */
+            y?: number;
+            /** Format: double */
+            z?: number;
+            /** Format: double */
+            health?: number;
+            /** Format: double */
+            maxHealth?: number;
+            food?: number;
+            level?: number;
+            gameMode?: string;
+            pingMs?: number;
         };
         McPairingCode: {
             code: string;
@@ -9675,6 +9710,34 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    mcPlayerDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                serverId: components["parameters"]["mcServerIdParam"];
+                playerUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The player detail document (shape produced by the companion) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
             404: components["responses"]["NotFound"];
             502: components["responses"]["UpstreamError"];
         };
