@@ -107,8 +107,7 @@ func (p *OpenAIProvider) Chat(ctx context.Context, model, system string, turns [
 		return Reply{}, err
 	}
 
-	base := strings.TrimRight(p.BaseURL, "/")
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/chat/completions", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, openAIEndpoint(p.BaseURL), bytes.NewReader(body))
 	if err != nil {
 		return Reply{}, err
 	}
@@ -158,4 +157,15 @@ func (p *OpenAIProvider) Chat(ctx context.Context, model, system string, turns [
 		out.Calls = append(out.Calls, ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: input})
 	}
 	return out, nil
+}
+
+// openAIEndpoint normalizes a user-entered base URL into the chat
+// endpoint: trailing slashes go, and a pasted full path is accepted
+// rather than doubled.
+func openAIEndpoint(base string) string {
+	base = strings.TrimRight(strings.TrimSpace(base), "/")
+	if strings.HasSuffix(base, "/chat/completions") {
+		return base
+	}
+	return base + "/chat/completions"
 }

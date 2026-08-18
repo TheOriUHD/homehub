@@ -4990,6 +4990,38 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /assistant/verify-endpoint:
+    post:
+      operationId: assistantVerifyEndpoint
+      summary: Verify an OpenAI-compatible endpoint URL
+      description: Asks the URL for its model list and reports what happened in actionable terms. Requires configure on system/settings.
+      tags: [assistant]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [baseUrl]
+              properties:
+                baseUrl: { type: string, minLength: 1, maxLength: 300 }
+      responses:
+        "200":
+          description: Verification result — ok with models, or a diagnosis
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, models]
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+                  models:
+                    type: array
+                    items: { type: string }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /assistant/chat:
     post:
       operationId: assistantChat

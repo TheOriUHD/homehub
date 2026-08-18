@@ -2713,6 +2713,15 @@
     "scanNetwork": "Find on network",
     "scanning": "Scanning your network…",
     "scanEmpty": "No LM Studio found. Make sure its server is running and “Serve on Local Network” is enabled.",
-    "scanNoModels": "reachable, but no model loaded"
+    "scanNoModels": "reachable, but no model loaded",
+    "testEndpoint": "Test endpoint",
+    "endpointOkModels": "Reachable — loaded: {{models}}.",
+    "endpointOkEmpty": "Reachable, but no model is loaded yet.",
+    "useModel": "Use {{model}}",
+    "lmGuideTitle": "Connecting LM Studio",
+    "lmGuide1": "In LM Studio, open the Developer tab and start the server.",
+    "lmGuide2": "Enable “Serve on Local Network” — otherwise it only listens on that machine.",
+    "lmGuide3": "Load a model (one that supports tool use answers questions best).",
+    "lmGuide4": "The endpoint is http://<that machine's IP>:1234/v1 — find it above or test it here."
   }
 }
