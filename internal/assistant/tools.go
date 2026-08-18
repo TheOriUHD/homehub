@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -97,7 +99,75 @@ func (tb *Toolbox) tools() []tool {
 			},
 			run: tb.recentAudit,
 		},
+		{
+			def: ToolDef{
+				Name:        "list_workspace_files",
+				Description: "The user's saved workspace files from the utilities editor: name, size, last edited. Use read_workspace_file to fetch one's content.",
+				InputSchema: obj(``),
+			},
+			run: tb.listWorkspaceFiles,
+		},
+		{
+			def: ToolDef{
+				Name:        "read_workspace_file",
+				Description: "Read one of the user's workspace files by its exact name (from list_workspace_files). Content beyond 48 KB is truncated.",
+				InputSchema: obj(`"name":{"type":"string","description":"Exact file name including extension"}`, "name"),
+			},
+			run: tb.readWorkspaceFile,
+		},
 	}
+}
+
+// ---- workspace files (the utilities editor's storage) ----------------------
+
+func (tb *Toolbox) listWorkspaceFiles(ctx context.Context, access Access, _ json.RawMessage) (any, error) {
+	rows, err := tb.Store.ListUserFiles(ctx, access.UserID)
+	if err != nil {
+		return nil, err
+	}
+	type fileInfo struct {
+		Name      string    `json:"name"`
+		SizeBytes int       `json:"sizeBytes"`
+		UpdatedAt time.Time `json:"updatedAt"`
+	}
+	out := make([]fileInfo, 0, len(rows))
+	for _, f := range rows {
+		out = append(out, fileInfo{Name: f.Name, SizeBytes: f.Size, UpdatedAt: f.UpdatedAt})
+	}
+	return out, nil
+}
+
+const workspaceReadCap = 48 * 1024
+
+func (tb *Toolbox) readWorkspaceFile(ctx context.Context, access Access, input json.RawMessage) (any, error) {
+	var args struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(input, &args); err != nil || strings.TrimSpace(args.Name) == "" {
+		return nil, fmt.Errorf("read_workspace_file needs a file name")
+	}
+	f, err := tb.Store.GetUserFileByName(ctx, access.UserID, strings.TrimSpace(args.Name))
+	if err != nil {
+		return nil, fmt.Errorf("no workspace file named %q — list_workspace_files shows what exists", args.Name)
+	}
+	content := f.Content
+	truncated := false
+	if len(content) > workspaceReadCap {
+		content = content[:workspaceReadCap]
+		// Back off to a rune boundary so we never hand the model a string
+		// that ends mid-character (json.Marshal would emit U+FFFD there).
+		for len(content) > 0 && !utf8.RuneStart(content[len(content)-1]) {
+			content = content[:len(content)-1]
+		}
+		truncated = true
+	}
+	return map[string]any{
+		"name":      f.Name,
+		"sizeBytes": f.Size,
+		"updatedAt": f.UpdatedAt,
+		"content":   content,
+		"truncated": truncated,
+	}, nil
 }
 
 // allTools joins the base read tools with the per-system depth/control

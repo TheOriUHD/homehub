@@ -22,6 +22,8 @@ import { UserDetailPage } from "./pages/user-detail";
 import { RolesPage } from "./pages/roles";
 import { AuditPage } from "./pages/audit";
 import { AppSettingsPage } from "./pages/app-settings";
+import { ToolsPage } from "./pages/tools";
+import { ToolsEditorPage } from "./pages/tools/editor";
 import { NotFoundPage } from "./pages/not-found";
 import { SystemsPage } from "./pages/systems";
 import { SystemTypeLanding } from "./pages/systems/type-landing";
@@ -125,6 +127,16 @@ const healthRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/health",
   component: HealthPage,
+});
+const toolsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/tools",
+  component: ToolsPage,
+});
+const toolsEditorRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/tools/editor",
+  component: ToolsEditorPage,
 });
 
 const assistantRoute = createRoute({
@@ -620,6 +632,8 @@ const routeTree = rootRoute.addChildren([
     overviewRoute,
     assistantRoute,
     healthRoute,
+    toolsRoute,
+    toolsEditorRoute,
     historyRoute,
     alertsRoute,
     backupsRoute,

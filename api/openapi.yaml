@@ -5101,6 +5101,97 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 
+  /files:
+    get:
+      operationId: listFiles
+      summary: The calling user's workspace files (no content)
+      tags: [files]
+      responses:
+        "200":
+          description: Files, newest-edited first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WorkspaceFile" }
+    post:
+      operationId: createFile
+      summary: Create a workspace file
+      tags: [files]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                content: { type: string }
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkspaceFile" }
+        "409":
+          description: A file with that name already exists
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /files/{id}:
+    get:
+      operationId: getFile
+      summary: One workspace file with content
+      tags: [files]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The file
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkspaceFile" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      operationId: updateFile
+      summary: Rename and/or rewrite a workspace file
+      tags: [files]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, content]
+              properties:
+                name: { type: string }
+                content: { type: string }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkspaceFile" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: A file with that name already exists
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+    delete:
+      operationId: deleteFile
+      summary: Delete a workspace file
+      tags: [files]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
   /assistant:
     get:
       operationId: getAssistant
@@ -6694,6 +6785,17 @@ components:
         gameMode: { type: string }
         pingMs: { type: integer }
         heldSlot: { type: integer }
+
+    WorkspaceFile:
+      type: object
+      required: [id, name, size, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        size: { type: integer, description: "Content length in bytes" }
+        content: { type: string, description: "Present on single-file reads and writes" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
     TelegramSettings:
       type: object

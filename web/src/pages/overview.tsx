@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Users,
   Waypoints,
+  Wrench,
 } from "lucide-react";
 import { api, isApiError, unwrap, type Integration } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -140,6 +141,12 @@ export function OverviewPage() {
     },
     [prefs, update],
   );
+
+  const workspaceFiles = useQuery({
+    queryKey: ["files"],
+    queryFn: async () => unwrap(await api.GET("/files")),
+    refetchInterval: 60_000,
+  });
 
   const pve = first("proxmox");
   const pveSummary = useQuery({
@@ -411,6 +418,16 @@ export function OverviewPage() {
       />,
     );
   }
+
+  add(
+    "tools",
+    <StatCard
+      to="/tools"
+      icon={Wrench}
+      value={String(workspaceFiles.data?.length ?? 0)}
+      label={t("overview.cards.tools")}
+    />,
+  );
 
   const visible = defs.filter((d) => !hidden.includes(d.key));
   const ordered = [

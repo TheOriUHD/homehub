@@ -54,7 +54,8 @@
     "signOut": "Sign out",
     "notifications": "Notifications",
     "menu": "Menu",
-    "assistant": "Assistant"
+    "assistant": "Assistant",
+    "tools": "Utilities"
   },
   "palette": {
     "placeholder": "Jump to a page or action…",
@@ -150,7 +151,8 @@
       "ampServers": "AMP servers running",
       "caddySites": "sites behind Caddy",
       "databases": "database servers",
-      "camerasLiveOnly": "Cameras, live view"
+      "camerasLiveOnly": "Cameras, live view",
+      "tools": "workspace files"
     },
     "pin": "Pin to front",
     "unpin": "Unpin",
@@ -189,7 +191,8 @@
       "docker": "Containers",
       "amp": "AMP servers",
       "caddy": "Caddy sites",
-      "db": "Databases"
+      "db": "Databases",
+      "tools": "Utilities"
     }
   },
   "health": {
@@ -2812,6 +2815,45 @@
       "enterCode": "Send /link to {{bot}}, then enter the code it gives you here:",
       "linkedAs": "Linked {{label}}",
       "yourBot": "your bot"
+    }
+  },
+  "tools": {
+    "title": "Utilities",
+    "subtitle": "Small apps that live inside HomeHub.",
+    "comingSoon": "Coming soon",
+    "converter": {
+      "title": "Converter",
+      "tile": "Convert between text, image, audio, video and table formats — batches included."
+    },
+    "editor": {
+      "title": "Text editor",
+      "subtitle": "Workspace files with syntax highlighting — saved here, readable by the assistant.",
+      "tile": "Write and edit files with highlighting, keep them in your workspace, download under any name.",
+      "fileCount": "{{count}} file(s) in your workspace",
+      "newFile": "New file",
+      "newFileBody": "The extension picks the syntax highlighting — any name and ending works.",
+      "fileName": "File name",
+      "empty": {
+        "title": "No files yet",
+        "body": "Create your first file — it is saved to your workspace and the assistant can read it."
+      },
+      "pick": {
+        "title": "Pick a file",
+        "body": "Select a file on the left, or create a new one."
+      },
+      "saved": "Saved {{name}}",
+      "unsaved": "Unsaved changes",
+      "download": "Download",
+      "downloadHint": "Downloads the current buffer under the file's name",
+      "deleteTitle": "Delete {{name}}?",
+      "deleteBody": "This permanently removes the file from your workspace.",
+      "cursor": "Ln {{line}}, Col {{col}}",
+      "chars": "{{count}} chars",
+      "saveHint": "Ctrl+S saves · the name field is also the download name",
+      "loadError": {
+        "title": "Couldn't open this file",
+        "body": "The file failed to load — retry, or pick another."
+      }
     }
   }
 }
