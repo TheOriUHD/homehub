@@ -398,7 +398,8 @@ export function Slot({
       {item && item.count > 1 && (
         <McText
           text={String(item.count)}
-          style={{ position: "absolute", right: -2 * S, bottom: 0, zIndex: 4 }}
+          scale={2}
+          style={{ position: "absolute", right: S, bottom: 2, zIndex: 4 }}
         />
       )}
     </div>
