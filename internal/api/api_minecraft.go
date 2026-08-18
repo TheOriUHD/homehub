@@ -3,10 +3,14 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
+	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -156,6 +160,98 @@ func toAPIMcPlayer(p minecraft.Player) McPlayer {
 		out.GameMode = &v
 	}
 	return out
+}
+
+// mcSkinCache memoizes fetched skins (and default fallbacks) so repeated
+// dialog opens do not re-hit Mojang. Small and process-lifetime.
+var mcSkinCache sync.Map // uuid -> []byte PNG
+
+func (s *Server) McPlayerSkin(ctx context.Context, req McPlayerSkinRequestObject) (McPlayerSkinResponseObject, error) {
+	if req.Uuid != "" {
+		if v, ok := mcSkinCache.Load(req.Uuid); ok {
+			return McPlayerSkin200ImagepngResponse{Body: bytes.NewReader(v.([]byte)), ContentLength: int64(len(v.([]byte)))}, nil
+		}
+	}
+	png := s.fetchMinecraftSkin(ctx, req.Uuid)
+	if req.Uuid != "" && png != nil {
+		mcSkinCache.Store(req.Uuid, png)
+	}
+	httpctx.Writer(ctx).Header().Set("Cache-Control", "public, max-age=3600")
+	return McPlayerSkin200ImagepngResponse{Body: bytes.NewReader(png), ContentLength: int64(len(png))}, nil
+}
+
+// fetchMinecraftSkin resolves a uuid to its skin PNG via the Mojang
+// session server; on any failure (offline-mode uuid, network) it returns
+// the bundled default skin so the UI always has a body to draw.
+func (s *Server) fetchMinecraftSkin(ctx context.Context, uuid string) []byte {
+	fallback := func() []byte { return minecraft.DefaultSkin() }
+	compact := strings.ReplaceAll(uuid, "-", "")
+	if len(compact) != 32 {
+		return fallback()
+	}
+	client := &http.Client{Timeout: 6 * time.Second}
+	profileURL := "https://sessionserver.mojang.com/session/minecraft/profile/" + compact
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, profileURL, nil)
+	if err != nil {
+		return fallback()
+	}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			resp.Body.Close()
+		}
+		return fallback()
+	}
+	defer resp.Body.Close()
+	var profile struct {
+		Properties []struct {
+			Name  string `json:"name"`
+			Value string `json:"value"`
+		} `json:"properties"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&profile) != nil {
+		return fallback()
+	}
+	var skinURL string
+	for _, prop := range profile.Properties {
+		if prop.Name != "textures" {
+			continue
+		}
+		raw, err := base64.StdEncoding.DecodeString(prop.Value)
+		if err != nil {
+			continue
+		}
+		var tex struct {
+			Textures struct {
+				Skin struct {
+					URL string `json:"url"`
+				} `json:"SKIN"`
+			} `json:"textures"`
+		}
+		if json.Unmarshal(raw, &tex) == nil {
+			skinURL = tex.Textures.Skin.URL
+		}
+	}
+	if skinURL == "" {
+		return fallback()
+	}
+	sreq, err := http.NewRequestWithContext(ctx, http.MethodGet, skinURL, nil)
+	if err != nil {
+		return fallback()
+	}
+	sresp, err := client.Do(sreq)
+	if err != nil || sresp.StatusCode != http.StatusOK {
+		if sresp != nil {
+			sresp.Body.Close()
+		}
+		return fallback()
+	}
+	defer sresp.Body.Close()
+	png, err := io.ReadAll(io.LimitReader(sresp.Body, 256*1024))
+	if err != nil || len(png) == 0 {
+		return fallback()
+	}
+	return png
 }
 
 func (s *Server) McPlayerDetail(ctx context.Context, req McPlayerDetailRequestObject) (McPlayerDetailResponseObject, error) {

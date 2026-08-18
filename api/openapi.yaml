@@ -4365,6 +4365,24 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /mc/skin/{uuid}:
+    get:
+      operationId: mcPlayerSkin
+      summary: A player's Minecraft skin PNG
+      description: Proxies the player's skin from Mojang by uuid (avoids CORS and mixed-content). Returns the default skin for offline-mode uuids Mojang does not know. Cached.
+      tags: [minecraft]
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The 64x64 skin PNG
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+
   /mc/{id}/servers/{serverId}/players/{playerUuid}:
     get:
       operationId: mcPlayerDetail

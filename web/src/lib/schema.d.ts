@@ -2809,6 +2809,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mc/skin/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A player's Minecraft skin PNG
+         * @description Proxies the player's skin from Mojang by uuid (avoids CORS and mixed-content). Returns the default skin for offline-mode uuids Mojang does not know. Cached.
+         */
+        get: operations["mcPlayerSkin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mc/{id}/servers/{serverId}/players/{playerUuid}": {
         parameters: {
             query?: never;
@@ -9712,6 +9732,28 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             502: components["responses"]["UpstreamError"];
+        };
+    };
+    mcPlayerSkin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The 64x64 skin PNG */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                };
+            };
         };
     };
     mcPlayerDetail: {
