@@ -2853,7 +2853,38 @@
       "loadError": {
         "title": "Couldn't open this file",
         "body": "The file failed to load — retry, or pick another."
+      },
+      "filter": "Filter files…",
+      "noMatch": "No files match",
+      "undo": "Undo",
+      "redo": "Redo",
+      "find": "Find & replace (Ctrl+F)",
+      "wrapToggle": "Toggle word wrap",
+      "fontSmaller": "Smaller text",
+      "fontBigger": "Bigger text",
+      "selected": "{{count}} selected",
+      "savedAt": "Saved {{time}}",
+      "closeTitle": "Close {{name}}?",
+      "closeBody": "This file has unsaved changes.",
+      "closeDiscard": "Discard changes",
+      "closeSave": "Save & close"
+    },
+    "files": {
+      "title": "Files",
+      "subtitle": "Your workspace — uploads, downloads, and everything the editor saves. The assistant can read these.",
+      "tile": "Manage workspace files: upload from disk, download, rename, open in the editor.",
+      "upload": "Upload",
+      "uploaded": "Uploaded {{count}} file(s)",
+      "tooLarge": "{{name}} is over the 1 MiB limit",
+      "binary": "{{name}} looks binary — the workspace stores text",
+      "open": "Open in editor",
+      "rename": "Rename",
+      "dropHint": "Drop text files anywhere on this list to upload them",
+      "empty": {
+        "title": "No files yet",
+        "body": "Upload files or create one in the editor."
       }
-    }
+    },
+    "recent": "Recent files"
   }
 }

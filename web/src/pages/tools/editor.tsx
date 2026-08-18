@@ -1,15 +1,25 @@
-import { lazy, Suspense, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
   Download,
   FileCode2,
   FilePlus2,
   Loader2,
+  Redo2,
   Save,
+  Search,
   Trash2,
+  Undo2,
+  WrapText,
+  X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { api, isApiError, unwrap } from "@/lib/api";
+import { fileLanguage, formatBytes, timeAgo } from "@/lib/file-lang";
+import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
 import { Dialog, DialogContent } from "@/ui/dialog";
@@ -18,141 +28,189 @@ import { Input } from "@/ui/input";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState } from "@/ui/states";
 import { useToast } from "@/ui/toast";
-import { cn } from "@/lib/utils";
+import type { CodeEditorHandle } from "@/components/code-editor";
 
 // CodeMirror and its language packs are heavy — split into their own chunk,
 // loaded the first time the editor page mounts (same pattern as the consoles).
 const CodeEditor = lazy(() => import("@/components/code-editor").then((m) => ({ default: m.CodeEditor })));
-const languageForP = import("@/components/code-editor").then((m) => m.languageFor);
 
 /**
- * The utilities text editor: per-user workspace files stored server-side,
- * syntax highlighting by extension, and downloads under any name — the name
- * field IS the download name, extension and all. Edits are kept as drafts
- * per file, so switching files never loses work; the assistant can read
- * saved files as context.
+ * The utilities text editor. THE BUFFER OWNS THE TRUTH: a file's content is
+ * fetched exactly once when its tab opens and lives in local state from then
+ * on — no query-cache sync, so a background refetch can never wipe or revert
+ * what the user typed (the failure mode of the first version). Saving PUTs
+ * the buffer and moves the baseline to the server's echo; the file LIST is
+ * the only thing the query cache manages.
  */
+
+type Buf = {
+  name: string;
+  content: string;
+  baseName: string;
+  baseContent: string;
+  savedAt?: string;
+};
+
+const isDirty = (b: Buf) => b.name !== b.baseName || b.content !== b.baseContent;
+
 export function ToolsEditorPage() {
   const { t } = useTranslation();
   const toast = useToast();
   const qc = useQueryClient();
+  const search = useSearch({ from: "/shell/tools/editor" }) as { file?: string };
 
   const files = useQuery({
     queryKey: ["files"],
     queryFn: async () => unwrap(await api.GET("/files")),
   });
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Drafts: unsaved edits per file id — the sidebar shows a dirty dot and
-  // switching files round-trips through here instead of losing changes.
-  const [drafts, setDrafts] = useState<Record<string, { name: string; content: string }>>({});
-  const [cursor, setCursor] = useState({ line: 1, col: 1 });
+  // Open buffers (tab order) + the active one. Buffers are the only owner
+  // of content once open.
+  const [bufs, setBufs] = useState<Record<string, Buf>>({});
+  const [openIds, setOpenIds] = useState<string[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
+  const [cursor, setCursor] = useState({ line: 1, col: 1, selected: 0 });
+  const [wrap, setWrap] = useState(true);
+  const [fontSize, setFontSize] = useState(13.5);
   const [createOpen, setCreateOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [langName, setLangName] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmClose, setConfirmClose] = useState<string | null>(null);
+  const editorRef = useRef<CodeEditorHandle>(null);
 
-  const active = files.data?.find((f) => f.id === selectedId) ?? null;
+  const active = activeId ? bufs[activeId] : undefined;
 
-  const fileQuery = useQuery({
-    queryKey: ["files", selectedId],
-    queryFn: async () =>
-      unwrap(await api.GET("/files/{id}", { params: { path: { id: selectedId! } } })),
-    enabled: !!selectedId,
-  });
+  const openFile = async (id: string) => {
+    if (bufs[id]) {
+      setActiveId(id);
+      return;
+    }
+    setOpening(id);
+    try {
+      const f = unwrap(await api.GET("/files/{id}", { params: { path: { id } } }));
+      const content = f.content ?? "";
+      setBufs((b) => ({
+        ...b,
+        [id]: { name: f.name, content, baseName: f.name, baseContent: content },
+      }));
+      setOpenIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+      setActiveId(id);
+    } catch (err) {
+      toast("error", isApiError(err) ? err.message : t("common.unknownError"));
+    } finally {
+      setOpening(null);
+    }
+  };
 
-  const draft = selectedId ? drafts[selectedId] : undefined;
-  const savedName = active?.name ?? "";
-  const savedContent = fileQuery.data?.content ?? "";
-  const name = draft?.name ?? savedName;
-  const content = draft?.content ?? savedContent;
-  const dirty = !!draft && (draft.name !== savedName || draft.content !== savedContent);
+  // Deep link: /tools/editor?file=<id> opens that file (used by the manager).
+  useEffect(() => {
+    if (search.file) void openFile(search.file);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.file]);
 
-  // Language label needs the lazy chunk; resolve once it's in.
-  useMemo(() => {
-    void languageForP.then((fn) => setLangName(fn(name)));
-  }, [name]);
-
-  const setDraft = (patch: Partial<{ name: string; content: string }>) => {
-    if (!selectedId) return;
-    setDrafts((d) => {
-      const cur = d[selectedId] ?? { name, content };
-      const next = { ...cur, ...patch };
-      // Editing a file back to its saved state clears the draft entirely, so
-      // the sidebar dot and the Save button agree there's nothing to save.
-      if (next.name === savedName && next.content === savedContent) {
-        const { [selectedId]: _drop, ...rest } = d;
-        return rest;
-      }
-      return { ...d, [selectedId]: next };
+  const closeTab = (id: string, force = false) => {
+    const b = bufs[id];
+    if (b && isDirty(b) && !force) {
+      setConfirmClose(id);
+      return;
+    }
+    setConfirmClose(null);
+    setOpenIds((ids) => {
+      const next = ids.filter((x) => x !== id);
+      if (activeId === id) setActiveId(next[next.length - 1] ?? null);
+      return next;
     });
+    setBufs((b2) => {
+      const next = { ...b2 };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const patchActive = (patch: Partial<Pick<Buf, "name" | "content">>) => {
+    if (!activeId) return;
+    setBufs((b) => (b[activeId] ? { ...b, [activeId]: { ...b[activeId], ...patch } } : b));
   };
 
   const create = useMutation({
     mutationFn: async (newName: string) =>
       unwrap(await api.POST("/files", { body: { name: newName, content: "" } })),
     onSuccess: (f) => {
-      void qc.invalidateQueries({ queryKey: ["files"] });
-      setSelectedId(f.id);
+      void qc.invalidateQueries({ queryKey: ["files"], exact: true });
+      // Seed the buffer straight from the response — no extra GET, no races.
+      setBufs((b) => ({
+        ...b,
+        [f.id]: { name: f.name, content: f.content ?? "", baseName: f.name, baseContent: f.content ?? "" },
+      }));
+      setOpenIds((ids) => [...ids, f.id]);
+      setActiveId(f.id);
       setCreateOpen(false);
     },
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
   const save = useMutation({
-    mutationFn: async () =>
-      unwrap(
+    mutationFn: async (id: string) => {
+      const b = bufs[id];
+      return unwrap(
         await api.PUT("/files/{id}", {
-          params: { path: { id: selectedId! } },
-          body: { name: name.trim(), content },
+          params: { path: { id } },
+          body: { name: b.name.trim(), content: b.content },
         }),
-      ),
+      );
+    },
     onSuccess: (f) => {
-      // Seed the single-file cache with the saved payload BEFORE dropping the
-      // draft, so `content` never transiently falls back to the stale server
-      // copy (which would flash old text and jump the caret on every save).
-      qc.setQueryData(["files", f.id], f);
-      setDrafts((d) => {
-        const next = { ...d };
-        delete next[f.id];
-        return next;
-      });
-      void qc.invalidateQueries({ queryKey: ["files"] });
+      // Baseline moves to what the server confirmed; the buffer itself is
+      // untouched — nothing can revert or flash.
+      setBufs((b) =>
+        b[f.id]
+          ? {
+              ...b,
+              [f.id]: {
+                ...b[f.id],
+                name: f.name,
+                baseName: f.name,
+                baseContent: f.content ?? b[f.id].content,
+                savedAt: f.updatedAt,
+              },
+            }
+          : b,
+      );
+      void qc.invalidateQueries({ queryKey: ["files"], exact: true });
       toast("success", t("tools.editor.saved", { name: f.name }));
     },
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
   const remove = useMutation({
-    mutationFn: async () =>
-      unwrap(await api.DELETE("/files/{id}", { params: { path: { id: selectedId! } } })),
-    onSuccess: () => {
-      setDrafts((d) => {
-        const next = { ...d };
-        if (selectedId) delete next[selectedId];
-        return next;
-      });
-      setSelectedId(null);
-      setConfirmDelete(false);
-      void qc.invalidateQueries({ queryKey: ["files"] });
+    mutationFn: async (id: string) => {
+      unwrap(await api.DELETE("/files/{id}", { params: { path: { id } } }));
+      return id;
+    },
+    onSuccess: (id) => {
+      closeTab(id, true);
+      setConfirmDelete(null);
+      void qc.invalidateQueries({ queryKey: ["files"], exact: true });
     },
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
-  // Download is entirely client-side: the current buffer under the current
-  // name — whatever name and extension the user typed.
+  // Download the current buffer under the current name — always exactly what
+  // is on screen, saved or not.
   const download = () => {
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    if (!active) return;
+    const blob = new Blob([active.content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = name.trim() || "untitled.txt";
+    a.download = active.name.trim() || "untitled.txt";
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  // Require a successful load before editing: a blank buffer from a failed
-  // GET must never become a Save that wipes the real server file.
-  const editorReady = !!selectedId && (fileQuery.isSuccess || !!draft);
+  const filtered = (files.data ?? []).filter((f) => f.name.toLowerCase().includes(filter.toLowerCase()));
+  const activeDirty = active ? isDirty(active) : false;
 
   return (
     <div className="flex h-[calc(100dvh-6.5rem)] min-h-0 flex-col space-y-4">
@@ -171,77 +229,182 @@ export function ToolsEditorPage() {
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4">
-        {/* file list */}
-        <Card className="flex w-64 shrink-0 flex-col overflow-hidden">
+        {/* workspace file list */}
+        <Card className="flex w-72 shrink-0 flex-col overflow-hidden">
+          <div className="border-edge border-b p-2">
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder={t("tools.editor.filter")}
+              className="h-8 text-[13px]"
+            />
+          </div>
           {files.isLoading ? (
             <PageLoader className="py-10" />
-          ) : (files.data?.length ?? 0) === 0 ? (
+          ) : filtered.length === 0 ? (
             <EmptyState
               icon={FileCode2}
-              title={t("tools.editor.empty.title")}
-              body={t("tools.editor.empty.body")}
+              title={filter ? t("tools.editor.noMatch") : t("tools.editor.empty.title")}
+              body={filter ? "" : t("tools.editor.empty.body")}
             />
           ) : (
-            <div className="min-h-0 flex-1 overflow-y-auto py-1.5">
-              {files.data!.map((f) => {
-                const fDirty = !!drafts[f.id];
+            <div className="min-h-0 flex-1 overflow-y-auto py-1">
+              {filtered.map((f) => {
+                const open = !!bufs[f.id];
+                const fDirty = open && isDirty(bufs[f.id]);
                 return (
-                  <button
+                  <div
                     key={f.id}
-                    type="button"
-                    onClick={() => setSelectedId(f.id)}
                     className={cn(
-                      "flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] transition-colors",
-                      f.id === selectedId ? "bg-accent-soft/60 text-fg" : "text-fg-muted hover:bg-bg-subtle hover:text-fg",
+                      "group flex w-full items-center gap-2 px-3 py-2 transition-colors",
+                      f.id === activeId ? "bg-accent-soft/60" : "hover:bg-bg-subtle",
                     )}
                   >
-                    <FileCode2 className="text-fg-subtle size-3.5 shrink-0" />
-                    <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">
-                      {drafts[f.id]?.name ?? f.name}
-                    </span>
-                    {fDirty && <span className="bg-accent size-1.5 shrink-0 rounded-full" />}
-                    <span className="text-fg-subtle shrink-0 text-[11px] tabular-nums">{fmtSize(f.size)}</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => void openFile(f.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    >
+                      <FileCode2 className={cn("size-3.5 shrink-0", open ? "text-accent" : "text-fg-subtle")} />
+                      <span className="min-w-0 flex-1">
+                        <span className="text-fg block truncate font-mono text-[12.5px]">
+                          {bufs[f.id]?.name ?? f.name}
+                        </span>
+                        <span className="text-fg-subtle block text-[11px]">
+                          {formatBytes(f.size)} · {timeAgo(f.updatedAt)}
+                        </span>
+                      </span>
+                      {fDirty && <span className="bg-accent size-1.5 shrink-0 rounded-full" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(f.id)}
+                      className="text-fg-subtle hover:text-danger p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                      aria-label={t("common.delete")}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
                 );
               })}
             </div>
           )}
         </Card>
 
-        {/* editor */}
+        {/* editor area */}
         <Card className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {!selectedId ? (
-            <EmptyState
-              icon={FileCode2}
-              title={t("tools.editor.pick.title")}
-              body={t("tools.editor.pick.body")}
-            />
-          ) : fileQuery.isError && !draft ? (
-            <EmptyState
-              icon={FileCode2}
-              title={t("tools.editor.loadError.title")}
-              body={t("tools.editor.loadError.body")}
-              action={
-                <Button variant="ghost" onClick={() => void fileQuery.refetch()}>
-                  {t("common.retry")}
-                </Button>
-              }
-            />
-          ) : !editorReady ? (
-            <PageLoader className="py-10" />
+          {/* tabs */}
+          {openIds.length > 0 && (
+            <div className="border-edge flex items-center gap-0.5 overflow-x-auto border-b px-1.5 pt-1.5">
+              {openIds.map((id) => {
+                const b = bufs[id];
+                if (!b) return null;
+                const bDirty = isDirty(b);
+                return (
+                  <div
+                    key={id}
+                    className={cn(
+                      "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-t-lg border border-b-0 px-3 py-1.5 text-[12.5px]",
+                      id === activeId
+                        ? "border-edge bg-bg-subtle text-fg"
+                        : "text-fg-muted hover:text-fg border-transparent",
+                    )}
+                    onClick={() => setActiveId(id)}
+                  >
+                    <span className="max-w-44 truncate font-mono">{b.name}</span>
+                    {bDirty ? (
+                      <span className="bg-accent size-1.5 rounded-full" />
+                    ) : (
+                      <span className="size-1.5" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeTab(id);
+                      }}
+                      className="text-fg-subtle hover:text-fg -mr-1 rounded p-0.5"
+                      aria-label={t("common.close")}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!active ? (
+            opening ? (
+              <PageLoader className="py-10" />
+            ) : (
+              <EmptyState
+                icon={FileCode2}
+                title={t("tools.editor.pick.title")}
+                body={t("tools.editor.pick.body")}
+              />
+            )
           ) : (
             <>
-              <div className="border-edge flex items-center gap-2 border-b px-3 py-2">
+              {/* toolbar */}
+              <div className="border-edge flex items-center gap-1.5 border-b px-2.5 py-1.5">
                 <Input
-                  value={name}
-                  onChange={(e) => setDraft({ name: e.target.value })}
-                  className="h-8 max-w-64 font-mono text-[13px]"
+                  value={active.name}
+                  onChange={(e) => patchActive({ name: e.target.value })}
+                  className="h-7.5 max-w-56 font-mono text-[12.5px]"
                   aria-label={t("tools.editor.fileName")}
                 />
-                <span className="bg-bg-subtle text-fg-muted rounded-md px-1.5 py-0.5 text-[11px]">{langName}</span>
-                {dirty && <span className="bg-accent size-2 rounded-full" title={t("tools.editor.unsaved")} />}
+                <span className="bg-bg-subtle text-fg-muted rounded-md px-1.5 py-0.5 text-[11px]">
+                  {fileLanguage(active.name)}
+                </span>
+                <span className="bg-edge mx-1 h-4 w-px" />
+                <ToolButton label={t("tools.editor.undo")} onClick={() => editorRef.current?.undo()}>
+                  <Undo2 className="size-3.5" />
+                </ToolButton>
+                <ToolButton label={t("tools.editor.redo")} onClick={() => editorRef.current?.redo()}>
+                  <Redo2 className="size-3.5" />
+                </ToolButton>
+                <ToolButton label={t("tools.editor.find")} onClick={() => editorRef.current?.find()}>
+                  <Search className="size-3.5" />
+                </ToolButton>
+                <ToolButton
+                  label={t("tools.editor.wrapToggle")}
+                  active={wrap}
+                  onClick={() => {
+                    const next = !wrap;
+                    setWrap(next);
+                    editorRef.current?.setWrap(next);
+                  }}
+                >
+                  <WrapText className="size-3.5" />
+                </ToolButton>
+                <ToolButton
+                  label={t("tools.editor.fontSmaller")}
+                  onClick={() => {
+                    const next = Math.max(10, fontSize - 1.5);
+                    setFontSize(next);
+                    editorRef.current?.setFontSize(next);
+                  }}
+                >
+                  <ZoomOut className="size-3.5" />
+                </ToolButton>
+                <ToolButton
+                  label={t("tools.editor.fontBigger")}
+                  onClick={() => {
+                    const next = Math.min(22, fontSize + 1.5);
+                    setFontSize(next);
+                    editorRef.current?.setFontSize(next);
+                  }}
+                >
+                  <ZoomIn className="size-3.5" />
+                </ToolButton>
                 <span className="flex-1" />
-                <Button size="sm" variant="primary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={!activeDirty || save.isPending}
+                  onClick={() => activeId && save.mutate(activeId)}
+                >
                   {save.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
                   {t("common.save")}
                 </Button>
@@ -249,38 +412,36 @@ export function ToolsEditorPage() {
                   <Download className="size-3.5" />
                   {t("tools.editor.download")}
                 </Button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(true)}
-                  className="text-fg-subtle hover:text-danger p-1.5"
-                  aria-label={t("common.delete")}
-                >
-                  <Trash2 className="size-4" />
-                </button>
               </div>
 
               <div className="min-h-0 flex-1">
                 <Suspense fallback={<PageLoader className="py-10" />}>
                   <CodeEditor
-                    key={selectedId}
-                    fileName={name}
-                    value={content}
-                    onChange={(next) => setDraft({ content: next })}
+                    key={activeId}
+                    ref={editorRef}
+                    fileName={active.name}
+                    initialValue={active.content}
+                    onChange={(next) => patchActive({ content: next })}
                     onSave={() => {
-                      if (dirty) save.mutate();
+                      if (activeId && isDirty(bufs[activeId])) save.mutate(activeId);
                     }}
-                    onCursor={(line, col) => setCursor({ line, col })}
+                    onCursor={(line, col, selected) => setCursor({ line, col, selected })}
                     autoFocus
                   />
                 </Suspense>
               </div>
 
+              {/* status bar */}
               <div className="border-edge text-fg-subtle flex items-center gap-3 border-t px-3 py-1.5 text-[11.5px] tabular-nums">
-                <span>
-                  {t("tools.editor.cursor", { line: cursor.line, col: cursor.col })}
-                </span>
-                <span>{t("tools.editor.chars", { count: content.length })}</span>
+                <span>{t("tools.editor.cursor", { line: cursor.line, col: cursor.col })}</span>
+                {cursor.selected > 0 && <span>{t("tools.editor.selected", { count: cursor.selected })}</span>}
+                <span>{t("tools.editor.chars", { count: active.content.length })}</span>
                 <span className="flex-1" />
+                {activeDirty ? (
+                  <span className="text-accent">{t("tools.editor.unsaved")}</span>
+                ) : active.savedAt ? (
+                  <span>{t("tools.editor.savedAt", { time: timeAgo(active.savedAt) })}</span>
+                ) : null}
                 <span>{t("tools.editor.saveHint")}</span>
               </div>
             </>
@@ -296,22 +457,90 @@ export function ToolsEditorPage() {
         />
       )}
 
-      {confirmDelete && active && (
-        <Dialog open onOpenChange={(o) => !o && setConfirmDelete(false)}>
-          <DialogContent title={t("tools.editor.deleteTitle", { name: active.name })} className="max-w-sm">
+      {confirmDelete && (
+        <Dialog open onOpenChange={(o) => !o && setConfirmDelete(null)}>
+          <DialogContent
+            title={t("tools.editor.deleteTitle", {
+              name: files.data?.find((f) => f.id === confirmDelete)?.name ?? "",
+            })}
+            className="max-w-sm"
+          >
             <p className="text-fg-muted text-sm">{t("tools.editor.deleteBody")}</p>
             <div className="mt-4 flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
+              <Button variant="ghost" onClick={() => setConfirmDelete(null)}>
                 {t("common.cancel")}
               </Button>
-              <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate()}>
+              <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate(confirmDelete)}>
                 {t("common.delete")}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       )}
+
+      {confirmClose && (
+        <Dialog open onOpenChange={(o) => !o && setConfirmClose(null)}>
+          <DialogContent title={t("tools.editor.closeTitle", { name: bufs[confirmClose]?.name ?? "" })} className="max-w-sm">
+            <p className="text-fg-muted text-sm">{t("tools.editor.closeBody")}</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setConfirmClose(null)}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  const id = confirmClose;
+                  setConfirmClose(null);
+                  if (id) closeTab(id, true);
+                }}
+              >
+                {t("tools.editor.closeDiscard")}
+              </Button>
+              <Button
+                variant="primary"
+                disabled={save.isPending}
+                onClick={async () => {
+                  const id = confirmClose;
+                  if (!id) return;
+                  await save.mutateAsync(id);
+                  setConfirmClose(null);
+                  closeTab(id, true);
+                }}
+              >
+                {t("tools.editor.closeSave")}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
+  );
+}
+
+function ToolButton({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      className={cn(
+        "rounded-md p-1.5 transition-colors",
+        active ? "bg-accent-soft text-accent-soft-fg" : "text-fg-subtle hover:bg-bg-subtle hover:text-fg",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -361,10 +590,4 @@ function CreateFileDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function fmtSize(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }

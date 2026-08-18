@@ -24,6 +24,7 @@ import { AuditPage } from "./pages/audit";
 import { AppSettingsPage } from "./pages/app-settings";
 import { ToolsPage } from "./pages/tools";
 import { ToolsEditorPage } from "./pages/tools/editor";
+import { ToolsFilesPage } from "./pages/tools/files";
 import { NotFoundPage } from "./pages/not-found";
 import { SystemsPage } from "./pages/systems";
 import { SystemTypeLanding } from "./pages/systems/type-landing";
@@ -137,6 +138,14 @@ const toolsEditorRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/tools/editor",
   component: ToolsEditorPage,
+  validateSearch: (s: Record<string, unknown>) => ({
+    file: typeof s.file === "string" ? s.file : undefined,
+  }),
+});
+const toolsFilesRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/tools/files",
+  component: ToolsFilesPage,
 });
 
 const assistantRoute = createRoute({
@@ -634,6 +643,7 @@ const routeTree = rootRoute.addChildren([
     healthRoute,
     toolsRoute,
     toolsEditorRoute,
+    toolsFilesRoute,
     historyRoute,
     alertsRoute,
     backupsRoute,

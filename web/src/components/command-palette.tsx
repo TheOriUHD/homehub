@@ -25,6 +25,7 @@ import {
   UserPlus,
   Users,
   FileCode2,
+  FolderOpen,
   Wrench,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -113,6 +114,7 @@ export function CommandPalette({
     { label: t("nav.health"), icon: Activity, to: "/health", requires: RES.health },
     { label: t("nav.tools"), icon: Wrench, to: "/tools" },
     { label: t("tools.editor.title"), icon: FileCode2, to: "/tools/editor" },
+    { label: t("tools.files.title"), icon: FolderOpen, to: "/tools/files" },
     { label: t("nav.history"), icon: ChartSpline, to: "/history" },
     { label: t("nav.alerts"), icon: BellRing, to: "/alerts" },
     ...(backupsVisible ? [{ label: t("nav.backups"), icon: DatabaseBackup, to: "/backups" }] : []),
