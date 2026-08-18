@@ -1976,7 +1976,14 @@
       "restartTitle": "Restart {{name}}?",
       "restartBody": "Stops the server gracefully over SSH, then relaunches it from its own start.sh. Players are disconnected for the boot.",
       "restartDone": "{{name}} restarted",
-      "restartFailed": "Restart failed"
+      "restartFailed": "Restart failed",
+      "start": "Start",
+      "stop": "Stop",
+      "startDone": "{{name}} started",
+      "stopDone": "{{name}} stopped",
+      "stopTitle": "Stop {{name}}?",
+      "stopBody": "Gracefully stops the server over SSH. Players are disconnected until you start it again.",
+      "powerFailed": "Action failed"
     }
   },
   "history": {

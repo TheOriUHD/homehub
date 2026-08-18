@@ -307,33 +307,35 @@ func mcStopVerb(loader string) string {
 	return "stop"
 }
 
-func (s *Server) McRestartServer(ctx context.Context, req McRestartServerRequestObject) (McRestartServerResponseObject, error) {
-	id := httpctx.IdentityFrom(ctx)
-	if id == nil {
-		return nil, ErrUnauthenticated
-	}
-	row, _, err := s.mcInstance(ctx, id, req.Id)
-	if err != nil {
-		return McRestartServer404JSONResponse{notFoundErr("instance")}, nil
-	}
-	server, resource, err := s.mcServer(ctx, id, req.Id, req.ServerId)
-	if err != nil {
-		return McRestartServer404JSONResponse{notFoundErr("server")}, nil
-	}
-	// A full restart is disruptive: control on the server, like commands.
-	if !s.can(ctx, id, resource, rbac.LevelControl) {
-		s.deniedAudit(ctx, id, "mc.restart", resource)
-		return McRestartServer403JSONResponse{forbidden()}, nil
-	}
+// mcPowerResult is the outcome of a start/stop/restart run, mapped to the
+// matching generated response type by each thin handler.
+type mcPowerResult struct {
+	status  int // 200 ok, 403, 404, 400, 502
+	message string
+}
 
+// mcPower resolves and authorizes a server power action, runs the right
+// SSH script, and audits it. The action's success is decided by its
+// marker: START_OK / STOP_OK / RESTART_OK.
+func (s *Server) mcPower(ctx context.Context, id *httpctx.Identity, netID, serverID uuid.UUID, action string) mcPowerResult {
+	row, _, err := s.mcInstance(ctx, id, netID)
+	if err != nil {
+		return mcPowerResult{status: 404, message: "instance not found"}
+	}
+	server, resource, err := s.mcServer(ctx, id, netID, serverID)
+	if err != nil {
+		return mcPowerResult{status: 404, message: "server not found"}
+	}
+	if !s.can(ctx, id, resource, rbac.LevelControl) {
+		s.deniedAudit(ctx, id, "mc."+action, resource)
+		return mcPowerResult{status: 403}
+	}
 	cfg := s.mcSSHConfig(ctx, row)
 	if cfg.Host == "" || cfg.User == "" {
-		return McRestartServer400JSONResponse{BadRequestJSONResponse(errBody("no_ssh", "this network has no SSH access configured — a full restart needs it"))}, nil
+		return mcPowerResult{status: 400, message: "this network has no SSH access configured — power controls need it"}
 	}
 
-	// The screen session and directory follow the operator's convention:
-	// screen name == server folder == the label, under a configurable base
-	// (default /home/minecraft/server).
+	// screen session == server folder == label, under a configurable base.
 	var netCfg struct {
 		ServerDir string `json:"sshServerDir"`
 	}
@@ -344,26 +346,106 @@ func (s *Server) McRestartServer(ctx context.Context, req McRestartServerRequest
 	}
 	screenName := server.Label
 	dir := base + "/" + screenName
-	script := minecraft.RestartScript(screenName, dir, mcStopVerb(server.Loader))
+
+	var script, marker string
+	switch action {
+	case "start":
+		script, marker = minecraft.StartScript(screenName, dir), "START_OK"
+	case "stop":
+		script, marker = minecraft.StopScript(screenName, mcStopVerb(server.Loader)), "STOP_OK"
+	default:
+		script, marker = minecraft.RestartScript(screenName, dir, mcStopVerb(server.Loader)), "RESTART_OK"
+	}
 
 	rctx, cancel := context.WithTimeout(ctx, 130*time.Second)
 	defer cancel()
-	out, err := minecraft.RunSSH(rctx, cfg, script)
+	out, runErr := minecraft.RunSSH(rctx, cfg, script)
+	// The scripts exit non-zero on every failure path and 0 only on
+	// success, so the EXIT CODE is the source of truth — the exec
+	// channel's stdout is dropped on some hosts (a first-session warmup
+	// race), which would falsely fail a stop that actually worked.
+	_ = marker
+	ok := runErr == nil
 	message := strings.TrimSpace(out)
-	ok := err == nil && strings.Contains(out, "RESTART_OK")
 	outcome := "success"
 	if !ok {
 		outcome = "error"
-		if message == "" && err != nil {
-			message = err.Error()
+		if message == "" {
+			if runErr != nil {
+				message = runErr.Error()
+			} else {
+				message = action + " failed"
+			}
 		}
+	} else if message == "" {
+		message = action + " succeeded"
 	}
-	s.audit.Log(ctx, actorFor(id), "mc.restart", resource, outcome,
+	s.audit.Log(ctx, actorFor(id), "mc."+action, resource, outcome,
 		map[string]any{"serverId": server.ID.String(), "label": server.Label})
 	if !ok {
-		return McRestartServer502JSONResponse{UpstreamErrorJSONResponse(errBody("restart_failed", message))}, nil
+		return mcPowerResult{status: 502, message: message}
 	}
-	return McRestartServer200JSONResponse{Ok: true, Message: message}, nil
+	return mcPowerResult{status: 200, message: message}
+}
+
+func (s *Server) McRestartServer(ctx context.Context, req McRestartServerRequestObject) (McRestartServerResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	r := s.mcPower(ctx, id, req.Id, req.ServerId, "restart")
+	switch r.status {
+	case 200:
+		return McRestartServer200JSONResponse{Ok: true, Message: r.message}, nil
+	case 403:
+		return McRestartServer403JSONResponse{forbidden()}, nil
+	case 404:
+		return McRestartServer404JSONResponse{notFoundErr("server")}, nil
+	case 400:
+		return McRestartServer400JSONResponse{BadRequestJSONResponse(errBody("no_ssh", r.message))}, nil
+	default:
+		return McRestartServer502JSONResponse{UpstreamErrorJSONResponse(errBody("restart_failed", r.message))}, nil
+	}
+}
+
+func (s *Server) McStartServer(ctx context.Context, req McStartServerRequestObject) (McStartServerResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	r := s.mcPower(ctx, id, req.Id, req.ServerId, "start")
+	switch r.status {
+	case 200:
+		return McStartServer200JSONResponse{Ok: true, Message: r.message}, nil
+	case 403:
+		return McStartServer403JSONResponse{forbidden()}, nil
+	case 404:
+		return McStartServer404JSONResponse{notFoundErr("server")}, nil
+	case 400:
+		return McStartServer400JSONResponse{BadRequestJSONResponse(errBody("no_ssh", r.message))}, nil
+	default:
+		return McStartServer502JSONResponse{UpstreamErrorJSONResponse(errBody("start_failed", r.message))}, nil
+	}
+}
+
+func (s *Server) McStopServer(ctx context.Context, req McStopServerRequestObject) (McStopServerResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	r := s.mcPower(ctx, id, req.Id, req.ServerId, "stop")
+	switch r.status {
+	case 200:
+		return McStopServer200JSONResponse{Ok: true, Message: r.message}, nil
+	case 403:
+		return McStopServer403JSONResponse{forbidden()}, nil
+	case 404:
+		return McStopServer404JSONResponse{notFoundErr("server")}, nil
+	case 400:
+		return McStopServer400JSONResponse{BadRequestJSONResponse(errBody("no_ssh", r.message))}, nil
+	default:
+		return McStopServer502JSONResponse{UpstreamErrorJSONResponse(errBody("stop_failed", r.message))}, nil
+	}
 }
 
 func (s *Server) McSshTest(ctx context.Context, req McSshTestRequestObject) (McSshTestResponseObject, error) {

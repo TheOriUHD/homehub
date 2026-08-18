@@ -4408,6 +4408,12 @@ type ServerInterface interface {
 	// McRestartServer Full restart of one server over SSH
 	// (POST /mc/{id}/servers/{serverId}/restart)
 	McRestartServer(w http.ResponseWriter, r *http.Request, id IdParam, serverId McServerIdParam)
+	// McStartServer Start one stopped server over SSH
+	// (POST /mc/{id}/servers/{serverId}/start)
+	McStartServer(w http.ResponseWriter, r *http.Request, id IdParam, serverId McServerIdParam)
+	// McStopServer Stop one running server over SSH
+	// (POST /mc/{id}/servers/{serverId}/stop)
+	McStopServer(w http.ResponseWriter, r *http.Request, id IdParam, serverId McServerIdParam)
 	// McSshTest Test the network's SSH credential
 	// (POST /mc/{id}/ssh/test)
 	McSshTest(w http.ResponseWriter, r *http.Request, id IdParam)
@@ -5521,6 +5527,18 @@ func (_ Unimplemented) McConsole(w http.ResponseWriter, r *http.Request, id IdPa
 // McRestartServer Full restart of one server over SSH
 // (POST /mc/{id}/servers/{serverId}/restart)
 func (_ Unimplemented) McRestartServer(w http.ResponseWriter, r *http.Request, id IdParam, serverId McServerIdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// McStartServer Start one stopped server over SSH
+// (POST /mc/{id}/servers/{serverId}/start)
+func (_ Unimplemented) McStartServer(w http.ResponseWriter, r *http.Request, id IdParam, serverId McServerIdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// McStopServer Stop one running server over SSH
+// (POST /mc/{id}/servers/{serverId}/stop)
+func (_ Unimplemented) McStopServer(w http.ResponseWriter, r *http.Request, id IdParam, serverId McServerIdParam) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10139,6 +10157,76 @@ func (siw *ServerInterfaceWrapper) McRestartServer(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// McStartServer operation middleware
+func (siw *ServerInterfaceWrapper) McStartServer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "serverId" -------------
+	var serverId McServerIdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "serverId", chi.URLParam(r, "serverId"), &serverId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "serverId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.McStartServer(w, r, id, serverId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// McStopServer operation middleware
+func (siw *ServerInterfaceWrapper) McStopServer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "serverId" -------------
+	var serverId McServerIdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "serverId", chi.URLParam(r, "serverId"), &serverId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "serverId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.McStopServer(w, r, id, serverId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // McSshTest operation middleware
 func (siw *ServerInterfaceWrapper) McSshTest(w http.ResponseWriter, r *http.Request) {
 
@@ -12855,6 +12943,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/mc/{id}/servers/{serverId}/command", wrapper.McCommand)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/mc/{id}/servers/{serverId}/start", wrapper.McStartServer)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/mc/{id}/servers/{serverId}/stop", wrapper.McStopServer)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/mc/{id}/servers/{serverId}/restart", wrapper.McRestartServer)
@@ -20847,6 +20941,170 @@ func (response McRestartServer502JSONResponse) VisitMcRestartServerResponse(w ht
 	return err
 }
 
+type McStartServerRequestObject struct {
+	Id       IdParam         `json:"id"`
+	ServerId McServerIdParam `json:"serverId"`
+}
+
+type McStartServerResponseObject interface {
+	VisitMcStartServerResponse(w http.ResponseWriter) error
+}
+
+type McStartServer200JSONResponse struct {
+	Message string `json:"message"`
+	Ok      bool   `json:"ok"`
+}
+
+func (response McStartServer200JSONResponse) VisitMcStartServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type McStartServer400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response McStartServer400JSONResponse) VisitMcStartServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type McStartServer403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response McStartServer403JSONResponse) VisitMcStartServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type McStartServer404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response McStartServer404JSONResponse) VisitMcStartServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type McStartServer502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response McStartServer502JSONResponse) VisitMcStartServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type McStopServerRequestObject struct {
+	Id       IdParam         `json:"id"`
+	ServerId McServerIdParam `json:"serverId"`
+}
+
+type McStopServerResponseObject interface {
+	VisitMcStopServerResponse(w http.ResponseWriter) error
+}
+
+type McStopServer200JSONResponse struct {
+	Message string `json:"message"`
+	Ok      bool   `json:"ok"`
+}
+
+func (response McStopServer200JSONResponse) VisitMcStopServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type McStopServer400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response McStopServer400JSONResponse) VisitMcStopServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type McStopServer403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response McStopServer403JSONResponse) VisitMcStopServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type McStopServer404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response McStopServer404JSONResponse) VisitMcStopServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type McStopServer502JSONResponse struct{ UpstreamErrorJSONResponse }
+
+func (response McStopServer502JSONResponse) VisitMcStopServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type McSshTestRequestObject struct {
 	Id IdParam `json:"id"`
 }
@@ -25128,6 +25386,12 @@ type StrictServerInterface interface {
 	// McRestartServer Full restart of one server over SSH
 	// (POST /mc/{id}/servers/{serverId}/restart)
 	McRestartServer(ctx context.Context, request McRestartServerRequestObject) (McRestartServerResponseObject, error)
+	// McStartServer Start one stopped server over SSH
+	// (POST /mc/{id}/servers/{serverId}/start)
+	McStartServer(ctx context.Context, request McStartServerRequestObject) (McStartServerResponseObject, error)
+	// McStopServer Stop one running server over SSH
+	// (POST /mc/{id}/servers/{serverId}/stop)
+	McStopServer(ctx context.Context, request McStopServerRequestObject) (McStopServerResponseObject, error)
 	// McSshTest Test the network's SSH credential
 	// (POST /mc/{id}/ssh/test)
 	McSshTest(ctx context.Context, request McSshTestRequestObject) (McSshTestResponseObject, error)
@@ -29677,6 +29941,60 @@ func (sh *strictHandler) McRestartServer(w http.ResponseWriter, r *http.Request,
 	}
 }
 
+// McStartServer operation middleware
+func (sh *strictHandler) McStartServer(w http.ResponseWriter, r *http.Request, id IdParam, serverId McServerIdParam) {
+	var request McStartServerRequestObject
+
+	request.Id = id
+	request.ServerId = serverId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.McStartServer(ctx, request.(McStartServerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "McStartServer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(McStartServerResponseObject); ok {
+		if err := validResponse.VisitMcStartServerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// McStopServer operation middleware
+func (sh *strictHandler) McStopServer(w http.ResponseWriter, r *http.Request, id IdParam, serverId McServerIdParam) {
+	var request McStopServerRequestObject
+
+	request.Id = id
+	request.ServerId = serverId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.McStopServer(ctx, request.(McStopServerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "McStopServer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(McStopServerResponseObject); ok {
+		if err := validResponse.VisitMcStopServerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // McSshTest operation middleware
 func (sh *strictHandler) McSshTest(w http.ResponseWriter, r *http.Request, id IdParam) {
 	var request McSshTestRequestObject
@@ -32098,94 +32416,95 @@ var swaggerSpec = []string{
 	"cZcyrr/7Zi/UCHzjoV5ujJfvNv7tzU/16rdsPMrDOX1IPoiJO5t0glto8k2jw/Z1ud2P+Yje1mPgjm2V",
 	"FkUlaBh3xnjFlSqRYAs+zT5H5JIyx2lWuYArpkfWSJeQ0ZInc1AR7sY9Hag5eaQl5cpQn80qTUHjWDmS",
 	"ixSe1c8x5bIcc5GyKYO0mfvfMA++UuiTokkCqu5j0igMsNvo1SXOLcjuhWl215fyqFplyPXsINdOt0Ko",
-	"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",
-	"o2OeiKOf337+GQAA//8=",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
