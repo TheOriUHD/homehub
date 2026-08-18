@@ -2,7 +2,10 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -62,6 +65,102 @@ func (s *Server) RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, mess
 	}
 	reply, _, err := svc.RunTurn(ctx, provider, cfg, s.assistantAccess(ctx, id), message)
 	return reply, err
+}
+
+// SystemStatusFor renders the /status summary: every system's health, DB and
+// jobs, under the linked user's own permissions (health/view). Problems are
+// listed first, matching the app's lead-with-the-bad-news ethos.
+func (s *Server) SystemStatusFor(ctx context.Context, userID uuid.UUID) (string, error) {
+	user, err := s.store.GetUser(ctx, userID)
+	if err != nil {
+		return "", fmt.Errorf("the linked user no longer exists")
+	}
+	id := &httpctx.Identity{User: user, IP: "telegram"}
+
+	status, raw := s.SelfCall(ctx, id, http.MethodGet, "/health", nil)
+	if status == http.StatusForbidden {
+		return "", fmt.Errorf("you do not have permission to view system health")
+	}
+	if status != http.StatusOK {
+		return "", fmt.Errorf("health check failed (%d)", status)
+	}
+	var rep HealthReport
+	if err := json.Unmarshal(raw, &rep); err != nil {
+		return "", err
+	}
+
+	icon := map[string]string{"connected": "🟢", "degraded": "🟡", "unreachable": "🔴"}
+	rank := map[string]int{"unreachable": 0, "degraded": 1, "connected": 2}
+	sort.SliceStable(rep.Integrations, func(i, j int) bool {
+		si, sj := string(rep.Integrations[i].Status), string(rep.Integrations[j].Status)
+		if rank[si] != rank[sj] {
+			return rank[si] < rank[sj]
+		}
+		return rep.Integrations[i].Name < rep.Integrations[j].Name
+	})
+
+	var b strings.Builder
+	healthy := 0
+	for _, in := range rep.Integrations {
+		if in.Status == "connected" {
+			healthy++
+		}
+	}
+	fmt.Fprintf(&b, "HomeHub status — %d/%d systems healthy\n", healthy, len(rep.Integrations))
+	if len(rep.Integrations) == 0 {
+		b.WriteString("\nNo systems configured yet.\n")
+	}
+	for _, in := range rep.Integrations {
+		mark := icon[string(in.Status)]
+		if mark == "" {
+			mark = "⚪️"
+		}
+		fmt.Fprintf(&b, "%s %s (%s)", mark, in.Name, in.Type)
+		if in.Status != "connected" {
+			fmt.Fprintf(&b, " — %s", in.Status)
+			if in.LastError != nil && *in.LastError != "" {
+				fmt.Fprintf(&b, ": %s", trimLine(*in.LastError, 80))
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+	if rep.Database.Reachable {
+		fmt.Fprintf(&b, "🟢 Database — %.0f ms\n", rep.Database.LatencyMs)
+	} else {
+		b.WriteString("🔴 Database — unreachable\n")
+	}
+	jobsMark := "🟢"
+	if rep.Jobs.FailedRecent > 0 {
+		jobsMark = "🟡"
+	}
+	fmt.Fprintf(&b, "%s Jobs — %d running, %d pending, %d failed recently\n",
+		jobsMark, rep.Jobs.Running, rep.Jobs.Pending, rep.Jobs.FailedRecent)
+	fmt.Fprintf(&b, "⏱ Uptime %s · v%s", humanizeUptime(rep.UptimeSeconds), rep.Version)
+	return b.String(), nil
+}
+
+func trimLine(s string, n int) string {
+	s = strings.ReplaceAll(strings.TrimSpace(s), "\n", " ")
+	if len(s) > n {
+		return s[:n] + "…"
+	}
+	return s
+}
+
+func humanizeUptime(sec int64) string {
+	d := sec / 86400
+	h := (sec % 86400) / 3600
+	m := (sec % 3600) / 60
+	switch {
+	case d > 0:
+		return fmt.Sprintf("%dd %dh", d, h)
+	case h > 0:
+		return fmt.Sprintf("%dh %dm", h, m)
+	default:
+		return fmt.Sprintf("%dm", m)
+	}
 }
 
 func (s *Server) telegramToken(ctx context.Context) string {
