@@ -126,3 +126,49 @@ func TestRegistryEngines(t *testing.T) {
 		t.Error("unknown provider must error")
 	}
 }
+
+// OpenAI's reasoning models refuse tools on chat/completions unless
+// reasoning_effort is "none"; the provider must retry once their way.
+func TestOpenAIReasoningEffortRetry(t *testing.T) {
+	var requests []oaRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var req oaRequest
+		_ = json.Unmarshal(raw, &req)
+		requests = append(requests, req)
+		if req.ReasoningEffort != "none" {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"message":"Function tools with reasoning_effort are not supported for gpt-5.6-luna in /v1/chat/completions. To use function tools, use /v1/responses or set reasoning_effort to 'none'."}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"hi"}}]}`))
+	}))
+	defer srv.Close()
+
+	p := &OpenAIProvider{APIKey: "k", BaseURL: srv.URL + "/v1"}
+	reply, err := p.Chat(context.Background(), "gpt-5.6-luna", "s",
+		[]Turn{{Role: "user", Text: "x"}},
+		[]ToolDef{{Name: "t", Description: "d", InputSchema: json.RawMessage(`{"type":"object"}`)}})
+	if err != nil || reply.Text != "hi" {
+		t.Fatalf("retry did not recover: %+v %v", reply, err)
+	}
+	if len(requests) != 2 || requests[0].ReasoningEffort != "" || requests[1].ReasoningEffort != "none" {
+		t.Fatalf("wrong retry sequence: %+v", requests)
+	}
+}
+
+// Unrelated refusals must NOT trigger the retry.
+func TestOpenAINoRetryOnOtherErrors(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":{"message":"Incorrect API key provided"}}`))
+	}))
+	defer srv.Close()
+	p := &OpenAIProvider{APIKey: "bad", BaseURL: srv.URL + "/v1"}
+	_, err := p.Chat(context.Background(), "m", "", []Turn{{Role: "user", Text: "x"}}, nil)
+	if err == nil || calls != 1 {
+		t.Fatalf("unexpected retry: calls=%d err=%v", calls, err)
+	}
+}
