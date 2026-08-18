@@ -273,6 +273,10 @@ func (s *Server) TruenasAlerts(ctx context.Context, req TruenasAlertsRequestObje
 	out := []TruenasAlert{}
 	for _, a := range alerts {
 		alert := TruenasAlert{Level: a.Level, Message: a.Formatted, Dismissed: a.Dismissed}
+		if a.UUID != "" {
+			u := a.UUID
+			alert.Uuid = &u
+		}
 		if a.Datetime.Ms > 0 {
 			ts := time.UnixMilli(a.Datetime.Ms)
 			alert.CreatedAt = &ts
@@ -298,4 +302,107 @@ func rootPool(datasetName string) string {
 		}
 	}
 	return datasetName
+}
+
+func (s *Server) TruenasStats(ctx context.Context, req TruenasStatsRequestObject) (TruenasStatsResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	conn, _, err := s.truenasConn(ctx, id, req.Id)
+	if err != nil {
+		if err == store.ErrNotFound {
+			return TruenasStats404JSONResponse{notFoundErr("instance")}, nil
+		}
+		return TruenasStats502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+	}
+	stats, serr := conn.Stats(ctx)
+	if serr != nil {
+		return TruenasStats502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", serr.Error()))}, nil
+	}
+
+	out := TruenasStats{
+		Cpu:              make([]TruenasStatPoint, 0, len(stats.CPU)),
+		Load:             make([]TruenasLoadPoint, 0, len(stats.Load)),
+		MemoryAvailable:  make([]TruenasStatPoint, 0, len(stats.MemAvailable)),
+		ArcSize:          make([]TruenasStatPoint, 0, len(stats.ArcSize)),
+		TotalMemoryBytes: stats.TotalMemBytes,
+		Interfaces:       make([]TruenasInterfaceTraffic, 0, len(stats.Interfaces)),
+	}
+	for _, p := range stats.CPU {
+		out.Cpu = append(out.Cpu, TruenasStatPoint{Ts: p.TS, Value: p.Value})
+	}
+	for _, p := range stats.Load {
+		out.Load = append(out.Load, TruenasLoadPoint{Ts: p.TS, Load1: p.L1, Load5: p.L5, Load15: p.L15})
+	}
+	for _, p := range stats.MemAvailable {
+		out.MemoryAvailable = append(out.MemoryAvailable, TruenasStatPoint{Ts: p.TS, Value: p.Value})
+	}
+	for _, p := range stats.ArcSize {
+		out.ArcSize = append(out.ArcSize, TruenasStatPoint{Ts: p.TS, Value: p.Value})
+	}
+	for _, ifc := range stats.Interfaces {
+		row := TruenasInterfaceTraffic{
+			Name: ifc.Name, Type: ifc.Type, LinkState: ifc.LinkState, Up: ifc.Up,
+			Points: make([]TruenasTrafficPoint, 0, len(ifc.Points)),
+		}
+		if ifc.Media != "" {
+			m := ifc.Media
+			row.Media = &m
+		}
+		if len(ifc.Addresses) > 0 {
+			addrs := ifc.Addresses
+			row.Addresses = &addrs
+		}
+		for _, p := range ifc.Points {
+			row.Points = append(row.Points, TruenasTrafficPoint{Ts: p.TS, InBps: p.InBps, OutBps: p.OutBps})
+		}
+		out.Interfaces = append(out.Interfaces, row)
+	}
+	return TruenasStats200JSONResponse(out), nil
+}
+
+func (s *Server) TruenasAlertDismiss(ctx context.Context, req TruenasAlertDismissRequestObject) (TruenasAlertDismissResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	conn, resource, err := s.truenasConn(ctx, id, req.Id)
+	if err != nil {
+		if err == store.ErrNotFound {
+			return TruenasAlertDismiss404JSONResponse{notFoundErr("instance")}, nil
+		}
+		return TruenasAlertDismiss502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+	}
+	// Acknowledging alerts changes upstream state: control level required.
+	if !s.can(ctx, id, resource, rbac.LevelControl) {
+		return TruenasAlertDismiss404JSONResponse{notFoundErr("instance")}, nil
+	}
+
+	all := req.Body.All != nil && *req.Body.All
+	if !all && (req.Body.Uuid == nil || *req.Body.Uuid == "") {
+		return TruenasAlertDismiss400JSONResponse{BadRequestJSONResponse(errBody("bad_input", "provide an alert uuid or all=true"))}, nil
+	}
+
+	if all {
+		alerts, aerr := conn.Alerts(ctx)
+		if aerr != nil {
+			return TruenasAlertDismiss502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", aerr.Error()))}, nil
+		}
+		for _, a := range alerts {
+			if !a.Dismissed && a.UUID != "" {
+				if derr := conn.DismissAlert(ctx, a.UUID); derr != nil {
+					return TruenasAlertDismiss502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", derr.Error()))}, nil
+				}
+			}
+		}
+		s.audit.Log(ctx, actorFor(id), "truenas.alerts.dismiss_all", resource, "success", nil)
+		return TruenasAlertDismiss204Response{}, nil
+	}
+
+	if derr := conn.DismissAlert(ctx, *req.Body.Uuid); derr != nil {
+		return TruenasAlertDismiss502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", derr.Error()))}, nil
+	}
+	s.audit.Log(ctx, actorFor(id), "truenas.alerts.dismiss", resource, "success", map[string]any{"uuid": *req.Body.Uuid})
+	return TruenasAlertDismiss204Response{}, nil
 }

@@ -207,10 +207,12 @@ func (f *FlexTime) UnmarshalJSON(b []byte) error {
 
 // Alert is one alert.list row.
 type Alert struct {
+	UUID      string   `json:"uuid"`
 	Level     string   `json:"level"`
 	Formatted string   `json:"formatted"`
 	Dismissed bool     `json:"dismissed"`
 	Datetime  FlexTime `json:"datetime"`
+	OneShot   bool     `json:"one_shot"`
 }
 
 // ---- normalized model ------------------------------------------------------
@@ -478,12 +480,13 @@ type MemoryStats struct {
 	FreeBytes     int64 `json:"freeBytes"`
 }
 
-// reportingData is one graph from POST /reporting/get_data.
+// reportingData is one reporting graph result.
 type reportingData struct {
-	Name   string      `json:"name"`
-	Legend []string    `json:"legend"`
-	Data   [][]float64 `json:"data"`
-	Latest []float64   `json:"latest"`
+	Name       string      `json:"name"`
+	Identifier string      `json:"identifier"`
+	Legend     []string    `json:"legend"`
+	Data       [][]float64 `json:"data"`
+	Latest     []float64   `json:"latest"`
 	// aggregations is deliberately not decoded: its shape changed between
 	// TrueNAS releases (array pre-25.x, object after) and nothing here
 	// needs it.
@@ -569,7 +572,11 @@ func (c *Conn) Memory(ctx context.Context) (*MemoryStats, error) {
 				stats.FreeBytes = int64(v)
 			}
 		case "arcsize":
-			if v, ok := g.legendValue(point, "arc_size"); ok {
+			// Legend is "size" on modern netdata reporting, "arc_size" on
+			// older releases.
+			if v, ok := g.legendValue(point, "size"); ok {
+				stats.ArcBytes = int64(v)
+			} else if v, ok := g.legendValue(point, "arc_size"); ok {
 				stats.ArcBytes = int64(v)
 			} else if len(point) > 0 {
 				stats.ArcBytes = int64(point[len(point)-1])

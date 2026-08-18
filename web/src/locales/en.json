@@ -2464,6 +2464,38 @@
       "empty": {
         "title": "No history yet",
         "body": "Capacity and temperature history appears here once the metrics engine has collected a few samples."
+      },
+      "tempsUnavailable": "This NAS doesn't report disk temperatures."
+    },
+    "traffic": {
+      "in": "In:",
+      "out": "Out:",
+      "linkUp": "Link state up",
+      "linkDown": "Link state down"
+    },
+    "stats": {
+      "cpu": "CPU usage",
+      "load": "System load",
+      "load1": "1 min",
+      "load5": "5 min",
+      "load15": "15 min",
+      "memory": "Memory {{total}}",
+      "memAvailable": "Available",
+      "arc": "ZFS ARC"
+    },
+    "alerts": {
+      "bell": "Alerts",
+      "activeCount_one": "{{count}} active alert",
+      "activeCount_other": "{{count}} active alerts",
+      "dismissedCount_one": "{{count}} dismissed alert",
+      "dismissedCount_other": "{{count}} dismissed alerts",
+      "noneActive": "No active alerts — all clear.",
+      "clearAll": "Clear all",
+      "dismiss": "Dismiss alert",
+      "viewAll": "View all alerts",
+      "empty": {
+        "title": "No alerts",
+        "body": "When TrueNAS raises system alerts they show up here and on the bell."
       }
     }
   },

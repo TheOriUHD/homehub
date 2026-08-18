@@ -82,6 +82,7 @@ import { TruenasDatasetsPage } from "./pages/truenas/datasets";
 import { TruenasSharesPage } from "./pages/truenas/shares";
 import { TruenasSnapshotsPage } from "./pages/truenas/snapshots";
 import { TruenasPerformancePage } from "./pages/truenas/performance";
+import { TruenasAlertsPage } from "./pages/truenas/alerts";
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -638,6 +639,12 @@ const truenasSnapshotsRoute = createRoute({
   component: TruenasSnapshotsPage,
 });
 
+const truenasAlertsRoute = createRoute({
+  getParentRoute: () => truenasModuleRoute,
+  path: "/alerts",
+  component: TruenasAlertsPage,
+});
+
 const truenasPerformanceRoute = createRoute({
   getParentRoute: () => truenasModuleRoute,
   path: "/performance",
@@ -721,6 +728,7 @@ const routeTree = rootRoute.addChildren([
       truenasSharesRoute,
       truenasSnapshotsRoute,
       truenasPerformanceRoute,
+      truenasAlertsRoute,
     ]),
     ampModuleRoute.addChildren([ampOverviewRoute, ampInstanceRoute]),
     tsModuleRoute.addChildren([tsDevicesRoute, tsKeysRoute, tsDnsRoute]),

@@ -233,3 +233,20 @@ body {
   0% { background-position: 0% 0%; }
   100% { background-position: 200% 200%; }
 }
+
+/* Alert bell: a short swing, then a long rest — rings periodically while
+   something warning-or-worse is active. */
+@keyframes hh-bell-ring {
+  0%, 30%, 100% { transform: rotate(0deg); }
+  3% { transform: rotate(14deg); }
+  7% { transform: rotate(-12deg); }
+  11% { transform: rotate(9deg); }
+  15% { transform: rotate(-7deg); }
+  19% { transform: rotate(4deg); }
+  23% { transform: rotate(-2deg); }
+  27% { transform: rotate(1deg); }
+}
+.hh-bell-ringing {
+  animation: hh-bell-ring 4s ease-in-out infinite;
+  transform-origin: 50% 2px;
+}

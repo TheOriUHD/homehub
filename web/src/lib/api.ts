@@ -102,6 +102,11 @@ export type TruenasDataset = ApiSchemas["TruenasDataset"];
 export type TruenasShare = ApiSchemas["TruenasShare"];
 export type TruenasSnapshot = ApiSchemas["TruenasSnapshot"];
 export type TruenasAlert = ApiSchemas["TruenasAlert"];
+export type TruenasStats = ApiSchemas["TruenasStats"];
+export type TruenasStatPoint = ApiSchemas["TruenasStatPoint"];
+export type TruenasLoadPoint = ApiSchemas["TruenasLoadPoint"];
+export type TruenasTrafficPoint = ApiSchemas["TruenasTrafficPoint"];
+export type TruenasInterfaceTraffic = ApiSchemas["TruenasInterfaceTraffic"];
 
 export type ApertureOverview = ApiSchemas["ApertureOverview"];
 export type ApertureCamera = ApiSchemas["ApertureCamera"];

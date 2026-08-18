@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap, type TruenasPool } from "@/lib/api";
 
 /** RBAC/metrics resource prefix for an instance, e.g. "truenas/<id>". */
@@ -120,4 +120,42 @@ export function useTruenasAlerts(instanceId: string) {
       unwrap(await api.GET("/truenas/{id}/alerts", { params: { path: { id: instanceId } } })),
     refetchInterval: 60_000,
   });
+}
+
+/**
+ * useTruenasStats loads the hour-long performance history (CPU, load,
+ * memory, ARC, per-adapter traffic) straight from the NAS's reporting API.
+ */
+export function useTruenasStats(instanceId: string) {
+  return useQuery({
+    queryKey: ["truenas", instanceId, "stats"],
+    queryFn: async () =>
+      unwrap(await api.GET("/truenas/{id}/stats", { params: { path: { id: instanceId } } })),
+    refetchInterval: 30_000,
+  });
+}
+
+/** useDismissTruenasAlert dismisses one alert (uuid) or all ({all: true}). */
+export function useDismissTruenasAlert(instanceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { uuid?: string; all?: boolean }) =>
+      unwrap(
+        await api.POST("/truenas/{id}/alerts/dismiss", {
+          params: { path: { id: instanceId } },
+          body,
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["truenas", instanceId, "alerts"] });
+    },
+  });
+}
+
+/** formatBps renders a bits-per-second rate the way network gear labels it. */
+export function formatBps(bps: number): string {
+  if (bps >= 1e9) return `${(bps / 1e9).toFixed(2)} Gb/s`;
+  if (bps >= 1e6) return `${(bps / 1e6).toFixed(bps >= 1e8 ? 0 : bps >= 1e7 ? 1 : 2)} Mb/s`;
+  if (bps >= 1e3) return `${(bps / 1e3).toFixed(bps >= 1e4 ? 0 : 1)} kb/s`;
+  return `${Math.round(bps)} b/s`;
 }

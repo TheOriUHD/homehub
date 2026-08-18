@@ -3363,6 +3363,50 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /truenas/{id}/alerts/dismiss:
+    post:
+      operationId: truenasAlertDismiss
+      summary: Dismiss one alert by uuid, or all active alerts
+      tags: [truenas]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                uuid: { type: string }
+                all: { type: boolean }
+      responses:
+        "204":
+          description: Dismissed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /truenas/{id}/stats:
+    get:
+      operationId: truenasStats
+      summary: Hour-long performance history (CPU, load, memory, ARC, per-adapter traffic)
+      tags: [truenas]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Performance stats
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TruenasStats" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /amp/instances:
     get:
       operationId: ampListInstances
@@ -7739,10 +7783,72 @@ components:
       type: object
       required: [level, message, dismissed]
       properties:
+        uuid: { type: string }
         level: { type: string }
         message: { type: string }
         dismissed: { type: boolean }
         createdAt: { type: string, format: date-time, nullable: true }
+
+    TruenasStatPoint:
+      type: object
+      required: [ts, value]
+      properties:
+        ts: { type: integer, format: int64, description: "Unix seconds" }
+        value: { type: number, format: double }
+
+    TruenasLoadPoint:
+      type: object
+      required: [ts, load1, load5, load15]
+      properties:
+        ts: { type: integer, format: int64 }
+        load1: { type: number, format: double }
+        load5: { type: number, format: double }
+        load15: { type: number, format: double }
+
+    TruenasTrafficPoint:
+      type: object
+      required: [ts, inBps, outBps]
+      properties:
+        ts: { type: integer, format: int64 }
+        inBps: { type: number, format: double }
+        outBps: { type: number, format: double }
+
+    TruenasInterfaceTraffic:
+      type: object
+      required: [name, type, linkState, up, points]
+      properties:
+        name: { type: string }
+        type: { type: string, description: "PHYSICAL | BRIDGE | VLAN | …" }
+        linkState: { type: string }
+        up: { type: boolean }
+        media: { type: string }
+        addresses:
+          type: array
+          items: { type: string }
+        points:
+          type: array
+          items: { $ref: "#/components/schemas/TruenasTrafficPoint" }
+
+    TruenasStats:
+      type: object
+      required: [cpu, load, memoryAvailable, arcSize, totalMemoryBytes, interfaces]
+      properties:
+        cpu:
+          type: array
+          items: { $ref: "#/components/schemas/TruenasStatPoint" }
+        load:
+          type: array
+          items: { $ref: "#/components/schemas/TruenasLoadPoint" }
+        memoryAvailable:
+          type: array
+          items: { $ref: "#/components/schemas/TruenasStatPoint" }
+        arcSize:
+          type: array
+          items: { $ref: "#/components/schemas/TruenasStatPoint" }
+        totalMemoryBytes: { type: integer, format: int64 }
+        interfaces:
+          type: array
+          items: { $ref: "#/components/schemas/TruenasInterfaceTraffic" }
 
     HaInstance:
       type: object
