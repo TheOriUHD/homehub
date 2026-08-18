@@ -127,6 +127,13 @@ export type AmpServerInstance = ApiSchemas["AmpServerInstance"];
 export type AmpInstanceStatus = ApiSchemas["AmpInstanceStatus"];
 export type AmpConsoleLine = ApiSchemas["AmpConsoleLine"];
 
+export type ConvertCatalog = ApiSchemas["ConvertCatalog"];
+export type ConvertFormat = ApiSchemas["ConvertFormat"];
+export type ConvertOutput = ApiSchemas["ConvertOutput"];
+export type ConvertOption = ApiSchemas["ConvertOption"];
+export type ConvertBatch = ApiSchemas["ConvertBatch"];
+export type ConvertItem = ApiSchemas["ConvertItem"];
+
 export const api = createClient<paths>({ baseUrl: "/api" });
 
 /**

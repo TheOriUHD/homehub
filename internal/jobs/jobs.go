@@ -71,6 +71,18 @@ func (e *Engine) EnqueueAt(ctx context.Context, kind string, payload any, runAt 
 	return e.store.EnqueueJob(ctx, kind, payload, runAt, 0, 3)
 }
 
+// EnqueueOnce queues a job that is never retried (max attempts 1). Suited to
+// deterministic work like conversions, where a retry would only repeat the
+// same failure.
+func (e *Engine) EnqueueOnce(ctx context.Context, kind string, payload any) (*store.Job, error) {
+	job, err := e.store.EnqueueJob(ctx, kind, payload, time.Now(), 0, 1)
+	if err != nil {
+		return nil, err
+	}
+	e.Wake()
+	return job, nil
+}
+
 // Wake nudges the worker pool without blocking.
 func (e *Engine) Wake() {
 	select {
