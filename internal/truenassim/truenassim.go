@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // Sim is the simulator state.
@@ -131,7 +132,27 @@ func (s *state) wsAPI(w http.ResponseWriter, r *http.Request) {
 			case "pool.dataset.query":
 				reply(req.ID, s.dsList)
 			case "disk.query":
-				reply(req.ID, s.diskList)
+				// v26-faithful: disk.query carries no temperature — that
+				// moved to the separate disk.temperatures call.
+				stripped := make([]map[string]any, 0, len(s.diskList))
+				for _, d := range s.diskList {
+					copyD := map[string]any{}
+					for k, v := range d {
+						if k != "temperature" {
+							copyD[k] = v
+						}
+					}
+					stripped = append(stripped, copyD)
+				}
+				reply(req.ID, stripped)
+			case "disk.temperatures":
+				temps := map[string]any{}
+				for _, d := range s.diskList {
+					if name, ok := d["name"].(string); ok {
+						temps[name] = d["temperature"]
+					}
+				}
+				reply(req.ID, temps)
 			case "sharing.smb.query":
 				reply(req.ID, s.smbList)
 			case "sharing.nfs.query":
@@ -139,9 +160,46 @@ func (s *state) wsAPI(w http.ResponseWriter, r *http.Request) {
 			case "iscsi.target.query":
 				reply(req.ID, s.iscsiList)
 			case "pool.snapshot.query":
-				reply(req.ID, s.snapList)
+				// v26-faithful: no top-level used/created — ZFS properties
+				// arrive under "properties" when requested via extra.
+				v26 := make([]map[string]any, 0, len(s.snapList))
+				for _, sn := range s.snapList {
+					copySn := map[string]any{}
+					for k, v := range sn {
+						if k != "used" && k != "created" {
+							copySn[k] = v
+						}
+					}
+					var creationSec int64
+					if created, ok := sn["created"].(map[string]any); ok {
+						if ms, ok := created["$date"].(int64); ok {
+							creationSec = ms / 1000
+						}
+					}
+					copySn["createtxg"] = itoa(creationSec)
+					copySn["properties"] = map[string]any{
+						"used":     sn["used"],
+						"creation": map[string]any{"parsed": nil, "rawvalue": itoa(creationSec)},
+					}
+					v26 = append(v26, copySn)
+				}
+				reply(req.ID, v26)
 			case "alert.list":
-				reply(req.ID, s.alertList)
+				// v26-faithful: datetime is an ISO string, not {"$date": ms}.
+				v26Alerts := make([]map[string]any, 0, len(s.alertList))
+				for _, a := range s.alertList {
+					copyA := map[string]any{}
+					for k, v := range a {
+						copyA[k] = v
+					}
+					if dt, ok := a["datetime"].(map[string]any); ok {
+						if ms, ok := dt["$date"].(int64); ok {
+							copyA["datetime"] = time.UnixMilli(ms).UTC().Format(time.RFC3339)
+						}
+					}
+					v26Alerts = append(v26Alerts, copyA)
+				}
+				reply(req.ID, v26Alerts)
 			case "replication.query":
 				reply(req.ID, s.repList)
 			case "reporting.netdata_get_data":

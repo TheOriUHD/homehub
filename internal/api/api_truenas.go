@@ -243,10 +243,10 @@ func (s *Server) TruenasSnapshots(ctx context.Context, req TruenasSnapshotsReque
 			continue
 		}
 		snap := TruenasSnapshot{Name: sn.Name, Dataset: sn.Dataset}
-		used := sn.Used.Int64()
+		used := sn.UsedBytes()
 		snap.UsedBytes = &used
-		if sn.Created.Date > 0 {
-			ts := time.UnixMilli(sn.Created.Date)
+		if ms := sn.CreatedMs(); ms > 0 {
+			ts := time.UnixMilli(ms)
 			snap.CreatedAt = &ts
 		}
 		out = append(out, snap)
@@ -273,8 +273,8 @@ func (s *Server) TruenasAlerts(ctx context.Context, req TruenasAlertsRequestObje
 	out := []TruenasAlert{}
 	for _, a := range alerts {
 		alert := TruenasAlert{Level: a.Level, Message: a.Formatted, Dismissed: a.Dismissed}
-		if a.Datetime.Date > 0 {
-			ts := time.UnixMilli(a.Datetime.Date)
+		if a.Datetime.Ms > 0 {
+			ts := time.UnixMilli(a.Datetime.Ms)
 			alert.CreatedAt = &ts
 		}
 		out = append(out, alert)

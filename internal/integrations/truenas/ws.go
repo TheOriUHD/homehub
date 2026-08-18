@@ -38,9 +38,9 @@ type wsClient struct {
 }
 
 // errWsAuth marks an authentication rejection — callers must NOT fall back
-// to REST for these, because the operator explicitly configured the
-// WebSocket transport and should see the failure.
-var errWsAuth = errors.New("the NAS rejected the API key over the WebSocket API — check that the username matches the account the key belongs to")
+// to REST for these: the request reached TrueNAS and was refused, so the
+// operator needs to see the failure, not a silent downgrade.
+var errWsAuth = errors.New("the NAS rejected the API key over the WebSocket API")
 
 func newWSClient(base, username, key string, insecure bool) *wsClient {
 	wsURL := strings.Replace(base, "https://", "wss://", 1)
@@ -100,6 +100,14 @@ func (c *wsClient) call(ctx context.Context, method string, params []any, out an
 	}
 }
 
+// isAuthed reports whether the socket has a live authenticated session —
+// i.e. the WebSocket transport is the one actually serving requests.
+func (c *wsClient) isAuthed() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.conn != nil && c.authed
+}
+
 func (c *wsClient) dropLocked() {
 	if c.conn != nil {
 		_ = c.conn.Close(websocket.StatusNormalClosure, "")
@@ -144,7 +152,7 @@ func (c *wsClient) ensureLocked(ctx context.Context) error {
 		}
 		if res.ResponseType != "SUCCESS" {
 			c.dropLocked()
-			return errWsAuth
+			return fmt.Errorf("%w — check that the username matches the account the key belongs to", errWsAuth)
 		}
 	} else {
 		var ok bool
@@ -158,7 +166,8 @@ func (c *wsClient) ensureLocked(ctx context.Context) error {
 		}
 		if !ok {
 			c.dropLocked()
-			return errWsAuth
+			// Modern keys are user-linked and refuse the bare login.
+			return fmt.Errorf("%w — the key is likely user-linked: add its owning username in the integration settings", errWsAuth)
 		}
 	}
 	c.authed = true
@@ -200,7 +209,9 @@ func (c *wsClient) roundTripLocked(ctx context.Context, method string, params []
 			continue // notification or stale response
 		}
 		if envelope.Error != nil {
-			return nil, envelope.Error.friendly()
+			// Return the typed error so callers can tell "TrueNAS answered
+			// with an error" apart from transport trouble via errors.As.
+			return nil, envelope.Error
 		}
 		return envelope.Result, nil
 	}

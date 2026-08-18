@@ -1,11 +1,15 @@
-// Package truenas implements the TrueNAS integration over the REST v2.0 API
-// (the common surface across TrueNAS SCALE and CORE): pools and datasets,
+// Package truenas implements the TrueNAS integration: pools and datasets,
 // disks with SMART, shares, snapshots, replication, alerts, and reporting.
 //
-// No TrueNAS hardware is available in the build environment, so this driver
-// is verified against an in-repo API simulator (internal/truenassim) and
-// fixture tests. It must be validated against a real system before relying
-// on it — the response shapes follow the documented v2.0 API.
+// The primary transport is the JSON-RPC 2.0 WebSocket API at /api/current —
+// the only API modern TrueNAS ships (REST v2.0 was deprecated in 25.04 and
+// removed afterwards; on 26.x it 404s). The REST client survives solely as
+// a fallback for systems that predate /api/current (CORE, SCALE ≤ 24.x),
+// used only when the WebSocket dial itself fails.
+//
+// Verified against the in-repo simulator (internal/truenassim) and a real
+// TrueNAS 26.0 system. Method names and response shapes were checked against
+// the live /api/docs/current method list.
 package truenas
 
 import (
@@ -121,17 +125,26 @@ func friendlyError(err error) string {
 	return msg
 }
 
+// newConn builds a connection with the WebSocket transport always armed —
+// it is the only API modern TrueNAS has. fetch() falls back to REST when
+// the socket can't be dialed (older systems without /api/current).
+func newConn(config map[string]any, key string) (*Conn, error) {
+	c, err := newClient(config, map[string]string{"apiKey": key})
+	if err != nil {
+		return nil, err
+	}
+	username, _ := config["username"].(string)
+	insecure, _ := config["insecureTls"].(bool)
+	return &Conn{
+		client: c,
+		ws:     newWSClient(c.base, strings.TrimSpace(username), key, insecure),
+	}, nil
+}
+
 func (Driver) Test(ctx context.Context, config map[string]any, secrets map[string]string) integration.TestResult {
-	c, err := newClient(config, secrets)
+	conn, err := newConn(config, secrets["apiKey"])
 	if err != nil {
 		return integration.TestResult{OK: false, Message: err.Error()}
-	}
-	conn := &Conn{client: c}
-	transport := "the REST API (deprecated on 25.x)"
-	if username, _ := config["username"].(string); strings.TrimSpace(username) != "" {
-		insecure, _ := config["insecureTls"].(bool)
-		conn.ws = newWSClient(c.base, strings.TrimSpace(username), secrets["apiKey"], insecure)
-		transport = "the WebSocket API"
 	}
 	info, err := conn.Info(ctx)
 	if err != nil {
@@ -140,6 +153,10 @@ func (Driver) Test(ctx context.Context, config map[string]any, secrets map[strin
 	pools, err := conn.Pools(ctx)
 	if err != nil {
 		return integration.TestResult{OK: false, Message: friendlyError(err)}
+	}
+	transport := "the REST API (legacy — pre-25.04 systems only)"
+	if conn.ws.isAuthed() {
+		transport = "the WebSocket API"
 	}
 	return integration.TestResult{
 		OK: true,
@@ -154,15 +171,11 @@ func (d Driver) Open(ctx context.Context, inst integration.Instance, deps integr
 	if err != nil {
 		return nil, fmt.Errorf("reading the API key: %w", err)
 	}
-	c, err := newClient(inst.Config, map[string]string{"apiKey": key})
+	conn, err := newConn(inst.Config, key)
 	if err != nil {
 		return nil, err
 	}
-	conn := &Conn{inst: inst, client: c}
-	if username, _ := inst.Config["username"].(string); strings.TrimSpace(username) != "" {
-		insecure, _ := inst.Config["insecureTls"].(bool)
-		conn.ws = newWSClient(c.base, strings.TrimSpace(username), key, insecure)
-	}
+	conn.inst = inst
 	pctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	if _, err := conn.Info(pctx); err != nil {
