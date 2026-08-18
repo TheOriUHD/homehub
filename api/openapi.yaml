@@ -4912,13 +4912,17 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [enabled, provider, model, baseUrl, keySet, canConfigure, providers]
+                required: [enabled, provider, model, baseUrl, keySet, keysSet, canConfigure, providers]
                 properties:
                   enabled: { type: boolean }
                   provider: { type: string }
                   model: { type: string }
                   baseUrl: { type: string }
                   keySet: { type: boolean }
+                  keysSet:
+                    type: array
+                    description: Provider ids that have a stored API key — switching providers keeps each key sealed in its own slot.
+                    items: { type: string }
                   canConfigure: { type: boolean }
                   providers:
                     type: array

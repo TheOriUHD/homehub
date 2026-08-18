@@ -3,26 +3,49 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
 	"time"
 
 	"homehub/internal/assistant"
 	"homehub/internal/httpctx"
 	"homehub/internal/rbac"
-	"homehub/internal/store"
-	"homehub/internal/vault"
 )
 
 // The assistant runs with the CALLER's identity: every tool checks the
 // caller's own RBAC, so the model can never read past the person asking.
 
 const assistantVaultScope = "assistant"
-const assistantVaultKey = "api-key"
 
-func (s *Server) assistantKeySet(ctx context.Context) bool {
-	_, err := s.vault.Open(ctx, assistantVaultScope, assistantVaultKey)
-	return err == nil
+// assistantLegacyKey is the pre-per-provider slot; it counts as the key
+// of whichever provider is currently configured, so nothing breaks for
+// installs that stored a key before slots were per-provider.
+const assistantLegacyKey = "api-key"
+
+func assistantKeyName(provider string) string { return "api-key-" + provider }
+
+// assistantKeyFor returns the stored key for one provider: its own slot
+// first, the legacy slot when that provider is the configured one.
+func (s *Server) assistantKeyFor(ctx context.Context, provider string) (string, bool) {
+	if raw, err := s.vault.Open(ctx, assistantVaultScope, assistantKeyName(provider)); err == nil {
+		return string(raw), true
+	}
+	if _, current, _, _ := s.settings.Assistant(ctx); provider == current {
+		if raw, err := s.vault.Open(ctx, assistantVaultScope, assistantLegacyKey); err == nil {
+			return string(raw), true
+		}
+	}
+	return "", false
+}
+
+// assistantKeysSet lists every provider holding a stored key.
+func (s *Server) assistantKeysSet(ctx context.Context) []string {
+	out := []string{}
+	for _, info := range assistant.Providers {
+		if _, ok := s.assistantKeyFor(ctx, info.ID); ok {
+			out = append(out, info.ID)
+		}
+	}
+	return out
 }
 
 func (s *Server) GetAssistant(ctx context.Context, _ GetAssistantRequestObject) (GetAssistantResponseObject, error) {
@@ -31,12 +54,14 @@ func (s *Server) GetAssistant(ctx context.Context, _ GetAssistantRequestObject) 
 		return nil, ErrUnauthenticated
 	}
 	enabled, provider, model, baseURL := s.settings.Assistant(ctx)
+	_, keySet := s.assistantKeyFor(ctx, provider)
 	out := GetAssistant200JSONResponse{
 		Enabled:      enabled,
 		Provider:     provider,
 		Model:        model,
 		BaseUrl:      baseURL,
-		KeySet:       s.assistantKeySet(ctx),
+		KeySet:       keySet,
+		KeysSet:      s.assistantKeysSet(ctx),
 		CanConfigure: s.can(ctx, id, ResSettings, rbac.LevelConfigure),
 	}
 	for _, info := range assistant.Providers {
@@ -81,17 +106,21 @@ func (s *Server) PutAssistantSettings(ctx context.Context, req PutAssistantSetti
 	if req.Body.ApiKey != nil {
 		apiKey = *req.Body.ApiKey
 	}
-	if key := strings.TrimSpace(apiKey); key != "" {
-		if err := s.vault.Seal(ctx, assistantVaultScope, assistantVaultKey, []byte(key)); err != nil {
-			return nil, err
-		}
-	}
 	info := assistant.ProviderByID(req.Body.Provider)
 	if info == nil {
 		return PutAssistantSettings400JSONResponse{BadRequestJSONResponse(errBody("invalid_settings", "unknown AI provider"))}, nil
 	}
-	if req.Body.Enabled && info.RequiresKey && !s.assistantKeySet(ctx) {
-		return PutAssistantSettings400JSONResponse{BadRequestJSONResponse(errBody("no_api_key", "enter an API key before enabling the assistant"))}, nil
+	// The key lands in the SUBMITTED provider's own slot — switching
+	// providers later switches back to whatever that one had stored.
+	if key := strings.TrimSpace(apiKey); key != "" {
+		if err := s.vault.Seal(ctx, assistantVaultScope, assistantKeyName(req.Body.Provider), []byte(key)); err != nil {
+			return nil, err
+		}
+	}
+	if req.Body.Enabled && info.RequiresKey {
+		if _, ok := s.assistantKeyFor(ctx, req.Body.Provider); !ok {
+			return PutAssistantSettings400JSONResponse{BadRequestJSONResponse(errBody("no_api_key", "enter an API key before enabling the assistant"))}, nil
+		}
 	}
 	baseURL := ""
 	if req.Body.BaseUrl != nil {
@@ -175,12 +204,7 @@ func (s *Server) AssistantChat(ctx context.Context, req AssistantChatRequestObje
 	if info == nil {
 		return AssistantChat409JSONResponse(errBody("assistant_unconfigured", "the configured AI provider no longer exists")), nil
 	}
-	apiKey := ""
-	if keyRaw, err := s.vault.Open(ctx, assistantVaultScope, assistantVaultKey); err == nil {
-		apiKey = string(keyRaw)
-	} else if !errors.Is(err, vault.ErrNotFound) && !errors.Is(err, store.ErrNotFound) {
-		return nil, err
-	}
+	apiKey, _ := s.assistantKeyFor(ctx, providerName)
 	if info.RequiresKey && apiKey == "" {
 		return AssistantChat409JSONResponse(errBody("assistant_unconfigured", "the assistant has no API key configured")), nil
 	}
