@@ -10323,6 +10323,8 @@ export interface operations {
                         instances: {
                             baseUrl: string;
                             models: string[];
+                            /** @description The server answered but demands an API key. */
+                            requiresKey?: boolean;
                         }[];
                     };
                 };
@@ -10341,6 +10343,10 @@ export interface operations {
             content: {
                 "application/json": {
                     baseUrl: string;
+                    /** @description Use this provider's stored API key for the probe. */
+                    provider?: string;
+                    /** @description Probe with this not-yet-saved key instead of the stored one. Never returned. */
+                    apiKey?: string;
                 };
             };
         };

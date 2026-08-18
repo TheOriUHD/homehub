@@ -147,15 +147,19 @@ func (s *Server) AssistantDiscover(ctx context.Context, _ AssistantDiscoverReque
 		return AssistantDiscover403JSONResponse{forbidden()}, nil
 	}
 	found := assistant.DiscoverLMStudio(ctx)
-	out := AssistantDiscover200JSONResponse{Instances: []struct {
-		BaseUrl string   `json:"baseUrl"`
-		Models  []string `json:"models"`
-	}{}}
+	type wireInstance = struct {
+		BaseUrl     string   `json:"baseUrl"`
+		Models      []string `json:"models"`
+		RequiresKey *bool    `json:"requiresKey,omitempty"`
+	}
+	out := AssistantDiscover200JSONResponse{Instances: []wireInstance{}}
 	for _, inst := range found {
-		out.Instances = append(out.Instances, struct {
-			BaseUrl string   `json:"baseUrl"`
-			Models  []string `json:"models"`
-		}{BaseUrl: inst.BaseURL, Models: inst.Models})
+		entry := wireInstance{BaseUrl: inst.BaseURL, Models: inst.Models}
+		if inst.RequiresKey {
+			v := true
+			entry.RequiresKey = &v
+		}
+		out.Instances = append(out.Instances, entry)
 	}
 	return out, nil
 }
@@ -168,7 +172,17 @@ func (s *Server) AssistantVerifyEndpoint(ctx context.Context, req AssistantVerif
 	if !s.can(ctx, id, ResSettings, rbac.LevelConfigure) {
 		return AssistantVerifyEndpoint403JSONResponse{forbidden()}, nil
 	}
-	models, err := assistant.VerifyOpenAIEndpoint(ctx, req.Body.BaseUrl)
+	// Probe with the key the chat would use: an explicitly typed (not yet
+	// saved) key wins, else the selected provider's stored key. The key
+	// itself never returns to the client.
+	probeKey := ""
+	if req.Body.ApiKey != nil {
+		probeKey = strings.TrimSpace(*req.Body.ApiKey)
+	}
+	if probeKey == "" && req.Body.Provider != nil && *req.Body.Provider != "" {
+		probeKey, _ = s.assistantKeyFor(ctx, *req.Body.Provider)
+	}
+	models, err := assistant.VerifyOpenAIEndpoint(ctx, req.Body.BaseUrl, probeKey)
 	out := AssistantVerifyEndpoint200JSONResponse{Ok: err == nil, Models: models}
 	if err != nil {
 		msg := err.Error()

@@ -4991,6 +4991,9 @@ paths:
                         models:
                           type: array
                           items: { type: string }
+                        requiresKey:
+                          type: boolean
+                          description: The server answered but demands an API key.
         "403":
           $ref: "#/components/responses/Forbidden"
 
@@ -5009,6 +5012,14 @@ paths:
               required: [baseUrl]
               properties:
                 baseUrl: { type: string, minLength: 1, maxLength: 300 }
+                provider:
+                  type: string
+                  maxLength: 40
+                  description: Use this provider's stored API key for the probe.
+                apiKey:
+                  type: string
+                  maxLength: 512
+                  description: Probe with this not-yet-saved key instead of the stored one. Never returned.
       responses:
         "200":
           description: Verification result — ok with models, or a diagnosis

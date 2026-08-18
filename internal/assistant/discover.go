@@ -19,10 +19,12 @@ import (
 
 const lmStudioPort = 1234
 
-// FoundInstance is one discovered runtime.
+// FoundInstance is one discovered runtime. RequiresKey marks a server
+// that answered the probe with 401/403 — present, but locked.
 type FoundInstance struct {
-	BaseURL string   `json:"baseUrl"`
-	Models  []string `json:"models"`
+	BaseURL     string   `json:"baseUrl"`
+	Models      []string `json:"models"`
+	RequiresKey bool     `json:"requiresKey"`
 }
 
 // DiscoverLMStudio probes candidate hosts concurrently and returns every
@@ -81,6 +83,11 @@ func probeLMStudio(ctx context.Context, addr string) (FoundInstance, bool) {
 		return FoundInstance{}, false
 	}
 	defer resp.Body.Close()
+	// A 401/403 is still LM Studio's signature — running, but with its
+	// API-key requirement on. Hiding it made the scan look broken.
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return FoundInstance{BaseURL: "http://" + addr + "/v1", Models: []string{}, RequiresKey: true}, true
+	}
 	if resp.StatusCode != http.StatusOK {
 		return FoundInstance{}, false
 	}
@@ -149,7 +156,7 @@ func candidateHosts() []string {
 // its model list, and answers with diagnosis-quality messages: the
 // difference between "nothing is listening" and "listening, but the URL
 // is missing /v1" decides what the user fixes next.
-func VerifyOpenAIEndpoint(ctx context.Context, baseURL string) (models []string, err error) {
+func VerifyOpenAIEndpoint(ctx context.Context, baseURL, apiKey string) (models []string, err error) {
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	base = strings.TrimSuffix(base, "/chat/completions")
 	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
@@ -160,6 +167,9 @@ func VerifyOpenAIEndpoint(ctx context.Context, baseURL string) (models []string,
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, base+"/models", nil)
 	if err != nil {
 		return nil, fmt.Errorf("that is not a valid URL")
+	}
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -173,6 +183,9 @@ func VerifyOpenAIEndpoint(ctx context.Context, baseURL string) (models []string,
 		return nil, fmt.Errorf("the server answered, but it does not expose an OpenAI-compatible /models endpoint")
 	}
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		if apiKey != "" {
+			return nil, fmt.Errorf("the server rejected the API key — check it matches the one configured on the server")
+		}
 		return nil, fmt.Errorf("the server requires an API key — enter it in the API key field below (in LM Studio this is configured on the Developer tab)")
 	}
 	if resp.StatusCode != http.StatusOK {

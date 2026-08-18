@@ -240,7 +240,12 @@ function AssistantSettingsDialog({
             </Field>
           )}
           {selected?.kind === "local" && (
-            <EndpointVerify baseUrl={baseUrl || selected?.defaultBaseUrl || ""} onModel={(m) => setModel(m)} />
+            <EndpointVerify
+              baseUrl={baseUrl || selected?.defaultBaseUrl || ""}
+              provider={provider}
+              draftKey={apiKey}
+              onModel={(m) => setModel(m)}
+            />
           )}
           {provider === "lmstudio" && (
             <>
@@ -318,8 +323,12 @@ function LmStudioFinder({ onPick }: { onPick: (baseUrl: string, model?: string) 
             className="border-edge bg-surface hover:border-accent/60 hover:bg-surface-hover block w-full rounded-lg border px-3 py-2 text-left transition-colors"
           >
             <p className="text-fg font-mono text-[12.5px]">{inst.baseUrl}</p>
-            <p className="text-fg-muted truncate text-[11.5px]">
-              {inst.models.length > 0 ? inst.models.join(" · ") : t("assistant.scanNoModels")}
+            <p className={inst.requiresKey ? "text-warning truncate text-[11.5px]" : "text-fg-muted truncate text-[11.5px]"}>
+              {inst.requiresKey
+                ? t("assistant.scanLocked")
+                : inst.models.length > 0
+                  ? inst.models.join(" · ")
+                  : t("assistant.scanNoModels")}
             </p>
           </button>
         ))}
@@ -338,11 +347,27 @@ function LmStudioFinder({ onPick }: { onPick: (baseUrl: string, model?: string) 
  * or the exact diagnosis ("needs /v1", "nothing answered", …). The check
  * runs from the HomeHub host — the same vantage point the assistant uses.
  */
-function EndpointVerify({ baseUrl, onModel }: { baseUrl: string; onModel: (model: string) => void }) {
+function EndpointVerify({
+  baseUrl,
+  provider,
+  draftKey,
+  onModel,
+}: {
+  baseUrl: string;
+  provider: string;
+  draftKey: string;
+  onModel: (model: string) => void;
+}) {
   const { t } = useTranslation();
   const verify = useMutation({
+    // The probe authenticates like the chat would: a key typed but not
+    // yet saved wins, else the server uses this provider's stored key.
     mutationFn: async () =>
-      unwrap(await api.POST("/assistant/verify-endpoint", { body: { baseUrl } })),
+      unwrap(
+        await api.POST("/assistant/verify-endpoint", {
+          body: { baseUrl, provider, apiKey: draftKey.trim() || undefined },
+        }),
+      ),
   });
 
   return (
