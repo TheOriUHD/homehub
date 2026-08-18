@@ -108,8 +108,8 @@ func TestCallSurfacesHandlerRefusal(t *testing.T) {
 func TestToolCountIncludesSystemTools(t *testing.T) {
 	bare := (&Toolbox{}).Defs()
 	full := (&Toolbox{Call: (&fakeCall{status: 200, response: "{}"}).fn}).Defs()
-	if len(full) != len(bare)+8 {
-		t.Fatalf("expected 8 system tools, got %d extra", len(full)-len(bare))
+	if len(full) != len(bare)+10 {
+		t.Fatalf("expected 10 system tools, got %d extra", len(full)-len(bare))
 	}
 	for _, def := range full {
 		var parsed map[string]any
