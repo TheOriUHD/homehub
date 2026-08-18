@@ -9,6 +9,7 @@ import { Badge } from "@/ui/badge";
 import { Card } from "@/ui/card";
 import { CopyButton, PageLoader } from "@/ui/misc";
 import { EmptyState } from "@/ui/states";
+import { ItemGrid, MinecraftInventory, type Inventory } from "./inventory";
 import { useMcServer } from "./shared";
 
 /**
@@ -145,14 +146,13 @@ function PlayerCard({ player, onOpen }: { player: McPlayer; onOpen: () => void }
   );
 }
 
-type InvItem = { slot?: number; type: string; count: number; name?: string; enchants?: Record<string, number> };
 type PlayerDetail = {
   gameMode?: string;
   position?: { world?: string; x: number; y: number; z: number };
   vitals?: Record<string, number>;
   effects?: Array<{ type: string; amplifier: number; durationTicks: number }>;
-  inventory?: { heldSlot?: number; items?: InvItem[]; armor?: Record<string, InvItem>; offHand?: InvItem };
-  enderChest?: InvItem[];
+  inventory?: Inventory;
+  enderChest?: Array<{ slot?: number; type: string; count: number; name?: string; enchants?: Record<string, number> }>;
   statistics?: Record<string, number>;
   op?: boolean;
 };
@@ -245,35 +245,12 @@ function PlayerDetailDialog({
               )}
               {d.inventory && (
                 <Section title={t("mc.detail.inventory")}>
-                  {d.inventory.armor && Object.keys(d.inventory.armor).length > 0 && (
-                    <div className="mb-3">
-                      <p className="text-fg-subtle mb-1 text-[11px] font-semibold uppercase">{t("mc.detail.armor")}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {Object.values(d.inventory.armor).map((it, i) => (
-                          <ItemChip key={i} item={it} />
-                        ))}
-                        {d.inventory.offHand && <ItemChip item={d.inventory.offHand} />}
-                      </div>
-                    </div>
-                  )}
-                  {(d.inventory.items?.length ?? 0) > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {d.inventory.items!.map((it, i) => (
-                        <ItemChip key={i} item={it} held={it.slot === d.inventory!.heldSlot} />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-fg-subtle text-[13px]">{t("mc.detail.emptyInv")}</p>
-                  )}
+                  <MinecraftInventory inventory={d.inventory} uuid={player.uuid ?? undefined} />
                 </Section>
               )}
               {(d.enderChest?.length ?? 0) > 0 && (
                 <Section title={t("mc.detail.enderChest")}>
-                  <div className="flex flex-wrap gap-1.5">
-                    {d.enderChest!.map((it, i) => (
-                      <ItemChip key={i} item={it} />
-                    ))}
-                  </div>
+                  <ItemGrid items={d.enderChest!} />
                 </Section>
               )}
               {d.statistics && (
@@ -313,19 +290,5 @@ function Section({ title, icon: Icon, children }: { title: string; icon?: typeof
       </p>
       {children}
     </div>
-  );
-}
-
-function ItemChip({ item, held }: { item: InvItem; held?: boolean }) {
-  const enchants = item.enchants ? Object.entries(item.enchants) : [];
-  return (
-    <span
-      className={cn("border-edge bg-bg-subtle flex items-center gap-1.5 rounded-md border px-2 py-1 text-[12px]", held && "border-accent")}
-      title={enchants.map(([e, l]) => `${e} ${l}`).join(", ")}
-    >
-      <span className="text-fg capitalize">{(item.name ?? item.type).replace(/_/g, " ")}</span>
-      {item.count > 1 && <span className="text-fg-subtle tabular-nums">×{item.count}</span>}
-      {enchants.length > 0 && <Sparkles className="text-accent size-3" />}
-    </span>
   );
 }

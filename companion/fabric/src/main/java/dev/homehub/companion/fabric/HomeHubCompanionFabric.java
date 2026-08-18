@@ -10,6 +10,7 @@ import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,10 +120,22 @@ public final class HomeHubCompanionFabric implements DedicatedServerModInitializ
     /** Callbacks from companion threads — MC work hops onto the server thread. */
     private final class BridgeAdapter implements CompanionClient.Adapter {
         @Override public void onPlayerDetail(final long id, final String uuid) {
-            // Full per-player detail (inventory, stats) is gathered on
-            // Paper/Spigot subservers; this loader reports none for now.
             final CompanionClient c = client;
-            if (c != null) c.sendPlayerDetail(id, null);
+            if (c == null) return;
+            final MinecraftServer s = server;
+            if (s == null) { c.sendPlayerDetail(id, null); return; }
+            // Gather on the server thread — inventory/stats reads are not
+            // thread-safe off-tick.
+            s.execute(() -> {
+                String detail = null;
+                try {
+                    ServerPlayer p = findPlayer(s, uuid);
+                    if (p != null) detail = FabricPlayerDetailBuilder.build(p).toString();
+                } catch (Throwable t) {
+                    LOG.warn("player_detail build failed: {}", t.toString());
+                }
+                c.sendPlayerDetail(id, detail);
+            });
         }
 
         @Override public void onCommand(final long id, final String command) {
@@ -221,9 +234,40 @@ public final class HomeHubCompanionFabric implements DedicatedServerModInitializ
         if (c == null || !c.isConnected()) return;
         List<PlayerInfo> players = new ArrayList<>();
         for (ServerPlayer p : srv.getPlayerList().getPlayers()) {
-            players.add(new PlayerInfo(p.getGameProfile().name(), p.getUUID().toString()));
+            PlayerInfo pi = new PlayerInfo(p.getGameProfile().name(), p.getUUID().toString());
+            enrich(pi, p);
+            players.add(pi);
         }
         c.sendPlayers(players);
+    }
+
+    /** Fill the cheap live fields on the streaming player entry (server thread). */
+    private static void enrich(PlayerInfo pi, ServerPlayer p) {
+        try {
+            GameType gm = p.gameMode();
+            if (gm != null) pi.gameMode = gm.getName();
+        } catch (Throwable ignored) {}
+        try {
+            pi.world = p.level().dimension().identifier().toString();
+            pi.hasPos = true;
+            pi.x = FabricPlayerDetailBuilder.round2(p.getX());
+            pi.y = FabricPlayerDetailBuilder.round2(p.getY());
+            pi.z = FabricPlayerDetailBuilder.round2(p.getZ());
+        } catch (Throwable ignored) {}
+        try {
+            pi.health = FabricPlayerDetailBuilder.round1(p.getHealth());
+            pi.maxHealth = FabricPlayerDetailBuilder.round1(p.getMaxHealth());
+        } catch (Throwable ignored) {}
+        try { pi.food = p.getFoodData().getFoodLevel(); } catch (Throwable ignored) {}
+        try { pi.level = p.experienceLevel; } catch (Throwable ignored) {}
+        try { if (p.connection != null) pi.pingMs = p.connection.latency(); } catch (Throwable ignored) {}
+    }
+
+    private static ServerPlayer findPlayer(MinecraftServer s, String uuid) {
+        for (ServerPlayer p : s.getPlayerList().getPlayers()) {
+            if (p.getUUID().toString().equals(uuid) || p.getGameProfile().name().equals(uuid)) return p;
+        }
+        return null;
     }
 
     /** Mean ms per tick over the filled part of the window; null before the first tick. */
