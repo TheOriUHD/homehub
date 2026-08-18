@@ -24,6 +24,8 @@ import {
   Sun,
   UserPlus,
   Users,
+  FileCode2,
+  Wrench,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { RES } from "@/lib/perms";
@@ -109,6 +111,8 @@ export function CommandPalette({
   const pages = [
     { label: t("nav.overview"), icon: Home, to: "/" },
     { label: t("nav.health"), icon: Activity, to: "/health", requires: RES.health },
+    { label: t("nav.tools"), icon: Wrench, to: "/tools" },
+    { label: t("tools.editor.title"), icon: FileCode2, to: "/tools/editor" },
     { label: t("nav.history"), icon: ChartSpline, to: "/history" },
     { label: t("nav.alerts"), icon: BellRing, to: "/alerts" },
     ...(backupsVisible ? [{ label: t("nav.backups"), icon: DatabaseBackup, to: "/backups" }] : []),
