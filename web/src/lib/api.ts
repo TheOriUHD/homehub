@@ -72,6 +72,7 @@ export type DbDataPage = ApiSchemas["DbDataPage"];
 export type DbSession = ApiSchemas["DbSession"];
 export type DbQueryResult = ApiSchemas["DbQueryResult"];
 export type McOverview = ApiSchemas["McOverview"];
+export type McServer = ApiSchemas["McServer"];
 export type McStatus = ApiSchemas["McStatus"];
 export type McPlayer = ApiSchemas["McPlayer"];
 export type McPairingCode = ApiSchemas["McPairingCode"];

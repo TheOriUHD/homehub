@@ -2713,8 +2713,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Minecraft server overview
-         * @description Companion connection state, server metadata, live performance snapshot, online players, and (for configure-level callers) the pending pairing code.
+         * Minecraft network overview
+         * @description Every server in the network with its connection state, metadata, live snapshot and players; whether SSH is configured; and (for configure-level callers) the pending pairing code.
          */
         get: operations["mcOverview"];
         put?: never;
@@ -2735,8 +2735,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Issue a fresh pairing code
-         * @description Generates a new 6-digit code valid for 15 minutes, replacing any outstanding code. The companion pairs once; afterwards it authenticates with its own token.
+         * Issue a fresh pairing code for a new server
+         * @description Generates a new 6-digit code valid for 15 minutes, replacing any outstanding code. Redeeming it adds a server with the given label to the network; the companion then authenticates with its own token.
          */
         post: operations["mcCreatePairingCode"];
         delete?: never;
@@ -2745,7 +2745,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/mc/{id}/console": {
+    "/mc/{id}/servers/{serverId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a server from the network
+         * @description Unpairs it — the companion's token dies with the row. Audited.
+         */
+        delete: operations["mcDeleteServer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mc/{id}/servers/{serverId}/console": {
         parameters: {
             query?: never;
             header?: never;
@@ -2753,7 +2773,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Console scrollback
+         * Console scrollback for one server
          * @description Lines after a sequence number, oldest first. The buffer holds the full scrollback from server start (backfilled from the server's own log); poll with nextSeq or ride the WS topic's console events for live lines.
          */
         get: operations["mcConsole"];
@@ -2765,7 +2785,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/mc/{id}/command": {
+    "/mc/{id}/servers/{serverId}/command": {
         parameters: {
             query?: never;
             header?: never;
@@ -2775,10 +2795,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Execute a console command
+         * Execute a console command on one server
          * @description Runs the command on the server's main thread and reports the companion's acknowledgment. Audited.
          */
         post: operations["mcCommand"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mc/{id}/ssh/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test the network's SSH credential
+         * @description Runs a trivial command over the stored SSH access and reports the outcome verbatim. Requires configure. Audited.
+         */
+        post: operations["mcSshTest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4129,7 +4169,16 @@ export interface components {
             durationMs: number;
         };
         McOverview: {
-            connected: boolean;
+            servers: components["schemas"]["McServer"][];
+            /** @description Whether the network has SSH host access stored */
+            sshConfigured: boolean;
+            /** @description Present only for configure-level callers while a code is outstanding */
+            pendingPairing?: components["schemas"]["McPairingCode"] | null;
+        };
+        McServer: {
+            /** Format: uuid */
+            id: string;
+            label: string;
             serverName?: string;
             /** @description paper, spigot, velocity, fabric, or forge */
             loader?: string;
@@ -4140,10 +4189,9 @@ export interface components {
             /** Format: date-time */
             lastConnectedAt?: string;
             remoteIp?: string;
+            connected: boolean;
             status?: components["schemas"]["McStatus"] | null;
             players?: components["schemas"]["McPlayer"][];
-            /** @description Present only for configure-level callers while a code is outstanding */
-            pendingPairing?: components["schemas"]["McPairingCode"] | null;
         };
         McStatus: {
             /** Format: double */
@@ -4170,6 +4218,8 @@ export interface components {
             code: string;
             /** Format: date-time */
             expiresAt: string;
+            /** @description The name the new server will wear */
+            label?: string;
         };
         McConsole: {
             lines: components["schemas"]["McConsoleLine"][];
@@ -4755,6 +4805,7 @@ export interface components {
         };
     };
     parameters: {
+        mcServerIdParam: string;
         idParam: string;
         /** @description Home Assistant entity id, e.g. light.kitchen */
         haEntityId: string;
@@ -9420,7 +9471,13 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    label?: string;
+                };
+            };
+        };
         responses: {
             /** @description The code */
             200: {
@@ -9430,6 +9487,29 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["McPairingCode"];
                 };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    mcDeleteServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                serverId: components["parameters"]["mcServerIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -9445,6 +9525,7 @@ export interface operations {
             header?: never;
             path: {
                 id: components["parameters"]["idParam"];
+                serverId: components["parameters"]["mcServerIdParam"];
             };
             cookie?: never;
         };
@@ -9469,6 +9550,7 @@ export interface operations {
             header?: never;
             path: {
                 id: components["parameters"]["idParam"];
+                serverId: components["parameters"]["mcServerIdParam"];
             };
             cookie?: never;
         };
@@ -9496,6 +9578,33 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             502: components["responses"]["UpstreamError"];
+        };
+    };
+    mcSshTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Test outcome */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                        message: string;
+                    };
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     mcDownloads: {

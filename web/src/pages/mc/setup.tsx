@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, CheckCircle2, Download, RefreshCw } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Download, RefreshCw, Server, Terminal, Trash2 } from "lucide-react";
 import {
   api,
   unwrap,
@@ -14,7 +14,11 @@ import { useAuth } from "@/lib/auth";
 import { cn, formatBytes, formatRelative } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { Card, CardBody, CardHeader } from "@/ui/card";
+import { ConfirmDialog } from "@/ui/confirm";
+import { Field } from "@/ui/field";
+import { Input } from "@/ui/input";
 import { CopyButton, PageLoader } from "@/ui/misc";
+import { Badge, StatusDot } from "@/ui/badge";
 import { ErrorState } from "@/ui/states";
 import { useToast } from "@/ui/toast";
 import { loaderLabel, mcOverviewKey, mcResource, useMcOverview } from "./shared";
@@ -37,9 +41,15 @@ export function McSetupPage() {
     staleTime: 5 * 60_000,
   });
 
+  const [label, setLabel] = useState("");
   const generate = useMutation({
     mutationFn: async () =>
-      unwrap(await api.POST("/mc/{id}/pairing-code", { params: { path: { id: instanceId } } })),
+      unwrap(
+        await api.POST("/mc/{id}/pairing-code", {
+          params: { path: { id: instanceId } },
+          body: label.trim() ? { label: label.trim() } : {},
+        }),
+      ),
     onSuccess: (code, _vars, _ctx) => {
       queryClient.setQueryData<McOverview>(mcOverviewKey(instanceId), (prev) =>
         prev ? { ...prev, pendingPairing: code } : prev,
@@ -88,11 +98,7 @@ export function McSetupPage() {
   const code = pending?.code ?? t("mc.setup.codePlaceholder");
   const propertiesSnippet = `url=${origin}\ncode=${code}`;
   const pairCommand = `${cmdMode === "ingame" ? "/" : ""}homehub pair ${origin} ${code}`;
-
-  const pairedParts = [
-    data.remoteIp || null,
-    data.companionVersion ? t("mc.companionVersion", { version: data.companionVersion }) : null,
-  ].filter(Boolean);
+  const servers = data.servers ?? [];
 
   return (
     <div className="space-y-4">
@@ -104,6 +110,23 @@ export function McSetupPage() {
         <ArrowLeft className="size-3.5" />
         {t("mc.setup.back")}
       </Link>
+      <Card>
+        <CardHeader
+          title={t("mc.setup.serversTitle")}
+          description={t("mc.setup.serversIntro")}
+        />
+        <CardBody className="space-y-2">
+          {servers.length === 0 && (
+            <p className="text-fg-muted text-[13px]">{t("mc.setup.noServers")}</p>
+          )}
+          {servers.map((server) => (
+            <ServerRow key={server.id} instanceId={instanceId} server={server} />
+          ))}
+        </CardBody>
+      </Card>
+
+      <SshCard instanceId={instanceId} configured={data.sshConfigured} />
+
       <Card>
         <CardHeader
           title={t("mc.setup.pairingTitle")}
@@ -121,6 +144,16 @@ export function McSetupPage() {
           }
         />
         <CardBody className="space-y-4">
+          <Field label={t("mc.setup.labelField")} hint={t("mc.setup.labelHint")}>
+            {(p) => (
+              <Input
+                {...p}
+                placeholder={t("mc.setup.labelPlaceholder")}
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+            )}
+          </Field>
           {pending ? (
             <PendingCode
               pending={pending}
@@ -132,15 +165,6 @@ export function McSetupPage() {
             <p className="text-fg-muted text-[13px]">{t("mc.setup.noCode")}</p>
           )}
 
-          {data.pairedAt ? (
-            <p className="text-success-soft-fg bg-success-soft flex items-center gap-2 rounded-md px-3 py-2 text-[13px]">
-              <CheckCircle2 className="size-3.5 shrink-0" />
-              {t("mc.setup.paired", { when: formatRelative(data.pairedAt) })}
-              {pairedParts.length > 0 && ` · ${pairedParts.join(" · ")}`}
-            </p>
-          ) : (
-            <p className="text-fg-subtle text-[13px]">{t("mc.setup.notPaired")}</p>
-          )}
         </CardBody>
       </Card>
 
@@ -166,7 +190,7 @@ export function McSetupPage() {
                     download
                     className={cn(
                       "border-edge bg-surface hover:bg-surface-hover flex items-center gap-2.5 rounded-md border px-3 py-2 shadow-1 transition-colors",
-                      data.loader === d.loader && "border-accent",
+
                     )}
                   >
                     <Download className="text-fg-subtle size-4 shrink-0" />
@@ -315,5 +339,111 @@ function CopyBlock({ label, value }: { label?: string; value: string }) {
         <CopyButton value={value} />
       </div>
     </div>
+  );
+}
+
+
+/** One member server: identity, live dot, and removal. */
+function ServerRow({ instanceId, server }: { instanceId: string; server: import("@/lib/api").McServer }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [confirm, setConfirm] = useState(false);
+  const remove = useMutation({
+    mutationFn: async () => {
+      unwrap(
+        await api.DELETE("/mc/{id}/servers/{serverId}", {
+          params: { path: { id: instanceId, serverId: server.id } },
+        }),
+      );
+    },
+    onSuccess: () => {
+      setConfirm(false);
+      void queryClient.invalidateQueries({ queryKey: mcOverviewKey(instanceId) });
+    },
+    onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
+  });
+
+  return (
+    <div className="border-edge bg-surface flex items-center gap-3 rounded-lg border px-3 py-2.5">
+      <Server className="text-fg-subtle size-4 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="text-fg flex items-center gap-2 text-[13.5px] font-medium">
+          {server.label}
+          <StatusDot tone={server.connected ? "success" : "neutral"} pulse={!server.connected} />
+        </p>
+        <p className="text-fg-subtle truncate text-[12px]">
+          {[loaderLabel(server.loader), server.mcVersion, server.remoteIp,
+            server.companionVersion ? t("mc.companionVersion", { version: server.companionVersion }) : null]
+            .filter(Boolean)
+            .join(" · ") || t("mc.setup.neverConnected")}
+        </p>
+      </div>
+      {server.pairedAt && (
+        <Badge tone="success">
+          <CheckCircle2 className="size-3" />
+          {formatRelative(server.pairedAt)}
+        </Badge>
+      )}
+      <Button size="sm" variant="ghost" aria-label={t("mc.setup.removeServer")} onClick={() => setConfirm(true)}>
+        <Trash2 className="size-4" />
+      </Button>
+      <ConfirmDialog
+        open={confirm}
+        onOpenChange={setConfirm}
+        title={t("mc.setup.removeTitle", { name: server.label })}
+        body={t("mc.setup.removeBody")}
+        confirmLabel={t("mc.setup.removeServer")}
+        loading={remove.isPending}
+        onConfirm={() => remove.mutate()}
+      />
+    </div>
+  );
+}
+
+/**
+ * The network's SSH host access: configured through the integration's own
+ * config/secrets (edit dialog), surfaced and testable here — this is the
+ * credential full restarts will ride on.
+ */
+function SshCard({ instanceId, configured }: { instanceId: string; configured: boolean }) {
+  const { t } = useTranslation();
+  const test = useMutation({
+    mutationFn: async () =>
+      unwrap(await api.POST("/mc/{id}/ssh/test", { params: { path: { id: instanceId } } })),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title={t("mc.setup.sshTitle")}
+        description={t("mc.setup.sshIntro")}
+        actions={
+          configured ? (
+            <Button size="sm" variant="secondary" loading={test.isPending} onClick={() => test.mutate()}>
+              <Terminal className="size-3.5" />
+              {t("mc.setup.sshTest")}
+            </Button>
+          ) : undefined
+        }
+      />
+      <CardBody className="space-y-2">
+        {configured ? (
+          <p className="text-fg-muted text-[13px]">{t("mc.setup.sshConfigured")}</p>
+        ) : (
+          <p className="text-fg-muted text-[13px]">{t("mc.setup.sshNotConfigured")}</p>
+        )}
+        {test.isSuccess && (
+          <p className={cn("text-[12.5px] whitespace-pre-wrap", test.data.ok ? "text-success" : "text-danger")}>
+            {test.data.ok ? t("mc.setup.sshOk", { detail: test.data.message }) : test.data.message}
+          </p>
+        )}
+        {test.isError && (
+          <p className="text-danger text-[12.5px]">
+            {isApiError(test.error) ? test.error.message : t("common.unknownError")}
+          </p>
+        )}
+      </CardBody>
+    </Card>
   );
 }

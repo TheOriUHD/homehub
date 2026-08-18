@@ -237,11 +237,12 @@ export function OverviewPage() {
 
   // ---- aggregates -----------------------------------------------------------
 
-  const mcConnected = mcRows.filter((_row, i) => mcOverviews[i]?.data?.connected).length;
-  const mcPlayers = mcRows.reduce((sum, _row, i) => {
-    const o = mcOverviews[i]?.data;
-    return sum + (o?.connected ? (o.status?.playersOnline ?? 0) : 0);
-  }, 0);
+  const mcServers = mcRows.flatMap((_row, i) => mcOverviews[i]?.data?.servers ?? []);
+  const mcConnected = mcServers.filter((s) => s.connected).length;
+  const mcPlayers = mcServers.reduce(
+    (sum, s) => sum + (s.connected ? (s.status?.playersOnline ?? 0) : 0),
+    0,
+  );
 
   const cameras = nvrOverview.data?.cameras ?? [];
   // Only cameras that are supposed to record count against the total —
@@ -321,7 +322,7 @@ export function OverviewPage() {
       <StatCard
         to="/mc"
         icon={Pickaxe}
-        value={`${mcConnected} / ${mcRows.length}`}
+        value={`${mcConnected} / ${mcServers.length}`}
         label={t("overview.cards.mcServers", { players: mcPlayers })}
       />,
     );

@@ -54,8 +54,8 @@ func TestActionToolsBuildCorrectRequests(t *testing.T) {
 			"/docker/11111111-1111-1111-1111-111111111111/containers/web-app/action",
 			map[string]any{"action": "restart"}},
 		{"mc_command",
-			`{"systemId":"11111111-1111-1111-1111-111111111111","command":"/say hi"}`,
-			"/mc/11111111-1111-1111-1111-111111111111/command",
+			`{"systemId":"11111111-1111-1111-1111-111111111111","serverId":"22222222-2222-2222-2222-222222222222","command":"/say hi"}`,
+			"/mc/11111111-1111-1111-1111-111111111111/servers/22222222-2222-2222-2222-222222222222/command",
 			map[string]any{"command": "say hi"}},
 		{"amp_instance_action",
 			`{"systemId":"11111111-1111-1111-1111-111111111111","instanceId":"i9","action":"start"}`,
@@ -99,7 +99,7 @@ func TestCallSurfacesHandlerRefusal(t *testing.T) {
 	fake := &fakeCall{status: http.StatusForbidden, response: `{"code":"forbidden","message":"you do not have permission to do that"}`}
 	tb := &Toolbox{Call: fake.fn}
 	_, err := tb.Run(context.Background(), Access{}, "mc_command",
-		json.RawMessage(`{"systemId":"11111111-1111-1111-1111-111111111111","command":"stop"}`))
+		json.RawMessage(`{"systemId":"11111111-1111-1111-1111-111111111111","serverId":"22222222-2222-2222-2222-222222222222","command":"stop"}`))
 	if err == nil || err.Error() != "you do not have permission to do that" {
 		t.Fatalf("refusal not surfaced: %v", err)
 	}

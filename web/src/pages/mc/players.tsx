@@ -5,8 +5,8 @@ import type { McPlayer } from "@/lib/api";
 import { Badge } from "@/ui/badge";
 import { Card } from "@/ui/card";
 import { CopyButton, PageLoader } from "@/ui/misc";
-import { EmptyState, ErrorState } from "@/ui/states";
-import { useMcOverview } from "./shared";
+import { EmptyState } from "@/ui/states";
+import { useMcServer } from "./shared";
 
 /**
  * Online players, live via "players-changed" pushes patching the shared
@@ -15,19 +15,12 @@ import { useMcOverview } from "./shared";
  */
 export function McPlayersPage() {
   const { t } = useTranslation();
-  const { instanceId } = useParams({ from: "/shell/mc/$instanceId/players" });
-  const overview = useMcOverview(instanceId);
+  const { instanceId, serverId } = useParams({ from: "/shell/mc/$instanceId/s/$serverId/players" });
+  const server = useMcServer(instanceId, serverId);
 
-  if (overview.isLoading) return <PageLoader />;
-  if (overview.isError) {
-    return (
-      <Card>
-        <ErrorState error={overview.error} onRetry={() => void overview.refetch()} />
-      </Card>
-    );
-  }
+  if (!server) return <PageLoader />;
 
-  const data = overview.data!;
+  const data = server;
   const players = data.players ?? [];
   const downstream = data.status?.downstream ?? [];
 
@@ -69,13 +62,13 @@ export function McPlayersPage() {
           </h2>
           <p className="text-fg-muted -mt-1 text-[13px]">{t("mc.players.downstreamBody")}</p>
           <Card className="divide-edge divide-y">
-            {downstream.map((server) => (
-              <div key={server.name} className="flex items-center gap-3 px-4 py-3">
+            {downstream.map((backend) => (
+              <div key={backend.name} className="flex items-center gap-3 px-4 py-3">
                 <span className="text-fg min-w-0 flex-1 truncate text-sm font-medium">
-                  {server.name}
+                  {backend.name}
                 </span>
-                <Badge tone={server.players > 0 ? "accent" : "neutral"}>
-                  {t("mc.players.playerCount", { count: server.players })}
+                <Badge tone={backend.players > 0 ? "accent" : "neutral"}>
+                  {t("mc.players.playerCount", { count: backend.players })}
                 </Badge>
               </div>
             ))}

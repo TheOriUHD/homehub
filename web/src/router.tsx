@@ -42,6 +42,8 @@ import { HaAutomationsPage } from "./pages/ha/automations";
 import { McModulePage } from "./pages/mc/module";
 import { McLandingPage } from "./pages/mc/landing";
 import { McConsolePage } from "./pages/mc/console";
+import { McNetworkPage } from "./pages/mc/network";
+import { McServerPage } from "./pages/mc/server";
 import { McPlayersPage } from "./pages/mc/players";
 import { McSetupPage } from "./pages/mc/setup";
 import { McPerformancePage } from "./pages/mc/performance";
@@ -454,16 +456,10 @@ const mcModuleRoute = createRoute({
   component: McModulePage,
 });
 
-const mcConsoleRoute = createRoute({
+const mcNetworkRoute = createRoute({
   getParentRoute: () => mcModuleRoute,
   path: "/",
-  component: McConsolePage,
-});
-
-const mcPlayersRoute = createRoute({
-  getParentRoute: () => mcModuleRoute,
-  path: "/players",
-  component: McPlayersPage,
+  component: McNetworkPage,
 });
 
 const mcSetupRoute = createRoute({
@@ -472,8 +468,26 @@ const mcSetupRoute = createRoute({
   component: McSetupPage,
 });
 
-const mcPerformanceRoute = createRoute({
+const mcServerRoute = createRoute({
   getParentRoute: () => mcModuleRoute,
+  path: "/s/$serverId",
+  component: McServerPage,
+});
+
+const mcConsoleRoute = createRoute({
+  getParentRoute: () => mcServerRoute,
+  path: "/",
+  component: McConsolePage,
+});
+
+const mcPlayersRoute = createRoute({
+  getParentRoute: () => mcServerRoute,
+  path: "/players",
+  component: McPlayersPage,
+});
+
+const mcPerformanceRoute = createRoute({
+  getParentRoute: () => mcServerRoute,
   path: "/performance",
   component: McPerformancePage,
 });
@@ -644,10 +658,9 @@ const routeTree = rootRoute.addChildren([
     ]),
     haModuleRoute.addChildren([haBoardRoute, haEntitiesRoute, haAutomationsRoute]),
     mcModuleRoute.addChildren([
-      mcConsoleRoute,
-      mcPlayersRoute,
+      mcNetworkRoute,
       mcSetupRoute,
-      mcPerformanceRoute,
+      mcServerRoute.addChildren([mcConsoleRoute, mcPlayersRoute, mcPerformanceRoute]),
     ]),
     dnsModuleRoute.addChildren([
       dnsOverviewRoute,

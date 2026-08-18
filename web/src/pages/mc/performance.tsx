@@ -6,7 +6,7 @@ import { useMetricSeries } from "@/lib/metrics";
 import { Card } from "@/ui/card";
 import { EmptyState } from "@/ui/states";
 import { TimeSeriesChart, type ChartKind, type SeriesPoint } from "@/components/time-series-chart";
-import { mcResource } from "./shared";
+import { mcServerResource } from "./shared";
 
 /**
  * TPS / MSPT / players / heap from the metrics engine — an hour of history
@@ -16,9 +16,9 @@ import { mcResource } from "./shared";
  */
 export function McPerformancePage() {
   const { t } = useTranslation();
-  const { instanceId } = useParams({ from: "/shell/mc/$instanceId/performance" });
+  const { instanceId, serverId } = useParams({ from: "/shell/mc/$instanceId/s/$serverId/performance" });
 
-  const resource = mcResource(instanceId);
+  const resource = mcServerResource(instanceId, serverId);
   const topic = `metrics:${resource}`;
   const tps = useMetricSeries(topic, resource, "tps");
   const mspt = useMetricSeries(topic, resource, "mspt");

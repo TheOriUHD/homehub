@@ -59,8 +59,8 @@ func (tb *Toolbox) systemTools() []tool {
 		{
 			def: ToolDef{
 				Name:        "mc_command",
-				Description: "Run a console command on a Minecraft server (no leading slash). The console has NO player context: @s/@p never work — use exact player names (system_details lists who is online). Use modern item ids (enchanted_golden_apple, not NBT syntax). The result includes the console's reaction — READ it: an error there means the command failed even if dispatch was acknowledged.",
-				InputSchema: obj(`"systemId":{"type":"string"},"command":{"type":"string"}`, "systemId", "command"),
+				Description: "Run a console command on ONE server of a Minecraft network (serverId from system_details; no leading slash). The console has NO player context: @s/@p never work — use exact player names. Use modern item ids (enchanted_golden_apple, not NBT syntax). The result includes the console's reaction — READ it: an error there means the command failed even if dispatch was acknowledged.",
+				InputSchema: obj(`"systemId":{"type":"string"},"serverId":{"type":"string","description":"The target server's uuid within the network"},"command":{"type":"string"}`, "systemId", "serverId", "command"),
 			},
 			run: tb.mcCommand,
 		},
@@ -330,11 +330,17 @@ func (tb *Toolbox) mcCommand(ctx context.Context, _ Access, input json.RawMessag
 		return nil, err
 	}
 	var args struct {
-		Command string `json:"command"`
+		ServerID string `json:"serverId"`
+		Command  string `json:"command"`
 	}
 	if err := json.Unmarshal(input, &args); err != nil || strings.TrimSpace(args.Command) == "" {
 		return nil, fmt.Errorf("command is required")
 	}
+	serverID, err := uuid.Parse(strings.TrimSpace(args.ServerID))
+	if err != nil {
+		return nil, fmt.Errorf("serverId must be a server uuid from system_details")
+	}
+	base := "/mc/" + id.String() + "/servers/" + serverID.String()
 
 	// Snapshot the console position, run the command, then read what the
 	// server actually said about it — the ack alone reports dispatch, not
@@ -342,7 +348,7 @@ func (tb *Toolbox) mcCommand(ctx context.Context, _ Access, input json.RawMessag
 	lastSeq := int64(-1)
 	// nextSeq is the buffer head regardless of limit, so an over-the-head
 	// read returns it with zero lines.
-	if raw, err := tb.call(ctx, http.MethodGet, "/mc/"+id.String()+"/console?after=9000000000000000&limit=1", nil); err == nil {
+	if raw, err := tb.call(ctx, http.MethodGet, base+"/console?after=9000000000000000&limit=1", nil); err == nil {
 		var console struct {
 			NextSeq int64 `json:"nextSeq"`
 		}
@@ -351,7 +357,7 @@ func (tb *Toolbox) mcCommand(ctx context.Context, _ Access, input json.RawMessag
 		}
 	}
 
-	ack, err := tb.call(ctx, http.MethodPost, "/mc/"+id.String()+"/command",
+	ack, err := tb.call(ctx, http.MethodPost, base+"/command",
 		map[string]any{"command": strings.TrimPrefix(strings.TrimSpace(args.Command), "/")})
 	if err != nil {
 		return nil, err
@@ -363,7 +369,7 @@ func (tb *Toolbox) mcCommand(ctx context.Context, _ Access, input json.RawMessag
 	case <-ctx.Done():
 	case <-time.After(700 * time.Millisecond):
 		if raw, err := tb.call(ctx, http.MethodGet,
-			fmt.Sprintf("/mc/%s/console?after=%d&limit=12", id.String(), lastSeq), nil); err == nil {
+			fmt.Sprintf("%s/console?after=%d&limit=12", base, lastSeq), nil); err == nil {
 			var console struct {
 				Lines []struct {
 					Text string `json:"text"`
