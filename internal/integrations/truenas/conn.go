@@ -2,7 +2,9 @@ package truenas
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,14 +18,14 @@ import (
 
 // SystemInfo is /system/info.
 type SystemInfo struct {
-	Version     string    `json:"version"`
-	Hostname    string    `json:"hostname"`
-	Uptime      string    `json:"uptime"`
+	Version       string    `json:"version"`
+	Hostname      string    `json:"hostname"`
+	Uptime        string    `json:"uptime"`
 	UptimeSeconds float64   `json:"uptime_seconds"`
-	PhysicalMem int64     `json:"physmem"`
-	Model       string    `json:"system_product"`
-	Cores       int       `json:"cores"`
-	LoadAvg     []float64 `json:"loadavg"`
+	PhysicalMem   int64     `json:"physmem"`
+	Model         string    `json:"system_product"`
+	Cores         int       `json:"cores"`
+	LoadAvg       []float64 `json:"loadavg"`
 }
 
 // Pool is /pool. size/allocated/free are strings or numbers depending on
@@ -126,15 +128,43 @@ type ISCSITarget struct {
 	Alias string `json:"alias"`
 }
 
-// Snapshot is /pool/snapshot.
+// Snapshot is one pool.snapshot.query row. Modern TrueNAS (26.x) strips
+// used/created from the default payload — they come back only as ZFS
+// properties requested via extra.properties — while the legacy REST shape
+// carried them at the top level. Both are decoded; use the accessors.
 type Snapshot struct {
 	Name     string      `json:"name"`
 	Dataset  string      `json:"dataset"`
 	Snapshot string      `json:"snapshot_name"`
-	Used     ParsedValue `json:"used"`
+	Used     ParsedValue `json:"used"` // legacy REST shape
 	Created  struct {
 		Date int64 `json:"$date"`
-	} `json:"created"`
+	} `json:"created"` // legacy REST shape
+	CreateTXG  string `json:"createtxg"`
+	Properties struct {
+		Used     ParsedValue `json:"used"`
+		Creation ParsedValue `json:"creation"` // rawvalue = Unix seconds
+	} `json:"properties"`
+}
+
+// UsedBytes returns the snapshot's space usage from whichever shape arrived.
+func (s Snapshot) UsedBytes() int64 {
+	if v := s.Properties.Used.Int64(); v > 0 {
+		return v
+	}
+	return s.Used.Int64()
+}
+
+// CreatedMs returns the creation time in Unix milliseconds, from the legacy
+// $date field or the ZFS creation property (whose rawvalue is seconds).
+func (s Snapshot) CreatedMs() int64 {
+	if s.Created.Date > 0 {
+		return s.Created.Date
+	}
+	if v := s.Properties.Creation.Int64(); v > 0 {
+		return v * 1000
+	}
+	return 0
 }
 
 // Replication is /replication.
@@ -147,14 +177,40 @@ type Replication struct {
 	Enabled bool `json:"enabled"`
 }
 
-// Alert is /alert/list.
-type Alert struct {
-	Level     string `json:"level"`
-	Formatted string `json:"formatted"`
-	Dismissed bool   `json:"dismissed"`
-	Datetime  struct {
+// FlexTime tolerates both timestamp encodings TrueNAS has used: the legacy
+// extended-JSON object {"$date": ms} and the ISO date-time string modern
+// releases emit. An unrecognized shape decodes to zero rather than failing
+// the whole payload — the timestamp is cosmetic.
+type FlexTime struct {
+	Ms int64
+}
+
+func (f *FlexTime) UnmarshalJSON(b []byte) error {
+	var obj struct {
 		Date int64 `json:"$date"`
-	} `json:"datetime"`
+	}
+	if err := json.Unmarshal(b, &obj); err == nil && obj.Date > 0 {
+		f.Ms = obj.Date
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil && s != "" {
+		for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05.999999", "2006-01-02 15:04:05"} {
+			if t, perr := time.Parse(layout, s); perr == nil {
+				f.Ms = t.UnixMilli()
+				return nil
+			}
+		}
+	}
+	return nil
+}
+
+// Alert is one alert.list row.
+type Alert struct {
+	Level     string   `json:"level"`
+	Formatted string   `json:"formatted"`
+	Dismissed bool     `json:"dismissed"`
+	Datetime  FlexTime `json:"datetime"`
 }
 
 // ---- normalized model ------------------------------------------------------
@@ -192,24 +248,41 @@ type NormShare struct {
 type Conn struct {
 	inst   integration.Instance
 	client *client
-	// ws is non-nil when a username is configured — the preferred 25.x
-	// JSON-RPC transport; REST stays as the fallback and legacy path.
+	// ws is the primary transport (always armed): the JSON-RPC WebSocket
+	// API modern TrueNAS ships. client is the REST shim kept for systems
+	// that predate /api/current.
 	ws *wsClient
 }
 
-// fetch reads one resource over the preferred transport: the WebSocket
-// JSON-RPC API when configured (25.x deprecates REST and alerts on its
-// use), the REST shim otherwise. Auth failures on the socket are surfaced,
-// not silently downgraded — the operator asked for that transport.
+// fetch reads one resource, WebSocket JSON-RPC first — the only API modern
+// TrueNAS ships (REST v2.0 was deprecated in 25.04 and removed after). The
+// REST shim survives solely as the fallback for systems that predate
+// /api/current (CORE, SCALE ≤ 24.x), reached only when the socket fails at
+// the transport level. Auth rejections and API-level errors are surfaced,
+// never downgraded: the request reached TrueNAS, REST can't do better.
 func (c *Conn) fetch(ctx context.Context, wsMethod string, wsParams []any, restVerb, restPath string, restBody, out any) error {
-	if c.ws != nil {
-		err := c.ws.call(ctx, wsMethod, wsParams, out)
-		if err == nil || errors.Is(err, errWsAuth) {
-			return err
-		}
-		// Transport-level trouble: keep the page alive via REST this once.
+	if c.ws == nil {
+		return c.client.call(ctx, restVerb, restPath, restBody, out)
 	}
-	return c.client.call(ctx, restVerb, restPath, restBody, out)
+	wsErr := c.ws.call(ctx, wsMethod, wsParams, out)
+	if wsErr == nil || errors.Is(wsErr, errWsAuth) {
+		return wsErr
+	}
+	var rpcErr *rpcError
+	if errors.As(wsErr, &rpcErr) {
+		return wsErr
+	}
+	// Transport-level trouble (no /api/current, dead socket): try REST.
+	restErr := c.client.call(ctx, restVerb, restPath, restBody, out)
+	if restErr == nil {
+		return nil
+	}
+	if strings.Contains(restErr.Error(), "(404)") {
+		// A 404 from /api/v2.0 means the REST API no longer exists — that
+		// noise would mask the real problem, so report the socket's error.
+		return wsErr
+	}
+	return restErr
 }
 
 func (c *Conn) Info(ctx context.Context) (*SystemInfo, error) {
@@ -260,11 +333,44 @@ func (c *Conn) Datasets(ctx context.Context) ([]NormDataset, error) {
 
 func (c *Conn) Disks(ctx context.Context) ([]Disk, error) {
 	var disks []Disk
-	if err := c.fetch(ctx, "disk.query", nil, "GET", "/disk", nil, &disks); err != nil {
+	// Modern TrueNAS only joins pool names on request, and v26 moved
+	// temperature out of disk.query entirely — ask for the join here and
+	// batch-read temperatures separately.
+	wsParams := []any{[]any{}, map[string]any{"extra": map[string]any{"pools": true}}}
+	if err := c.fetch(ctx, "disk.query", wsParams, "GET", "/disk", nil, &disks); err != nil {
 		return nil, err
 	}
+	c.fillTemperatures(ctx, disks)
 	sort.Slice(disks, func(i, j int) bool { return disks[i].Name < disks[j].Name })
 	return disks, nil
+}
+
+// fillTemperatures merges disk.temperatures (name → °C) into the list.
+// Best-effort: TrueNAS serves cached values at most once per 5 minutes,
+// old systems lack the method, and a disk with no reading maps to null.
+func (c *Conn) fillTemperatures(ctx context.Context, disks []Disk) {
+	if c.ws == nil || len(disks) == 0 {
+		return
+	}
+	names := make([]string, 0, len(disks))
+	for _, d := range disks {
+		if d.Name != "" {
+			names = append(names, d.Name)
+		}
+	}
+	var temps map[string]any
+	if err := c.ws.call(ctx, "disk.temperatures", []any{names}, &temps); err != nil {
+		// Best-effort, but leave a trace: silent loss of temperatures made
+		// an earlier regression invisible.
+		slog.Warn("truenas: disk.temperatures failed", "error", err)
+		return
+	}
+	for i := range disks {
+		if v, ok := temps[disks[i].Name].(float64); ok {
+			t := int(v)
+			disks[i].Temperature = &t
+		}
+	}
 }
 
 func (c *Conn) Shares(ctx context.Context) ([]NormShare, error) {
@@ -301,10 +407,23 @@ func (c *Conn) Shares(ctx context.Context) ([]NormShare, error) {
 
 func (c *Conn) Snapshots(ctx context.Context, limit int) ([]Snapshot, error) {
 	var snaps []Snapshot
-	if err := c.fetch(ctx, "pool.snapshot.query", nil, "GET", "/pool/snapshot", nil, &snaps); err != nil {
+	// used/created only arrive when asked for as ZFS properties (26.x).
+	wsParams := []any{[]any{}, map[string]any{
+		"extra": map[string]any{"properties": []string{"used", "creation"}},
+	}}
+	if err := c.fetch(ctx, "pool.snapshot.query", wsParams, "GET", "/pool/snapshot", nil, &snaps); err != nil {
 		return nil, err
 	}
-	sort.Slice(snaps, func(i, j int) bool { return snaps[i].Created.Date > snaps[j].Created.Date })
+	sort.Slice(snaps, func(i, j int) bool {
+		ci, cj := snaps[i].CreatedMs(), snaps[j].CreatedMs()
+		if ci != cj {
+			return ci > cj
+		}
+		// No timestamps at all: fall back to the transaction group counter.
+		ti, _ := strconv.ParseInt(snaps[i].CreateTXG, 10, 64)
+		tj, _ := strconv.ParseInt(snaps[j].CreateTXG, 10, 64)
+		return ti > tj
+	})
 	if limit > 0 && len(snaps) > limit {
 		snaps = snaps[:limit]
 	}
@@ -402,21 +521,22 @@ func (r reportingData) legendValue(point []float64, name string) (float64, bool)
 // (free/used) plus the arcsize graph (ZFS cache). Values arrive in bytes.
 func (c *Conn) Memory(ctx context.Context) (*MemoryStats, error) {
 	var info SystemInfo
-	if err := c.client.call(ctx, "GET", "/system/info", nil, &info); err != nil {
+	if err := c.fetch(ctx, "system.info", nil, "GET", "/system/info", nil, &info); err != nil {
 		return nil, err
 	}
 	graphsParam := []map[string]string{{"name": "memory"}, {"name": "arcsize"}}
 	var graphs []reportingData
+	var wsErr error
 	fetched := false
 	if c.ws != nil {
-		if err := c.ws.call(ctx, "reporting.netdata_get_data",
-			[]any{graphsParam, map[string]any{"unit": "HOUR", "page": 1}}, &graphs); err == nil {
-			fetched = true
-		}
+		wsErr = c.ws.call(ctx, "reporting.netdata_get_data",
+			[]any{graphsParam, map[string]any{"unit": "HOUR", "page": 1}}, &graphs)
+		fetched = wsErr == nil
 	}
 	if !fetched {
-		// TrueNAS 25.x renamed the query field and requires page >= 1;
-		// older releases only accept the reporting_query form.
+		// REST fallback for pre-/api/current systems. 25.x renamed the query
+		// field and requires page >= 1; older releases only accept the
+		// reporting_query form.
 		newBody := map[string]any{
 			"graphs": graphsParam,
 			"query":  map[string]any{"unit": "HOUR", "page": 1},
@@ -427,6 +547,9 @@ func (c *Conn) Memory(ctx context.Context) (*MemoryStats, error) {
 				"reporting_query": map[string]any{"unit": "HOUR", "page": 0},
 			}
 			if lerr := c.client.call(ctx, "POST", "/reporting/get_data", legacyBody, &graphs); lerr != nil {
+				if wsErr != nil && strings.Contains(err.Error(), "(404)") {
+					return nil, wsErr // REST is gone — the socket error is the real one
+				}
 				return nil, err
 			}
 		}
@@ -465,7 +588,7 @@ func (c *Conn) Health(ctx context.Context) integration.Health {
 	hctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	var info SystemInfo
-	if err := c.client.call(hctx, "GET", "/system/info", nil, &info); err != nil {
+	if err := c.fetch(hctx, "system.info", nil, "GET", "/system/info", nil, &info); err != nil {
 		return integration.Health{Status: integration.StatusUnreachable, Message: friendlyError(err)}
 	}
 	// A pool in a degraded/faulted state is reachable but unhealthy.

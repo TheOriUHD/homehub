@@ -39,9 +39,18 @@ func TestDriverTest(t *testing.T) {
 	if bad.OK {
 		t.Fatal("expected auth failure with wrong key")
 	}
-	ok := Driver{}.Test(context.Background(), map[string]any{"host": srv.URL}, map[string]string{"apiKey": "good-key"})
-	if !ok.OK {
-		t.Fatalf("expected success, got %q", ok.Message)
+	// Modern keys are user-linked: a bare key on a box that speaks the
+	// WebSocket API must fail with guidance, never silently downgrade to
+	// REST (which no longer exists on 25.10+).
+	bare := Driver{}.Test(context.Background(), map[string]any{"host": srv.URL}, map[string]string{"apiKey": "good-key"})
+	if bare.OK || !strings.Contains(bare.Message, "username") {
+		t.Fatalf("bare key on a WS-speaking box must ask for the username, got ok=%v %q", bare.OK, bare.Message)
+	}
+	ok := Driver{}.Test(context.Background(),
+		map[string]any{"host": srv.URL, "username": truenassim.WSUsername},
+		map[string]string{"apiKey": "good-key"})
+	if !ok.OK || !strings.Contains(ok.Message, "WebSocket API") {
+		t.Fatalf("expected WS success, got ok=%v %q", ok.OK, ok.Message)
 	}
 }
 
@@ -178,9 +187,36 @@ func TestWebSocketTransport(t *testing.T) {
 	if err != nil || len(pools) == 0 {
 		t.Fatalf("ws pools: %v (%d)", err, len(pools))
 	}
+	// v26: temperature comes from disk.temperatures, not disk.query — the
+	// merge must repopulate it.
+	disks, err := conn.Disks(ctx)
+	if err != nil || len(disks) == 0 {
+		t.Fatalf("ws disks: %v (%d)", err, len(disks))
+	}
+	for _, d := range disks {
+		if d.Temperature == nil {
+			t.Fatalf("disk %s missing temperature after disk.temperatures merge", d.Name)
+		}
+		if d.Pool == "" {
+			t.Fatalf("disk %s missing pool name", d.Name)
+		}
+	}
 	shares, err := conn.Shares(ctx)
 	if err != nil || len(shares) == 0 {
 		t.Fatalf("ws shares: %v (%d)", err, len(shares))
+	}
+	// v26: used/created come back as requested ZFS properties, not fields.
+	snaps, err := conn.Snapshots(ctx, 0)
+	if err != nil || len(snaps) == 0 {
+		t.Fatalf("ws snapshots: %v (%d)", err, len(snaps))
+	}
+	for _, sn := range snaps {
+		if sn.UsedBytes() == 0 || sn.CreatedMs() == 0 {
+			t.Fatalf("snapshot %s: used=%d createdMs=%d — v26 properties not decoded", sn.Name, sn.UsedBytes(), sn.CreatedMs())
+		}
+	}
+	if snaps[0].CreatedMs() < snaps[1].CreatedMs() {
+		t.Fatal("snapshots not sorted newest-first")
 	}
 	mem, err := conn.Memory(ctx)
 	if err != nil || mem.ArcBytes == 0 {
@@ -193,6 +229,10 @@ func TestWebSocketTransport(t *testing.T) {
 	for _, a := range alerts {
 		if strings.Contains(a.Formatted, "<") {
 			t.Fatalf("alert HTML not stripped: %q", a.Formatted)
+		}
+		// v26 sends ISO strings — FlexTime must still yield a timestamp.
+		if a.Datetime.Ms == 0 {
+			t.Fatalf("alert datetime not decoded from ISO string: %+v", a)
 		}
 	}
 }
