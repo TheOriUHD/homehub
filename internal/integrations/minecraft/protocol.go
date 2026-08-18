@@ -131,6 +131,7 @@ type Player struct {
 	Level     *int     `json:"level,omitempty"`
 	GameMode  string   `json:"gameMode,omitempty"`
 	PingMs    *int     `json:"pingMs,omitempty"`
+	HeldSlot  *int     `json:"heldSlot,omitempty"`
 }
 
 // Decode unmarshals a raw agent frame.

@@ -88,7 +88,7 @@ export function McPlayersPage() {
         <PlayerDetailDialog
           instanceId={instanceId}
           serverId={serverId}
-          player={selected}
+          player={players.find((p) => p.uuid === selected.uuid) ?? selected}
           onClose={() => setSelected(null)}
         />
       )}
@@ -229,7 +229,7 @@ function PlayerDetailDialog({
           params: { path: { id: instanceId, serverId, playerUuid: player.uuid! } },
         }),
       ),
-    refetchInterval: 5_000,
+    refetchInterval: 2_000,
   });
   const d = detail.data as PlayerDetail | undefined;
 
@@ -302,7 +302,10 @@ function PlayerDetailDialog({
               )}
               {d.inventory && (
                 <Section title={t("mc.detail.inventory")}>
-                  <MinecraftInventory inventory={d.inventory} uuid={player.uuid ?? undefined} />
+                  <MinecraftInventory
+                    inventory={{ ...d.inventory, heldSlot: player.heldSlot ?? d.inventory.heldSlot }}
+                    uuid={player.uuid ?? undefined}
+                  />
                 </Section>
               )}
               {(d.enderChest?.length ?? 0) > 0 && (

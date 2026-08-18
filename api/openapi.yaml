@@ -6623,6 +6623,7 @@ components:
         level: { type: integer }
         gameMode: { type: string }
         pingMs: { type: integer }
+        heldSlot: { type: integer }
 
     McPairingCode:
       type: object

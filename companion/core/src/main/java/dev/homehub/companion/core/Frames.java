@@ -112,6 +112,7 @@ public final class Frames {
             if (p.level != null) jp.addProperty("level", p.level.intValue());
             if (p.gameMode != null) jp.addProperty("gameMode", p.gameMode);
             if (p.pingMs != null) jp.addProperty("pingMs", p.pingMs.intValue());
+            if (p.heldSlot != null) jp.addProperty("heldSlot", p.heldSlot.intValue());
             arr.add(jp);
         }
         o.add("players", arr);
