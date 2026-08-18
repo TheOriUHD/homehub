@@ -9,19 +9,26 @@ import (
 // detectionProbe is a single shell round-trip that emits ---SECTION---
 // delimited output ParseHostFacts splits back into HostFacts. One login, one
 // command — cheap and idempotent.
-const detectionProbe = `
+// A minimal non-interactive SSH session can hand us a PATH that omits
+// /usr/bin (common on LXC/container images), so `command -v` alone misses
+// tools that are plainly installed. Set a sane PATH first, and resolve the
+// package manager by BOTH command -v and a direct directory search — the
+// same belt-and-suspenders the bootstrap resolver uses, so detection can
+// never be stricter than the install that follows.
+const detectionProbe = `export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH
+have() { command -v "$1" >/dev/null 2>&1 && return 0; for d in /usr/bin /bin /usr/sbin /sbin /usr/local/bin /usr/local/sbin; do [ -x "$d/$1" ] && return 0; done; return 1; }
 echo '---OS---'; cat /etc/os-release 2>/dev/null
 echo '---ARCH---'; uname -m
-echo '---HOSTNAME---'; hostnamectl --static 2>/dev/null || hostname
-echo '---PKGMGR---'; for m in apt-get dnf pacman zypper apk; do command -v $m >/dev/null 2>&1 && echo $m; done
-echo '---PROXMOX---'; test -f /etc/pve/.version && echo yes
+echo '---HOSTNAME---'; hostname 2>/dev/null || cat /etc/hostname 2>/dev/null
+echo '---PKGMGR---'; for m in apt-get dnf pacman zypper apk; do have "$m" && echo "$m"; done
+echo '---PROXMOX---'; [ -f /etc/pve/.version ] && echo yes
 echo '---HAOS---'; grep -qi "home assistant" /etc/os-release 2>/dev/null && echo yes
 echo '---TRUENAS---'; grep -qi truenas /etc/version 2>/dev/null && echo yes
-echo '---SUDO---'; command -v sudo >/dev/null 2>&1 && echo yes
+echo '---SUDO---'; have sudo && echo yes
 echo '---SUDO_NPW---'; sudo -n true 2>/dev/null && echo yes
-echo '---SUDOERS_FILE---'; test -f /etc/sudoers && echo yes
-echo '---SUDOERS_INCLUDE---'; grep -qE '^@includedir /etc/sudoers.d' /etc/sudoers 2>/dev/null && echo yes
-echo '---SU---'; command -v su >/dev/null 2>&1 && echo yes
+echo '---SUDOERS_FILE---'; [ -f /etc/sudoers ] && echo yes
+echo '---SUDOERS_INCLUDE---'; grep -qE '^[@#]includedir[[:space:]]+/etc/sudoers.d' /etc/sudoers 2>/dev/null && echo yes
+echo '---SU---'; have su && echo yes
 echo '---UID---'; id -u
 echo '---PPUSER---'; id patchpilot >/dev/null 2>&1 && echo yes
 echo '---END---'
@@ -163,7 +170,10 @@ func StandardRefusal(f *HostFacts) string {
 		return "this looks like TrueNAS — manage it with the TrueNAS integration, not PatchPilot"
 	}
 	if f.PackageManager == "" {
-		return "no supported package manager (apt/dnf/pacman/zypper/apk) was found on this host"
+		if f.OSPretty != "" {
+			return "no supported package manager (apt/dnf/pacman/zypper/apk) was found on " + f.OSPretty
+		}
+		return "connected, but no supported package manager (apt/dnf/pacman/zypper/apk) was found — is this a Linux host with SSH?"
 	}
 	return ""
 }
