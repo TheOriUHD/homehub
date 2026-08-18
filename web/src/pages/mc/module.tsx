@@ -10,7 +10,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { Card } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
-import { mcResource, useMcLive, useMcOverview } from "./shared";
+import { mcResource, networkPlayers, useMcLive, useMcOverview } from "./shared";
 
 /**
  * McModulePage is the NETWORK shell: one Minecraft integration is a whole
@@ -51,7 +51,7 @@ export function McModulePage() {
   const canConfigure = can(mcResource(instanceId), "configure");
   const servers = overview.data?.servers ?? [];
   const connected = servers.filter((s) => s.connected).length;
-  const players = servers.reduce((sum, s) => sum + (s.status?.playersOnline ?? 0), 0);
+  const players = networkPlayers(servers).online;
 
   return (
     <div className="space-y-5">

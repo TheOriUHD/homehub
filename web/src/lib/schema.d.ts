@@ -2762,7 +2762,11 @@ export interface paths {
         delete: operations["mcDeleteServer"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename a server or move it to another network
+         * @description Moving reseals the companion's token under the destination network — no re-pairing. Requires configure on both networks. Audited.
+         */
+        patch: operations["mcUpdateServer"];
         trace?: never;
     };
     "/mc/{id}/servers/{serverId}/console": {
@@ -9511,6 +9515,41 @@ export interface operations {
                 };
                 content?: never;
             };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    mcUpdateServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                serverId: components["parameters"]["mcServerIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    label?: string;
+                    /**
+                     * Format: uuid
+                     * @description Destination network (another minecraft system)
+                     */
+                    networkId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };

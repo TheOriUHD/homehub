@@ -10,7 +10,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { Card, CardBody } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
-import { mcOverviewKey, tpsTone } from "./shared";
+import { mcOverviewKey, networkPlayers, tpsTone } from "./shared";
 
 /**
  * McLandingPage is the Minecraft dashboard across every server: summary
@@ -51,8 +51,9 @@ export function McLandingPage() {
 
   const allServers = rows.flatMap((row) => byId.get(row.id)?.servers ?? []);
   const connected = allServers.filter((s) => s.connected).length;
-  const players = allServers.reduce((sum, s) => sum + (s.connected ? (s.status?.playersOnline ?? 0) : 0), 0);
-  const maxPlayers = allServers.reduce((sum, s) => sum + (s.connected ? (s.status?.playersMax ?? 0) : 0), 0);
+  const totals = rows.map((row) => networkPlayers(byId.get(row.id)?.servers ?? []));
+  const players = totals.reduce((sum, t) => sum + t.online, 0);
+  const maxPlayers = totals.reduce((sum, t) => sum + t.max, 0);
 
   return (
     <div className="space-y-5">
@@ -106,8 +107,7 @@ function ServerCard({ row, overview }: { row: Integration; overview: McOverview 
   const { t } = useTranslation();
   const servers = overview?.servers ?? [];
   const online = servers.filter((s) => s.connected);
-  const playersOnline = online.reduce((sum, s) => sum + (s.status?.playersOnline ?? 0), 0);
-  const playersMax = online.reduce((sum, s) => sum + (s.status?.playersMax ?? 0), 0);
+  const { online: playersOnline, max: playersMax } = networkPlayers(servers);
   const worstTps = online.reduce<number | null>((worst, s) => {
     if (typeof s.status?.tps !== "number") return worst;
     return worst === null ? s.status.tps : Math.min(worst, s.status.tps);

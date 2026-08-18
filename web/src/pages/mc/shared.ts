@@ -107,5 +107,20 @@ export function loaderLabel(loader: string | undefined): string | null {
 /** Proxy loaders front subservers and have no tick loop of their own. */
 export const PROXY_LOADERS = ["velocity"];
 
+/**
+ * Network-wide player totals without double counting: players connect
+ * THROUGH the proxy and sit ON a subserver, so a connected proxy's count
+ * is the network's count; subservers are only summed when no proxy is up.
+ */
+export function networkPlayers(servers: McServer[]): { online: number; max: number } {
+  const up = servers.filter((s) => s.connected && s.status);
+  const proxies = up.filter((s) => PROXY_LOADERS.includes(s.loader ?? ""));
+  const pool = proxies.length > 0 ? proxies : up;
+  return {
+    online: pool.reduce((sum, s) => sum + (s.status?.playersOnline ?? 0), 0),
+    max: pool.reduce((sum, s) => sum + (s.status?.playersMax ?? 0), 0),
+  };
+}
+
 /** Loaders whose companion drops into mods/ instead of plugins/. */
 export const MOD_LOADERS = ["fabric", "forge"];

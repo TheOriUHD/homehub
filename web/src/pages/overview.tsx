@@ -26,6 +26,7 @@ import { api, isApiError, unwrap, type Integration } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { RES } from "@/lib/perms";
 import { statusTone, systemTypeIcon, useIntegrations } from "@/lib/systems";
+import { networkPlayers } from "@/pages/mc/shared";
 import { cn, formatBytes, formatDuration, formatRelative } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Button } from "@/ui/button";
@@ -239,8 +240,8 @@ export function OverviewPage() {
 
   const mcServers = mcRows.flatMap((_row, i) => mcOverviews[i]?.data?.servers ?? []);
   const mcConnected = mcServers.filter((s) => s.connected).length;
-  const mcPlayers = mcServers.reduce(
-    (sum, s) => sum + (s.connected ? (s.status?.playersOnline ?? 0) : 0),
+  const mcPlayers = mcRows.reduce(
+    (sum, _row, i) => sum + networkPlayers(mcOverviews[i]?.data?.servers ?? []).online,
     0,
   );
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, CheckCircle2, Download, RefreshCw, Server, Terminal, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, CheckCircle2, Download, RefreshCw, Server, Terminal, Trash2 } from "lucide-react";
 import {
   api,
   unwrap,
@@ -12,9 +12,11 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn, formatBytes, formatRelative } from "@/lib/utils";
+import { useIntegrations } from "@/lib/systems";
 import { Button } from "@/ui/button";
 import { Card, CardBody, CardHeader } from "@/ui/card";
 import { ConfirmDialog } from "@/ui/confirm";
+import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "@/ui/dropdown";
 import { Field } from "@/ui/field";
 import { Input } from "@/ui/input";
 import { CopyButton, PageLoader } from "@/ui/misc";
@@ -343,12 +345,33 @@ function CopyBlock({ label, value }: { label?: string; value: string }) {
 }
 
 
-/** One member server: identity, live dot, and removal. */
+/** One member server: identity, live dot, move-to-network, and removal. */
 function ServerRow({ instanceId, server }: { instanceId: string; server: import("@/lib/api").McServer }) {
   const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [confirm, setConfirm] = useState(false);
+  const integrations = useIntegrations();
+  const otherNetworks = (integrations.data ?? []).filter(
+    (row) => row.type === "minecraft" && row.id !== instanceId,
+  );
+
+  const move = useMutation({
+    mutationFn: async (networkId: string) => {
+      unwrap(
+        await api.PATCH("/mc/{id}/servers/{serverId}", {
+          params: { path: { id: instanceId, serverId: server.id } },
+          body: { networkId },
+        }),
+      );
+    },
+    onSuccess: () => {
+      toast("success", t("mc.setup.moved", { name: server.label }));
+      void queryClient.invalidateQueries({ queryKey: ["mc"] });
+      void queryClient.invalidateQueries({ queryKey: ["integrations"] });
+    },
+    onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
+  });
   const remove = useMutation({
     mutationFn: async () => {
       unwrap(
@@ -384,6 +407,22 @@ function ServerRow({ instanceId, server }: { instanceId: string; server: import(
           <CheckCircle2 className="size-3" />
           {formatRelative(server.pairedAt)}
         </Badge>
+      )}
+      {otherNetworks.length > 0 && (
+        <Dropdown>
+          <DropdownTrigger asChild>
+            <Button size="sm" variant="ghost" aria-label={t("mc.setup.moveServer")} loading={move.isPending}>
+              <ArrowRightLeft className="size-4" />
+            </Button>
+          </DropdownTrigger>
+          <DropdownContent align="end">
+            {otherNetworks.map((network) => (
+              <DropdownItem key={network.id} onSelect={() => move.mutate(network.id)}>
+                {t("mc.setup.moveTo", { name: network.name })}
+              </DropdownItem>
+            ))}
+          </DropdownContent>
+        </Dropdown>
       )}
       <Button size="sm" variant="ghost" aria-label={t("mc.setup.removeServer")} onClick={() => setConfirm(true)}>
         <Trash2 className="size-4" />
