@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"strings"
 	"time"
@@ -117,12 +118,7 @@ func (s *Server) McOverview(ctx context.Context, req McOverviewRequestObject) (M
 			players := sess.Players()
 			list := make([]McPlayer, 0, len(players))
 			for _, p := range players {
-				player := McPlayer{Name: p.Name}
-				if p.UUID != "" {
-					u := p.UUID
-					player.Uuid = &u
-				}
-				list = append(list, player)
+				list = append(list, toAPIMcPlayer(p))
 			}
 			entry.Players = &list
 		}
@@ -140,6 +136,59 @@ func (s *Server) McOverview(ctx context.Context, req McOverviewRequestObject) (M
 		}
 	}
 	return McOverview200JSONResponse(out), nil
+}
+
+func toAPIMcPlayer(p minecraft.Player) McPlayer {
+	out := McPlayer{Name: p.Name}
+	if p.UUID != "" {
+		v := p.UUID
+		out.Uuid = &v
+	}
+	if p.World != "" {
+		v := p.World
+		out.World = &v
+	}
+	out.X, out.Y, out.Z = p.X, p.Y, p.Z
+	out.Health, out.MaxHealth = p.Health, p.MaxHealth
+	out.Food, out.Level, out.PingMs = p.Food, p.Level, p.PingMs
+	if p.GameMode != "" {
+		v := p.GameMode
+		out.GameMode = &v
+	}
+	return out
+}
+
+func (s *Server) McPlayerDetail(ctx context.Context, req McPlayerDetailRequestObject) (McPlayerDetailResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	if _, _, err := s.mcInstance(ctx, id, req.Id); err != nil {
+		return McPlayerDetail404JSONResponse{notFoundErr("instance")}, nil
+	}
+	if _, _, err := s.mcServer(ctx, id, req.Id, req.ServerId); err != nil {
+		return McPlayerDetail404JSONResponse{notFoundErr("server")}, nil
+	}
+	sess, ok := s.mc.Session(req.ServerId)
+	if !ok {
+		return McPlayerDetail502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", "companion not connected"))}, nil
+	}
+	dctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	detail, err := sess.PlayerDetail(dctx, req.PlayerUuid)
+	if err != nil {
+		return McPlayerDetail502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+	}
+	out := map[string]interface{}{}
+	if len(detail) > 0 {
+		if uerr := json.Unmarshal(detail, &out); uerr != nil {
+			return McPlayerDetail502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", "the companion returned an unreadable player detail"))}, nil
+		}
+	}
+	if _, hasErr := out["error"]; hasErr && len(out) == 1 {
+		return McPlayerDetail502JSONResponse{UpstreamErrorJSONResponse(errBody("player_offline", fmt.Sprint(out["error"])))}, nil
+	}
+	return McPlayerDetail200JSONResponse(out), nil
 }
 
 func toAPIMcStatus(st *minecraft.StatusSnapshot) *McStatus {

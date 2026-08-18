@@ -66,6 +66,14 @@ func (tb *Toolbox) systemTools() []tool {
 		},
 		{
 			def: ToolDef{
+				Name:        "mc_player_detail",
+				Description: "Full live detail for one player on a Minecraft server: position, vitals, gamemode, active effects, complete inventory (items, armor, offhand, ender chest) and statistics (playtime, deaths, kills, distances). Needs the player uuid (from system_details / the server's player list) and the server to be Paper/Spigot.",
+				InputSchema: obj(`"systemId":{"type":"string"},"serverId":{"type":"string"},"playerUuid":{"type":"string"}`, "systemId", "serverId", "playerUuid"),
+			},
+			run: tb.mcPlayerDetail,
+		},
+		{
+			def: ToolDef{
 				Name:        "mc_power",
 				Description: "Start, stop, or restart ONE Minecraft server over the network's SSH access (start/relaunch from its start.sh; stop = graceful console stop). Needs SSH configured. Disruptive (stop/restart drop players) — only on the user's explicit request.",
 				InputSchema: obj(`"systemId":{"type":"string"},"serverId":{"type":"string"},"action":{"type":"string","enum":["start","stop","restart"]}`, "systemId", "serverId", "action"),
@@ -391,6 +399,33 @@ func (tb *Toolbox) mcCommand(ctx context.Context, _ Access, input json.RawMessag
 		}
 	}
 	return map[string]any{"ack": ack, "console": reaction}, nil
+}
+
+func (tb *Toolbox) mcPlayerDetail(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+	id, _, err := parseSystemID(input)
+	if err != nil {
+		return nil, err
+	}
+	var args struct {
+		ServerID   string `json:"serverId"`
+		PlayerUUID string `json:"playerUuid"`
+	}
+	if err := json.Unmarshal(input, &args); err != nil {
+		return nil, fmt.Errorf("serverId and playerUuid are required")
+	}
+	serverID, err := uuid.Parse(strings.TrimSpace(args.ServerID))
+	if err != nil {
+		return nil, fmt.Errorf("serverId must be a server uuid from system_details")
+	}
+	if strings.TrimSpace(args.PlayerUUID) == "" {
+		return nil, fmt.Errorf("playerUuid is required")
+	}
+	raw, err := tb.call(ctx, http.MethodGet,
+		fmt.Sprintf("/mc/%s/servers/%s/players/%s", id.String(), serverID.String(), url.PathEscape(strings.TrimSpace(args.PlayerUUID))), nil)
+	if err != nil {
+		return nil, err
+	}
+	return capResult(raw), nil
 }
 
 func (tb *Toolbox) mcPower(ctx context.Context, _ Access, input json.RawMessage) (any, error) {

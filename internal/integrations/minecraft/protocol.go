@@ -34,6 +34,9 @@ const (
 	FrameCmdResult = "cmd_result"
 	// FramePong answers a ping.
 	FramePong = "pong"
+	// FramePlayerDetailResult answers a player_detail request with the full
+	// live snapshot (inventory, stats, position, …) for one player.
+	FramePlayerDetailResult = "player_detail_result"
 )
 
 // HomeHub → agent frame types.
@@ -48,6 +51,9 @@ const (
 	FramePing = "ping"
 	// FrameErr reports a fatal protocol/auth error before closing.
 	FrameErr = "error"
+	// FramePlayerDetail asks the companion for one player's full detail:
+	// {"type":"player_detail","id":7,"uuid":"..."}.
+	FramePlayerDetail = "player_detail"
 )
 
 // Frame is the envelope every message uses.
@@ -71,11 +77,16 @@ type Frame struct {
 	// players
 	Players []Player `json:"players,omitempty"`
 
-	// cmd / cmd_result
+	// cmd / cmd_result / player_detail
 	ID      int64  `json:"id,omitempty"`
 	Command string `json:"command,omitempty"`
 	OK      bool   `json:"ok,omitempty"`
 	Message string `json:"message,omitempty"`
+	UUID    string `json:"uuid,omitempty"`
+	// Detail is the opaque player-detail document the companion produces;
+	// HomeHub relays it to the API and the assistant unchanged so the
+	// plugin can enrich it without a Go schema change.
+	Detail json.RawMessage `json:"detail,omitempty"`
 }
 
 // ConsoleLine is one log line with the server-side timestamp (unix millis).
@@ -103,10 +114,23 @@ type DownstreamServer struct {
 	Players int    `json:"players"`
 }
 
-// Player is one online player.
+// Player is one online player. The lightweight streaming list carries the
+// cheap, always-useful fields; the heavy detail (inventory, stats) is
+// fetched on demand via FramePlayerDetail. All enrichment fields are
+// optional so an older companion (which omits them) still parses.
 type Player struct {
-	Name string `json:"name"`
-	UUID string `json:"uuid,omitempty"`
+	Name      string   `json:"name"`
+	UUID      string   `json:"uuid,omitempty"`
+	World     string   `json:"world,omitempty"`
+	X         *float64 `json:"x,omitempty"`
+	Y         *float64 `json:"y,omitempty"`
+	Z         *float64 `json:"z,omitempty"`
+	Health    *float64 `json:"health,omitempty"`
+	MaxHealth *float64 `json:"maxHealth,omitempty"`
+	Food      *int     `json:"food,omitempty"`
+	Level     *int     `json:"level,omitempty"`
+	GameMode  string   `json:"gameMode,omitempty"`
+	PingMs    *int     `json:"pingMs,omitempty"`
 }
 
 // Decode unmarshals a raw agent frame.
