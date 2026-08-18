@@ -215,6 +215,7 @@ export function Slot({
             top: -4 * S,
             width: 26 * S,
             height: 25 * S,
+            maxWidth: "none",
             imageRendering: "pixelated",
             pointerEvents: "none",
             zIndex: 3,
@@ -339,6 +340,8 @@ export function MinecraftInventory({ inventory, uuid }: { inventory: Inventory; 
           position: "relative",
           width: 176 * S,
           height: 166 * S,
+          marginLeft: "auto",
+          marginRight: "auto",
           background: "#c6c6c6",
           borderRadius: 2 * S,
           boxShadow: `inset ${S}px ${S}px 0 #ffffff, inset ${-S}px ${-S}px 0 #555555`,
@@ -433,7 +436,9 @@ export function ItemGrid({ items }: { items: InvItem[] }) {
       <div
         style={{
           position: "relative",
-          display: "inline-block",
+          display: "table",
+          marginLeft: "auto",
+          marginRight: "auto",
           padding: 7 * S,
           background: "#c6c6c6",
           borderRadius: 2 * S,
