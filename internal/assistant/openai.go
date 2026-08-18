@@ -42,6 +42,10 @@ type oaRequest struct {
 	Model    string      `json:"model"`
 	Messages []oaMessage `json:"messages"`
 	Tools    []oaTool    `json:"tools,omitempty"`
+	// ReasoningEffort is only ever sent as an adaptive retry: OpenAI's
+	// reasoning models refuse function tools on chat/completions unless
+	// it is "none", while older models reject the parameter entirely.
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 }
 
 type oaTool struct {
@@ -102,43 +106,26 @@ func (p *OpenAIProvider) Chat(ctx context.Context, model, system string, turns [
 		t.Function.Parameters = def.InputSchema
 		req.Tools = append(req.Tools, t)
 	}
-	body, err := json.Marshal(req)
+	parsed, status, err := p.do(ctx, req)
 	if err != nil {
 		return Reply{}, err
 	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, openAIEndpoint(p.BaseURL), bytes.NewReader(body))
-	if err != nil {
-		return Reply{}, err
+	if status != http.StatusOK &&
+		parsed.Error != nil && strings.Contains(parsed.Error.Message, "reasoning_effort") &&
+		req.ReasoningEffort == "" {
+		// The model's own instruction: tools on chat/completions need
+		// reasoning_effort "none". Retry once, its way.
+		req.ReasoningEffort = "none"
+		parsed, status, err = p.do(ctx, req)
+		if err != nil {
+			return Reply{}, err
+		}
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if p.APIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+p.APIKey)
-	}
-
-	client := p.Client
-	if client == nil {
-		// Local models on small hardware can be slow; give them room.
-		client = &http.Client{Timeout: 300 * time.Second}
-	}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return Reply{}, fmt.Errorf("the AI provider could not be reached: %w", err)
-	}
-	defer resp.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
-	if err != nil {
-		return Reply{}, err
-	}
-	var parsed oaResponse
-	if err := json.Unmarshal(raw, &parsed); err != nil {
-		return Reply{}, fmt.Errorf("the AI provider sent an unreadable response (HTTP %d)", resp.StatusCode)
-	}
-	if resp.StatusCode != http.StatusOK {
+	if status != http.StatusOK {
 		if parsed.Error != nil && parsed.Error.Message != "" {
 			return Reply{}, fmt.Errorf("the AI provider refused the request: %s", parsed.Error.Message)
 		}
-		return Reply{}, fmt.Errorf("the AI provider returned HTTP %d", resp.StatusCode)
+		return Reply{}, fmt.Errorf("the AI provider returned HTTP %d", status)
 	}
 	if len(parsed.Choices) == 0 {
 		return Reply{}, fmt.Errorf("the AI provider sent no choices")
@@ -157,6 +144,42 @@ func (p *OpenAIProvider) Chat(ctx context.Context, model, system string, turns [
 		out.Calls = append(out.Calls, ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: input})
 	}
 	return out, nil
+}
+
+// do performs one round-trip and parses whatever came back; non-200
+// responses return with the parsed error so the caller can adapt.
+func (p *OpenAIProvider) do(ctx context.Context, req oaRequest) (oaResponse, int, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return oaResponse{}, 0, err
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, openAIEndpoint(p.BaseURL), bytes.NewReader(body))
+	if err != nil {
+		return oaResponse{}, 0, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	if p.APIKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+p.APIKey)
+	}
+	client := p.Client
+	if client == nil {
+		// Local models on small hardware can be slow; give them room.
+		client = &http.Client{Timeout: 300 * time.Second}
+	}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return oaResponse{}, 0, fmt.Errorf("the AI provider could not be reached: %w", err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if err != nil {
+		return oaResponse{}, resp.StatusCode, err
+	}
+	var parsed oaResponse
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return oaResponse{}, resp.StatusCode, fmt.Errorf("the AI provider sent an unreadable response (HTTP %d)", resp.StatusCode)
+	}
+	return parsed, resp.StatusCode, nil
 }
 
 // openAIEndpoint normalizes a user-entered base URL into the chat
