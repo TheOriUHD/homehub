@@ -2723,6 +2723,7 @@
     "lmGuide2": "Enable “Serve on Local Network” — otherwise it only listens on that machine.",
     "lmGuide3": "Load a model (one that supports tool use answers questions best).",
     "lmGuide4": "The endpoint is http://<that machine's IP>:1234/v1 — find it above or test it here.",
-    "apiKeyStoredHint": "A key for {{provider}} is stored — each provider keeps its own. Enter a new one to replace it, or leave empty to keep it."
+    "apiKeyStoredHint": "A key for {{provider}} is stored — each provider keeps its own. Enter a new one to replace it, or leave empty to keep it.",
+    "scanLocked": "found — requires its API key (enter it below, then test)"
   }
 }
