@@ -41,7 +41,10 @@ export function AssistantPage() {
   const info = state.data!;
 
   return (
-    <div className="flex h-full min-h-0 flex-col space-y-5">
+    // Locked to the viewport (screen minus the 3.5rem header and the main
+    // area's py-6): the page never scrolls; past messages scroll inside
+    // the conversation card.
+    <div className="flex h-[calc(100dvh-6.5rem)] min-h-0 flex-col space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <span className="bg-accent-soft text-accent-soft-fg flex size-10 items-center justify-center rounded-xl">
           <Sparkles className="size-5" />
