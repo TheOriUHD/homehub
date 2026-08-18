@@ -34,10 +34,15 @@ const (
 	turnDeadline = 3 * time.Minute
 )
 
-// TurnRunner executes one assistant turn for a given HomeHub user. The API
-// server implements it; the bot stays free of provider plumbing.
+// TurnRunner is the bot's window into HomeHub, always scoped to one user's
+// permissions. The API server implements it; the bot stays free of provider
+// and RBAC plumbing.
 type TurnRunner interface {
+	// RunAssistantTurnFor answers a plain message via the LLM tool loop.
 	RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, message string) (string, error)
+	// SystemStatusFor returns a formatted health summary of every system the
+	// user may see (the /status command — deterministic, no LLM).
+	SystemStatusFor(ctx context.Context, userID uuid.UUID) (string, error)
 }
 
 // pendingLink is a chat that has asked to be linked and is waiting for the
@@ -211,7 +216,7 @@ func (b *Bot) run(ctx context.Context, token string) {
 
 	// Advertise the commands so they appear in Telegram's command menu.
 	_ = b.call(ctx, token, "setMyCommands", url.Values{
-		"commands": {`[{"command":"link","description":"Get a code to link this chat to HomeHub"},{"command":"unlink","description":"Disconnect this chat from HomeHub"},{"command":"help","description":"How the bridge works"}]`},
+		"commands": {`[{"command":"status","description":"Health of every system"},{"command":"link","description":"Get a code to link this chat to HomeHub"},{"command":"unlink","description":"Disconnect this chat from HomeHub"},{"command":"help","description":"How the bridge works"}]`},
 	}, nil)
 
 	offset := int64(0)
@@ -319,8 +324,18 @@ func (b *Bot) handleMessage(ctx context.Context, token string, msg *tgMessage) {
 			}
 			b.send(ctx, token, chatID, "This chat is now unlinked. It can no longer talk to HomeHub. Send /link to connect it again.")
 			return
+		case "status":
+			stop := b.typing(ctx, token, chatID)
+			out, err := b.Runner.SystemStatusFor(ctx, chat.UserID)
+			stop()
+			if err != nil {
+				b.send(ctx, token, chatID, "Could not read system status: "+err.Error())
+				return
+			}
+			b.send(ctx, token, chatID, out)
+			return
 		case "start", "help":
-			b.send(ctx, token, chatID, "Linked to HomeHub. Plain messages go to the assistant, which answers here and can act on your homelab.\n\nCommands:\n/unlink — disconnect this chat from HomeHub\n/help — show this\n\nMore command triggers (! or /) are coming.")
+			b.send(ctx, token, chatID, "Linked to HomeHub. Plain messages go to the assistant, which answers here and can act on your homelab.\n\nCommands:\n/status — health of every system\n/unlink — disconnect this chat from HomeHub\n/help — show this\n\nMore command triggers (! or /) are coming.")
 			return
 		default:
 			b.send(ctx, token, chatID, fmt.Sprintf("Unknown command %q. Try /help. Plain messages talk to the assistant.", "/"+trigger))
