@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
 
 /**
- * Authentic Minecraft inventory rendering: real 16×16 item textures
- * (served from /mc-tex, pixelated and scaled), the classic beveled slot
- * look, stack counts, an enchantment glint, custom-name tooltips, and the
- * character panel (armor column, 2D skin body, offhand). Item textures are
- * the resolved 1.21 set; a missing id falls back to a bare slot.
+ * Authentic Minecraft inventory, laid out on the vanilla GUI grid: the
+ * survival inventory background is 176×166 GUI pixels, and every slot here
+ * sits at its exact vanilla coordinate (armor column at 7,7 — character
+ * window 25,7 — offhand 77,62 — crafting 2×2 at 97,17 with arrow and result
+ * at 153,27 — main storage 7,83 — hotbar 7,141), scaled up by a constant
+ * factor. Real 16×16 item textures render pixelated with stack counts and an
+ * enchant glint that is alpha-masked to the item's own sprite so it can never
+ * sweep past the item's edges. The crafting field and recipe book are
+ * decorative only — this is a viewer, not a client.
  */
 
 export type InvItem = {
@@ -23,7 +26,10 @@ export type Inventory = {
   offHand?: InvItem;
 };
 
-const SLOT = 44; // px
+/** Pixels per vanilla GUI pixel. */
+const S = 3;
+const CELL = 18 * S;
+const ITEM = 16 * S;
 
 function texUrl(type: string): string {
   const id = type.replace(/^minecraft:/, "").toLowerCase();
@@ -39,143 +45,296 @@ function prettyType(type: string): string {
   return type.replace(/^minecraft:/, "").replace(/_/g, " ");
 }
 
-/** One inventory slot: beveled MC frame, texture, count, glint, tooltip. */
-export function Slot({ item, held, empty }: { item?: InvItem; held?: boolean; empty?: boolean }) {
+type GhostKind = "helmet" | "chestplate" | "leggings" | "boots" | "shield";
+
+/** The faint silhouette vanilla shows in an empty armor/offhand slot. */
+function GhostImg({ kind }: { kind: GhostKind }) {
+  const [ok, setOk] = useState(true);
+  if (!ok) return null;
+  return (
+    <img
+      src={`/mc-tex/_slot_${kind}.png`}
+      alt=""
+      onError={() => setOk(false)}
+      style={{ position: "absolute", left: S, top: S, width: ITEM, height: ITEM, imageRendering: "pixelated" }}
+    />
+  );
+}
+
+/** One 18×18 GUI-pixel slot: vanilla bevel, texture, count, masked glint. */
+export function Slot({
+  item,
+  x,
+  y,
+  held,
+  ghost,
+}: {
+  item?: InvItem;
+  x?: number;
+  y?: number;
+  held?: boolean;
+  ghost?: GhostKind;
+}) {
   const [broken, setBroken] = useState(false);
-  const enchanted = item && item.enchants && Object.keys(item.enchants).length > 0;
+  const enchanted = !!item && !!item.enchants && Object.keys(item.enchants).length > 0;
   const label = item
     ? (item.name ? cleanName(item.name) : prettyType(item.type)) +
       (item.enchants ? " — " + Object.entries(item.enchants).map(([e, l]) => `${e.replace(/_/g, " ")} ${l}`).join(", ") : "")
     : undefined;
+  const pos =
+    x !== undefined && y !== undefined
+      ? ({ position: "absolute", left: x * S, top: y * S } as const)
+      : ({ position: "relative" } as const);
   return (
     <div
-      className={cn("relative", held && "ring-2 ring-amber-300")}
-      style={{
-        width: SLOT,
-        height: SLOT,
-        background: "#8b8b8b",
-        boxShadow: "inset 2px 2px 0 #373737, inset -2px -2px 0 #ffffff",
-      }}
       title={label}
+      style={{
+        ...pos,
+        width: CELL,
+        height: CELL,
+        background: "#8b8b8b",
+        boxShadow: `inset ${S}px ${S}px 0 #373737, inset ${-S}px ${-S}px 0 #ffffff`,
+        ...(held ? { outline: `${S}px solid #fcd34d`, outlineOffset: -S, zIndex: 1 } : {}),
+      }}
     >
+      {!item && ghost && <GhostImg kind={ghost} />}
       {item && !broken && (
         <img
           src={texUrl(item.type)}
           alt={label}
           onError={() => setBroken(true)}
-          className="absolute inset-0 m-auto"
-          style={{ width: SLOT - 10, height: SLOT - 10, imageRendering: "pixelated" }}
+          style={{ position: "absolute", left: S, top: S, width: ITEM, height: ITEM, imageRendering: "pixelated" }}
         />
       )}
       {item && broken && (
-        <span className="absolute inset-0 flex items-center justify-center px-0.5 text-center text-[8px] leading-none text-white/80">
+        <span
+          style={{ fontSize: 3.2 * S }}
+          className="absolute inset-0 flex items-center justify-center px-0.5 text-center leading-none text-white/80"
+        >
           {prettyType(item.type).slice(0, 14)}
         </span>
       )}
-      {enchanted && !broken && (
+      {enchanted && !broken && item && (
         <span
-          className="pointer-events-none absolute inset-0"
           style={{
-            background: "linear-gradient(135deg, rgba(180,90,255,0) 30%, rgba(200,120,255,0.55) 50%, rgba(180,90,255,0) 70%)",
+            position: "absolute",
+            left: S,
+            top: S,
+            width: ITEM,
+            height: ITEM,
+            pointerEvents: "none",
+            // The glint only exists where the item sprite has pixels — masked
+            // by the texture's own alpha, exactly like the game does it.
+            WebkitMaskImage: `url(${texUrl(item.type)})`,
+            maskImage: `url(${texUrl(item.type)})`,
+            WebkitMaskSize: "100% 100%",
+            maskSize: "100% 100%",
             mixBlendMode: "screen",
+            backgroundColor: "rgba(160, 90, 255, 0.18)",
+            backgroundImage:
+              "linear-gradient(125deg, rgba(180,90,255,0) 30%, rgba(200,120,255,0.42) 45%, rgba(255,255,255,0.30) 50%, rgba(200,120,255,0.42) 55%, rgba(180,90,255,0) 70%)",
             backgroundSize: "200% 200%",
-            animation: "hh-glint 2.4s linear infinite",
+            animation: "hh-glint 2.8s linear infinite",
           }}
         />
       )}
       {item && item.count > 1 && (
         <span
-          className="absolute right-0.5 bottom-0 font-bold tabular-nums"
-          style={{ fontSize: 15, color: "#fff", textShadow: "2px 2px 0 #3f3f3f", fontFamily: "monospace" }}
+          style={{
+            position: "absolute",
+            right: S,
+            bottom: 0,
+            fontSize: 7.5 * S,
+            fontFamily: "monospace",
+            fontWeight: 700,
+            color: "#fff",
+            textShadow: `${S}px ${S}px 0 #3f3f3f`,
+            zIndex: 2,
+          }}
+          className="tabular-nums"
         >
           {item.count}
         </span>
       )}
-      {empty && !item && <ArmorGhost />}
     </div>
   );
 }
 
-function ArmorGhost() {
-  return <span className="absolute inset-0 m-auto opacity-20" />;
+/** The 1-GUI-pixel white outline vanilla engraves on a slot group's top-left. */
+function GroupFrame({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: (x - 1) * S,
+        top: (y - 1) * S,
+        width: (w + 1) * S,
+        height: (h + 1) * S,
+        background: "#ffffff",
+      }}
+    />
+  );
 }
 
-/** The full inventory: character panel + main storage + hotbar. */
+/** The full survival inventory on the vanilla 176×166 layout. */
 export function MinecraftInventory({ inventory, uuid }: { inventory: Inventory; uuid?: string }) {
   const bySlot = new Map<number, InvItem>();
   for (const it of inventory.items ?? []) if (typeof it.slot === "number") bySlot.set(it.slot, it);
-  const main = Array.from({ length: 27 }, (_, i) => bySlot.get(i + 9)); // slots 9..35
-  const hotbar = Array.from({ length: 9 }, (_, i) => bySlot.get(i)); // slots 0..8
 
   return (
-    <div
-      className="inline-block max-w-full overflow-x-auto"
-      style={{ background: "#c6c6c6", padding: 12, boxShadow: "inset 3px 3px 0 #ffffff, inset -3px -3px 0 #555" }}
-    >
-      {/* character panel */}
-      <div className="mb-3 flex gap-3">
-        <div className="flex flex-col gap-1">
-          <Slot item={inventory.armor?.helmet} empty />
-          <Slot item={inventory.armor?.chestplate} empty />
-          <Slot item={inventory.armor?.leggings} empty />
-          <Slot item={inventory.armor?.boots} empty />
-        </div>
+    <div className="max-w-full overflow-x-auto">
+      <div
+        style={{
+          position: "relative",
+          width: 176 * S,
+          height: 166 * S,
+          background: "#c6c6c6",
+          borderRadius: 2 * S,
+          boxShadow: `inset ${S}px ${S}px 0 #ffffff, inset ${-S}px ${-S}px 0 #555555`,
+        }}
+      >
+        {/* armor column */}
+        <GroupFrame x={7} y={7} w={18} h={72} />
+        <Slot x={7} y={7} item={inventory.armor?.helmet} ghost="helmet" />
+        <Slot x={7} y={25} item={inventory.armor?.chestplate} ghost="chestplate" />
+        <Slot x={7} y={43} item={inventory.armor?.leggings} ghost="leggings" />
+        <Slot x={7} y={61} item={inventory.armor?.boots} ghost="boots" />
+
+        {/* character window */}
         <div
-          className="flex items-center justify-center"
-          style={{ background: "#8b8b8b", boxShadow: "inset 2px 2px 0 #373737, inset -2px -2px 0 #ffffff", width: SLOT * 2 + 8, padding: 6 }}
+          style={{
+            position: "absolute",
+            left: 25 * S,
+            top: 7 * S,
+            width: 50 * S,
+            height: 70 * S,
+            background: "#000",
+            boxShadow: `inset ${S}px ${S}px 0 #373737, inset ${-S}px ${-S}px 0 #ffffff`,
+          }}
         >
-          <SkinBody uuid={uuid} scale={6} />
+          <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)" }}>
+            <SkinBody uuid={uuid} scale={2 * S} />
+          </div>
         </div>
-        <div className="flex flex-col justify-end">
-          <Slot item={inventory.offHand} empty />
-        </div>
-      </div>
 
-      {/* main storage: 3 × 9 */}
-      <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(9, ${SLOT}px)` }}>
-        {main.map((it, i) => (
-          <Slot key={"m" + i} item={it} />
+        {/* offhand */}
+        <GroupFrame x={77} y={62} w={18} h={18} />
+        <Slot x={77} y={62} item={inventory.offHand} ghost="shield" />
+
+        {/* crafting (decorative — a viewer can't craft) */}
+        <span
+          style={{
+            position: "absolute",
+            left: 97 * S,
+            top: 7 * S,
+            fontSize: 7 * S,
+            fontFamily: "monospace",
+            fontWeight: 700,
+            color: "#404040",
+            letterSpacing: 0.5,
+            lineHeight: 1,
+          }}
+        >
+          Crafting
+        </span>
+        <GroupFrame x={97} y={17} w={36} h={36} />
+        <Slot x={97} y={17} />
+        <Slot x={115} y={17} />
+        <Slot x={97} y={35} />
+        <Slot x={115} y={35} />
+        <img
+          src="/mc-tex/_craft_arrow.png"
+          alt=""
+          style={{ position: "absolute", left: 135 * S, top: 29 * S, width: 16 * S, height: 13 * S, imageRendering: "pixelated" }}
+        />
+        <GroupFrame x={153} y={27} w={18} h={18} />
+        <Slot x={153} y={27} />
+        <img
+          src="/mc-tex/_recipe_book.png"
+          alt=""
+          style={{ position: "absolute", left: 104 * S, top: 61 * S, width: 20 * S, height: 18 * S, imageRendering: "pixelated" }}
+        />
+
+        {/* main storage: slots 9..35 */}
+        <GroupFrame x={7} y={83} w={162} h={54} />
+        {Array.from({ length: 27 }, (_, i) => (
+          <Slot key={"m" + i} x={7 + (i % 9) * 18} y={83 + Math.floor(i / 9) * 18} item={bySlot.get(i + 9)} />
         ))}
-      </div>
 
-      {/* hotbar */}
-      <div className="mt-3 grid gap-1" style={{ gridTemplateColumns: `repeat(9, ${SLOT}px)` }}>
-        {hotbar.map((it, i) => (
-          <Slot key={"h" + i} item={it} held={i === inventory.heldSlot} />
+        {/* hotbar: slots 0..8 */}
+        <GroupFrame x={7} y={141} w={162} h={18} />
+        {Array.from({ length: 9 }, (_, i) => (
+          <Slot key={"h" + i} x={7 + i * 18} y={141} item={bySlot.get(i)} held={i === inventory.heldSlot} />
         ))}
       </div>
     </div>
   );
 }
 
-/** A compact grid for the ender chest (no character panel). */
+/** A compact 9-wide chest-style grid (ender chest). */
 export function ItemGrid({ items }: { items: InvItem[] }) {
   const bySlot = new Map<number, InvItem>();
   items.forEach((it, i) => bySlot.set(typeof it.slot === "number" ? it.slot : i, it));
   const max = Math.max(0, ...[...bySlot.keys()]);
-  const cells = Array.from({ length: Math.max(27, max + 1) }, (_, i) => bySlot.get(i));
+  const rows = Math.max(3, Math.ceil((max + 1) / 9));
   return (
-    <div
-      className="inline-block max-w-full overflow-x-auto"
-      style={{ background: "#c6c6c6", padding: 12, boxShadow: "inset 3px 3px 0 #ffffff, inset -3px -3px 0 #555" }}
-    >
-      <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(9, ${SLOT}px)` }}>
-        {cells.map((it, i) => (
-          <Slot key={i} item={it} />
-        ))}
+    <div className="max-w-full overflow-x-auto">
+      <div
+        style={{
+          position: "relative",
+          display: "inline-block",
+          padding: 7 * S,
+          background: "#c6c6c6",
+          borderRadius: 2 * S,
+          boxShadow: `inset ${S}px ${S}px 0 #ffffff, inset ${-S}px ${-S}px 0 #555555`,
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(9, ${CELL}px)`,
+            gap: 0,
+            boxShadow: `${-S}px ${-S}px 0 #ffffff`,
+          }}
+        >
+          {Array.from({ length: rows * 9 }, (_, i) => (
+            <Slot key={i} item={bySlot.get(i)} />
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
 /**
- * The player's front-facing 2D body, drawn from their skin (proxied by the
- * backend so offline-mode uuids fall back to Steve). Static pose, real
- * pixels — nearest-neighbor upscaled.
+ * The player's face (8×8 + hat layer), for avatars. Drawn from the proxied
+ * skin; falls back to Steve for offline-mode uuids.
+ */
+export function SkinFace({ uuid, size = 40, className }: { uuid?: string | null; size?: number; className?: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, size, size);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, 8, 8, 8, 8, 0, 0, size, size);
+      ctx.drawImage(img, 40, 8, 8, 8, 0, 0, size, size);
+    };
+    img.src = uuid ? `/api/mc/skin/${uuid}` : "/mc-tex/_steve.png";
+  }, [uuid, size]);
+  return <canvas ref={ref} width={size} height={size} className={className} style={{ imageRendering: "pixelated" }} />;
+}
+
+/**
+ * The player's front-facing 2D body, drawn from their skin. Static pose,
+ * nearest-neighbor upscaled; 16×32 skin pixels at `scale`.
  */
 function SkinBody({ uuid, scale = 6 }: { uuid?: string; scale?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // 16 wide × 32 tall in skin pixels.
   const W = 16 * scale;
   const H = 32 * scale;
 
