@@ -3360,7 +3360,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Mint a code that links a Telegram chat to the calling user */
+        /** Confirm a code the bot issued to a chat, linking that chat to the calling user */
         post: operations["telegramLinkCode"];
         delete?: never;
         options?: never;
@@ -10802,22 +10802,26 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                };
+            };
+        };
         responses: {
-            /** @description The code to send to the bot as /link <code> */
+            /** @description Chat linked to the calling user */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        code: string;
-                        /** Format: date-time */
-                        expiresAt: string;
+                        label: string;
                     };
                 };
             };
-            /** @description Bridge not running */
+            /** @description Bridge not running, code invalid, or rate-limited */
             409: {
                 headers: {
                     [name: string]: unknown;

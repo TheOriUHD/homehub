@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { CircleCheck, CircleX, Link2, Send, Trash2 } from "lucide-react";
 import { api, isApiError, unwrap } from "@/lib/api";
 import { Button } from "@/ui/button";
-import { CopyButton } from "@/ui/misc";
 import { Dialog, DialogContent } from "@/ui/dialog";
 import { Field } from "@/ui/field";
 import { Input } from "@/ui/input";
@@ -24,26 +23,14 @@ export function TelegramDialog({ canConfigure, onClose }: { canConfigure: boolea
   const qc = useQueryClient();
   const [token, setToken] = useState("");
   const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [link, setLink] = useState<{ code: string; expiresAt: string } | null>(null);
-  const chatCount = useRef<number | null>(null);
+  const [code, setCode] = useState("");
 
   const state = useQuery({
     queryKey: ["telegram"],
     queryFn: async () => unwrap(await api.GET("/telegram/settings")),
-    refetchInterval: link ? 3000 : false,
   });
   const data = state.data;
   const isOn = enabled ?? data?.enabled ?? false;
-
-  // A pending link code resolves the moment the chat list grows.
-  useEffect(() => {
-    if (!data) return;
-    if (chatCount.current !== null && link && data.chats.length > chatCount.current) {
-      setLink(null);
-      toast("success", t("assistant.telegram.linked"));
-    }
-    chatCount.current = data.chats.length;
-  }, [data, link, toast, t]);
 
   const save = useMutation({
     mutationFn: async () =>
@@ -60,9 +47,13 @@ export function TelegramDialog({ canConfigure, onClose }: { canConfigure: boolea
     onError: (err) => toast("error", isApiError(err) ? err.message : String(err)),
   });
 
-  const mint = useMutation({
-    mutationFn: async () => unwrap(await api.POST("/telegram/link-code")),
-    onSuccess: (res) => setLink(res),
+  const confirm = useMutation({
+    mutationFn: async () => unwrap(await api.POST("/telegram/link-code", { body: { code: code.trim() } })),
+    onSuccess: (res) => {
+      setCode("");
+      toast("success", t("assistant.telegram.linkedAs", { label: res.label }));
+      void qc.invalidateQueries({ queryKey: ["telegram"] });
+    },
     onError: (err) => toast("error", isApiError(err) ? err.message : String(err)),
   });
 
@@ -118,6 +109,7 @@ export function TelegramDialog({ canConfigure, onClose }: { canConfigure: boolea
             </li>
             <li>{t("assistant.telegram.step2")}</li>
             <li>{t("assistant.telegram.step3")}</li>
+            <li>{t("assistant.telegram.step4")}</li>
           </ol>
 
           {canConfigure && (
@@ -175,28 +167,33 @@ export function TelegramDialog({ canConfigure, onClose }: { canConfigure: boolea
               </div>
             ))}
 
-            {link ? (
-              <div className="border-accent/40 bg-accent-soft/40 space-y-1.5 rounded-lg border px-3 py-2.5">
-                <p className="text-fg text-[13px]">
-                  {t("assistant.telegram.sendThis", { bot: data?.botUsername ? "@" + data.botUsername : t("assistant.telegram.yourBot") })}
-                </p>
-                <div className="flex items-center gap-2">
-                  <code className="text-fg bg-surface rounded px-2 py-1 font-mono text-sm">/link {link.code}</code>
-                  <CopyButton value={`/link ${link.code}`} />
-                </div>
-                <p className="text-fg-subtle text-[12px]">{t("assistant.telegram.waiting")}</p>
+            <div className="border-edge space-y-2 rounded-lg border border-dashed px-3 py-2.5">
+              <p className="text-fg-muted text-[13px]">
+                {t("assistant.telegram.enterCode", { bot: data?.botUsername ? "@" + data.botUsername : t("assistant.telegram.yourBot") })}
+              </p>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  placeholder="ABCD2345"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="font-mono tracking-widest uppercase"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && code.trim()) confirm.mutate();
+                  }}
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={confirm.isPending || code.trim().length < 4 || !data?.botUsername}
+                  onClick={() => confirm.mutate()}
+                >
+                  <Link2 className="size-3.5" />
+                  {t("assistant.telegram.linkChat")}
+                </Button>
               </div>
-            ) : (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={mint.isPending || !data?.botUsername}
-                onClick={() => mint.mutate()}
-              >
-                <Link2 className="size-3.5" />
-                {t("assistant.telegram.linkChat")}
-              </Button>
-            )}
+            </div>
           </div>
 
           <p className="text-fg-subtle text-[12px]">{t("assistant.telegram.modes")}</p>
