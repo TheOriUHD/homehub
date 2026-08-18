@@ -52,6 +52,7 @@ public final class HomeHubCompanionFabric implements DedicatedServerModInitializ
     private int tickIndex;
     private int tickCount;
     private Set<String> lastPlayerNames = new HashSet<>();
+    private final java.util.Map<java.util.UUID, Integer> lastHeldSlots = new java.util.HashMap<>();
 
     public static HomeHubCompanionFabric instance() {
         return instance;
@@ -205,11 +206,24 @@ public final class HomeHubCompanionFabric implements DedicatedServerModInitializ
         if (tickCount % STATUS_EVERY_TICKS == 0) pushStatus(srv);
 
         Set<String> names = new HashSet<>();
+        boolean heldChanged = false;
         for (ServerPlayer p : srv.getPlayerList().getPlayers()) {
             names.add(p.getGameProfile().name());
+            try {
+                Integer held = p.getInventory().getSelectedSlot();
+                if (!held.equals(lastHeldSlots.put(p.getUUID(), held))) heldChanged = true;
+            } catch (Throwable ignored) {}
         }
-        if (!names.equals(lastPlayerNames)) {
+        lastHeldSlots.keySet().removeIf(u -> {
+            for (ServerPlayer p : srv.getPlayerList().getPlayers()) if (p.getUUID().equals(u)) return false;
+            return true;
+        });
+        // Push on membership or hotbar change immediately; otherwise refresh
+        // the live fields (position, health) once a second while occupied.
+        if (!names.equals(lastPlayerNames) || heldChanged) {
             lastPlayerNames = names;
+            pushPlayers(srv);
+        } else if (!names.isEmpty() && tickCount % 20 == 0) {
             pushPlayers(srv);
         }
     }
@@ -259,6 +273,7 @@ public final class HomeHubCompanionFabric implements DedicatedServerModInitializ
             pi.maxHealth = FabricPlayerDetailBuilder.round1(p.getMaxHealth());
         } catch (Throwable ignored) {}
         try { pi.food = p.getFoodData().getFoodLevel(); } catch (Throwable ignored) {}
+        try { pi.heldSlot = p.getInventory().getSelectedSlot(); } catch (Throwable ignored) {}
         try { pi.level = p.experienceLevel; } catch (Throwable ignored) {}
         try { if (p.connection != null) pi.pingMs = p.connection.latency(); } catch (Throwable ignored) {}
     }

@@ -4332,6 +4332,7 @@ export interface components {
             level?: number;
             gameMode?: string;
             pingMs?: number;
+            heldSlot?: number;
         };
         McPairingCode: {
             code: string;

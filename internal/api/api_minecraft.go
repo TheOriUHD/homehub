@@ -155,6 +155,7 @@ func toAPIMcPlayer(p minecraft.Player) McPlayer {
 	out.X, out.Y, out.Z = p.X, p.Y, p.Z
 	out.Health, out.MaxHealth = p.Health, p.MaxHealth
 	out.Food, out.Level, out.PingMs = p.Food, p.Level, p.PingMs
+	out.HeldSlot = p.HeldSlot
 	if p.GameMode != "" {
 		v := p.GameMode
 		out.GameMode = &v

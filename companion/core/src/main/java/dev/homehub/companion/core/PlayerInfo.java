@@ -16,6 +16,7 @@ public final class PlayerInfo {
     public double x, y, z;
     public Double health, maxHealth;
     public Integer food, level, pingMs;
+    public Integer heldSlot;
     public String gameMode;
 
     public PlayerInfo(String name, String uuid) {

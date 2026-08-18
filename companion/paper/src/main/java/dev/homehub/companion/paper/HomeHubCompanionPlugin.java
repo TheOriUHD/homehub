@@ -14,6 +14,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -65,6 +66,14 @@ public final class HomeHubCompanionPlugin extends JavaPlugin implements Listener
         Bukkit.getScheduler().runTaskTimer(this, new Runnable() {
             @Override public void run() { pushStatus(); }
         }, 100L, 100L);
+        // Live player fields (position, health, held slot) every second while
+        // anyone is online — the streaming list is what keeps cards and the
+        // inventory selector realtime.
+        Bukkit.getScheduler().runTaskTimer(this, new Runnable() {
+            @Override public void run() {
+                if (!Bukkit.getOnlinePlayers().isEmpty()) pushPlayers();
+            }
+        }, 20L, 20L);
 
         maybeStartClient();
     }
@@ -225,7 +234,17 @@ public final class HomeHubCompanionPlugin extends JavaPlugin implements Listener
             Object ping = Player.class.getMethod("getPing").invoke(p);
             if (ping instanceof Integer) info.pingMs = (Integer) ping;
         } catch (Throwable ignored) {}
+        try { info.heldSlot = p.getInventory().getHeldItemSlot(); } catch (Throwable ignored) {}
         return info;
+    }
+
+    /** Hotbar scrolls push immediately so the selector tracks in realtime
+     *  (next tick, once the new slot is applied). */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onHeldChange(PlayerItemHeldEvent event) {
+        Bukkit.getScheduler().runTask(this, new Runnable() {
+            @Override public void run() { pushPlayers(); }
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

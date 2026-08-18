@@ -76,6 +76,12 @@ export function Slot({
   ghost?: GhostKind;
 }) {
   const [broken, setBroken] = useState(false);
+  const [smooth, setSmooth] = useState(false);
+  const type = item?.type;
+  useEffect(() => {
+    setBroken(false);
+    setSmooth(false);
+  }, [type]);
   const enchanted = !!item && !!item.enchants && Object.keys(item.enchants).length > 0;
   const label = item
     ? (item.name ? cleanName(item.name) : prettyType(item.type)) +
@@ -94,16 +100,44 @@ export function Slot({
         height: CELL,
         background: "#8b8b8b",
         boxShadow: `inset ${S}px ${S}px 0 #373737, inset ${-S}px ${-S}px 0 #ffffff`,
-        ...(held ? { outline: `${S}px solid #fcd34d`, outlineOffset: -S, zIndex: 1 } : {}),
+        ...(held ? { zIndex: 1 } : {}),
       }}
     >
+      {held && (
+        <img
+          src="/mc-tex/_hotbar_selection.png"
+          alt=""
+          style={{
+            position: "absolute",
+            left: -3 * S,
+            top: -3 * S,
+            width: 24 * S,
+            height: 23 * S,
+            imageRendering: "pixelated",
+            pointerEvents: "none",
+            zIndex: 3,
+          }}
+        />
+      )}
       {!item && ghost && <GhostImg kind={ghost} />}
       {item && !broken && (
         <img
           src={texUrl(item.type)}
           alt={label}
           onError={() => setBroken(true)}
-          style={{ position: "absolute", left: S, top: S, width: ITEM, height: ITEM, imageRendering: "pixelated" }}
+          onLoad={(e) => {
+            // Pre-rendered isometric block icons are 128px — let those
+            // downscale smoothly; only true 16px sprites want pixelated.
+            if (e.currentTarget.naturalWidth >= 64) setSmooth(true);
+          }}
+          style={{
+            position: "absolute",
+            left: S,
+            top: S,
+            width: ITEM,
+            height: ITEM,
+            imageRendering: smooth ? "auto" : "pixelated",
+          }}
         />
       )}
       {item && broken && (
@@ -207,7 +241,7 @@ export function MinecraftInventory({ inventory, uuid }: { inventory: Inventory; 
             left: 25 * S,
             top: 7 * S,
             width: 50 * S,
-            height: 70 * S,
+            height: 72 * S,
             background: "#000",
             boxShadow: `inset ${S}px ${S}px 0 #373737, inset ${-S}px ${-S}px 0 #ffffff`,
           }}
@@ -218,8 +252,8 @@ export function MinecraftInventory({ inventory, uuid }: { inventory: Inventory; 
         </div>
 
         {/* offhand */}
-        <GroupFrame x={77} y={62} w={18} h={18} />
-        <Slot x={77} y={62} item={inventory.offHand} ghost="shield" />
+        <GroupFrame x={77} y={61} w={18} h={18} />
+        <Slot x={77} y={61} item={inventory.offHand} ghost="shield" />
 
         {/* crafting (decorative — a viewer can't craft) */}
         <span
