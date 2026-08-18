@@ -2885,6 +2885,7 @@
         "body": "Upload files or create one in the editor."
       }
     },
-    "recent": "Recent files"
+    "recent": "Recent files",
+    "apps": "Built-in apps"
   }
 }
