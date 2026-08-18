@@ -5140,6 +5140,68 @@ paths:
                         defaultBaseUrl: { type: string }
                         modelHint: { type: string }
 
+  /telegram/settings:
+    get:
+      operationId: getTelegramSettings
+      summary: Telegram bridge settings and linked chats
+      tags: [assistant]
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TelegramSettings" }
+    put:
+      operationId: putTelegramSettings
+      summary: Update Telegram bridge settings
+      tags: [assistant]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+                token: { type: string, description: "New bot token; omit to keep the stored one" }
+      responses:
+        "204": { description: Saved }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /telegram/link-code:
+    post:
+      operationId: telegramLinkCode
+      summary: Mint a code that links a Telegram chat to the calling user
+      tags: [assistant]
+      responses:
+        "200":
+          description: The code to send to the bot as /link <code>
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, expiresAt]
+                properties:
+                  code: { type: string }
+                  expiresAt: { type: string, format: date-time }
+        "409":
+          description: Bridge not running
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /telegram/chats/{chatId}:
+    delete:
+      operationId: telegramUnlinkChat
+      summary: Unlink one Telegram chat
+      tags: [assistant]
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { description: Unlinked }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /assistant/settings:
     put:
       operationId: putAssistantSettings
@@ -6624,6 +6686,28 @@ components:
         gameMode: { type: string }
         pingMs: { type: integer }
         heldSlot: { type: integer }
+
+    TelegramSettings:
+      type: object
+      required: [enabled, tokenSet, canConfigure, chats]
+      properties:
+        enabled: { type: boolean }
+        tokenSet: { type: boolean }
+        canConfigure: { type: boolean }
+        botUsername: { type: string }
+        botError: { type: string }
+        chats:
+          type: array
+          items: { $ref: "#/components/schemas/TelegramChat" }
+    TelegramChat:
+      type: object
+      required: [chatId, label, userId, userName, linkedAt]
+      properties:
+        chatId: { type: integer, format: int64 }
+        label: { type: string }
+        userId: { type: string, format: uuid }
+        userName: { type: string }
+        linkedAt: { type: string, format: date-time }
 
     McPairingCode:
       type: object

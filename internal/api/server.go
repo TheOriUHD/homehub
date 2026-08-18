@@ -28,6 +28,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/rbac"
 	"github.com/TheOriUHD/homehub/internal/settings"
 	"github.com/TheOriUHD/homehub/internal/store"
+	"github.com/TheOriUHD/homehub/internal/telegram"
 	"github.com/TheOriUHD/homehub/internal/term"
 	"github.com/TheOriUHD/homehub/internal/vault"
 	"github.com/TheOriUHD/homehub/internal/ws"
@@ -59,6 +60,7 @@ type Server struct {
 	vault        *vault.Vault
 	integrations *integration.Manager
 	metrics      *metrics.Service
+	telegram     *telegram.Bot
 	term         *term.Manager
 	backups      *backuppkg.Service
 	mc           *minecraft.Registry

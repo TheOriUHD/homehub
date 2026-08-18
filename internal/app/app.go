@@ -47,6 +47,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/rbac"
 	"github.com/TheOriUHD/homehub/internal/settings"
 	"github.com/TheOriUHD/homehub/internal/store"
+	"github.com/TheOriUHD/homehub/internal/telegram"
 	"github.com/TheOriUHD/homehub/internal/term"
 	"github.com/TheOriUHD/homehub/internal/vault"
 	"github.com/TheOriUHD/homehub/internal/version"
@@ -220,6 +221,24 @@ func Run(ctx context.Context) error {
 
 	apiServer := api.NewServer(st, authSvc, engine, auditSvc, settingsSvc, jobEngine, hub, v,
 		manager, metricsSvc, termMgr, backupSvc, mcRegistry, companion.FS(), logger)
+
+	// Telegram bridge: linked chats talk to the assistant. The bot reads its
+	// token from the vault and its switch from settings on every reload.
+	tgBot := &telegram.Bot{
+		Store:  st,
+		Runner: apiServer,
+		Logger: logger,
+		TokenFn: func(ctx context.Context) string {
+			raw, err := v.Open(ctx, "telegram", "bot-token")
+			if err != nil {
+				return ""
+			}
+			return string(raw)
+		},
+		EnabledFn: func(ctx context.Context) bool { return settingsSvc.Telegram(ctx) },
+	}
+	apiServer.SetTelegramBot(tgBot)
+	tgBot.Reload(ctx)
 	handler := httpserver.Handler(httpserver.Deps{
 		Logger:   logger,
 		Auth:     authSvc,

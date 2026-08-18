@@ -2789,6 +2789,29 @@
     "lmGuide3": "Load a model (one that supports tool use answers questions best).",
     "lmGuide4": "The endpoint is http://<that machine's IP>:1234/v1 — find it above or test it here.",
     "apiKeyStoredHint": "A key for {{provider}} is stored — each provider keeps its own. Enter a new one to replace it, or leave empty to keep it.",
-    "scanLocked": "found — requires its API key (enter it below, then test)"
+    "scanLocked": "found — requires its API key (enter it below, then test)",
+    "telegram": {
+      "button": "Telegram",
+      "title": "Telegram bridge",
+      "subtitle": "Talk to the assistant from Telegram — it answers there and can act on your homelab.",
+      "running": "Bridge running as {{bot}}",
+      "starting": "Bridge enabled — connecting…",
+      "step1a": "Message",
+      "step1b": " on Telegram, send /newbot, and copy the token it gives you.",
+      "step2": "Paste the token below, enable the bridge, and save.",
+      "step3": "Link your chat: generate a code, then send /link <code> to your bot.",
+      "token": "Bot token",
+      "tokenStored": "A token is stored — paste a new one only to replace it.",
+      "enable": "Enable the bridge",
+      "saved": "Telegram settings saved",
+      "chats": "Linked chats",
+      "noChats": "No chats linked yet — plain messages from a linked chat go straight to the assistant.",
+      "linkChat": "Link a chat",
+      "sendThis": "Send this to {{bot}} from the chat you want to link:",
+      "yourBot": "your bot",
+      "waiting": "Waiting for the message — the chat appears here the moment it arrives. The code expires after 10 minutes.",
+      "linked": "Chat linked",
+      "modes": "Plain messages talk to the AI assistant under the linked user's permissions. Messages starting with ! or / are command triggers — configurable soon."
+    }
   }
 }
