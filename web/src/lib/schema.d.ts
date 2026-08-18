@@ -10255,6 +10255,8 @@ export interface operations {
                         model: string;
                         baseUrl: string;
                         keySet: boolean;
+                        /** @description Provider ids that have a stored API key — switching providers keeps each key sealed in its own slot. */
+                        keysSet: string[];
                         canConfigure: boolean;
                         /** @description The selectable provider catalog with per-provider defaults. */
                         providers: {

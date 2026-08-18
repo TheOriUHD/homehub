@@ -121,6 +121,7 @@ function AssistantSettingsDialog({
     model: string;
     baseUrl: string;
     keySet: boolean;
+    keysSet: string[];
     providers: ProviderInfo[];
   };
   onClose: () => void;
@@ -263,10 +264,10 @@ function AssistantSettingsDialog({
           <Field
             label={t("assistant.apiKey")}
             hint={
-              selected && !selected.requiresKey
-                ? t("assistant.apiKeyOptionalHint")
-                : info.keySet
-                  ? t("assistant.apiKeySetHint")
+              info.keysSet.includes(provider)
+                ? t("assistant.apiKeyStoredHint", { provider: selected?.label ?? provider })
+                : selected && !selected.requiresKey
+                  ? t("assistant.apiKeyOptionalHint")
                   : t("assistant.apiKeyHint")
             }
           >
@@ -274,7 +275,7 @@ function AssistantSettingsDialog({
               <Input
                 {...p}
                 type="password"
-                placeholder={info.keySet ? "••••••••" : t("assistant.apiKeyPlaceholder")}
+                placeholder={info.keysSet.includes(provider) ? "••••••••" : t("assistant.apiKeyPlaceholder")}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
               />
