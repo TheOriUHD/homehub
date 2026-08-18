@@ -44,6 +44,124 @@ function prettyType(type: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// ---- the game's own bitmap font (textures/font/ascii.png) -------------------
+
+let fontImg: HTMLImageElement | null = null;
+let fontWidths: number[] | null = null;
+let fontLoad: Promise<void> | null = null;
+
+function loadMcFont(): Promise<void> {
+  if (!fontLoad) {
+    fontLoad = new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas");
+        c.width = 128;
+        c.height = 128;
+        const cctx = c.getContext("2d");
+        if (!cctx) return resolve();
+        cctx.drawImage(img, 0, 0);
+        const data = cctx.getImageData(0, 0, 128, 128).data;
+        const widths = new Array(128).fill(0);
+        for (let code = 32; code < 127; code++) {
+          const gx = (code % 16) * 8;
+          const gy = (code >> 4) * 8;
+          let w = 0;
+          for (let x = 0; x < 8; x++) {
+            for (let y = 0; y < 8; y++) {
+              if (data[((gy + y) * 128 + gx + x) * 4 + 3] > 16) {
+                if (x + 1 > w) w = x + 1;
+                break;
+              }
+            }
+          }
+          widths[code] = w;
+        }
+        fontImg = img;
+        fontWidths = widths;
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = "/mc-tex/_font_ascii.png";
+    });
+  }
+  return fontLoad;
+}
+
+function shadowColor(hex: string): string {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const f = (v: number) => Math.floor(v * 0.25);
+  return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`;
+}
+
+/**
+ * Text drawn with the actual Minecraft glyphs, pixel-scaled. Non-ASCII input
+ * falls back to '?' — the ascii atlas is all vanilla uses for these strings.
+ */
+function McText({
+  text,
+  color = "#FFFFFF",
+  scale = S,
+  shadow = true,
+  bold = false,
+  className,
+  style,
+}: {
+  text: string;
+  color?: string;
+  scale?: number;
+  shadow?: boolean;
+  bold?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const [ready, setReady] = useState(fontImg !== null);
+  useEffect(() => {
+    if (!ready) void loadMcFont().then(() => setReady(true));
+  }, [ready]);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas || !fontImg || !fontWidths) return;
+    const codes = [...text].map((ch) => {
+      const c = ch.charCodeAt(0);
+      return c >= 32 && c < 127 ? c : 63;
+    });
+    const adv = codes.map((c) => (c === 32 ? 4 : fontWidths![c] + 1) + (bold ? 1 : 0));
+    const total = adv.reduce((a, b) => a + b, 0) + 1;
+    canvas.width = total * scale;
+    canvas.height = 9 * scale;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    const layer = (ox: number, oy: number, col: string) => {
+      const tmp = document.createElement("canvas");
+      tmp.width = canvas.width;
+      tmp.height = canvas.height;
+      const tctx = tmp.getContext("2d");
+      if (!tctx) return;
+      tctx.imageSmoothingEnabled = false;
+      let x = ox;
+      for (let i = 0; i < codes.length; i++) {
+        const c = codes[i];
+        if (c !== 32) {
+          tctx.drawImage(fontImg!, (c % 16) * 8, (c >> 4) * 8, 8, 8, x * scale, oy * scale, 8 * scale, 8 * scale);
+          if (bold) tctx.drawImage(fontImg!, (c % 16) * 8, (c >> 4) * 8, 8, 8, (x + 1) * scale, oy * scale, 8 * scale, 8 * scale);
+        }
+        x += adv[i];
+      }
+      tctx.globalCompositeOperation = "source-in";
+      tctx.fillStyle = col;
+      tctx.fillRect(0, 0, tmp.width, tmp.height);
+      ctx.drawImage(tmp, 0, 0);
+    };
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (shadow) layer(1, 1, shadowColor(color));
+    layer(0, 0, color);
+  }, [text, color, scale, shadow, bold, ready]);
+  return <canvas ref={ref} className={className} style={{ imageRendering: "pixelated", display: "block", ...style }} />;
+}
+
 // ---- legacy §-code rendering for custom item names --------------------------
 
 const MC_COLORS: Record<string, string> = {
@@ -111,37 +229,24 @@ function ItemTooltip({ item, at }: { item: InvItem; at: { x: number; y: number }
         background: "rgba(16,0,16,0.95)",
         border: "1px solid rgba(80,0,255,0.45)",
         boxShadow: "0 0 0 2px rgba(16,0,16,0.95)",
-        padding: "5px 9px",
-        fontFamily: "monospace",
-        fontSize: 13,
-        lineHeight: 1.4,
+        padding: "6px 8px",
         whiteSpace: "nowrap",
       }}
     >
-      <div style={{ color: "#FFFFFF" }}>
-        {item.name
-          ? parseLegacy(item.name).map((f, i) => (
-              <span
-                key={i}
-                style={{
-                  color: f.color ?? "#FFFFFF",
-                  fontWeight: f.bold ? 700 : 400,
-                  fontStyle: f.italic ? "italic" : undefined,
-                  textDecoration: f.underline ? "underline" : f.strike ? "line-through" : undefined,
-                }}
-              >
-                {f.text}
-              </span>
-            ))
-          : prettyType(item.type)}
+      <div style={{ display: "flex" }}>
+        {item.name ? (
+          parseLegacy(item.name).map((f, i) => (
+            <McText key={i} text={f.text} color={f.color ?? "#FFFFFF"} bold={f.bold} />
+          ))
+        ) : (
+          <McText text={prettyType(item.type)} />
+        )}
       </div>
       {item.enchants &&
         Object.entries(item.enchants).map(([e, lvl]) => (
-          <div key={e} style={{ color: "#AAAAAA" }}>
-            {enchantLabel(e, lvl)}
-          </div>
+          <McText key={e} text={enchantLabel(e, lvl)} color="#AAAAAA" style={{ marginTop: 2 }} />
         ))}
-      {item.name && <div style={{ color: "#555555" }}>{prettyType(item.type)}</div>}
+      {item.name && <McText text={prettyType(item.type)} color="#555555" style={{ marginTop: 2 }} />}
     </div>,
     document.body,
   );
@@ -211,10 +316,10 @@ export function Slot({
           alt=""
           style={{
             position: "absolute",
-            left: -4 * S,
-            top: -4 * S,
-            width: 26 * S,
-            height: 25 * S,
+            left: -3 * S,
+            top: -3 * S,
+            width: 24 * S,
+            height: 23 * S,
             maxWidth: "none",
             imageRendering: "pixelated",
             pointerEvents: "none",
@@ -291,22 +396,10 @@ export function Slot({
         />
       )}
       {item && item.count > 1 && (
-        <span
-          style={{
-            position: "absolute",
-            right: S,
-            bottom: 0,
-            fontSize: 7.5 * S,
-            fontFamily: "monospace",
-            fontWeight: 700,
-            color: "#fff",
-            textShadow: `${S}px ${S}px 0 #3f3f3f`,
-            zIndex: 2,
-          }}
-          className="tabular-nums"
-        >
-          {item.count}
-        </span>
+        <McText
+          text={String(item.count)}
+          style={{ position: "absolute", right: -2 * S, bottom: 0, zIndex: 4 }}
+        />
       )}
     </div>
   );
@@ -376,21 +469,12 @@ export function MinecraftInventory({ inventory, uuid }: { inventory: Inventory; 
         <Slot x={77} y={61} item={inventory.offHand} ghost="shield" />
 
         {/* crafting (decorative — a viewer can't craft) */}
-        <span
-          style={{
-            position: "absolute",
-            left: 97 * S,
-            top: 7 * S,
-            fontSize: 7 * S,
-            fontFamily: "monospace",
-            fontWeight: 700,
-            color: "#404040",
-            letterSpacing: 0.5,
-            lineHeight: 1,
-          }}
-        >
-          Crafting
-        </span>
+        <McText
+          text="Crafting"
+          color="#404040"
+          shadow={false}
+          style={{ position: "absolute", left: 97 * S, top: 8 * S }}
+        />
         <GroupFrame x={97} y={17} w={36} h={36} />
         <Slot x={97} y={17} />
         <Slot x={115} y={17} />
