@@ -5171,21 +5171,29 @@ paths:
   /telegram/link-code:
     post:
       operationId: telegramLinkCode
-      summary: Mint a code that links a Telegram chat to the calling user
+      summary: Confirm a code the bot issued to a chat, linking that chat to the calling user
       tags: [assistant]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
       responses:
         "200":
-          description: The code to send to the bot as /link <code>
+          description: Chat linked to the calling user
           content:
             application/json:
               schema:
                 type: object
-                required: [code, expiresAt]
+                required: [label]
                 properties:
-                  code: { type: string }
-                  expiresAt: { type: string, format: date-time }
+                  label: { type: string }
         "409":
-          description: Bridge not running
+          description: Bridge not running, code invalid, or rate-limited
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }

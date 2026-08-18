@@ -133,7 +133,12 @@ func (s *Server) PutTelegramSettings(ctx context.Context, req PutTelegramSetting
 	return PutTelegramSettings204Response{}, nil
 }
 
-func (s *Server) TelegramLinkCode(ctx context.Context, _ TelegramLinkCodeRequestObject) (TelegramLinkCodeResponseObject, error) {
+// TelegramLinkCode confirms a code the BOT issued to a chat. The direction
+// matters for safety: the secret flows from Telegram into an authenticated
+// web session, and the chat binds to the CONFIRMING user — so possession of
+// a HomeHub login is required to link anything, and a guessed code could
+// only ever link a chat to the guesser's own account.
+func (s *Server) TelegramLinkCode(ctx context.Context, req TelegramLinkCodeRequestObject) (TelegramLinkCodeResponseObject, error) {
 	id := httpctx.IdentityFrom(ctx)
 	if id == nil {
 		return nil, ErrUnauthenticated
@@ -141,8 +146,17 @@ func (s *Server) TelegramLinkCode(ctx context.Context, _ TelegramLinkCodeRequest
 	if s.telegram == nil {
 		return TelegramLinkCode409JSONResponse(errBody("telegram_off", "the Telegram bridge is not running")), nil
 	}
-	code, expires := s.telegram.MintLinkCode(id.User.ID, id.User.DisplayName)
-	return TelegramLinkCode200JSONResponse{Code: code, ExpiresAt: expires}, nil
+	chatID, label, err := s.telegram.Claim(id.User.ID, req.Body.Code)
+	if err != nil {
+		s.audit.Log(ctx, actorFor(id), "telegram.link", "settings/telegram", "denied", map[string]any{"error": err.Error()})
+		return TelegramLinkCode409JSONResponse(errBody("link_failed", err.Error())), nil
+	}
+	if err := s.store.AddTelegramChat(ctx, chatID, id.User.ID, label); err != nil {
+		return nil, err
+	}
+	s.audit.Log(ctx, actorFor(id), "telegram.link", "settings/telegram", "ok", map[string]any{"chatId": chatID})
+	s.telegram.NotifyLinked(ctx, chatID, id.User.DisplayName)
+	return TelegramLinkCode200JSONResponse{Label: label}, nil
 }
 
 func (s *Server) TelegramUnlinkChat(ctx context.Context, req TelegramUnlinkChatRequestObject) (TelegramUnlinkChatResponseObject, error) {

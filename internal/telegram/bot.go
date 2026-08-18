@@ -40,11 +40,30 @@ type TurnRunner interface {
 	RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, message string) (string, error)
 }
 
-type linkCode struct {
-	userID  uuid.UUID
-	userTag string
+// pendingLink is a chat that has asked to be linked and is waiting for the
+// code to be confirmed inside an authenticated HomeHub session. The code
+// binds nothing on its own — it only names which chat a signed-in user is
+// claiming, so guessing it is worthless without a HomeHub login.
+type pendingLink struct {
+	chatID  int64
+	label   string
 	expires time.Time
 }
+
+// claimAttempts rate-limits code confirmation per HomeHub user, so the code
+// space cannot be brute-forced even from a valid (low-privilege) session.
+type claimAttempts struct {
+	count   int
+	resetAt time.Time
+}
+
+const (
+	maxClaimAttempts = 6
+	claimWindow      = 10 * time.Minute
+	// Unambiguous alphabet (no O/0/I/1); 8 chars ≈ 32^8 ≈ 1.1e12 space.
+	codeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	codeLength   = 8
+)
 
 // Bot is the bridge. Start it once; Reload after settings change.
 type Bot struct {
@@ -61,7 +80,8 @@ type Bot struct {
 	cancel   context.CancelFunc
 	username string
 	lastErr  string
-	codes    map[string]linkCode
+	pending  map[string]pendingLink
+	attempts map[uuid.UUID]*claimAttempts
 
 	client http.Client
 }
@@ -74,32 +94,74 @@ func (b *Bot) Status() (username, lastErr string) {
 	return b.username, b.lastErr
 }
 
-// MintLinkCode creates a short-lived code that links the chat which sends
-// "/link <code>" to the given user.
-func (b *Bot) MintLinkCode(userID uuid.UUID, userTag string) (code string, expires time.Time) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.codes == nil {
-		b.codes = map[string]linkCode{}
+func randomCode() string {
+	buf := make([]byte, codeLength)
+	for i := range buf {
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(codeAlphabet))))
+		buf[i] = codeAlphabet[n.Int64()]
 	}
-	n, _ := rand.Int(rand.Reader, big.NewInt(1_000_000))
-	code = fmt.Sprintf("%06d", n.Int64())
-	expires = time.Now().Add(linkCodeTTL)
-	b.codes[code] = linkCode{userID: userID, userTag: userTag, expires: expires}
-	return code, expires
+	return string(buf)
 }
 
-func (b *Bot) takeLinkCode(code string) (linkCode, bool) {
+func (b *Bot) purgeExpiredLocked() {
+	now := time.Now()
+	for code, p := range b.pending {
+		if now.After(p.expires) {
+			delete(b.pending, code)
+		}
+	}
+}
+
+// mintChatCode issues the code a chat must have entered on the web side to
+// be linked. Shown ONLY in the requesting chat; one pending per chat.
+func (b *Bot) mintChatCode(chatID int64, label string) string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	lc, ok := b.codes[code]
-	if ok {
-		delete(b.codes, code)
+	if b.pending == nil {
+		b.pending = map[string]pendingLink{}
 	}
-	if !ok || time.Now().After(lc.expires) {
-		return linkCode{}, false
+	b.purgeExpiredLocked()
+	for code, p := range b.pending {
+		if p.chatID == chatID {
+			delete(b.pending, code)
+		}
 	}
-	return lc, true
+	code := randomCode()
+	b.pending[code] = pendingLink{chatID: chatID, label: label, expires: time.Now().Add(linkCodeTTL)}
+	return code
+}
+
+// Claim resolves a code entered by a signed-in HomeHub user to the chat that
+// requested it. The API layer writes the binding to that user. Per-user
+// rate-limited; the code is single-use and expires. Because the confirming
+// user becomes the owner, an attacker's chat can never attach to someone
+// else's account — that would require the victim to type the attacker's
+// chat code into the victim's own session.
+func (b *Bot) Claim(userID uuid.UUID, code string) (chatID int64, label string, err error) {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.attempts == nil {
+		b.attempts = map[uuid.UUID]*claimAttempts{}
+	}
+	now := time.Now()
+	a := b.attempts[userID]
+	if a == nil || now.After(a.resetAt) {
+		a = &claimAttempts{resetAt: now.Add(claimWindow)}
+		b.attempts[userID] = a
+	}
+	if a.count >= maxClaimAttempts {
+		return 0, "", fmt.Errorf("too many attempts — wait a few minutes, then send /link to the bot for a fresh code")
+	}
+	b.purgeExpiredLocked()
+	p, ok := b.pending[code]
+	if !ok {
+		a.count++
+		return 0, "", fmt.Errorf("that code is unknown or expired — send /link to the bot for a fresh one")
+	}
+	delete(b.pending, code)
+	delete(b.attempts, userID)
+	return p.chatID, p.label, nil
 }
 
 // Reload applies the current settings: stops any running poller, then starts
@@ -206,12 +268,15 @@ func (b *Bot) handleMessage(ctx context.Context, token string, msg *tgMessage) {
 	text := strings.TrimSpace(msg.Text)
 	chatID := msg.Chat.ID
 
-	// "/link 123456" pairs this chat with the user who minted the code.
-	if code, ok := strings.CutPrefix(text, "/link"); ok {
-		code = strings.TrimSpace(code)
-		lc, valid := b.takeLinkCode(code)
-		if !valid {
-			b.send(ctx, token, chatID, "That link code is unknown or expired. Mint a fresh one in HomeHub → Assistant → Telegram.")
+	// "/link": the chat asks to be linked and receives a code. The binding
+	// only happens when a signed-in HomeHub user confirms that code in the
+	// web UI — the secret flows Telegram → web, never the other way, so
+	// nothing an attacker sends the bot can ever attach a chat to an
+	// account. Guessing is pointless: confirming a code links the chat to
+	// the CONFIRMING user's own account.
+	if strings.HasPrefix(text, "/link") {
+		if _, err := b.Store.GetTelegramChat(ctx, chatID); err == nil {
+			b.send(ctx, token, chatID, "This chat is already linked. An administrator can unlink it in HomeHub → Assistant → Telegram.")
 			return
 		}
 		label := msg.Chat.Title
@@ -221,11 +286,8 @@ func (b *Bot) handleMessage(ctx context.Context, token string, msg *tgMessage) {
 				label += " (@" + msg.From.Username + ")"
 			}
 		}
-		if err := b.Store.AddTelegramChat(ctx, chatID, lc.userID, label); err != nil {
-			b.send(ctx, token, chatID, "Linking failed on the HomeHub side — check the server logs.")
-			return
-		}
-		b.send(ctx, token, chatID, fmt.Sprintf("Linked to HomeHub as %s. Plain messages talk to the assistant; start one with ! or / to trigger commands.", lc.userTag))
+		code := b.mintChatCode(chatID, label)
+		b.send(ctx, token, chatID, fmt.Sprintf("Link code: %s\n\nEnter it in HomeHub → Assistant → Telegram while signed in there. It expires in 10 minutes. If you did not request this, ignore it — the code cannot do anything on its own.", code))
 		return
 	}
 
@@ -335,4 +397,16 @@ func (b *Bot) call(ctx context.Context, token, method string, params url.Values,
 		return json.Unmarshal(envelope.Result, out)
 	}
 	return nil
+}
+
+// NotifyLinked tells a freshly linked chat who it now belongs to.
+func (b *Bot) NotifyLinked(ctx context.Context, chatID int64, userTag string) {
+	token := ""
+	if b.TokenFn != nil {
+		token = b.TokenFn(ctx)
+	}
+	if token == "" {
+		return
+	}
+	b.send(ctx, token, chatID, fmt.Sprintf("Linked to HomeHub as %s. Plain messages talk to the assistant; start one with ! or / to trigger commands.", userTag))
 }

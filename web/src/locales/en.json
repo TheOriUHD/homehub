@@ -2799,19 +2799,19 @@
       "step1a": "Message",
       "step1b": " on Telegram, send /newbot, and copy the token it gives you.",
       "step2": "Paste the token below, enable the bridge, and save.",
-      "step3": "Link your chat: generate a code, then send /link <code> to your bot.",
+      "step3": "In your chat with the bot, send /link — it replies with a code.",
       "token": "Bot token",
       "tokenStored": "A token is stored — paste a new one only to replace it.",
       "enable": "Enable the bridge",
       "saved": "Telegram settings saved",
       "chats": "Linked chats",
       "noChats": "No chats linked yet — plain messages from a linked chat go straight to the assistant.",
-      "linkChat": "Link a chat",
-      "sendThis": "Send this to {{bot}} from the chat you want to link:",
-      "yourBot": "your bot",
-      "waiting": "Waiting for the message — the chat appears here the moment it arrives. The code expires after 10 minutes.",
-      "linked": "Chat linked",
-      "modes": "Plain messages talk to the AI assistant under the linked user's permissions. Messages starting with ! or / are command triggers — configurable soon."
+      "linkChat": "Link chat",
+      "modes": "Plain messages talk to the AI assistant under the linked user's permissions. Messages starting with ! or / are command triggers — configurable soon.",
+      "step4": "Type that code here (below) while signed in. Nothing links until you do.",
+      "enterCode": "Send /link to {{bot}}, then enter the code it gives you here:",
+      "linkedAs": "Linked {{label}}",
+      "yourBot": "your bot"
     }
   }
 }
