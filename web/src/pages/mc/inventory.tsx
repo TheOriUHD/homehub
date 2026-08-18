@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * Authentic Minecraft inventory, laid out on the vanilla GUI grid: the
@@ -36,13 +37,114 @@ function texUrl(type: string): string {
   return `/mc-tex/${id}.png`;
 }
 
-// Legacy § color/format codes carry no meaning here — strip for display.
-function cleanName(name: string): string {
-  return name.replace(/[§&][0-9a-fk-or]/gi, "").trim();
+function prettyType(type: string): string {
+  return type
+    .replace(/^minecraft:/, "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function prettyType(type: string): string {
-  return type.replace(/^minecraft:/, "").replace(/_/g, " ");
+// ---- legacy §-code rendering for custom item names --------------------------
+
+const MC_COLORS: Record<string, string> = {
+  "0": "#000000", "1": "#0000AA", "2": "#00AA00", "3": "#00AAAA",
+  "4": "#AA0000", "5": "#AA00AA", "6": "#FFAA00", "7": "#AAAAAA",
+  "8": "#555555", "9": "#5555FF", a: "#55FF55", b: "#55FFFF",
+  c: "#FF5555", d: "#FF55FF", e: "#FFFF55", f: "#FFFFFF",
+};
+
+type NameFrag = { text: string; color?: string; bold?: boolean; italic?: boolean; underline?: boolean; strike?: boolean };
+
+/** Parse a legacy §-formatted string into styled fragments (& accepted too). */
+function parseLegacy(input: string): NameFrag[] {
+  const frags: NameFrag[] = [];
+  let cur: NameFrag = { text: "" };
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if ((ch === "§" || ch === "&") && i + 1 < input.length) {
+      const code = input[i + 1].toLowerCase();
+      if (MC_COLORS[code] || "klmnor".includes(code)) {
+        if (cur.text) frags.push(cur);
+        if (MC_COLORS[code]) cur = { text: "", color: MC_COLORS[code] };
+        else if (code === "l") cur = { ...cur, text: "", bold: true };
+        else if (code === "o") cur = { ...cur, text: "", italic: true };
+        else if (code === "n") cur = { ...cur, text: "", underline: true };
+        else if (code === "m") cur = { ...cur, text: "", strike: true };
+        else if (code === "r") cur = { text: "" };
+        i++;
+        continue;
+      }
+    }
+    cur.text += ch;
+  }
+  if (cur.text) frags.push(cur);
+  return frags.length > 0 ? frags : [{ text: input }];
+}
+
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+
+/** Enchants whose max level is 1 — vanilla shows them without a numeral. */
+const SINGLE_LEVEL = new Set([
+  "mending", "silk_touch", "flame", "infinity", "channeling", "multishot",
+  "aqua_affinity", "binding_curse", "vanishing_curse",
+]);
+
+function enchantLabel(id: string, level: number): string {
+  const name = prettyType(id);
+  if (level === 1 && SINGLE_LEVEL.has(id.replace(/^minecraft:/, ""))) return name;
+  return `${name} ${ROMAN[level - 1] ?? level}`;
+}
+
+/** The vanilla purple-bordered item tooltip, following the cursor. Rendered
+ *  through a portal so no slot stacking context or overflow can clip it. */
+function ItemTooltip({ item, at }: { item: InvItem; at: { x: number; y: number } }) {
+  const left = Math.min(at.x + 14, (typeof window !== "undefined" ? window.innerWidth : 1200) - 250);
+  const top = Math.max(8, at.y - 30);
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        left,
+        top,
+        zIndex: 60,
+        pointerEvents: "none",
+        background: "rgba(16,0,16,0.95)",
+        border: "1px solid rgba(80,0,255,0.45)",
+        boxShadow: "0 0 0 2px rgba(16,0,16,0.95)",
+        padding: "5px 9px",
+        fontFamily: "monospace",
+        fontSize: 13,
+        lineHeight: 1.4,
+        whiteSpace: "nowrap",
+      }}
+    >
+      <div style={{ color: "#FFFFFF" }}>
+        {item.name
+          ? parseLegacy(item.name).map((f, i) => (
+              <span
+                key={i}
+                style={{
+                  color: f.color ?? "#FFFFFF",
+                  fontWeight: f.bold ? 700 : 400,
+                  fontStyle: f.italic ? "italic" : undefined,
+                  textDecoration: f.underline ? "underline" : f.strike ? "line-through" : undefined,
+                }}
+              >
+                {f.text}
+              </span>
+            ))
+          : prettyType(item.type)}
+      </div>
+      {item.enchants &&
+        Object.entries(item.enchants).map(([e, lvl]) => (
+          <div key={e} style={{ color: "#AAAAAA" }}>
+            {enchantLabel(e, lvl)}
+          </div>
+        ))}
+      {item.name && <div style={{ color: "#555555" }}>{prettyType(item.type)}</div>}
+    </div>,
+    document.body,
+  );
 }
 
 type GhostKind = "helmet" | "chestplate" | "leggings" | "boots" | "shield";
@@ -82,18 +184,18 @@ export function Slot({
     setBroken(false);
     setSmooth(false);
   }, [type]);
+  const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
   const enchanted = !!item && !!item.enchants && Object.keys(item.enchants).length > 0;
-  const label = item
-    ? (item.name ? cleanName(item.name) : prettyType(item.type)) +
-      (item.enchants ? " — " + Object.entries(item.enchants).map(([e, l]) => `${e.replace(/_/g, " ")} ${l}`).join(", ") : "")
-    : undefined;
+  const label = item ? prettyType(item.type) : undefined;
   const pos =
     x !== undefined && y !== undefined
       ? ({ position: "absolute", left: x * S, top: y * S } as const)
       : ({ position: "relative" } as const);
   return (
     <div
-      title={label}
+      onMouseEnter={(e) => setTip({ x: e.clientX, y: e.clientY })}
+      onMouseMove={(e) => setTip({ x: e.clientX, y: e.clientY })}
+      onMouseLeave={() => setTip(null)}
       style={{
         ...pos,
         width: CELL,
@@ -109,16 +211,31 @@ export function Slot({
           alt=""
           style={{
             position: "absolute",
-            left: -3 * S,
-            top: -3 * S,
-            width: 24 * S,
-            height: 23 * S,
+            left: -4 * S,
+            top: -4 * S,
+            width: 26 * S,
+            height: 25 * S,
             imageRendering: "pixelated",
             pointerEvents: "none",
             zIndex: 3,
           }}
         />
       )}
+      {tip && (
+        <span
+          style={{
+            position: "absolute",
+            left: S,
+            top: S,
+            width: ITEM,
+            height: ITEM,
+            background: "rgba(255,255,255,0.45)",
+            pointerEvents: "none",
+            zIndex: 2,
+          }}
+        />
+      )}
+      {tip && item && <ItemTooltip item={item} at={tip} />}
       {!item && ghost && <GhostImg kind={ghost} />}
       {item && !broken && (
         <img
