@@ -4252,6 +4252,35 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   /mc/{id}/servers/{serverId}:
+    patch:
+      operationId: mcUpdateServer
+      summary: Rename a server or move it to another network
+      description: Moving reseals the companion's token under the destination network — no re-pairing. Requires configure on both networks. Audited.
+      tags: [minecraft]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - $ref: "#/components/parameters/mcServerIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label: { type: string, minLength: 1, maxLength: 80 }
+                networkId:
+                  type: string
+                  format: uuid
+                  description: Destination network (another minecraft system)
+      responses:
+        "204":
+          description: Updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
     delete:
       operationId: mcDeleteServer
       summary: Remove a server from the network

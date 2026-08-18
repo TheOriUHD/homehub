@@ -206,6 +206,73 @@ func (s *Server) McCreatePairingCode(ctx context.Context, req McCreatePairingCod
 	return McCreatePairingCode200JSONResponse(resp), nil
 }
 
+func (s *Server) McUpdateServer(ctx context.Context, req McUpdateServerRequestObject) (McUpdateServerResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	_, resource, err := s.mcInstance(ctx, id, req.Id)
+	if err != nil {
+		return McUpdateServer404JSONResponse{notFoundErr("instance")}, nil
+	}
+	if !s.can(ctx, id, resource, rbac.LevelConfigure) {
+		s.deniedAudit(ctx, id, "mc.server_update", resource)
+		return McUpdateServer403JSONResponse{forbidden()}, nil
+	}
+	server, _, err := s.mcServer(ctx, id, req.Id, req.ServerId)
+	if err != nil {
+		return McUpdateServer404JSONResponse{notFoundErr("server")}, nil
+	}
+
+	if req.Body.Label != nil {
+		label := strings.TrimSpace(*req.Body.Label)
+		if label == "" {
+			return McUpdateServer400JSONResponse{BadRequestJSONResponse(errBody("invalid_label", "the name cannot be empty"))}, nil
+		}
+		if err := s.store.RenameMinecraftServer(ctx, server.ID, label); err != nil {
+			return nil, err
+		}
+		s.audit.Log(ctx, actorFor(id), "mc.server_rename", resource, "success",
+			map[string]any{"serverId": server.ID.String(), "from": server.Label, "to": label})
+	}
+
+	if req.Body.NetworkId != nil && *req.Body.NetworkId != req.Id {
+		targetID := *req.Body.NetworkId
+		target, err := s.store.GetIntegration(ctx, targetID)
+		if err != nil || target.Type != minecraft.TypeID {
+			return McUpdateServer400JSONResponse{BadRequestJSONResponse(errBody("invalid_target", "the destination is not a Minecraft network"))}, nil
+		}
+		targetRes := target.Type + "/" + targetID.String()
+		if !s.can(ctx, id, targetRes, rbac.LevelConfigure) {
+			s.deniedAudit(ctx, id, "mc.server_move", targetRes)
+			return McUpdateServer403JSONResponse{forbidden()}, nil
+		}
+		// Reseal the companion token under the destination network's scope
+		// so the move never breaks the pairing. Wrapped pre-network servers
+		// keep theirs in the legacy slot.
+		oldScope := "integration:" + req.Id.String()
+		token, err := s.vault.Open(ctx, oldScope, "agent-token-"+server.ID.String())
+		if err != nil && server.ID == server.IntegrationID {
+			token, err = s.vault.Open(ctx, oldScope, "agent-token")
+		}
+		if err != nil {
+			return McUpdateServer400JSONResponse{BadRequestJSONResponse(errBody("no_token", "this server has no stored companion token — re-pair it instead"))}, nil
+		}
+		if err := s.vault.Seal(ctx, "integration:"+targetID.String(), "agent-token-"+server.ID.String(), token); err != nil {
+			return nil, err
+		}
+		if err := s.store.MoveMinecraftServer(ctx, server.ID, targetID); err != nil {
+			return nil, err
+		}
+		s.audit.Log(ctx, actorFor(id), "mc.server_move", resource, "success",
+			map[string]any{"serverId": server.ID.String(), "to": targetID.String()})
+		// Both networks' health changed shape immediately.
+		s.integrations.Kick(req.Id)
+		s.integrations.Kick(targetID)
+	}
+	return McUpdateServer204Response{}, nil
+}
+
 func (s *Server) McDeleteServer(ctx context.Context, req McDeleteServerRequestObject) (McDeleteServerResponseObject, error) {
 	id := httpctx.IdentityFrom(ctx)
 	if id == nil {

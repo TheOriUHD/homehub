@@ -126,6 +126,20 @@ func (s *Store) ListMinecraftServers(ctx context.Context, integrationID uuid.UUI
 		`select `+mcServerCols+` from minecraft_network_servers where integration_id = $1 order by created_at`, integrationID))
 }
 
+// RenameMinecraftServer updates a server's label.
+func (s *Store) RenameMinecraftServer(ctx context.Context, serverID uuid.UUID, label string) error {
+	_, err := s.pool.Exec(ctx,
+		`update minecraft_network_servers set label = $2 where id = $1`, serverID, label)
+	return err
+}
+
+// MoveMinecraftServer reassigns a server to another network.
+func (s *Store) MoveMinecraftServer(ctx context.Context, serverID, targetIntegrationID uuid.UUID) error {
+	_, err := s.pool.Exec(ctx,
+		`update minecraft_network_servers set integration_id = $2 where id = $1`, serverID, targetIntegrationID)
+	return err
+}
+
 // DeleteMinecraftServer removes a server from its network. The companion's
 // token dies with the row — hello validates the row exists.
 func (s *Store) DeleteMinecraftServer(ctx context.Context, integrationID, serverID uuid.UUID) error {

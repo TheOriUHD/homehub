@@ -1936,7 +1936,10 @@
       "sshTest": "Test SSH",
       "sshConfigured": "SSH access is configured for this network.",
       "sshNotConfigured": "Not configured — edit the system on the Systems page and fill in the SSH fields.",
-      "sshOk": "Connected: {{detail}}"
+      "sshOk": "Connected: {{detail}}",
+      "moveServer": "Move to another network",
+      "moveTo": "Move to {{name}}",
+      "moved": "{{name}} moved — the companion stays paired"
     },
     "performance": {
       "tps": "TPS",
