@@ -617,6 +617,16 @@
       "baseUrlHint": "The origin your browser also reaches, e.g. https://aperture.example.com",
       "apiKey": "API token",
       "apiKeyHint": "Settings → Integrations → API tokens in Aperture, created by an admin with scopes media:live, system:read, storage:read, cameras:read (starts with apt_)"
+    },
+    "mc": {
+      "sshHost": "SSH host",
+      "sshHostHint": "Optional: the machine running this network, for full restarts.",
+      "sshPort": "SSH port",
+      "sshUser": "SSH user",
+      "sshPassword": "SSH password",
+      "sshSecretHint": "Password or key — one is enough. Stored encrypted, never shown again.",
+      "sshKey": "SSH private key",
+      "sshKeyHint": "PEM/OpenSSH format. Preferred over a password."
     }
   },
   "systems": {
@@ -1910,7 +1920,23 @@
       "step4Body": "The companion pairs, then reconnects automatically from here on — nothing else to do.",
       "back": "Back to console",
       "modeInGame": "In-game",
-      "modeConsole": "Console"
+      "modeConsole": "Console",
+      "serversTitle": "Servers in this network",
+      "serversIntro": "Every paired proxy and subserver. Removing one revokes its companion's token.",
+      "noServers": "Nothing paired yet — generate a code below and pair your first server.",
+      "neverConnected": "never connected",
+      "removeServer": "Remove",
+      "removeTitle": "Remove {{name}}?",
+      "removeBody": "The companion's token is revoked; the server can be re-paired later with a fresh code. Metric history is kept.",
+      "labelField": "Server name",
+      "labelHint": "What the new server will be called here, e.g. Lobby, SMP, Proxy. Empty: the server's own name.",
+      "labelPlaceholder": "Lobby",
+      "sshTitle": "SSH host access",
+      "sshIntro": "One login onto the machine running this network — the foundation for full restarts (screen) by HomeHub and the assistant. Configure it by editing the system (host, user, password or key).",
+      "sshTest": "Test SSH",
+      "sshConfigured": "SSH access is configured for this network.",
+      "sshNotConfigured": "Not configured — edit the system on the Systems page and fill in the SSH fields.",
+      "sshOk": "Connected: {{detail}}"
     },
     "performance": {
       "tps": "TPS",
@@ -1929,7 +1955,20 @@
       "playersOnline": "players online",
       "emptyTitle": "No servers yet",
       "emptyBody": "Add a Minecraft server under Administration → Systems and pair its companion.",
-      "notPairedMeta": "not paired yet"
+      "notPairedMeta": "not paired yet",
+      "serverCount": "{{count}} servers"
+    },
+    "networkSubtitle": "{{connected}} / {{total}} servers connected · {{players}} players online",
+    "network": {
+      "emptyTitle": "No servers in this network yet",
+      "emptyBody": "Open Setup to pair the proxy and each subserver with its own code.",
+      "unknownLoader": "not yet connected",
+      "offline": "Companion offline",
+      "backends": "{{count}} backends"
+    },
+    "server": {
+      "back": "All servers",
+      "gone": "This server is not part of the network (anymore)."
     }
   },
   "history": {

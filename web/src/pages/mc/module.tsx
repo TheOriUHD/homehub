@@ -1,26 +1,26 @@
-import { Link, Outlet, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, MoreHorizontal, Pickaxe, Wrench } from "lucide-react";
-import type { ReactNode } from "react";
 import { Button } from "@/ui/button";
 import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "@/ui/dropdown";
 import { useAuth } from "@/lib/auth";
-import { capacityTextClass } from "@/lib/capacity";
 import { useLiveInvalidate } from "@/lib/live";
-import { useMetricSeries } from "@/lib/metrics";
 import { statusTone, useIntegrations } from "@/lib/systems";
-import { cn } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Card } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
-import { Sparkline } from "@/ui/sparkline";
 import { EmptyState, ErrorState } from "@/ui/states";
-import { loaderLabel, mcResource, tpsTone, useMcLive, useMcOverview } from "./shared";
+import { mcResource, useMcLive, useMcOverview } from "./shared";
 
+/**
+ * McModulePage is the NETWORK shell: one Minecraft integration is a whole
+ * network (proxy + subservers), and this frame carries its name, status
+ * and setup entry while the index route shows the server grid and nested
+ * routes show one server each.
+ */
 export function McModulePage() {
   const { t } = useTranslation();
   const { instanceId } = useParams({ from: "/shell/mc/$instanceId" });
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const { can } = useAuth();
 
@@ -49,24 +49,9 @@ export function McModulePage() {
   }
 
   const canConfigure = can(mcResource(instanceId), "configure");
-  const base = `/mc/${instanceId}`;
-  // Setup is deliberately NOT a tab — it's a one-time admin task, reached
-  // through the header's overflow menu instead of taking permanent space.
-  const tabs = [
-    { to: base, label: t("mc.tabs.console"), exact: true },
-    { to: `${base}/players`, label: t("mc.tabs.players") },
-    { to: `${base}/performance`, label: t("mc.tabs.performance") },
-  ];
-
-  const data = overview.data;
-  const loader = loaderLabel(data?.loader);
-  const meta = [
-    data?.serverName || null,
-    loader ? (data?.mcVersion ? `${loader} ${data.mcVersion}` : loader) : data?.mcVersion || null,
-    data?.companionVersion ? t("mc.companionVersion", { version: data.companionVersion }) : null,
-  ].filter(Boolean);
-
-  const status = data?.connected ? data.status : null;
+  const servers = overview.data?.servers ?? [];
+  const connected = servers.filter((s) => s.connected).length;
+  const players = servers.reduce((sum, s) => sum + (s.status?.playersOnline ?? 0), 0);
 
   return (
     <div className="space-y-5">
@@ -76,48 +61,18 @@ export function McModulePage() {
         </span>
         <div className="min-w-0 flex-1">
           <h1 className="text-fg flex items-center gap-2.5 text-xl font-semibold tracking-tight">
-            {instance.name}
+            <Link to="/mc/$instanceId" params={{ instanceId }} className="hover:underline">
+              {instance.name}
+            </Link>
             <Badge tone={statusTone[instance.status]}>
               <StatusDot tone={statusTone[instance.status]} pulse={instance.status !== "connected"} />
               {t(`integrations.status.${instance.status}`)}
             </Badge>
           </h1>
           <p className="text-fg-muted text-sm">
-            {t("mc.title")}
-            {meta.length > 0 && ` · ${meta.join(" · ")}`}
+            {t("mc.networkSubtitle", { connected, total: servers.length, players })}
           </p>
         </div>
-
-        {status && (
-          <div className="flex flex-wrap items-stretch gap-2">
-            {typeof status.tps === "number" && (
-              <HeaderStat
-                label={t("mc.stats.tps")}
-                value={status.tps.toFixed(1)}
-                valueClass={capacityTextClass[tpsTone(status.tps)]}
-              >
-                {data?.loader !== "velocity" && <HeaderTpsSparkline instanceId={instanceId} />}
-              </HeaderStat>
-            )}
-            <HeaderStat
-              label={t("mc.stats.players")}
-              value={t("mc.chips.players", { online: status.playersOnline, max: status.playersMax })}
-            />
-            {typeof status.heapUsedMb === "number" && (
-              <HeaderStat
-                label={t("mc.stats.heap")}
-                value={
-                  typeof status.heapMaxMb === "number"
-                    ? t("mc.stats.heapValue", {
-                        used: Math.round(status.heapUsedMb),
-                        max: Math.round(status.heapMaxMb),
-                      })
-                    : t("mc.stats.heapValueNoMax", { used: Math.round(status.heapUsedMb) })
-                }
-              />
-            )}
-          </div>
-        )}
 
         {canConfigure && (
           <Dropdown>
@@ -138,68 +93,7 @@ export function McModulePage() {
         )}
       </div>
 
-      <nav className="border-edge no-scrollbar flex gap-1 overflow-x-auto border-b">
-        {tabs.map((tab) => {
-          const active = tab.exact ? pathname === tab.to : pathname.startsWith(tab.to);
-          return (
-            <Link
-              key={tab.to}
-              to={tab.to}
-              className={cn(
-                "-mb-px shrink-0 border-b-2 px-3.5 py-2 text-[13px] font-medium transition-colors",
-                active
-                  ? "border-accent text-fg"
-                  : "text-fg-muted hover:text-fg border-transparent",
-              )}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </nav>
-
       <Outlet />
-    </div>
-  );
-}
-
-/** One compact header stat: tiny uppercase label over the live value. */
-function HeaderStat({
-  label,
-  value,
-  valueClass,
-  children,
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="bg-bg-subtle flex items-center gap-3 rounded-lg px-3 py-1.5">
-      <div className="min-w-0">
-        <p className="text-fg-subtle text-[10px] font-semibold tracking-wide uppercase">{label}</p>
-        <p className={cn("text-[13px] leading-tight font-semibold tabular-nums", valueClass ?? "text-fg")}>
-          {value}
-        </p>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/**
- * The last hour of TPS as a header-scale sparkline beside the live number.
- * Renders nothing until the series has at least two samples; never mounted
- * for proxy loaders (Velocity has no tick loop, so no TPS).
- */
-function HeaderTpsSparkline({ instanceId }: { instanceId: string }) {
-  const resource = mcResource(instanceId);
-  const points = useMetricSeries(`metrics:${resource}`, resource, "tps");
-  if (points.length < 2) return null;
-  return (
-    <div className="w-[110px] shrink-0">
-      <Sparkline points={points} height={36} />
     </div>
   );
 }

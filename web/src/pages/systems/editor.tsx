@@ -225,7 +225,14 @@ type TruenasFormState = {
   insecureTls: boolean;
 };
 
-type McFormState = { name: string };
+type McFormState = {
+  name: string;
+  sshHost: string;
+  sshPort: string;
+  sshUser: string;
+  sshPassword: string;
+  sshKey: string;
+};
 
 type CaddyFormState = { name: string; baseUrl: string; code: string };
 
@@ -267,7 +274,7 @@ const emptyMongoForm: MongoFormState = {
 
 const emptyTruenasForm: TruenasFormState = { name: "", host: "", username: "", apiKey: "", insecureTls: false };
 
-const emptyMcForm: McFormState = { name: "" };
+const emptyMcForm: McFormState = { name: "", sshHost: "", sshPort: "22", sshUser: "", sshPassword: "", sshKey: "" };
 
 const emptyCaddyForm: CaddyFormState = { name: "", baseUrl: "", code: "" };
 
@@ -309,8 +316,17 @@ function truenasPayload(form: TruenasFormState): FormPayload {
   };
 }
 
-function mcPayload(): FormPayload {
-  return { config: {}, secrets: {} };
+function mcPayload(form: McFormState): FormPayload {
+  const config: Record<string, unknown> = {};
+  if (form.sshHost.trim()) {
+    config.sshHost = form.sshHost.trim();
+    config.sshPort = Math.max(1, Math.min(65535, Number(form.sshPort) || 22));
+    config.sshUser = form.sshUser.trim();
+  }
+  const secrets: Record<string, string> = {};
+  if (form.sshPassword) secrets.sshPassword = form.sshPassword;
+  if (form.sshKey.trim()) secrets.sshKey = form.sshKey;
+  return { config, secrets };
 }
 
 function ampPayload(form: AmpFormState): FormPayload {
@@ -435,7 +451,7 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
       case "aperture":
         return aperturePayload(apertureForm);
       case "minecraft":
-        return mcPayload();
+        return mcPayload(mcForm);
       default:
         return null;
     }
@@ -744,7 +760,13 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
     username: String(cfg.username ?? ""),
     insecureTls: Boolean(cfg.insecureTls),
   });
-  const [mcForm, setMcForm] = useState<McFormState>({ name: row.name });
+  const [mcForm, setMcForm] = useState<McFormState>({
+    ...emptyMcForm,
+    name: row.name,
+    sshHost: String(cfg.sshHost ?? ""),
+    sshPort: String(cfg.sshPort ?? "22"),
+    sshUser: String(cfg.sshUser ?? ""),
+  });
   const [ampForm, setAmpForm] = useState<AmpFormState>({
     ...emptyAmpForm,
     name: row.name,
@@ -795,7 +817,7 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
       case "aperture":
         return aperturePayload(apertureForm);
       case "minecraft":
-        return mcPayload();
+        return mcPayload(mcForm);
       default:
         return pvePayload(pveForm);
     }
@@ -1680,6 +1702,46 @@ function McForm({
           />
         )}
       </Field>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label={t("integrations.mc.sshHost")} hint={t("integrations.mc.sshHostHint")}>
+          {(p) => (
+            <Input {...p} placeholder="192.168.1.10" value={form.sshHost}
+              onChange={(e) => setForm((prev) => ({ ...prev, sshHost: e.target.value }))} />
+          )}
+        </Field>
+        <Field label={t("integrations.mc.sshPort")}>
+          {(p) => (
+            <Input {...p} type="number" value={form.sshPort}
+              onChange={(e) => setForm((prev) => ({ ...prev, sshPort: e.target.value }))} />
+          )}
+        </Field>
+        <Field label={t("integrations.mc.sshUser")}>
+          {(p) => (
+            <Input {...p} placeholder="minecraft" value={form.sshUser}
+              onChange={(e) => setForm((prev) => ({ ...prev, sshUser: e.target.value }))} />
+          )}
+        </Field>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.mc.sshPassword")} hint={t("integrations.mc.sshSecretHint")}>
+          {(p) => (
+            <Input {...p} type="password" placeholder="••••••••" value={form.sshPassword}
+              onChange={(e) => setForm((prev) => ({ ...prev, sshPassword: e.target.value }))} />
+          )}
+        </Field>
+        <Field label={t("integrations.mc.sshKey")} hint={t("integrations.mc.sshKeyHint")}>
+          {(p) => (
+            <textarea
+              id={p.id}
+              aria-describedby={p["aria-describedby"]}
+              className="border-edge bg-surface text-fg focus:border-accent focus:ring-ring/40 h-20 w-full rounded-md border px-3 py-2 font-mono text-[12px] shadow-1 focus:ring-2 focus:outline-none"
+              placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+              value={form.sshKey}
+              onChange={(e) => setForm((prev) => ({ ...prev, sshKey: e.target.value }))}
+            />
+          )}
+        </Field>
+      </div>
       <div className="bg-accent-soft/40 border-accent/30 text-fg rounded-lg border p-4 text-[13px] leading-relaxed">
         <p className="font-semibold">{t("integrations.minecraft.howTitle")}</p>
         <ol className="text-fg-muted mt-2 list-decimal space-y-1 pl-4">

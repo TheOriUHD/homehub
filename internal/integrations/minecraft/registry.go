@@ -21,7 +21,9 @@ import (
 	"homehub/internal/vault"
 )
 
-// tokenPrefix versions the agent token format: mcs1.<integration-uuid>.<secret>.
+// tokenPrefix versions the agent token format: mcs1.<server-uuid>.<secret>.
+// (Pre-network tokens carried the integration uuid; the wrap migration
+// gave those servers id == integration id, so they parse identically.)
 const tokenPrefix = "mcs1"
 
 // Registry tracks live companion sessions and terminates the agent
@@ -40,7 +42,7 @@ type Registry struct {
 	StatusChanged func(instanceID uuid.UUID)
 
 	mu       sync.RWMutex
-	sessions map[uuid.UUID]*Session
+	sessions map[uuid.UUID]*Session // keyed by SERVER id
 }
 
 func NewRegistry(st *store.Store, v *vault.Vault, logger *slog.Logger) *Registry {
@@ -54,17 +56,32 @@ func NewRegistry(st *store.Store, v *vault.Vault, logger *slog.Logger) *Registry
 	}
 }
 
-// Session returns the live companion session for an instance, if connected.
-func (r *Registry) Session(id uuid.UUID) (*Session, bool) {
+// Session returns the live companion session for one SERVER, if connected.
+func (r *Registry) Session(serverID uuid.UUID) (*Session, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	s, ok := r.sessions[id]
+	s, ok := r.sessions[serverID]
 	return s, ok
+}
+
+// NetworkSessions returns the connected sessions of one network.
+func (r *Registry) NetworkSessions(networkID uuid.UUID) []*Session {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := []*Session{}
+	for _, s := range r.sessions {
+		if s.NetworkID == networkID {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // Session is one connected companion plugin.
 type Session struct {
-	InstanceID uuid.UUID
+	ServerID   uuid.UUID
+	NetworkID  uuid.UUID
+	Label      string
 	ServerName string
 	Loader     string
 	McVersion  string
@@ -170,14 +187,14 @@ func (r *Registry) HandleAgent(w http.ResponseWriter, req *http.Request, clientI
 		return
 	}
 
-	var instanceID uuid.UUID
+	var server *store.MinecraftServer
 	paired := false
 	switch first.Type {
 	case FramePair:
-		instanceID, err = r.pair(ctx, conn, first)
+		server, err = r.pair(ctx, conn, first)
 		paired = true
 	case FrameHello:
-		instanceID, err = r.hello(ctx, first)
+		server, err = r.hello(ctx, first)
 	default:
 		err = errors.New("first frame must be pair or hello")
 	}
@@ -187,13 +204,15 @@ func (r *Registry) HandleAgent(w http.ResponseWriter, req *http.Request, clientI
 		return
 	}
 
-	if err := r.store.UpsertMinecraftServer(ctx, instanceID,
-		first.ServerName, first.Loader, first.McVersion, first.Companion, clientIP, paired); err != nil {
+	if err := r.store.TouchMinecraftServer(ctx, server.ID,
+		first.ServerName, first.Loader, first.McVersion, first.Companion, clientIP); err != nil {
 		r.logger.Error("recording companion metadata", "error", err)
 	}
 
 	sess := &Session{
-		InstanceID: instanceID,
+		ServerID:   server.ID,
+		NetworkID:  server.IntegrationID,
+		Label:      server.Label,
 		ServerName: first.ServerName,
 		Loader:     first.Loader,
 		McVersion:  first.McVersion,
@@ -206,77 +225,99 @@ func (r *Registry) HandleAgent(w http.ResponseWriter, req *http.Request, clientI
 		closed:     make(chan struct{}),
 	}
 
-	// One session per instance: a reconnecting companion replaces its
+	// One session per server: a reconnecting companion replaces its
 	// predecessor (its console backfill restores continuity).
 	r.mu.Lock()
-	if old := r.sessions[instanceID]; old != nil {
+	if old := r.sessions[server.ID]; old != nil {
 		old.close()
 	}
-	r.sessions[instanceID] = sess
+	r.sessions[server.ID] = sess
 	r.mu.Unlock()
 
 	if !paired {
 		writeFrame(ctx, conn, Frame{Type: FrameWelcome})
 	}
 	r.logger.Info("companion connected",
-		"instance", instanceID, "server", first.ServerName, "loader", first.Loader, "mc", first.McVersion)
-	r.Publish(instanceID, "companion-changed", nil)
-	r.StatusChanged(instanceID)
+		"network", server.IntegrationID, "serverId", server.ID, "server", first.ServerName, "loader", first.Loader, "mc", first.McVersion)
+	r.Publish(server.IntegrationID, "companion-changed", map[string]any{"serverId": server.ID.String()})
+	r.StatusChanged(server.IntegrationID)
 
 	r.pump(ctx, sess)
 
 	r.mu.Lock()
-	if r.sessions[instanceID] == sess {
-		delete(r.sessions, instanceID)
+	if r.sessions[server.ID] == sess {
+		delete(r.sessions, server.ID)
 	}
 	r.mu.Unlock()
 	sess.close()
-	r.logger.Info("companion disconnected", "instance", instanceID, "server", first.ServerName)
-	r.Publish(instanceID, "companion-changed", nil)
-	r.StatusChanged(instanceID)
+	r.logger.Info("companion disconnected", "network", server.IntegrationID, "serverId", server.ID, "server", first.ServerName)
+	r.Publish(server.IntegrationID, "companion-changed", map[string]any{"serverId": server.ID.String()})
+	r.StatusChanged(server.IntegrationID)
 }
 
-// pair redeems a 6-digit code and issues the permanent token.
-func (r *Registry) pair(ctx context.Context, conn *websocket.Conn, f *Frame) (uuid.UUID, error) {
+// pair redeems a 6-digit code, creates the server row, and issues its
+// permanent token. Tokens are sealed per server in the NETWORK's vault
+// scope so deleting the network sweeps them all.
+func (r *Registry) pair(ctx context.Context, conn *websocket.Conn, f *Frame) (*store.MinecraftServer, error) {
 	code := strings.TrimSpace(f.Code)
 	if len(code) != 6 {
-		return uuid.Nil, errors.New("pairing code must be 6 digits")
+		return nil, errors.New("pairing code must be 6 digits")
 	}
-	id, err := r.store.ConsumeMinecraftPairing(ctx, code)
+	networkID, label, err := r.store.ConsumeMinecraftPairing(ctx, code)
 	if err != nil {
-		return uuid.Nil, errors.New("pairing code is wrong or expired — generate a fresh one in HomeHub")
+		return nil, errors.New("pairing code is wrong or expired — generate a fresh one in HomeHub")
+	}
+	if label == "" {
+		label = f.ServerName
+	}
+	if label == "" {
+		label = "Server"
+	}
+	server, err := r.store.CreateMinecraftServer(ctx, networkID, label)
+	if err != nil {
+		return nil, fmt.Errorf("creating the server record: %w", err)
 	}
 	secretBytes := make([]byte, 32)
 	if _, err := rand.Read(secretBytes); err != nil {
-		return uuid.Nil, err
+		return nil, err
 	}
 	secret := base64.RawURLEncoding.EncodeToString(secretBytes)
-	if err := r.vault.Seal(ctx, "integration:"+id.String(), "agent-token", []byte(secret)); err != nil {
-		return uuid.Nil, fmt.Errorf("storing the agent token: %w", err)
+	if err := r.vault.Seal(ctx, "integration:"+networkID.String(), "agent-token-"+server.ID.String(), []byte(secret)); err != nil {
+		return nil, fmt.Errorf("storing the agent token: %w", err)
 	}
-	token := tokenPrefix + "." + id.String() + "." + secret
+	token := tokenPrefix + "." + server.ID.String() + "." + secret
 	writeFrame(ctx, conn, Frame{Type: FramePaired, Token: token})
-	return id, nil
+	return server, nil
 }
 
-// hello validates a previously issued token.
-func (r *Registry) hello(ctx context.Context, f *Frame) (uuid.UUID, error) {
+// hello validates a previously issued token. The uuid inside is the
+// SERVER id; wrapped pre-network servers (id == network id) fall back to
+// the legacy vault slot their token was sealed under.
+func (r *Registry) hello(ctx context.Context, f *Frame) (*store.MinecraftServer, error) {
 	parts := strings.Split(f.Token, ".")
 	if len(parts) != 3 || parts[0] != tokenPrefix {
-		return uuid.Nil, errors.New("malformed agent token — re-pair the companion")
+		return nil, errors.New("malformed agent token — re-pair the companion")
 	}
-	id, err := uuid.Parse(parts[1])
+	serverID, err := uuid.Parse(parts[1])
 	if err != nil {
-		return uuid.Nil, errors.New("malformed agent token — re-pair the companion")
+		return nil, errors.New("malformed agent token — re-pair the companion")
 	}
-	stored, err := r.vault.Open(ctx, "integration:"+id.String(), "agent-token")
+	server, err := r.store.GetMinecraftServer(ctx, serverID)
 	if err != nil {
-		return uuid.Nil, errors.New("this server is no longer paired — generate a new code in HomeHub")
+		return nil, errors.New("this server was removed from its network — generate a new code in HomeHub")
+	}
+	scope := "integration:" + server.IntegrationID.String()
+	stored, err := r.vault.Open(ctx, scope, "agent-token-"+server.ID.String())
+	if err != nil && server.ID == server.IntegrationID {
+		stored, err = r.vault.Open(ctx, scope, "agent-token")
+	}
+	if err != nil {
+		return nil, errors.New("this server is no longer paired — generate a new code in HomeHub")
 	}
 	if subtle.ConstantTimeCompare(stored, []byte(parts[2])) != 1 {
-		return uuid.Nil, errors.New("agent token rejected — re-pair the companion")
+		return nil, errors.New("agent token rejected — re-pair the companion")
 	}
-	return id, nil
+	return server, nil
 }
 
 // pump processes companion frames until the connection dies.
@@ -305,20 +346,20 @@ func (r *Registry) pump(ctx context.Context, s *Session) {
 			// Backfill is history — clients pull it via the console API; only
 			// live lines push through the hub to keep events light.
 			if f.Type == FrameConsole && len(stored) > 0 {
-				r.Publish(s.InstanceID, "console", map[string]any{"lines": stored})
+				r.Publish(s.NetworkID, "console", map[string]any{"serverId": s.ServerID.String(), "lines": stored})
 			}
 		case FrameStatus:
 			if f.Status != nil {
 				s.mu.Lock()
 				s.status = f.Status
 				s.mu.Unlock()
-				r.Publish(s.InstanceID, "status", f.Status)
+				r.Publish(s.NetworkID, "status", map[string]any{"serverId": s.ServerID.String(), "status": f.Status})
 			}
 		case FramePlayers:
 			s.mu.Lock()
 			s.players = f.Players
 			s.mu.Unlock()
-			r.Publish(s.InstanceID, "players-changed", map[string]any{"players": f.Players})
+			r.Publish(s.NetworkID, "players-changed", map[string]any{"serverId": s.ServerID.String(), "players": f.Players})
 		case FrameCmdResult:
 			s.cmdMu.Lock()
 			ch := s.cmdWaiters[f.ID]

@@ -17,7 +17,7 @@ import { live } from "@/lib/ws";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { useToast } from "@/ui/toast";
-import { mcResource, mcTopic, useMcOverview } from "./shared";
+import { mcServerResource, mcTopic, useMcServer } from "./shared";
 
 // The console is a fixed dark surface in BOTH themes — like a terminal, not a
 // themed card — so the palette below is deliberately hard-coded, not tokens.
@@ -55,10 +55,10 @@ function levelColor(level: string | undefined): string {
 
 export function McConsolePage() {
   const { t } = useTranslation();
-  const { instanceId } = useParams({ from: "/shell/mc/$instanceId/" });
+  const { instanceId, serverId } = useParams({ from: "/shell/mc/$instanceId/s/$serverId/" });
   const { can } = useAuth();
   const toast = useToast();
-  const overview = useMcOverview(instanceId);
+  const server = useMcServer(instanceId, serverId);
 
   // The line buffer is a mutable ref — appending 100k lines through React
   // state would copy the array on every push. `version` bumps trigger renders.
@@ -89,11 +89,11 @@ export function McConsolePage() {
   const fetchPage = useCallback(
     async (after: number, limit: number) =>
       unwrap(
-        await api.GET("/mc/{id}/console", {
-          params: { path: { id: instanceId }, query: { after, limit } },
+        await api.GET("/mc/{id}/servers/{serverId}/console", {
+          params: { path: { id: instanceId, serverId }, query: { after, limit } },
         }),
       ),
-    [instanceId],
+    [instanceId, serverId],
   );
 
   const push = useCallback(
@@ -184,7 +184,9 @@ export function McConsolePage() {
       const frame = payload as { event?: string; data?: unknown } | undefined;
       if (frame?.event === "console") {
         if (!initialLoadedRef.current) return;
-        const incoming = (frame.data as { lines?: McConsoleLine[] } | undefined)?.lines ?? [];
+        const data = frame.data as { serverId?: string; lines?: McConsoleLine[] } | undefined;
+        if (data?.serverId !== serverId) return; // another server's console
+        const incoming = data?.lines ?? [];
         const fresh = incoming.filter((l) => l.seq > lastSeqRef.current);
         if (fresh.length === 0) return;
         if (fresh[0].seq === lastSeqRef.current + 1) push(fresh);
@@ -193,7 +195,7 @@ export function McConsolePage() {
         void catchUp();
       }
     });
-  }, [instanceId, push, catchUp]);
+  }, [instanceId, serverId, push, catchUp]);
 
   const total = linesRef.current.length;
   const atOldest = total > 0 && linesRef.current[0].seq <= oldestHeldRef.current;
@@ -266,10 +268,10 @@ export function McConsolePage() {
     el.scrollTop = el.scrollHeight;
   }, []);
 
-  const offline = overview.data ? !overview.data.connected : false;
+  const offline = server ? !server.connected : false;
   // Input visibility follows the client-side grant mirror (like every other
   // gated control in the app); a 403 that slips through still just toasts.
-  const canControl = can(mcResource(instanceId), "control");
+  const canControl = can(mcServerResource(instanceId, serverId), "control");
 
   const slice = linesRef.current.slice(range.start, range.end);
 
@@ -375,7 +377,7 @@ export function McConsolePage() {
         )}
       </div>
 
-      {canControl && <CommandBar instanceId={instanceId} />}
+      {canControl && <CommandBar instanceId={instanceId} serverId={serverId} />}
     </div>
   );
 }
@@ -406,7 +408,7 @@ function ConsoleRow({ line, style }: { line: McConsoleLine; style: CSSProperties
  * inert (readOnly + dimmed) so focus is never yanked away; the entered text
  * survives failures for editing and retrying.
  */
-function CommandBar({ instanceId }: { instanceId: string }) {
+function CommandBar({ instanceId, serverId }: { instanceId: string; serverId: string }) {
   const { t } = useTranslation();
   const toast = useToast();
   const [value, setValue] = useState("");
@@ -422,8 +424,8 @@ function CommandBar({ instanceId }: { instanceId: string }) {
   const send = useMutation({
     mutationFn: async (command: string) =>
       unwrap(
-        await api.POST("/mc/{id}/command", {
-          params: { path: { id: instanceId } },
+        await api.POST("/mc/{id}/servers/{serverId}/command", {
+          params: { path: { id: instanceId, serverId } },
           body: { command },
         }),
       ),

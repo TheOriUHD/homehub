@@ -10,7 +10,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { Card, CardBody } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
-import { loaderLabel, mcOverviewKey, tpsTone } from "./shared";
+import { mcOverviewKey, tpsTone } from "./shared";
 
 /**
  * McLandingPage is the Minecraft dashboard across every server: summary
@@ -49,15 +49,10 @@ export function McLandingPage() {
     if (data) byId.set(row.id, data);
   });
 
-  const connected = rows.filter((row) => byId.get(row.id)?.connected).length;
-  const players = rows.reduce((sum, row) => {
-    const o = byId.get(row.id);
-    return sum + (o?.connected ? (o.status?.playersOnline ?? 0) : 0);
-  }, 0);
-  const maxPlayers = rows.reduce((sum, row) => {
-    const o = byId.get(row.id);
-    return sum + (o?.connected ? (o.status?.playersMax ?? 0) : 0);
-  }, 0);
+  const allServers = rows.flatMap((row) => byId.get(row.id)?.servers ?? []);
+  const connected = allServers.filter((s) => s.connected).length;
+  const players = allServers.reduce((sum, s) => sum + (s.connected ? (s.status?.playersOnline ?? 0) : 0), 0);
+  const maxPlayers = allServers.reduce((sum, s) => sum + (s.connected ? (s.status?.playersMax ?? 0) : 0), 0);
 
   return (
     <div className="space-y-5">
@@ -72,7 +67,7 @@ export function McLandingPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <StatCard icon={Pickaxe} value={`${connected} / ${rows.length}`} label={t("mc.landing.serversConnected")} />
+        <StatCard icon={Pickaxe} value={`${connected} / ${allServers.length}`} label={t("mc.landing.serversConnected")} />
         <StatCard icon={Users} value={maxPlayers > 0 ? `${players} / ${maxPlayers}` : String(players)} label={t("mc.landing.playersOnline")} />
       </div>
 
@@ -109,12 +104,16 @@ function StatCard({ icon: Icon, value, label }: { icon: typeof Users; value: str
 
 function ServerCard({ row, overview }: { row: Integration; overview: McOverview | undefined }) {
   const { t } = useTranslation();
-  const status = overview?.connected ? overview.status : null;
-  const loader = loaderLabel(overview?.loader);
-  const meta = [
-    loader ? (overview?.mcVersion ? `${loader} ${overview.mcVersion}` : loader) : (overview?.mcVersion ?? null),
-    overview?.serverName || null,
-  ].filter(Boolean);
+  const servers = overview?.servers ?? [];
+  const online = servers.filter((s) => s.connected);
+  const playersOnline = online.reduce((sum, s) => sum + (s.status?.playersOnline ?? 0), 0);
+  const playersMax = online.reduce((sum, s) => sum + (s.status?.playersMax ?? 0), 0);
+  const worstTps = online.reduce<number | null>((worst, s) => {
+    if (typeof s.status?.tps !== "number") return worst;
+    return worst === null ? s.status.tps : Math.min(worst, s.status.tps);
+  }, null);
+  const heapUsed = online.reduce((sum, s) => sum + (s.status?.heapUsedMb ?? 0), 0);
+  const meta = [t("mc.landing.serverCount", { count: servers.length })];
 
   return (
     <Link to="/mc/$instanceId" params={{ instanceId: row.id }} className="group block">
@@ -123,7 +122,7 @@ function ServerCard({ row, overview }: { row: Integration; overview: McOverview 
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="text-fg group-hover:text-accent truncate font-medium transition-colors">{row.name}</p>
-              <p className="text-fg-muted truncate text-[12px]">{meta.length > 0 ? meta.join(" · ") : t("mc.landing.notPairedMeta")}</p>
+              <p className="text-fg-muted truncate text-[12px]">{servers.length > 0 ? meta.join(" · ") : t("mc.landing.notPairedMeta")}</p>
             </div>
             <Badge tone={statusTone[row.status]}>
               <StatusDot tone={statusTone[row.status]} pulse={row.status !== "connected"} />
@@ -135,24 +134,18 @@ function ServerCard({ row, overview }: { row: Integration; overview: McOverview 
             <MetricCell
               icon={Users}
               label={t("mc.stats.players")}
-              value={status ? `${status.playersOnline}/${status.playersMax}` : "—"}
+              value={online.length > 0 ? `${playersOnline}/${playersMax}` : "—"}
             />
             <MetricCell
               icon={Gauge}
               label={t("mc.stats.tps")}
-              value={typeof status?.tps === "number" ? status.tps.toFixed(1) : "—"}
-              valueClass={typeof status?.tps === "number" ? capacityTextClass[tpsTone(status.tps)] : undefined}
+              value={worstTps !== null ? worstTps.toFixed(1) : "—"}
+              valueClass={worstTps !== null ? capacityTextClass[tpsTone(worstTps)] : undefined}
             />
             <MetricCell
               icon={Cpu}
               label={t("mc.stats.heap")}
-              value={
-                typeof status?.heapUsedMb === "number"
-                  ? typeof status.heapMaxMb === "number"
-                    ? `${(status.heapUsedMb / 1024).toFixed(1)}/${(status.heapMaxMb / 1024).toFixed(0)} GB`
-                    : `${(status.heapUsedMb / 1024).toFixed(1)} GB`
-                  : "—"
-              }
+              value={heapUsed > 0 ? `${(heapUsed / 1024).toFixed(1)} GB` : "—"}
             />
           </div>
         </CardBody>
