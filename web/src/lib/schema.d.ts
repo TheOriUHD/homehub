@@ -2123,6 +2123,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/truenas/{id}/alerts/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss one alert by uuid, or all active alerts */
+        post: operations["truenasAlertDismiss"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/truenas/{id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Hour-long performance history (CPU, load, memory, ARC, per-adapter traffic) */
+        get: operations["truenasStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/amp/instances": {
         parameters: {
             query?: never;
@@ -5200,11 +5234,58 @@ export interface components {
             createdAt?: string | null;
         };
         TruenasAlert: {
+            uuid?: string;
             level: string;
             message: string;
             dismissed: boolean;
             /** Format: date-time */
             createdAt?: string | null;
+        };
+        TruenasStatPoint: {
+            /**
+             * Format: int64
+             * @description Unix seconds
+             */
+            ts: number;
+            /** Format: double */
+            value: number;
+        };
+        TruenasLoadPoint: {
+            /** Format: int64 */
+            ts: number;
+            /** Format: double */
+            load1: number;
+            /** Format: double */
+            load5: number;
+            /** Format: double */
+            load15: number;
+        };
+        TruenasTrafficPoint: {
+            /** Format: int64 */
+            ts: number;
+            /** Format: double */
+            inBps: number;
+            /** Format: double */
+            outBps: number;
+        };
+        TruenasInterfaceTraffic: {
+            name: string;
+            /** @description PHYSICAL | BRIDGE | VLAN | … */
+            type: string;
+            linkState: string;
+            up: boolean;
+            media?: string;
+            addresses?: string[];
+            points: components["schemas"]["TruenasTrafficPoint"][];
+        };
+        TruenasStats: {
+            cpu: components["schemas"]["TruenasStatPoint"][];
+            load: components["schemas"]["TruenasLoadPoint"][];
+            memoryAvailable: components["schemas"]["TruenasStatPoint"][];
+            arcSize: components["schemas"]["TruenasStatPoint"][];
+            /** Format: int64 */
+            totalMemoryBytes: number;
+            interfaces: components["schemas"]["TruenasInterfaceTraffic"][];
         };
         HaInstance: {
             /** Format: uuid */
@@ -9145,6 +9226,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TruenasAlert"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    truenasAlertDismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    uuid?: string;
+                    all?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Dismissed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    truenasStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Performance stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TruenasStats"];
                 };
             };
             404: components["responses"]["NotFound"];

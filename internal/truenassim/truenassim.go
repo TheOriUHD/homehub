@@ -202,12 +202,81 @@ func (s *state) wsAPI(w http.ResponseWriter, r *http.Request) {
 				reply(req.ID, v26Alerts)
 			case "replication.query":
 				reply(req.ID, s.repList)
-			case "reporting.netdata_get_data":
-				const gib = float64(int64(1) << 30)
+			case "interface.query":
 				reply(req.ID, []map[string]any{
-					{"name": "memory", "legend": []string{"time", "available"}, "data": [][]float64{{1755400000, 21 * gib}}},
-					{"name": "arcsize", "legend": []string{"time", "arc_size"}, "data": [][]float64{{1755400000, 24 * gib}}},
+					{
+						"name": "eno1", "type": "PHYSICAL",
+						"state":   map[string]any{"link_state": "LINK_STATE_UP", "active_media_subtype": "1000baseT/Full"},
+						"aliases": []map[string]any{{"type": "INET", "address": "192.168.1.8"}},
+					},
 				})
+			case "reporting.netdata_graphs":
+				reply(req.ID, []map[string]any{
+					{"name": "cpu"}, {"name": "load"}, {"name": "memory"}, {"name": "arcsize"},
+					{"name": "interface", "identifiers": []string{"eno1"}},
+				})
+			case "reporting.netdata_get_data":
+				// Serve whichever graphs were requested, v26 shapes: cpu in
+				// %, memory/arcsize in bytes, interface in Kilobits/s.
+				const gib = float64(int64(1) << 30)
+				var reqGraphs []struct {
+					Name       string `json:"name"`
+					Identifier string `json:"identifier"`
+				}
+				if len(req.Params) > 0 {
+					_ = json.Unmarshal(req.Params[0], &reqGraphs)
+				}
+				if len(reqGraphs) == 0 {
+					reqGraphs = []struct {
+						Name       string `json:"name"`
+						Identifier string `json:"identifier"`
+					}{{Name: "memory"}, {Name: "arcsize"}}
+				}
+				results := []map[string]any{}
+				for _, g := range reqGraphs {
+					switch g.Name {
+					case "cpu":
+						results = append(results, map[string]any{
+							"name": "cpu", "legend": []string{"time", "cpu"},
+							"data": [][]float64{{1755399900, 12}, {1755400000, 17}},
+						})
+					case "load":
+						results = append(results, map[string]any{
+							"name": "load", "legend": []string{"time", "shortterm", "midterm", "longterm"},
+							"data": [][]float64{{1755399900, 0.5, 0.4, 0.3}, {1755400000, 0.7, 0.5, 0.35}},
+						})
+					case "memory":
+						results = append(results, map[string]any{
+							"name": "memory", "legend": []string{"time", "available"},
+							"data": [][]float64{{1755399900, 22 * gib}, {1755400000, 21 * gib}},
+						})
+					case "arcsize":
+						results = append(results, map[string]any{
+							"name": "arcsize", "legend": []string{"time", "size"},
+							"data": [][]float64{{1755399900, 23 * gib}, {1755400000, 24 * gib}},
+						})
+					case "interface":
+						results = append(results, map[string]any{
+							"name": "interface", "identifier": g.Identifier,
+							"legend": []string{"time", "received", "sent"},
+							"data":   [][]float64{{1755399900, 120.5, 30.25}, {1755400000, 950.0, 12.5}},
+						})
+					}
+				}
+				reply(req.ID, results)
+			case "alert.dismiss":
+				var uuid string
+				if len(req.Params) > 0 {
+					_ = json.Unmarshal(req.Params[0], &uuid)
+				}
+				dismissed := false
+				for _, a := range s.alertList {
+					if a["uuid"] == uuid {
+						a["dismissed"] = true
+						dismissed = true
+					}
+				}
+				reply(req.ID, dismissed)
 			default:
 				replyErr(req.ID, "ENOMETHOD", "Method does not exist")
 			}
@@ -327,7 +396,8 @@ func (s *state) seed() {
 		{"id": 1, "name": "backups-to-offsite", "enabled": true, "state": map[string]any{"state": "FINISHED"}},
 	}
 	s.alertList = []map[string]any{
-		{"level": "INFO", "formatted": "Scrub of pool 'tank' finished.", "dismissed": false, "datetime": map[string]any{"$date": int64(1755390000000)}},
+		{"uuid": "alert-scrub-1", "level": "INFO", "formatted": "Scrub of pool 'tank' finished.", "dismissed": false, "datetime": map[string]any{"$date": int64(1755390000000)}},
+		{"uuid": "alert-degraded-1", "level": "WARNING", "formatted": "Pool 'tank' has one <b>offline</b> disk.", "dismissed": false, "datetime": map[string]any{"$date": int64(1755391000000)}},
 	}
 }
 

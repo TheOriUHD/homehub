@@ -1,27 +1,24 @@
 import { useState, type ReactNode } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, HardDrive } from "lucide-react";
+import { HardDrive } from "lucide-react";
 import type {
-  TruenasAlert,
   TruenasDisk,
   TruenasMemory,
   TruenasPool,
   TruenasSystemInfo,
 } from "@/lib/api";
-import { cn, formatBytes, formatDuration, formatRelative } from "@/lib/utils";
-import { Badge, StatusDot } from "@/ui/badge";
+import { cn, formatBytes, formatDuration } from "@/lib/utils";
+import { Badge } from "@/ui/badge";
 import { Card, CardBody, CardHeader } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import {
-  alertTone,
   capacityBarClass,
   capacityTone,
   diskTempWarn,
   poolHealthTone,
-  useTruenasAlerts,
   useTruenasOverview,
 } from "./shared";
 
@@ -36,7 +33,6 @@ export function TruenasOverviewPage() {
   const { instanceId } = useParams({ from: "/shell/truenas/$instanceId" });
 
   const overview = useTruenasOverview(instanceId);
-  const alerts = useTruenasAlerts(instanceId);
 
   if (overview.isLoading) return <PageLoader />;
   if (overview.isError) {
@@ -48,7 +44,6 @@ export function TruenasOverviewPage() {
   }
 
   const { info, memory, pools, disks } = overview.data!;
-  const activeAlerts = (alerts.data ?? []).filter((a) => !a.dismissed);
 
   return (
     <div className="space-y-5">
@@ -61,8 +56,6 @@ export function TruenasOverviewPage() {
         </div>
         <MemoryCard memory={memory} />
       </div>
-
-      {activeAlerts.length > 0 && <AlertsSection alerts={activeAlerts} />}
 
       <section className="space-y-2.5">
         <h2 className="text-fg text-[15px] font-semibold">{t("truenas.overview.pools")}</h2>
@@ -495,56 +488,3 @@ function DiskRow({ disk }: { disk: TruenasDisk }) {
   );
 }
 
-/**
- * AlertsSection is a single slim card: one line per alert with a severity
- * dot, sorted worst-first, truncated to three with an expander. Present but
- * quiet — alerts should be seen, not shout over the dashboard.
- */
-function AlertsSection({ alerts }: { alerts: TruenasAlert[] }) {
-  const { t } = useTranslation();
-  const [showAll, setShowAll] = useState(false);
-  const rank = { danger: 0, warning: 1, info: 2, neutral: 3 } as const;
-  const sorted = [...alerts].sort((a, b) => rank[alertTone(a.level)] - rank[alertTone(b.level)]);
-  const visible = showAll ? sorted : sorted.slice(0, 3);
-  const worst = alertTone(sorted[0]?.level ?? "");
-
-  return (
-    <Card>
-      <div className="divide-edge/70 divide-y">
-        <div className="flex items-center gap-2 px-4 py-2.5">
-          <AlertTriangle
-            className={cn(
-              "size-4",
-              worst === "danger" ? "text-danger" : worst === "warning" ? "text-warning" : "text-fg-subtle",
-            )}
-          />
-          <span className="text-fg text-[13.5px] font-semibold">
-            {t("truenas.overview.alertCount", { count: alerts.length })}
-          </span>
-        </div>
-        {visible.map((alert, i) => {
-          const tone = alertTone(alert.level);
-          return (
-            <div key={`${alert.createdAt ?? ""}-${i}`} className="flex items-center gap-2.5 px-4 py-2 text-[13px]">
-              <StatusDot tone={tone === "neutral" ? "info" : tone} />
-              <span className="text-fg min-w-0 flex-1 truncate" title={alert.message}>
-                {alert.message}
-              </span>
-              {alert.createdAt && (
-                <span className="text-fg-subtle shrink-0 text-xs">{formatRelative(alert.createdAt)}</span>
-              )}
-            </div>
-          );
-        })}
-        {sorted.length > 3 && (
-          <button
-            className="text-accent hover:text-accent/80 w-full cursor-pointer px-4 py-2 text-left text-[12.5px] font-medium transition-colors"
-            onClick={() => setShowAll((v) => !v)}
-          >
-            {showAll ? t("truenas.overview.alertsLess") : t("truenas.overview.alertsMore", { count: sorted.length - 3 })}
-          </button>
-        )}
-      </div>
-    </Card>
-  );
-}

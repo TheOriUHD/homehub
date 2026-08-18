@@ -234,5 +234,39 @@ func TestWebSocketTransport(t *testing.T) {
 		if a.Datetime.Ms == 0 {
 			t.Fatalf("alert datetime not decoded from ISO string: %+v", a)
 		}
+		if a.UUID == "" {
+			t.Fatalf("alert uuid missing: %+v", a)
+		}
+	}
+
+	// Performance stats: cpu/load/memory plus per-adapter traffic in bits/s
+	// (the sim serves Kilobits/s like real netdata; 950 kb/s → 950000 b/s).
+	stats, err := conn.Stats(ctx)
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+	if len(stats.CPU) == 0 || len(stats.Load) == 0 || len(stats.MemAvailable) == 0 {
+		t.Fatalf("stats series missing: %+v", stats)
+	}
+	if len(stats.Interfaces) != 1 || stats.Interfaces[0].Name != "eno1" || !stats.Interfaces[0].Up {
+		t.Fatalf("interfaces: %+v", stats.Interfaces)
+	}
+	pts := stats.Interfaces[0].Points
+	if len(pts) == 0 || pts[len(pts)-1].InBps != 950000 {
+		t.Fatalf("traffic points not converted to bits/s: %+v", pts)
+	}
+
+	// Dismissing an alert must stick.
+	if err := conn.DismissAlert(ctx, alerts[0].UUID); err != nil {
+		t.Fatalf("dismiss: %v", err)
+	}
+	after, err := conn.Alerts(ctx)
+	if err != nil {
+		t.Fatalf("alerts after dismiss: %v", err)
+	}
+	for _, a := range after {
+		if a.UUID == alerts[0].UUID && !a.Dismissed {
+			t.Fatalf("alert %s still active after dismiss", a.UUID)
+		}
 	}
 }
