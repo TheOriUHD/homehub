@@ -43,3 +43,48 @@ func TestDiscoverIgnoresNonLMStudio(t *testing.T) {
 		t.Fatalf("non-LM-Studio listener reported: %+v", found)
 	}
 }
+
+func TestOpenAIEndpointNormalization(t *testing.T) {
+	cases := map[string]string{
+		"http://h:1234/v1":                  "http://h:1234/v1/chat/completions",
+		"http://h:1234/v1/":                 "http://h:1234/v1/chat/completions",
+		"http://h:1234/v1/chat/completions": "http://h:1234/v1/chat/completions",
+		"https://api.groq.com/openai/v1":    "https://api.groq.com/openai/v1/chat/completions",
+		" http://h:1234/v1 ":                "http://h:1234/v1/chat/completions",
+	}
+	for in, want := range cases {
+		if got := openAIEndpoint(in); got != want {
+			t.Errorf("openAIEndpoint(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestVerifyDiagnosesMissingV1(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			_, _ = w.Write([]byte(`{"data":[{"id":"m1"}]}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	// Correct URL: models come back.
+	models, err := VerifyOpenAIEndpoint(context.Background(), srv.URL+"/v1")
+	if err != nil || len(models) != 1 || models[0] != "m1" {
+		t.Fatalf("good URL failed: %v %v", models, err)
+	}
+	// Full pasted path: accepted.
+	if _, err := VerifyOpenAIEndpoint(context.Background(), srv.URL+"/v1/chat/completions"); err != nil {
+		t.Fatalf("pasted full path rejected: %v", err)
+	}
+	// Missing /v1: diagnosed, not just failed.
+	_, err = VerifyOpenAIEndpoint(context.Background(), srv.URL)
+	if err == nil || !strings.Contains(err.Error(), "/v1") {
+		t.Fatalf("missing /v1 not diagnosed: %v", err)
+	}
+	// Bad scheme refused.
+	if _, err := VerifyOpenAIEndpoint(context.Background(), "ftp://x"); err == nil {
+		t.Fatal("bad scheme accepted")
+	}
+}

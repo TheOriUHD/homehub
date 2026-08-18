@@ -131,6 +131,24 @@ func (s *Server) AssistantDiscover(ctx context.Context, _ AssistantDiscoverReque
 	return out, nil
 }
 
+func (s *Server) AssistantVerifyEndpoint(ctx context.Context, req AssistantVerifyEndpointRequestObject) (AssistantVerifyEndpointResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	if !s.can(ctx, id, ResSettings, rbac.LevelConfigure) {
+		return AssistantVerifyEndpoint403JSONResponse{forbidden()}, nil
+	}
+	models, err := assistant.VerifyOpenAIEndpoint(ctx, req.Body.BaseUrl)
+	out := AssistantVerifyEndpoint200JSONResponse{Ok: err == nil, Models: models}
+	if err != nil {
+		msg := err.Error()
+		out.Message = &msg
+		out.Models = []string{}
+	}
+	return out, nil
+}
+
 func (s *Server) assistantAccess(ctx context.Context, id *httpctx.Identity) assistant.Access {
 	return assistant.Access{
 		UserID:      id.User.ID,

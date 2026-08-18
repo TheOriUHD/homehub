@@ -3229,6 +3229,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assistant/verify-endpoint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify an OpenAI-compatible endpoint URL
+         * @description Asks the URL for its model list and reports what happened in actionable terms. Requires configure on system/settings.
+         */
+        post: operations["assistantVerifyEndpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assistant/chat": {
         parameters: {
             query?: never;
@@ -10302,6 +10322,37 @@ export interface operations {
                             baseUrl: string;
                             models: string[];
                         }[];
+                    };
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    assistantVerifyEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseUrl: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Verification result — ok with models, or a diagnosis */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                        message?: string;
+                        models: string[];
                     };
                 };
             };

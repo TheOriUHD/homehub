@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Radar, Settings2, Sparkles } from "lucide-react";
+import { CircleCheck, CircleX, Radar, Settings2, Sparkles } from "lucide-react";
 import { api, isApiError, unwrap } from "@/lib/api";
 import { AssistantChatPane } from "@/components/assistant-chat";
 import { Button } from "@/ui/button";
@@ -238,13 +238,27 @@ function AssistantSettingsDialog({
               )}
             </Field>
           )}
+          {selected?.kind === "local" && (
+            <EndpointVerify baseUrl={baseUrl || selected?.defaultBaseUrl || ""} onModel={(m) => setModel(m)} />
+          )}
           {provider === "lmstudio" && (
-            <LmStudioFinder
-              onPick={(url, model) => {
-                setBaseUrl(url);
-                if (model) setModel(model);
-              }}
-            />
+            <>
+              <LmStudioFinder
+                onPick={(url, model) => {
+                  setBaseUrl(url);
+                  if (model) setModel(model);
+                }}
+              />
+              <div className="bg-bg-subtle border-edge rounded-lg border px-3 py-2.5">
+                <p className="text-fg mb-1 text-[12.5px] font-medium">{t("assistant.lmGuideTitle")}</p>
+                <ol className="text-fg-muted ml-4 list-decimal space-y-0.5 text-[12px]">
+                  <li>{t("assistant.lmGuide1")}</li>
+                  <li>{t("assistant.lmGuide2")}</li>
+                  <li>{t("assistant.lmGuide3")}</li>
+                  <li>{t("assistant.lmGuide4")}</li>
+                </ol>
+              </div>
+            </>
           )}
           <Field
             label={t("assistant.apiKey")}
@@ -311,6 +325,54 @@ function LmStudioFinder({ onPick }: { onPick: (baseUrl: string, model?: string) 
       {scan.isError && (
         <p className="text-danger text-[12.5px]">
           {isApiError(scan.error) ? scan.error.message : t("common.unknownError")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+
+/**
+ * Server-side probe of the entered endpoint: green with the loaded models,
+ * or the exact diagnosis ("needs /v1", "nothing answered", …). The check
+ * runs from the HomeHub host — the same vantage point the assistant uses.
+ */
+function EndpointVerify({ baseUrl, onModel }: { baseUrl: string; onModel: (model: string) => void }) {
+  const { t } = useTranslation();
+  const verify = useMutation({
+    mutationFn: async () =>
+      unwrap(await api.POST("/assistant/verify-endpoint", { body: { baseUrl } })),
+  });
+
+  return (
+    <div className="space-y-1.5">
+      <Button size="sm" variant="secondary" loading={verify.isPending} disabled={!baseUrl.trim()} onClick={() => verify.mutate()}>
+        <CircleCheck className="size-3.5" />
+        {t("assistant.testEndpoint")}
+      </Button>
+      {verify.isSuccess && verify.data.ok && (
+        <p className="text-success flex items-start gap-1.5 text-[12.5px]">
+          <CircleCheck className="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            {verify.data.models.length > 0
+              ? t("assistant.endpointOkModels", { models: verify.data.models.join(", ") })
+              : t("assistant.endpointOkEmpty")}
+            {verify.data.models.length > 0 && (
+              <button
+                type="button"
+                className="text-accent ml-1 underline underline-offset-2"
+                onClick={() => onModel(verify.data.models[0])}
+              >
+                {t("assistant.useModel", { model: verify.data.models[0] })}
+              </button>
+            )}
+          </span>
+        </p>
+      )}
+      {verify.isSuccess && !verify.data.ok && (
+        <p className="text-danger flex items-start gap-1.5 text-[12.5px]">
+          <CircleX className="mt-0.5 size-3.5 shrink-0" />
+          {verify.data.message}
         </p>
       )}
     </div>

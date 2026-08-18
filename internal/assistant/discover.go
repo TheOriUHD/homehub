@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -142,4 +143,54 @@ func candidateHosts() []string {
 		}
 	}
 	return hosts
+}
+
+// VerifyOpenAIEndpoint checks a user-entered base URL by asking it for
+// its model list, and answers with diagnosis-quality messages: the
+// difference between "nothing is listening" and "listening, but the URL
+// is missing /v1" decides what the user fixes next.
+func VerifyOpenAIEndpoint(ctx context.Context, baseURL string) (models []string, err error) {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	base = strings.TrimSuffix(base, "/chat/completions")
+	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
+		return nil, fmt.Errorf("the URL must start with http:// or https://")
+	}
+	reqCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, base+"/models", nil)
+	if err != nil {
+		return nil, fmt.Errorf("that is not a valid URL")
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("nothing answered at %s — is the server running and reachable from the HomeHub host?", base)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		if !strings.HasSuffix(base, "/v1") {
+			return nil, fmt.Errorf("the server answered, but %s/models does not exist — the URL usually needs to end in /v1", base)
+		}
+		return nil, fmt.Errorf("the server answered, but it does not expose an OpenAI-compatible /models endpoint")
+	}
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, fmt.Errorf("the server requires an API key — enter it in the API key field below (in LM Studio this is configured on the Developer tab)")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("the server answered HTTP %d", resp.StatusCode)
+	}
+	var parsed struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&parsed) != nil {
+		return nil, fmt.Errorf("the server answered, but not with an OpenAI-compatible model list")
+	}
+	models = []string{}
+	for _, m := range parsed.Data {
+		if m.ID != "" {
+			models = append(models, m.ID)
+		}
+	}
+	return models, nil
 }
