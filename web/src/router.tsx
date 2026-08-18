@@ -25,6 +25,8 @@ import { AppSettingsPage } from "./pages/app-settings";
 import { ToolsPage } from "./pages/tools";
 import { ToolsEditorPage } from "./pages/tools/editor";
 import { ToolsFilesPage } from "./pages/tools/files";
+import { ToolsConvertPage } from "./pages/tools/convert";
+import { ToolAppPage } from "./pages/tools/tool-layout";
 import { NotFoundPage } from "./pages/not-found";
 import { SystemsPage } from "./pages/systems";
 import { SystemTypeLanding } from "./pages/systems/type-landing";
@@ -146,6 +148,16 @@ const toolsFilesRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/tools/files",
   component: ToolsFilesPage,
+});
+const toolsConvertRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/tools/convert",
+  component: ToolsConvertPage,
+});
+const toolAppRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/tools/$toolId",
+  component: ToolAppPage,
 });
 
 const assistantRoute = createRoute({
@@ -644,6 +656,8 @@ const routeTree = rootRoute.addChildren([
     toolsRoute,
     toolsEditorRoute,
     toolsFilesRoute,
+    toolsConvertRoute,
+    toolAppRoute,
     historyRoute,
     alertsRoute,
     backupsRoute,
