@@ -14,12 +14,14 @@ import { Card, CardBody, CardHeader } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
+import { TrafficCard } from "./traffic-chart";
 import {
   capacityBarClass,
   capacityTone,
   diskTempWarn,
   poolHealthTone,
   useTruenasOverview,
+  useTruenasStats,
 } from "./shared";
 
 /**
@@ -33,6 +35,7 @@ export function TruenasOverviewPage() {
   const { instanceId } = useParams({ from: "/shell/truenas/$instanceId" });
 
   const overview = useTruenasOverview(instanceId);
+  const stats = useTruenasStats(instanceId);
 
   if (overview.isLoading) return <PageLoader />;
   if (overview.isError) {
@@ -44,6 +47,7 @@ export function TruenasOverviewPage() {
   }
 
   const { info, memory, pools, disks } = overview.data!;
+  const interfaces = stats.data?.interfaces ?? [];
 
   return (
     <div className="space-y-5">
@@ -56,6 +60,12 @@ export function TruenasOverviewPage() {
         </div>
         <MemoryCard memory={memory} />
       </div>
+
+      {/* Adapter traffic, same card as the performance tab — the network
+          picture belongs on the landing view too. */}
+      {interfaces.map((ifc) => (
+        <TrafficCard key={ifc.name} iface={ifc} />
+      ))}
 
       <section className="space-y-2.5">
         <h2 className="text-fg text-[15px] font-semibold">{t("truenas.overview.pools")}</h2>

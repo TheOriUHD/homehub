@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { ArrowDownToLine, ArrowUpFromLine, ChartSpline, Network, ThermometerSun } from "lucide-react";
+import { ChartSpline, ThermometerSun } from "lucide-react";
 import { useMetricSeries } from "@/lib/metrics";
-import type { TruenasDisk, TruenasInterfaceTraffic } from "@/lib/api";
+import type { TruenasDisk } from "@/lib/api";
 import { formatBytes } from "@/lib/utils";
-import { Badge, StatusDot } from "@/ui/badge";
 import { Card } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { TimeSeriesChart, type SeriesPoint } from "@/components/time-series-chart";
 import { MultiSeriesChart, type ChartSeries } from "@/components/multi-series-chart";
-import { TrafficChart } from "./traffic-chart";
+import { TrafficCard } from "./traffic-chart";
 import {
-  formatBps,
   truenasDiskResource,
   truenasPoolResource,
   truenasResource,
@@ -80,76 +78,6 @@ export function TruenasPerformancePage() {
       )}
       {disks.length > 0 && <DiskTemperatureCard instanceId={instanceId} disks={disks} />}
     </div>
-  );
-}
-
-/* ---- adapter traffic -------------------------------------------------------- */
-
-/**
- * TrafficCard mirrors TrueNAS's own dashboard widget: adapter identity and
- * live In/Out on the left, the mirrored auto-scaling area chart filling the
- * rest. The rates shown are the newest sample of the hour window.
- */
-function TrafficCard({ iface }: { iface: TruenasInterfaceTraffic }) {
-  const { t } = useTranslation();
-  const last = iface.points.length > 0 ? iface.points[iface.points.length - 1] : null;
-
-  return (
-    <Card className="p-4">
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <div className="w-full shrink-0 space-y-2.5 sm:w-52">
-          <div className="flex items-center gap-2">
-            <Network className="text-fg-subtle size-4" />
-            <p className="text-fg text-lg font-semibold tracking-tight">{iface.name}</p>
-            {iface.type !== "PHYSICAL" && (
-              <Badge tone="neutral">{iface.type.toLowerCase()}</Badge>
-            )}
-          </div>
-
-          {last && (
-            <div className="space-y-1 text-[13px]">
-              <p className="flex items-center gap-1.5">
-                <ArrowDownToLine className="size-3.5" style={{ color: "var(--hh-series-1)" }} />
-                <span className="text-fg-muted">{t("truenas.traffic.in")}</span>
-                <span className="text-fg font-semibold tabular-nums">{formatBps(last.inBps)}</span>
-              </p>
-              <p className="flex items-center gap-1.5">
-                <ArrowUpFromLine className="size-3.5" style={{ color: "var(--hh-series-3)" }} />
-                <span className="text-fg-muted">{t("truenas.traffic.out")}</span>
-                <span className="text-fg font-semibold tabular-nums">{formatBps(last.outBps)}</span>
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide">
-            <StatusDot tone={iface.up ? "success" : "danger"} />
-            <span className={iface.up ? "text-success" : "text-danger"}>
-              {iface.up ? t("truenas.traffic.linkUp") : t("truenas.traffic.linkDown")}
-            </span>
-          </div>
-
-          {(iface.media || (iface.addresses?.length ?? 0) > 0) && (
-            <p className="text-fg-subtle text-[12px]">
-              {[iface.media, ...(iface.addresses ?? [])].filter(Boolean).join(" · ")}
-            </p>
-          )}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          {iface.points.length > 1 ? (
-            <TrafficChart
-              points={iface.points}
-              inLabel={t("truenas.traffic.in")}
-              outLabel={t("truenas.traffic.out")}
-            />
-          ) : (
-            <div className="text-fg-subtle flex h-[150px] items-center justify-center text-[13px]">
-              {t("truenas.performance.collecting")}
-            </div>
-          )}
-        </div>
-      </div>
-    </Card>
   );
 }
 
