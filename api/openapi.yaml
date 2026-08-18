@@ -4962,6 +4962,34 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /assistant/discover:
+    post:
+      operationId: assistantDiscover
+      summary: Scan attached networks for LM Studio instances
+      description: Probes the host's directly attached /24 networks (and loopback) for LM Studio's unauthenticated /v1/models on port 1234. Requires configure on system/settings.
+      tags: [assistant]
+      responses:
+        "200":
+          description: Discovered instances (empty when none answered)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [instances]
+                properties:
+                  instances:
+                    type: array
+                    items:
+                      type: object
+                      required: [baseUrl, models]
+                      properties:
+                        baseUrl: { type: string }
+                        models:
+                          type: array
+                          items: { type: string }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /assistant/chat:
     post:
       operationId: assistantChat

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Settings2, Sparkles } from "lucide-react";
+import { Radar, Settings2, Sparkles } from "lucide-react";
 import { api, isApiError, unwrap } from "@/lib/api";
 import { AssistantChatPane } from "@/components/assistant-chat";
 import { Button } from "@/ui/button";
@@ -238,6 +238,14 @@ function AssistantSettingsDialog({
               )}
             </Field>
           )}
+          {provider === "lmstudio" && (
+            <LmStudioFinder
+              onPick={(url, model) => {
+                setBaseUrl(url);
+                if (model) setModel(model);
+              }}
+            />
+          )}
           <Field
             label={t("assistant.apiKey")}
             hint={
@@ -262,5 +270,49 @@ function AssistantSettingsDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+
+/**
+ * One-click LAN sweep for LM Studio: the server probes its attached /24
+ * networks for the :1234 /v1/models signature; a result click fills the
+ * endpoint and loaded model in.
+ */
+function LmStudioFinder({ onPick }: { onPick: (baseUrl: string, model?: string) => void }) {
+  const { t } = useTranslation();
+  const scan = useMutation({
+    mutationFn: async () => unwrap(await api.POST("/assistant/discover")),
+  });
+
+  return (
+    <div className="space-y-2">
+      <Button size="sm" variant="secondary" loading={scan.isPending} onClick={() => scan.mutate()}>
+        <Radar className="size-3.5" />
+        {scan.isPending ? t("assistant.scanning") : t("assistant.scanNetwork")}
+      </Button>
+      {scan.isSuccess && scan.data.instances.length === 0 && (
+        <p className="text-fg-muted text-[12.5px]">{t("assistant.scanEmpty")}</p>
+      )}
+      {scan.isSuccess &&
+        scan.data.instances.map((inst) => (
+          <button
+            key={inst.baseUrl}
+            type="button"
+            onClick={() => onPick(inst.baseUrl, inst.models[0])}
+            className="border-edge bg-surface hover:border-accent/60 hover:bg-surface-hover block w-full rounded-lg border px-3 py-2 text-left transition-colors"
+          >
+            <p className="text-fg font-mono text-[12.5px]">{inst.baseUrl}</p>
+            <p className="text-fg-muted truncate text-[11.5px]">
+              {inst.models.length > 0 ? inst.models.join(" · ") : t("assistant.scanNoModels")}
+            </p>
+          </button>
+        ))}
+      {scan.isError && (
+        <p className="text-danger text-[12.5px]">
+          {isApiError(scan.error) ? scan.error.message : t("common.unknownError")}
+        </p>
+      )}
+    </div>
   );
 }
