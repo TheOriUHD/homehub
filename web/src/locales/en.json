@@ -2708,6 +2708,11 @@
       "start": "Start",
       "stop": "Stop",
       "restart": "Restart"
-    }
+    },
+    "cancel": "Stop generating",
+    "scanNetwork": "Find on network",
+    "scanning": "Scanning your network…",
+    "scanEmpty": "No LM Studio found. Make sure its server is running and “Serve on Local Network” is enabled.",
+    "scanNoModels": "reachable, but no model loaded"
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
@@ -12,6 +12,7 @@ import {
   Pickaxe,
   Send,
   Server,
+  Square,
   ShieldCheck,
   Sparkles,
   Wrench,
@@ -60,6 +61,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
   const [draft, setDraft] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const history = useQuery({
     queryKey: ["assistant", "history"],
@@ -67,14 +69,22 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
   });
 
   const send = useMutation({
-    mutationFn: async (message: string) =>
-      unwrap(await api.POST("/assistant/chat", { body: { message } })),
+    mutationFn: async (message: string) => {
+      const controller = new AbortController();
+      abortRef.current = controller;
+      return unwrap(
+        await api.POST("/assistant/chat", { body: { message }, signal: controller.signal }),
+      );
+    },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["assistant", "history"] }),
     onError: (err) => {
       void queryClient.invalidateQueries({ queryKey: ["assistant", "history"] });
+      // A cancel is the user's own act, not a failure worth a toast.
+      if (err instanceof DOMException && err.name === "AbortError") return;
       toast("error", t("assistant.failed"), isApiError(err) ? err.message : t("common.unknownError"));
     },
   });
+  const cancelSend = useCallback(() => abortRef.current?.abort(), []);
 
   const clear = useMutation({
     mutationFn: async () => {
@@ -137,14 +147,20 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
             }
           }}
         />
-        <Button
-          variant="primary"
-          disabled={!draft.trim() || send.isPending}
-          onClick={submit}
-          aria-label={t("assistant.send")}
-        >
-          <Send className="size-4" />
-        </Button>
+        {send.isPending ? (
+          <Button variant="secondary" onClick={cancelSend} aria-label={t("assistant.cancel")}>
+            <Square className="size-3.5 fill-current" />
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            disabled={!draft.trim()}
+            onClick={submit}
+            aria-label={t("assistant.send")}
+          >
+            <Send className="size-4" />
+          </Button>
+        )}
         {variant === "page" && items.length > 0 && (
           <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)} aria-label={t("assistant.clear")}>
             <Eraser className="size-4" />

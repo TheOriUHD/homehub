@@ -107,6 +107,30 @@ func (s *Server) PutAssistantSettings(ctx context.Context, req PutAssistantSetti
 	return PutAssistantSettings204Response{}, nil
 }
 
+func (s *Server) AssistantDiscover(ctx context.Context, _ AssistantDiscoverRequestObject) (AssistantDiscoverResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	// A network sweep is an admin's tool, same bar as configuring the
+	// assistant it feeds.
+	if !s.can(ctx, id, ResSettings, rbac.LevelConfigure) {
+		return AssistantDiscover403JSONResponse{forbidden()}, nil
+	}
+	found := assistant.DiscoverLMStudio(ctx)
+	out := AssistantDiscover200JSONResponse{Instances: []struct {
+		BaseUrl string   `json:"baseUrl"`
+		Models  []string `json:"models"`
+	}{}}
+	for _, inst := range found {
+		out.Instances = append(out.Instances, struct {
+			BaseUrl string   `json:"baseUrl"`
+			Models  []string `json:"models"`
+		}{BaseUrl: inst.BaseURL, Models: inst.Models})
+	}
+	return out, nil
+}
+
 func (s *Server) assistantAccess(ctx context.Context, id *httpctx.Identity) assistant.Access {
 	return assistant.Access{
 		UserID:      id.User.ID,

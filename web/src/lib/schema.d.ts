@@ -3209,6 +3209,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assistant/discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scan attached networks for LM Studio instances
+         * @description Probes the host's directly attached /24 networks (and loopback) for LM Studio's unauthenticated /v1/models on port 1234. Requires configure on system/settings.
+         */
+        post: operations["assistantDiscover"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assistant/chat": {
         parameters: {
             query?: never;
@@ -10259,6 +10279,32 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    assistantDiscover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Discovered instances (empty when none answered) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        instances: {
+                            baseUrl: string;
+                            models: string[];
+                        }[];
+                    };
+                };
+            };
             403: components["responses"]["Forbidden"];
         };
     };
