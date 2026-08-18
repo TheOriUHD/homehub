@@ -102,6 +102,15 @@ export type TruenasDataset = ApiSchemas["TruenasDataset"];
 export type TruenasShare = ApiSchemas["TruenasShare"];
 export type TruenasSnapshot = ApiSchemas["TruenasSnapshot"];
 export type TruenasAlert = ApiSchemas["TruenasAlert"];
+export type PatchpilotHost = ApiSchemas["PatchpilotHost"];
+export type PatchpilotDetectResult = ApiSchemas["PatchpilotDetectResult"];
+export type PatchpilotDryRunResult = ApiSchemas["PatchpilotDryRunResult"];
+export type PatchpilotSchedule = ApiSchemas["PatchpilotSchedule"];
+export type PatchpilotScheduleInput = ApiSchemas["PatchpilotScheduleInput"];
+export type PatchpilotRun = ApiSchemas["PatchpilotRun"];
+export type PatchpilotHostRun = ApiSchemas["PatchpilotHostRun"];
+export type PatchpilotRunDetail = ApiSchemas["PatchpilotRunDetail"];
+
 export type TruenasStats = ApiSchemas["TruenasStats"];
 export type TruenasStatPoint = ApiSchemas["TruenasStatPoint"];
 export type TruenasLoadPoint = ApiSchemas["TruenasLoadPoint"];

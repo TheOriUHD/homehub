@@ -33,7 +33,7 @@ import {
   Sun,
   Users,
   X,
- Wrench } from "lucide-react";
+ Wrench, ServerCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { RES } from "@/lib/perms";
@@ -151,6 +151,7 @@ export function AppShell() {
   const caddyRows = rows.filter((row) => row.type === "caddy");
   const nvrRows = rows.filter((row) => row.type === "aperture");
   const truenasRows = rows.filter((row) => row.type === "truenas");
+  const ppRows = rows.filter((row) => row.type === "patchpilot");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
 
   type TypeEntry = NavItem & { status: string; prefix: string };
@@ -252,6 +253,15 @@ export function AppShell() {
           icon: HardDrive,
           status: worstStatus(truenasRows),
           prefix: "/truenas",
+        }]
+      : []),
+    ...(ppRows.length > 0
+      ? [{
+          to: ppRows.length === 1 ? `/patchpilot/${ppRows[0].id}` : "/patchpilot",
+          label: t("systems.types.patchpilot"),
+          icon: ServerCog,
+          status: worstStatus(ppRows),
+          prefix: "/patchpilot",
         }]
       : []),
   ];

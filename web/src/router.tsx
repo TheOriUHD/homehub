@@ -83,6 +83,11 @@ import { TruenasSharesPage } from "./pages/truenas/shares";
 import { TruenasSnapshotsPage } from "./pages/truenas/snapshots";
 import { TruenasPerformancePage } from "./pages/truenas/performance";
 import { TruenasAlertsPage } from "./pages/truenas/alerts";
+import { PatchpilotModulePage } from "./pages/patchpilot/module";
+import { PatchpilotHostsPage } from "./pages/patchpilot/hosts";
+import { PatchpilotHostDetailPage } from "./pages/patchpilot/host-detail";
+import { PatchpilotSchedulesPage } from "./pages/patchpilot/schedules";
+import { PatchpilotRunsPage } from "./pages/patchpilot/runs";
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -257,6 +262,38 @@ const truenasLandingRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/truenas",
   component: () => <SystemTypeLanding type="truenas" />,
+});
+
+const patchpilotLandingRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/patchpilot",
+  component: () => <SystemTypeLanding type="patchpilot" />,
+});
+
+const patchpilotModuleRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/patchpilot/$instanceId",
+  component: PatchpilotModulePage,
+});
+const patchpilotHostsRoute = createRoute({
+  getParentRoute: () => patchpilotModuleRoute,
+  path: "/",
+  component: PatchpilotHostsPage,
+});
+const patchpilotHostDetailRoute = createRoute({
+  getParentRoute: () => patchpilotModuleRoute,
+  path: "/host/$hostId",
+  component: PatchpilotHostDetailPage,
+});
+const patchpilotSchedulesRoute = createRoute({
+  getParentRoute: () => patchpilotModuleRoute,
+  path: "/schedules",
+  component: PatchpilotSchedulesPage,
+});
+const patchpilotRunsRoute = createRoute({
+  getParentRoute: () => patchpilotModuleRoute,
+  path: "/runs",
+  component: PatchpilotRunsPage,
 });
 
 const ampLandingRoute = createRoute({
@@ -684,6 +721,7 @@ const routeTree = rootRoute.addChildren([
     caddyLandingRoute,
     nvrLandingRoute,
     truenasLandingRoute,
+    patchpilotLandingRoute,
     dockerHubRoute.addChildren([dockerAllContainersRoute, dockerHostsRoute]),
     pveModuleRoute.addChildren([
       pveSummaryRoute,
@@ -729,6 +767,12 @@ const routeTree = rootRoute.addChildren([
       truenasSnapshotsRoute,
       truenasPerformanceRoute,
       truenasAlertsRoute,
+    ]),
+    patchpilotModuleRoute.addChildren([
+      patchpilotHostsRoute,
+      patchpilotHostDetailRoute,
+      patchpilotSchedulesRoute,
+      patchpilotRunsRoute,
     ]),
     ampModuleRoute.addChildren([ampOverviewRoute, ampInstanceRoute]),
     tsModuleRoute.addChildren([tsDevicesRoute, tsKeysRoute, tsDnsRoute]),

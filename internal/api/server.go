@@ -24,6 +24,7 @@ import (
 	"homehub/internal/httpctx"
 	"homehub/internal/integration"
 	"homehub/internal/integrations/minecraft"
+	"homehub/internal/integrations/patchpilot"
 	"homehub/internal/jobs"
 	"homehub/internal/metrics"
 	"homehub/internal/rbac"
@@ -65,6 +66,7 @@ type Server struct {
 	term         *term.Manager
 	backups      *backuppkg.Service
 	mc           *minecraft.Registry
+	patchpilot   *patchpilot.Registry
 	convert      *convert.Service
 	companion    fs.FS
 	logger       *slog.Logger
@@ -80,7 +82,7 @@ var _ StrictServerInterface = (*Server)(nil)
 func NewServer(st *store.Store, authSvc *auth.Service, engine *rbac.Engine, aud *audit.Service,
 	set *settings.Service, jobEngine *jobs.Engine, hub *ws.Hub, v *vault.Vault,
 	integrations *integration.Manager, metricsSvc *metrics.Service, termMgr *term.Manager,
-	backups *backuppkg.Service, mc *minecraft.Registry, convertSvc *convert.Service, companionFS fs.FS, logger *slog.Logger) *Server {
+	backups *backuppkg.Service, mc *minecraft.Registry, pp *patchpilot.Registry, convertSvc *convert.Service, companionFS fs.FS, logger *slog.Logger) *Server {
 	return &Server{
 		store:        st,
 		auth:         authSvc,
@@ -95,6 +97,7 @@ func NewServer(st *store.Store, authSvc *auth.Service, engine *rbac.Engine, aud 
 		term:         termMgr,
 		backups:      backups,
 		mc:           mc,
+		patchpilot:   pp,
 		convert:      convertSvc,
 		companion:    companionFS,
 		logger:       logger.With("component", "api"),

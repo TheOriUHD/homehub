@@ -228,6 +228,12 @@ function OpenModuleLink({ row }: { row: Integration }) {
           {label}
         </Link>
       );
+    case "patchpilot":
+      return (
+        <Link to="/patchpilot/$instanceId" params={{ instanceId: row.id }} className={className}>
+          {label}
+        </Link>
+      );
     default:
       return null;
   }
