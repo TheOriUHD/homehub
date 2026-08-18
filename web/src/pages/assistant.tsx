@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { CircleCheck, CircleX, Radar, Settings2, Sparkles } from "lucide-react";
+import { CircleCheck, CircleX, Radar, Send, Settings2, Sparkles } from "lucide-react";
 import { api, isApiError, unwrap } from "@/lib/api";
 import { AssistantChatPane } from "@/components/assistant-chat";
+import { TelegramDialog } from "./assistant-telegram";
 import { Button } from "@/ui/button";
 import { Card, CardBody } from "@/ui/card";
 import { Dialog, DialogContent } from "@/ui/dialog";
@@ -24,6 +25,7 @@ import { useToast } from "@/ui/toast";
 export function AssistantPage() {
   const { t } = useTranslation();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [telegramOpen, setTelegramOpen] = useState(false);
 
   const state = useQuery({
     queryKey: ["assistant"],
@@ -60,6 +62,10 @@ export function AssistantPage() {
               : t("assistant.disabledSubtitle")}
           </p>
         </div>
+        <Button size="sm" variant="ghost" onClick={() => setTelegramOpen(true)}>
+          <Send className="size-3.5" />
+          {t("assistant.telegram.button")}
+        </Button>
         {info.canConfigure && (
           <Button size="sm" variant="ghost" onClick={() => setSettingsOpen(true)}>
             <Settings2 className="size-3.5" />
@@ -91,6 +97,7 @@ export function AssistantPage() {
         </Card>
       )}
 
+      {telegramOpen && <TelegramDialog canConfigure={info.canConfigure} onClose={() => setTelegramOpen(false)} />}
       {settingsOpen && (
         <AssistantSettingsDialog
           info={info}

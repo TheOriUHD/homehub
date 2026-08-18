@@ -28,6 +28,7 @@ import (
 	"homehub/internal/rbac"
 	"homehub/internal/settings"
 	"homehub/internal/store"
+	"homehub/internal/telegram"
 	"homehub/internal/term"
 	"homehub/internal/vault"
 	"homehub/internal/ws"
@@ -59,6 +60,7 @@ type Server struct {
 	vault        *vault.Vault
 	integrations *integration.Manager
 	metrics      *metrics.Service
+	telegram     *telegram.Bot
 	term         *term.Manager
 	backups      *backuppkg.Service
 	mc           *minecraft.Registry

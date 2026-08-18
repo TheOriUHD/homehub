@@ -3333,6 +3333,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/telegram/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Telegram bridge settings and linked chats */
+        get: operations["getTelegramSettings"];
+        /** Update Telegram bridge settings */
+        put: operations["putTelegramSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/telegram/link-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mint a code that links a Telegram chat to the calling user */
+        post: operations["telegramLinkCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/telegram/chats/{chatId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Unlink one Telegram chat */
+        delete: operations["telegramUnlinkChat"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assistant/settings": {
         parameters: {
             query?: never;
@@ -4333,6 +4385,24 @@ export interface components {
             gameMode?: string;
             pingMs?: number;
             heldSlot?: number;
+        };
+        TelegramSettings: {
+            enabled: boolean;
+            tokenSet: boolean;
+            canConfigure: boolean;
+            botUsername?: string;
+            botError?: string;
+            chats: components["schemas"]["TelegramChat"][];
+        };
+        TelegramChat: {
+            /** Format: int64 */
+            chatId: number;
+            label: string;
+            /** Format: uuid */
+            userId: string;
+            userName: string;
+            /** Format: date-time */
+            linkedAt: string;
         };
         McPairingCode: {
             code: string;
@@ -10676,6 +10746,107 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    getTelegramSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramSettings"];
+                };
+            };
+        };
+    };
+    putTelegramSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                    /** @description New bot token; omit to keep the stored one */
+                    token?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    telegramLinkCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The code to send to the bot as /link <code> */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: string;
+                        /** Format: date-time */
+                        expiresAt: string;
+                    };
+                };
+            };
+            /** @description Bridge not running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    telegramUnlinkChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chatId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unlinked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
         };
     };
     putAssistantSettings: {

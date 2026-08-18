@@ -24,6 +24,7 @@ const (
 	keyAssistantProvider = "assistant_provider"
 	keyAssistantModel    = "assistant_model"
 	keyAssistantBaseURL  = "assistant_base_url"
+	keyTelegramEnabled   = "telegram_enabled"
 
 	defaultSessionTTLHours = 720 // 30 days, rolling
 	defaultRawHours        = 48
@@ -190,4 +191,16 @@ func (s *Service) SetAssistant(ctx context.Context, enabled bool, provider, mode
 	}
 	s.invalidate()
 	return nil
+}
+
+// Telegram reports whether the Telegram bridge is enabled (the bot token
+// lives in the vault, not here).
+func (s *Service) Telegram(ctx context.Context) (enabled bool) {
+	s.get(ctx, keyTelegramEnabled, &enabled)
+	return
+}
+
+// SetTelegram stores the Telegram bridge switch.
+func (s *Service) SetTelegram(ctx context.Context, enabled bool) error {
+	return s.store.SetSetting(ctx, keyTelegramEnabled, enabled)
 }
