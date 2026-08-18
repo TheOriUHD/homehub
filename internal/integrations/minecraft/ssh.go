@@ -92,3 +92,57 @@ func RunSSH(ctx context.Context, cfg SSHConfig, command string) (string, error) 
 		return out.String(), fmt.Errorf("command timed out")
 	}
 }
+
+// shellSingleQuote wraps a value for safe embedding in an sh script.
+func shellSingleQuote(v string) string {
+	return "'" + strings.ReplaceAll(v, "'", `'\''`) + "'"
+}
+
+// RestartScript builds the graceful-restart shell run for one server:
+// send the stop verb into its screen console, wait for the session to
+// end, then relaunch from the operator's OWN start.sh transformed to
+// detached mode. start.sh on disk is never modified — the transform runs
+// a copy through sed so every JVM flag and jar name stays authoritative.
+func RestartScript(screenName, dir, stopVerb string) string {
+	// Deliberately no `set -e`: screen subcommands legitimately return
+	// non-zero (a query on a gone session, stuff on a closing window), and
+	// aborting on the first one would strand a server mid-restart. Each step
+	// checks explicitly and the run ends with a definitive liveness verdict.
+	return fmt.Sprintf(`NAME=%s
+DIR=%s
+if screen -S "$NAME" -Q select . >/dev/null 2>&1; then
+  echo "stopping $NAME gracefully"
+  screen -S "$NAME" -X stuff "$(printf '%s\r')" >/dev/null 2>&1 || echo "note: stop keystroke returned non-zero"
+  STOPPED=
+  i=0
+  while [ $i -lt 90 ]; do
+    if screen -S "$NAME" -Q select . >/dev/null 2>&1; then
+      i=$((i+1)); sleep 1
+    else
+      STOPPED=1; break
+    fi
+  done
+  if [ -z "$STOPPED" ]; then
+    echo "graceful stop timed out after ${i}s; forcing the session down"
+    screen -S "$NAME" -X quit >/dev/null 2>&1
+    sleep 2
+  else
+    echo "$NAME stopped after ${i}s"
+  fi
+else
+  echo "$NAME was not running — starting it fresh"
+fi
+if [ ! -d "$DIR" ]; then echo "server directory not found: $DIR"; exit 1; fi
+cd "$DIR" || { echo "could not enter $DIR"; exit 1; }
+if [ ! -f start.sh ]; then echo "no start.sh in $DIR"; exit 1; fi
+echo "relaunching from start.sh (detached)"
+sed 's/screen -S /screen -dmS /' start.sh | sh
+sleep 5
+if screen -S "$NAME" -Q select . >/dev/null 2>&1; then
+  echo "RESTART_OK $NAME is back up"
+else
+  echo "RESTART_FAIL $NAME did not come back up — check its console/logs"
+  exit 1
+fi
+`, shellSingleQuote(screenName), shellSingleQuote(dir), stopVerb)
+}
