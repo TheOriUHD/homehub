@@ -3316,6 +3316,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tools/ssl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Inspect a host's TLS certificate */
+        post: operations["toolSSL"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tools/dns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a DNS query */
+        post: operations["toolDNS"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tools/dns/resolvers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Available DNS resolvers (incl. auto-detected AdGuard/Pi-hole) */
+        get: operations["toolDNSResolvers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tools/reachability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** TCP port check + ICMP ping for a host */
+        post: operations["toolReachability"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tools/http": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Perform an HTTP request from the server (mini API tester) */
+        post: operations["toolHTTP"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tools/wol/targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's saved Wake-on-LAN targets */
+        get: operations["listWolTargets"];
+        put?: never;
+        /** Save a Wake-on-LAN target */
+        post: operations["createWolTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tools/wol/targets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a Wake-on-LAN target */
+        delete: operations["deleteWolTarget"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tools/wol/wake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a Wake-on-LAN magic packet (ad-hoc or by saved target id) */
+        post: operations["wolWake"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files": {
         parameters: {
             query?: never;
@@ -4586,6 +4723,95 @@ export interface components {
             outputBytes?: number;
             /** Format: int64 */
             durationMs?: number;
+        };
+        CertInfo: {
+            subject: string;
+            issuer: string;
+            notBefore: string;
+            notAfter: string;
+            dnsNames?: string[];
+            serial: string;
+            sigAlgo: string;
+            isCA: boolean;
+        };
+        SSLResult: {
+            host: string;
+            port: number;
+            valid: boolean;
+            validationError?: string;
+            expired: boolean;
+            daysRemaining: number;
+            leaf: components["schemas"]["CertInfo"];
+            chain: components["schemas"]["CertInfo"][];
+            tlsVersion: string;
+            cipher: string;
+        };
+        DNSRecord: {
+            type: string;
+            value: string;
+            ttl?: string;
+        };
+        DNSResult: {
+            name: string;
+            type: string;
+            resolver: string;
+            server?: string;
+            queryMs: number;
+            records: components["schemas"]["DNSRecord"][];
+            error?: string;
+        };
+        ReachTCP: {
+            port: number;
+            open: boolean;
+            latencyMs: number;
+            error?: string;
+        };
+        ReachPing: {
+            alive: boolean;
+            rttMs?: number;
+            available: boolean;
+            error?: string;
+        };
+        ResolverOption: {
+            id: string;
+            label: string;
+            server?: string;
+        };
+        ReachResult: {
+            host: string;
+            ip?: string;
+            tcp?: components["schemas"]["ReachTCP"];
+            ping?: components["schemas"]["ReachPing"];
+        };
+        HTTPResult: {
+            status: number;
+            statusText: string;
+            proto: string;
+            durationMs: number;
+            /** Format: int64 */
+            size: number;
+            headers: {
+                [key: string]: string;
+            };
+            headerKeys: string[];
+            body: string;
+            truncated: boolean;
+            binary: boolean;
+            finalUrl: string;
+        };
+        WolWakeResult: {
+            sent: boolean;
+            mac?: string;
+        };
+        WolTarget: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            mac: string;
+            broadcast: string;
+            port: number;
+            /** Format: date-time */
+            createdAt: string;
         };
         WorkspaceFile: {
             /** Format: uuid */
@@ -10920,6 +11146,249 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
+        };
+    };
+    toolSSL: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    host: string;
+                    port?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Certificate */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSLResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    toolDNS: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @enum {string} */
+                    type: "A" | "AAAA" | "CNAME" | "TXT" | "MX" | "NS" | "PTR";
+                    /** @description system | cloudflare | google | quad9 | adguard | custom */
+                    resolver?: string;
+                    customServer?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Answers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DNSResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    toolDNSResolvers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolver options */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolverOption"][];
+                };
+            };
+        };
+    };
+    toolReachability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    host: string;
+                    port?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReachResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    toolHTTP: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    method: string;
+                    url: string;
+                    headers?: {
+                        [key: string]: string;
+                    };
+                    body?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    listWolTargets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Targets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WolTarget"][];
+                };
+            };
+        };
+    };
+    createWolTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    mac: string;
+                    broadcast?: string;
+                    port?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WolTarget"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    deleteWolTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    wolWake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    targetId?: string;
+                    mac?: string;
+                    broadcast?: string;
+                    port?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Sent */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WolWakeResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
     listFiles: {

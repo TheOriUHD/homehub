@@ -5101,6 +5101,140 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 
+  /tools/ssl:
+    post:
+      operationId: toolSSL
+      summary: Inspect a host's TLS certificate
+      tags: [tools]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [host]
+              properties: { host: { type: string }, port: { type: integer } }
+      responses:
+        "200": { description: Certificate, content: { application/json: { schema: { $ref: "#/components/schemas/SSLResult" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /tools/dns:
+    post:
+      operationId: toolDNS
+      summary: Run a DNS query
+      tags: [tools]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, type]
+              properties:
+                name: { type: string }
+                type: { type: string, enum: [A, AAAA, CNAME, TXT, MX, NS, PTR] }
+                resolver: { type: string, description: "system | cloudflare | google | quad9 | adguard | custom" }
+                customServer: { type: string }
+      responses:
+        "200": { description: Answers, content: { application/json: { schema: { $ref: "#/components/schemas/DNSResult" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /tools/dns/resolvers:
+    get:
+      operationId: toolDNSResolvers
+      summary: Available DNS resolvers (incl. auto-detected AdGuard/Pi-hole)
+      tags: [tools]
+      responses:
+        "200":
+          description: Resolver options
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/ResolverOption" } }
+  /tools/reachability:
+    post:
+      operationId: toolReachability
+      summary: TCP port check + ICMP ping for a host
+      tags: [tools]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [host]
+              properties: { host: { type: string }, port: { type: integer } }
+      responses:
+        "200": { description: Result, content: { application/json: { schema: { $ref: "#/components/schemas/ReachResult" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /tools/http:
+    post:
+      operationId: toolHTTP
+      summary: Perform an HTTP request from the server (mini API tester)
+      tags: [tools]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [method, url]
+              properties:
+                method: { type: string }
+                url: { type: string }
+                headers: { type: object, additionalProperties: { type: string } }
+                body: { type: string }
+      responses:
+        "200": { description: Response, content: { application/json: { schema: { $ref: "#/components/schemas/HTTPResult" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /tools/wol/targets:
+    get:
+      operationId: listWolTargets
+      summary: The caller's saved Wake-on-LAN targets
+      tags: [tools]
+      responses:
+        "200": { description: Targets, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/WolTarget" } } } } }
+    post:
+      operationId: createWolTarget
+      summary: Save a Wake-on-LAN target
+      tags: [tools]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, mac]
+              properties: { name: { type: string }, mac: { type: string }, broadcast: { type: string }, port: { type: integer } }
+      responses:
+        "200": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/WolTarget" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /tools/wol/targets/{id}:
+    delete:
+      operationId: deleteWolTarget
+      summary: Delete a Wake-on-LAN target
+      tags: [tools]
+      parameters: [ { name: id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /tools/wol/wake:
+    post:
+      operationId: wolWake
+      summary: Send a Wake-on-LAN magic packet (ad-hoc or by saved target id)
+      tags: [tools]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetId: { type: string, format: uuid }
+                mac: { type: string }
+                broadcast: { type: string }
+                port: { type: integer }
+      responses:
+        "200": { description: Sent, content: { application/json: { schema: { $ref: "#/components/schemas/WolWakeResult" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /files:
     get:
       operationId: listFiles
@@ -6985,6 +7119,97 @@ components:
         outputName: { type: string }
         outputBytes: { type: integer, format: int64 }
         durationMs: { type: integer, format: int64 }
+
+    CertInfo:
+      type: object
+      required: [subject, issuer, notBefore, notAfter, serial, sigAlgo, isCA]
+      properties:
+        subject: { type: string }
+        issuer: { type: string }
+        notBefore: { type: string }
+        notAfter: { type: string }
+        dnsNames: { type: array, items: { type: string } }
+        serial: { type: string }
+        sigAlgo: { type: string }
+        isCA: { type: boolean }
+    SSLResult:
+      type: object
+      required: [host, port, valid, expired, daysRemaining, leaf, chain, tlsVersion, cipher]
+      properties:
+        host: { type: string }
+        port: { type: integer }
+        valid: { type: boolean }
+        validationError: { type: string }
+        expired: { type: boolean }
+        daysRemaining: { type: integer }
+        leaf: { $ref: "#/components/schemas/CertInfo" }
+        chain: { type: array, items: { $ref: "#/components/schemas/CertInfo" } }
+        tlsVersion: { type: string }
+        cipher: { type: string }
+    DNSRecord:
+      type: object
+      required: [type, value]
+      properties: { type: { type: string }, value: { type: string }, ttl: { type: string } }
+    DNSResult:
+      type: object
+      required: [name, type, resolver, queryMs, records]
+      properties:
+        name: { type: string }
+        type: { type: string }
+        resolver: { type: string }
+        server: { type: string }
+        queryMs: { type: number }
+        records: { type: array, items: { $ref: "#/components/schemas/DNSRecord" } }
+        error: { type: string }
+    ReachTCP:
+      type: object
+      required: [port, open, latencyMs]
+      properties: { port: { type: integer }, open: { type: boolean }, latencyMs: { type: number }, error: { type: string } }
+    ReachPing:
+      type: object
+      required: [alive, available]
+      properties: { alive: { type: boolean }, rttMs: { type: number }, available: { type: boolean }, error: { type: string } }
+    ResolverOption:
+      type: object
+      required: [id, label]
+      properties: { id: { type: string }, label: { type: string }, server: { type: string } }
+    ReachResult:
+      type: object
+      required: [host]
+      properties:
+        host: { type: string }
+        ip: { type: string }
+        tcp: { $ref: "#/components/schemas/ReachTCP" }
+        ping: { $ref: "#/components/schemas/ReachPing" }
+    HTTPResult:
+      type: object
+      required: [status, statusText, proto, durationMs, size, headers, headerKeys, body, truncated, binary, finalUrl]
+      properties:
+        status: { type: integer }
+        statusText: { type: string }
+        proto: { type: string }
+        durationMs: { type: number }
+        size: { type: integer, format: int64 }
+        headers: { type: object, additionalProperties: { type: string } }
+        headerKeys: { type: array, items: { type: string } }
+        body: { type: string }
+        truncated: { type: boolean }
+        binary: { type: boolean }
+        finalUrl: { type: string }
+    WolWakeResult:
+      type: object
+      required: [sent]
+      properties: { sent: { type: boolean }, mac: { type: string } }
+    WolTarget:
+      type: object
+      required: [id, name, mac, broadcast, port, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        mac: { type: string }
+        broadcast: { type: string }
+        port: { type: integer }
+        createdAt: { type: string, format: date-time }
 
     WorkspaceFile:
       type: object
