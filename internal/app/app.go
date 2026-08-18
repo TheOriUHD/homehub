@@ -24,6 +24,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/auth"
 	"github.com/TheOriUHD/homehub/internal/backup"
 	"github.com/TheOriUHD/homehub/internal/config"
+	"github.com/TheOriUHD/homehub/internal/convert"
 	"github.com/TheOriUHD/homehub/internal/db"
 	"github.com/TheOriUHD/homehub/internal/dbdump"
 	"github.com/TheOriUHD/homehub/internal/httpserver"
@@ -219,8 +220,21 @@ func Run(ctx context.Context) error {
 		return err
 	})
 
+	// Universal file converter: runs untrusted uploads through ffmpeg/
+	// ImageMagick/libraw/pandoc privilege-dropped as nobody. One job per batch
+	// (never retried), an hourly reaper, and a startup sweep of interrupted work.
+	convertSvc := convert.NewService(st, cfg.DataDir, logger,
+		func(userID uuid.UUID, topic string, data any) { hub.PublishUser(userID, topic, data) },
+		func(ctx context.Context, kind string, payload any) error {
+			_, err := jobEngine.EnqueueOnce(ctx, kind, payload)
+			return err
+		})
+	jobEngine.Register(convert.JobKindBatch, convertSvc.RunBatch)
+	jobEngine.Register(convert.JobKindCleanup, convertSvc.RunCleanup)
+	convertSvc.SweepOnStartup(ctx)
+
 	apiServer := api.NewServer(st, authSvc, engine, auditSvc, settingsSvc, jobEngine, hub, v,
-		manager, metricsSvc, termMgr, backupSvc, mcRegistry, companion.FS(), logger)
+		manager, metricsSvc, termMgr, backupSvc, mcRegistry, convertSvc, companion.FS(), logger)
 
 	// Telegram bridge: linked chats talk to the assistant. The bot reads its
 	// token from the vault and its switch from settings on every reload.
@@ -293,6 +307,9 @@ func authorizeTopic(ctx context.Context, engine *rbac.Engine, userID uuid.UUID, 
 	switch {
 	case topic == "notifications":
 		// Personal inbox — delivered per-user, identity is the authorization.
+		return true
+	case topic == "convert":
+		// Personal converter progress — delivered per-user via PublishUser.
 		return true
 	case topic == "health":
 		ok, err := engine.Can(ctx, principal, api.ResHealth, rbac.LevelView)
@@ -405,6 +422,13 @@ func ensureMaintenanceSchedule(ctx context.Context, st *store.Store) error {
 		return err
 	}
 	if err := st.EnsureSchedule(ctx, "Metric rollups", "metrics.maintenance", map[string]any{}, "*/5 * * * *", next); err != nil {
+		return err
+	}
+	next, err = jobs.NextRun("17 * * * *", time.Now())
+	if err != nil {
+		return err
+	}
+	if err := st.EnsureSchedule(ctx, "Conversion cleanup", convert.JobKindCleanup, map[string]any{}, "17 * * * *", next); err != nil {
 		return err
 	}
 	next, err = jobs.NextRun("* * * * *", time.Now())

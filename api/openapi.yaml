@@ -5192,6 +5192,116 @@ paths:
       responses:
         "204": { description: Deleted }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /convert/formats:
+    get:
+      operationId: convertFormats
+      summary: The conversion catalog — formats, targets, and tool availability
+      description: >
+        The full conversion graph derived from the server's format matrix, each
+        target annotated with whether the engine that services it is installed.
+        The UI renders this and disables unavailable targets.
+      tags: [convert]
+      responses:
+        "200":
+          description: Catalog
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConvertCatalog" }
+  /convert:
+    get:
+      operationId: listConversions
+      summary: The caller's recent (unexpired) conversion batches
+      tags: [convert]
+      responses:
+        "200":
+          description: Batches, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ConvertBatch" }
+    post:
+      operationId: createConversion
+      summary: Upload files and start a conversion batch
+      description: >
+        Multipart upload. `target` is the target format id; `options` is an
+        optional JSON object (quality, crf). Each file's format is detected
+        server-side; unsupported files come back as immediately-failed items.
+      tags: [convert]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [target, files]
+              properties:
+                target: { type: string, description: Target format id }
+                options: { type: string, description: JSON object of conversion options }
+                files:
+                  type: array
+                  items: { type: string, format: binary }
+      responses:
+        "200":
+          description: The created batch
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConvertBatch" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /convert/{id}:
+    get:
+      operationId: getConversion
+      summary: One conversion batch with its items
+      tags: [convert]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The batch
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConvertBatch" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: deleteConversion
+      summary: Delete a conversion batch and its working files
+      tags: [convert]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /convert/{id}/download:
+    get:
+      operationId: downloadConversion
+      summary: All successful outputs of a batch as a zip
+      tags: [convert]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: A zip archive of the converted files
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /convert/{id}/items/{itemId}/download:
+    get:
+      operationId: downloadConversionItem
+      summary: A single converted file
+      tags: [convert]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: itemId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The converted file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /assistant:
     get:
       operationId: getAssistant
@@ -6785,6 +6895,96 @@ components:
         gameMode: { type: string }
         pingMs: { type: integer }
         heldSlot: { type: integer }
+
+    ConvertCatalog:
+      type: object
+      required: [tools, categories, formats]
+      properties:
+        tools:
+          type: object
+          required: [ffmpeg, imagemagick, libraw, pandoc]
+          properties:
+            ffmpeg: { type: boolean }
+            imagemagick: { type: boolean }
+            libraw: { type: boolean }
+            pandoc: { type: boolean }
+        categories:
+          type: array
+          items: { $ref: "#/components/schemas/ConvertCategory" }
+        formats:
+          type: array
+          items: { $ref: "#/components/schemas/ConvertFormat" }
+    ConvertCategory:
+      type: object
+      required: [id, formats]
+      properties:
+        id: { type: string }
+        formats:
+          type: array
+          items: { type: string }
+    ConvertFormat:
+      type: object
+      required: [id, category, label, extensions, outputs]
+      properties:
+        id: { type: string }
+        category: { type: string }
+        label: { type: string }
+        extensions:
+          type: array
+          items: { type: string }
+        outputs:
+          type: array
+          items: { $ref: "#/components/schemas/ConvertOutput" }
+    ConvertOutput:
+      type: object
+      required: [format, label, category, available, crossCategory]
+      properties:
+        format: { type: string }
+        label: { type: string }
+        category: { type: string }
+        available: { type: boolean }
+        crossCategory: { type: boolean, description: "The target is in a different category than the source (e.g. audio → mp4)" }
+        note: { type: string, description: "Short label for a cross-category edge, e.g. 'extract audio'" }
+        unavailableReason: { type: string }
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/ConvertOption" }
+    ConvertOption:
+      type: object
+      required: [name, label, min, max, default]
+      properties:
+        name: { type: string }
+        label: { type: string }
+        min: { type: integer }
+        max: { type: integer }
+        default: { type: integer }
+    ConvertBatch:
+      type: object
+      required: [id, status, targetFormat, createdAt, expiresAt, items]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [queued, running, done, partial, failed] }
+        targetFormat: { type: string }
+        createdAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ConvertItem" }
+    ConvertItem:
+      type: object
+      required: [id, sourceName, sourceBytes, sourceFormat, category, status]
+      properties:
+        id: { type: string, format: uuid }
+        sourceName: { type: string }
+        sourceBytes: { type: integer, format: int64 }
+        sourceFormat: { type: string }
+        category: { type: string }
+        status: { type: string, enum: [pending, converting, done, failed] }
+        error: { type: string }
+        outputName: { type: string }
+        outputBytes: { type: integer, format: int64 }
+        durationMs: { type: integer, format: int64 }
 
     WorkspaceFile:
       type: object

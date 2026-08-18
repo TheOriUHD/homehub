@@ -3353,6 +3353,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/convert/formats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The conversion catalog — formats, targets, and tool availability
+         * @description The full conversion graph derived from the server's format matrix, each target annotated with whether the engine that services it is installed. The UI renders this and disables unavailable targets.
+         */
+        get: operations["convertFormats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's recent (unexpired) conversion batches */
+        get: operations["listConversions"];
+        put?: never;
+        /**
+         * Upload files and start a conversion batch
+         * @description Multipart upload. `target` is the target format id; `options` is an optional JSON object (quality, crf). Each file's format is detected server-side; unsupported files come back as immediately-failed items.
+         */
+        post: operations["createConversion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/convert/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One conversion batch with its items */
+        get: operations["getConversion"];
+        put?: never;
+        post?: never;
+        /** Delete a conversion batch and its working files */
+        delete: operations["deleteConversion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/convert/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All successful outputs of a batch as a zip */
+        get: operations["downloadConversion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/convert/{id}/items/{itemId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A single converted file */
+        get: operations["downloadConversionItem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assistant": {
         parameters: {
             query?: never;
@@ -4422,6 +4515,77 @@ export interface components {
             gameMode?: string;
             pingMs?: number;
             heldSlot?: number;
+        };
+        ConvertCatalog: {
+            tools: {
+                ffmpeg: boolean;
+                imagemagick: boolean;
+                libraw: boolean;
+                pandoc: boolean;
+            };
+            categories: components["schemas"]["ConvertCategory"][];
+            formats: components["schemas"]["ConvertFormat"][];
+        };
+        ConvertCategory: {
+            id: string;
+            formats: string[];
+        };
+        ConvertFormat: {
+            id: string;
+            category: string;
+            label: string;
+            extensions: string[];
+            outputs: components["schemas"]["ConvertOutput"][];
+        };
+        ConvertOutput: {
+            format: string;
+            label: string;
+            category: string;
+            available: boolean;
+            /** @description The target is in a different category than the source (e.g. audio → mp4) */
+            crossCategory: boolean;
+            /** @description Short label for a cross-category edge, e.g. 'extract audio' */
+            note?: string;
+            unavailableReason?: string;
+            options?: components["schemas"]["ConvertOption"][];
+        };
+        ConvertOption: {
+            name: string;
+            label: string;
+            min: number;
+            max: number;
+            default: number;
+        };
+        ConvertBatch: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "done" | "partial" | "failed";
+            targetFormat: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** Format: date-time */
+            expiresAt: string;
+            items: components["schemas"]["ConvertItem"][];
+        };
+        ConvertItem: {
+            /** Format: uuid */
+            id: string;
+            sourceName: string;
+            /** Format: int64 */
+            sourceBytes: number;
+            sourceFormat: string;
+            category: string;
+            /** @enum {string} */
+            status: "pending" | "converting" | "done" | "failed";
+            error?: string;
+            outputName?: string;
+            /** Format: int64 */
+            outputBytes?: number;
+            /** Format: int64 */
+            durationMs?: number;
         };
         WorkspaceFile: {
             /** Format: uuid */
@@ -10895,6 +11059,168 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    convertFormats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalog */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConvertCatalog"];
+                };
+            };
+        };
+    };
+    listConversions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Batches, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConvertBatch"][];
+                };
+            };
+        };
+    };
+    createConversion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @description Target format id */
+                    target: string;
+                    /** @description JSON object of conversion options */
+                    options?: string;
+                    files: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description The created batch */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConvertBatch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    getConversion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The batch */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConvertBatch"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteConversion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadConversion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A zip archive of the converted files */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadConversionItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The converted file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
             };
             404: components["responses"]["NotFound"];
         };
