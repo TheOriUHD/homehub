@@ -298,6 +298,74 @@ func (s *Server) McDeleteServer(ctx context.Context, req McDeleteServerRequestOb
 	return McDeleteServer204Response{}, nil
 }
 
+// mcStopVerb picks the graceful-shutdown console word for a loader:
+// Velocity's proxy console uses "end"/"shutdown", everything else "stop".
+func mcStopVerb(loader string) string {
+	if loader == "velocity" {
+		return "end"
+	}
+	return "stop"
+}
+
+func (s *Server) McRestartServer(ctx context.Context, req McRestartServerRequestObject) (McRestartServerResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	row, _, err := s.mcInstance(ctx, id, req.Id)
+	if err != nil {
+		return McRestartServer404JSONResponse{notFoundErr("instance")}, nil
+	}
+	server, resource, err := s.mcServer(ctx, id, req.Id, req.ServerId)
+	if err != nil {
+		return McRestartServer404JSONResponse{notFoundErr("server")}, nil
+	}
+	// A full restart is disruptive: control on the server, like commands.
+	if !s.can(ctx, id, resource, rbac.LevelControl) {
+		s.deniedAudit(ctx, id, "mc.restart", resource)
+		return McRestartServer403JSONResponse{forbidden()}, nil
+	}
+
+	cfg := s.mcSSHConfig(ctx, row)
+	if cfg.Host == "" || cfg.User == "" {
+		return McRestartServer400JSONResponse{BadRequestJSONResponse(errBody("no_ssh", "this network has no SSH access configured — a full restart needs it"))}, nil
+	}
+
+	// The screen session and directory follow the operator's convention:
+	// screen name == server folder == the label, under a configurable base
+	// (default /home/minecraft/server).
+	var netCfg struct {
+		ServerDir string `json:"sshServerDir"`
+	}
+	_ = json.Unmarshal(row.Config, &netCfg)
+	base := strings.TrimRight(netCfg.ServerDir, "/")
+	if base == "" {
+		base = "/home/minecraft/server"
+	}
+	screenName := server.Label
+	dir := base + "/" + screenName
+	script := minecraft.RestartScript(screenName, dir, mcStopVerb(server.Loader))
+
+	rctx, cancel := context.WithTimeout(ctx, 130*time.Second)
+	defer cancel()
+	out, err := minecraft.RunSSH(rctx, cfg, script)
+	message := strings.TrimSpace(out)
+	ok := err == nil && strings.Contains(out, "RESTART_OK")
+	outcome := "success"
+	if !ok {
+		outcome = "error"
+		if message == "" && err != nil {
+			message = err.Error()
+		}
+	}
+	s.audit.Log(ctx, actorFor(id), "mc.restart", resource, outcome,
+		map[string]any{"serverId": server.ID.String(), "label": server.Label})
+	if !ok {
+		return McRestartServer502JSONResponse{UpstreamErrorJSONResponse(errBody("restart_failed", message))}, nil
+	}
+	return McRestartServer200JSONResponse{Ok: true, Message: message}, nil
+}
+
 func (s *Server) McSshTest(ctx context.Context, req McSshTestRequestObject) (McSshTestResponseObject, error) {
 	id := httpctx.IdentityFrom(ctx)
 	if id == nil {

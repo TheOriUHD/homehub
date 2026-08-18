@@ -66,6 +66,14 @@ func (tb *Toolbox) systemTools() []tool {
 		},
 		{
 			def: ToolDef{
+				Name:        "mc_restart_server",
+				Description: "Full restart of ONE Minecraft server over the network's SSH access (graceful stop, then relaunch from its start.sh). Needs SSH configured on the network. This is disruptive — only when the user explicitly asks to restart that server.",
+				InputSchema: obj(`"systemId":{"type":"string"},"serverId":{"type":"string"}`, "systemId", "serverId"),
+			},
+			run: tb.mcRestart,
+		},
+		{
+			def: ToolDef{
 				Name:        "amp_instance_action",
 				Description: "start, stop, or restart one AMP game-server instance (instanceId from system_details).",
 				InputSchema: obj(`"systemId":{"type":"string"},"instanceId":{"type":"string"},"action":{"type":"string","enum":["start","stop","restart"]}`, "systemId", "instanceId", "action"),
@@ -383,6 +391,25 @@ func (tb *Toolbox) mcCommand(ctx context.Context, _ Access, input json.RawMessag
 		}
 	}
 	return map[string]any{"ack": ack, "console": reaction}, nil
+}
+
+func (tb *Toolbox) mcRestart(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+	id, _, err := parseSystemID(input)
+	if err != nil {
+		return nil, err
+	}
+	var args struct {
+		ServerID string `json:"serverId"`
+	}
+	if err := json.Unmarshal(input, &args); err != nil {
+		return nil, fmt.Errorf("serverId is required")
+	}
+	serverID, err := uuid.Parse(strings.TrimSpace(args.ServerID))
+	if err != nil {
+		return nil, fmt.Errorf("serverId must be a server uuid from system_details")
+	}
+	return tb.call(ctx, http.MethodPost,
+		fmt.Sprintf("/mc/%s/servers/%s/restart", id.String(), serverID.String()), nil)
 }
 
 func (tb *Toolbox) ampAction(ctx context.Context, _ Access, input json.RawMessage) (any, error) {

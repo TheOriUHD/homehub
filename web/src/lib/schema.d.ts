@@ -2809,6 +2809,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mc/{id}/servers/{serverId}/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Full restart of one server over SSH
+         * @description Sends the stop command into the server's screen console, waits for it to exit, then relaunches from the server's own start.sh (transformed to detached mode; start.sh is never modified). Requires the network's SSH access and control on the server. Audited.
+         */
+        post: operations["mcRestartServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mc/{id}/ssh/test": {
         parameters: {
             query?: never;
@@ -9610,6 +9630,36 @@ export interface operations {
                     "application/json": {
                         ok: boolean;
                         message?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    mcRestartServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                serverId: components["parameters"]["mcServerIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restart outcome with the script's output */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                        message: string;
                     };
                 };
             };

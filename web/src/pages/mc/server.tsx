@@ -1,7 +1,13 @@
 import { Link, Outlet, useParams, useRouterState } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft } from "lucide-react";
-import type { ReactNode } from "react";
+import { ArrowLeft, RotateCw } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { api, isApiError, unwrap } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { Button } from "@/ui/button";
+import { ConfirmDialog } from "@/ui/confirm";
+import { useToast } from "@/ui/toast";
 import { capacityTextClass } from "@/lib/capacity";
 import { useMetricSeries } from "@/lib/metrics";
 import { cn } from "@/lib/utils";
@@ -10,7 +16,7 @@ import { Card } from "@/ui/card";
 import { Sparkline } from "@/ui/sparkline";
 import { EmptyState } from "@/ui/states";
 import { AlertTriangle } from "lucide-react";
-import { loaderLabel, mcServerResource, tpsTone, useMcServer } from "./shared";
+import { loaderLabel, mcOverviewKey, mcServerResource, tpsTone, useMcOverview, useMcServer } from "./shared";
 
 /**
  * McServerPage frames ONE server of the network: back-link, live header
@@ -20,6 +26,8 @@ export function McServerPage() {
   const { t } = useTranslation();
   const { instanceId, serverId } = useParams({ from: "/shell/mc/$instanceId/s/$serverId" });
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const { can } = useAuth();
+  const sshConfigured = useMcOverview(instanceId).data?.sshConfigured ?? false;
 
   const server = useMcServer(instanceId, serverId);
   if (!server) {
@@ -58,6 +66,9 @@ export function McServerPage() {
           </p>
         </div>
 
+        {can(mcServerResource(instanceId, serverId), "control") && sshConfigured && (
+          <RestartButton instanceId={instanceId} serverId={serverId} label={server.label} />
+        )}
         {st && (
           <div className="flex flex-wrap items-stretch gap-2">
             {typeof st.tps === "number" && (
@@ -146,5 +157,50 @@ function HeaderTpsSparkline({ instanceId, serverId }: { instanceId: string; serv
     <div className="w-[110px] shrink-0">
       <Sparkline points={points} height={36} />
     </div>
+  );
+}
+
+
+/** Full restart over the network's SSH access, behind a confirm. */
+function RestartButton({ instanceId, serverId, label }: { instanceId: string; serverId: string; label: string }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [confirm, setConfirm] = useState(false);
+
+  const restart = useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await api.POST("/mc/{id}/servers/{serverId}/restart", {
+          params: { path: { id: instanceId, serverId } },
+        }),
+      ),
+    onSuccess: (res) => {
+      setConfirm(false);
+      toast("success", t("mc.server.restartDone", { name: label }), res.message);
+      void queryClient.invalidateQueries({ queryKey: mcOverviewKey(instanceId) });
+    },
+    onError: (err) => {
+      setConfirm(false);
+      toast("error", t("mc.server.restartFailed"), isApiError(err) ? err.message : t("common.unknownError"));
+    },
+  });
+
+  return (
+    <>
+      <Button size="sm" variant="secondary" onClick={() => setConfirm(true)}>
+        <RotateCw className="size-3.5" />
+        {t("mc.server.restart")}
+      </Button>
+      <ConfirmDialog
+        open={confirm}
+        onOpenChange={setConfirm}
+        title={t("mc.server.restartTitle", { name: label })}
+        body={t("mc.server.restartBody")}
+        confirmLabel={t("mc.server.restart")}
+        loading={restart.isPending}
+        onConfirm={() => restart.mutate()}
+      />
+    </>
   );
 }

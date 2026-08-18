@@ -1971,7 +1971,12 @@
     },
     "server": {
       "back": "All servers",
-      "gone": "This server is not part of the network (anymore)."
+      "gone": "This server is not part of the network (anymore).",
+      "restart": "Restart",
+      "restartTitle": "Restart {{name}}?",
+      "restartBody": "Stops the server gracefully over SSH, then relaunches it from its own start.sh. Players are disconnected for the boot.",
+      "restartDone": "{{name}} restarted",
+      "restartFailed": "Restart failed"
     }
   },
   "history": {
