@@ -146,7 +146,8 @@ func TestOpenAIReasoningEffortRetry(t *testing.T) {
 	defer srv.Close()
 
 	p := &OpenAIProvider{APIKey: "k", BaseURL: srv.URL + "/v1"}
-	reply, err := p.Chat(context.Background(), "gpt-5.6-luna", "s",
+	// A model OUTSIDE the known reasoning families exercises the backstop.
+	reply, err := p.Chat(context.Background(), "futurellm-9", "s",
 		[]Turn{{Role: "user", Text: "x"}},
 		[]ToolDef{{Name: "t", Description: "d", InputSchema: json.RawMessage(`{"type":"object"}`)}})
 	if err != nil || reply.Text != "hi" {
@@ -154,6 +155,55 @@ func TestOpenAIReasoningEffortRetry(t *testing.T) {
 	}
 	if len(requests) != 2 || requests[0].ReasoningEffort != "" || requests[1].ReasoningEffort != "none" {
 		t.Fatalf("wrong retry sequence: %+v", requests)
+	}
+}
+
+// Known reasoning families are hardcoded: "none" on the FIRST request,
+// no refusal round-trip.
+func TestOpenAIReasoningEffortHardcoded(t *testing.T) {
+	var requests []oaRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var req oaRequest
+		_ = json.Unmarshal(raw, &req)
+		requests = append(requests, req)
+		if req.ReasoningEffort != "none" {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"message":"Function tools with reasoning_effort are not supported"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"hi"}}]}`))
+	}))
+	defer srv.Close()
+	p := &OpenAIProvider{APIKey: "k", BaseURL: srv.URL + "/v1"}
+	for _, model := range []string{"gpt-5.6-luna", "gpt-5", "o3-mini", "o4-nano"} {
+		requests = nil
+		reply, err := p.Chat(context.Background(), model, "s",
+			[]Turn{{Role: "user", Text: "x"}},
+			[]ToolDef{{Name: "t", Description: "d", InputSchema: json.RawMessage(`{"type":"object"}`)}})
+		if err != nil || reply.Text != "hi" {
+			t.Fatalf("%s: %+v %v", model, reply, err)
+		}
+		if len(requests) != 1 || requests[0].ReasoningEffort != "none" {
+			t.Fatalf("%s: expected single hardcoded request, got %+v", model, requests)
+		}
+	}
+	// Toolless requests must NOT carry the parameter even on gpt-5.
+	requests = nil
+	srv2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var req oaRequest
+		_ = json.Unmarshal(raw, &req)
+		requests = append(requests, req)
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"ok"}}]}`))
+	}))
+	defer srv2.Close()
+	p2 := &OpenAIProvider{APIKey: "k", BaseURL: srv2.URL + "/v1"}
+	if _, err := p2.Chat(context.Background(), "gpt-5.6-luna", "s", []Turn{{Role: "user", Text: "x"}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if requests[0].ReasoningEffort != "" {
+		t.Fatalf("toolless request must not set reasoning_effort: %+v", requests[0])
 	}
 }
 

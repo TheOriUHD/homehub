@@ -106,6 +106,13 @@ func (p *OpenAIProvider) Chat(ctx context.Context, model, system string, turns [
 		t.Function.Parameters = def.InputSchema
 		req.Tools = append(req.Tools, t)
 	}
+	// Known reasoning families get reasoning_effort "none" up front —
+	// no wasted refusal round-trip. Unknown future families still land
+	// on the adaptive retry below.
+	if len(req.Tools) > 0 && oaReasoningModel(model) {
+		req.ReasoningEffort = "none"
+	}
+
 	parsed, status, err := p.do(ctx, req)
 	if err != nil {
 		return Reply{}, err
@@ -144,6 +151,18 @@ func (p *OpenAIProvider) Chat(ctx context.Context, model, system string, turns [
 		out.Calls = append(out.Calls, ToolCall{ID: tc.ID, Name: tc.Function.Name, Input: input})
 	}
 	return out, nil
+}
+
+// oaReasoningModel reports whether a model belongs to OpenAI's reasoning
+// families, which refuse function tools on chat/completions unless
+// reasoning_effort is "none".
+func oaReasoningModel(model string) bool {
+	for _, prefix := range []string{"gpt-5", "o1", "o3", "o4"} {
+		if strings.HasPrefix(model, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // do performs one round-trip and parses whatever came back; non-200
