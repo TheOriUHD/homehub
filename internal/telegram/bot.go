@@ -209,6 +209,11 @@ func (b *Bot) run(ctx context.Context, token string) {
 	b.mu.Unlock()
 	b.Logger.Info("telegram bridge up", "bot", "@"+me.Username)
 
+	// Advertise the commands so they appear in Telegram's command menu.
+	_ = b.call(ctx, token, "setMyCommands", url.Values{
+		"commands": {`[{"command":"link","description":"Get a code to link this chat to HomeHub"},{"command":"unlink","description":"Disconnect this chat from HomeHub"},{"command":"help","description":"How the bridge works"}]`},
+	}, nil)
+
 	offset := int64(0)
 	for ctx.Err() == nil {
 		updates, err := b.getUpdates(ctx, token, offset)
@@ -296,19 +301,31 @@ func (b *Bot) handleMessage(ctx context.Context, token string, msg *tgMessage) {
 		// Unlinked chat: answer only in private chats so the bot cannot be
 		// spammed into groups it was dragged into.
 		if msg.Chat.Type == "private" {
-			b.send(ctx, token, chatID, "This bot is private. Link this chat from HomeHub → Assistant → Telegram, then send /link <code> here.")
+			b.send(ctx, token, chatID, "This bot is private. To link this chat, send /link here and enter the code it gives you in HomeHub → Assistant → Telegram.")
 		}
 		return
 	}
 
 	if strings.HasPrefix(text, "!") || strings.HasPrefix(text, "/") {
-		trigger := strings.Fields(text)[0]
-		if trigger == "/start" || trigger == "/help" {
-			b.send(ctx, token, chatID, "Linked to HomeHub. Plain messages go to the assistant, which answers here and can act on your homelab. Messages starting with ! or / are command triggers — command routing is not configured yet.")
+		trigger := strings.ToLower(strings.TrimPrefix(strings.Fields(text)[0], "!"))
+		trigger = strings.TrimPrefix(trigger, "/")
+		switch trigger {
+		case "unlink":
+			// Self-service: you control this chat, so you can sever its link
+			// to HomeHub from here (revokes this chat's assistant access).
+			if err := b.Store.DeleteTelegramChat(ctx, chatID); err != nil {
+				b.send(ctx, token, chatID, "Unlinking failed on the HomeHub side — check the server logs.")
+				return
+			}
+			b.send(ctx, token, chatID, "This chat is now unlinked. It can no longer talk to HomeHub. Send /link to connect it again.")
+			return
+		case "start", "help":
+			b.send(ctx, token, chatID, "Linked to HomeHub. Plain messages go to the assistant, which answers here and can act on your homelab.\n\nCommands:\n/unlink — disconnect this chat from HomeHub\n/help — show this\n\nMore command triggers (! or /) are coming.")
+			return
+		default:
+			b.send(ctx, token, chatID, fmt.Sprintf("Unknown command %q. Try /help. Plain messages talk to the assistant.", "/"+trigger))
 			return
 		}
-		b.send(ctx, token, chatID, fmt.Sprintf("Command trigger %q noted — command routing is not configured yet. Plain messages talk to the assistant.", trigger))
-		return
 	}
 
 	// Assistant turn. Show "typing…" while the agent works.
