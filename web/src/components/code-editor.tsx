@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentWithTab, redo, undo } from "@codemirror/commands";
 import { css } from "@codemirror/lang-css";
 import { html } from "@codemirror/lang-html";
 import { javascript } from "@codemirror/lang-javascript";
@@ -28,7 +28,7 @@ import { properties } from "@codemirror/legacy-modes/mode/properties";
 import { rust } from "@codemirror/legacy-modes/mode/rust";
 import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
-import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
+import { highlightSelectionMatches, openSearchPanel, search, searchKeymap } from "@codemirror/search";
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import {
   drawSelection,
@@ -37,7 +37,6 @@ import {
   highlightActiveLineGutter,
   keymap,
   lineNumbers,
-  placeholder as cmPlaceholder,
 } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 
@@ -179,29 +178,74 @@ const appTheme = EditorView.theme({
   },
 });
 
-export function CodeEditor({
-  fileName,
-  value,
-  onChange,
-  onSave,
-  onCursor,
-  placeholder,
-  autoFocus,
-}: {
-  fileName: string;
-  value: string;
-  onChange: (next: string) => void;
-  onSave: () => void;
-  onCursor?: (line: number, col: number) => void;
-  placeholder?: string;
-  autoFocus?: boolean;
-}) {
+/** Commands the page's toolbar can drive. */
+export type CodeEditorHandle = {
+  undo: () => void;
+  redo: () => void;
+  find: () => void;
+  focus: () => void;
+  setWrap: (on: boolean) => void;
+  setFontSize: (px: number) => void;
+  getValue: () => string;
+};
+
+/**
+ * UNCONTROLLED by design: the document is seeded from initialValue at mount
+ * and then owned entirely by the editor — no effect ever writes the buffer
+ * from the outside, so background refetches or cache changes can never wipe
+ * or revert what the user is typing. Remount (change the key) to load
+ * different content.
+ */
+export const CodeEditor = forwardRef<
+  CodeEditorHandle,
+  {
+    fileName: string;
+    initialValue: string;
+    onChange: (next: string) => void;
+    onSave: () => void;
+    onCursor?: (line: number, col: number, selected: number) => void;
+    autoFocus?: boolean;
+  }
+>(function CodeEditor({ fileName, initialValue, onChange, onSave, onCursor, autoFocus }, ref) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const langCompartment = useRef(new Compartment());
+  const wrapCompartment = useRef(new Compartment());
+  const sizeCompartment = useRef(new Compartment());
   // Fresh callbacks without rebuilding the editor.
   const cbRef = useRef({ onChange, onSave, onCursor });
   cbRef.current = { onChange, onSave, onCursor };
+
+  useImperativeHandle(ref, () => ({
+    undo: () => {
+      const v = viewRef.current;
+      if (v) {
+        undo(v);
+        v.focus();
+      }
+    },
+    redo: () => {
+      const v = viewRef.current;
+      if (v) {
+        redo(v);
+        v.focus();
+      }
+    },
+    find: () => {
+      const v = viewRef.current;
+      if (v) openSearchPanel(v);
+    },
+    focus: () => viewRef.current?.focus(),
+    setWrap: (on: boolean) => {
+      viewRef.current?.dispatch({ effects: wrapCompartment.current.reconfigure(on ? EditorView.lineWrapping : []) });
+    },
+    setFontSize: (px: number) => {
+      viewRef.current?.dispatch({
+        effects: sizeCompartment.current.reconfigure(EditorView.theme({ "&": { fontSize: `${px}px` } })),
+      });
+    },
+    getValue: () => viewRef.current?.state.doc.toString() ?? "",
+  }));
 
   const baseExtensions = useMemo<Extension[]>(
     () => [
@@ -222,7 +266,6 @@ export function CodeEditor({
       syntaxHighlighting(highlight),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       appTheme,
-      EditorView.lineWrapping,
       keymap.of([
         {
           key: "Mod-s",
@@ -242,23 +285,27 @@ export function CodeEditor({
       EditorView.updateListener.of((update) => {
         if (update.docChanged) cbRef.current.onChange(update.state.doc.toString());
         if (update.selectionSet || update.docChanged) {
-          const head = update.state.selection.main.head;
-          const line = update.state.doc.lineAt(head);
-          cbRef.current.onCursor?.(line.number, head - line.from + 1);
+          const sel = update.state.selection.main;
+          const line = update.state.doc.lineAt(sel.head);
+          cbRef.current.onCursor?.(line.number, sel.head - line.from + 1, Math.abs(sel.to - sel.from));
         }
       }),
-      ...(placeholder ? [cmPlaceholder(placeholder)] : []),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
-  // Create once per mounted file (key on file id at the call site).
+  // Create ONCE per mount — content ownership transfers to the editor here.
   useEffect(() => {
     if (!hostRef.current) return;
     const state = EditorState.create({
-      doc: value,
-      extensions: [...baseExtensions, langCompartment.current.of(langExtension(fileName))],
+      doc: initialValue,
+      extensions: [
+        ...baseExtensions,
+        langCompartment.current.of(langExtension(fileName)),
+        wrapCompartment.current.of(EditorView.lineWrapping),
+        sizeCompartment.current.of(EditorView.theme({})),
+      ],
     });
     const view = new EditorView({ state, parent: hostRef.current });
     viewRef.current = view;
@@ -270,21 +317,12 @@ export function CodeEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Language follows renames live.
+  // Language follows renames live (safe: reconfigures parsing, never content).
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
     view.dispatch({ effects: langCompartment.current.reconfigure(langExtension(fileName)) });
   }, [fileName]);
 
-  // External value changes (e.g. reverting) sync in without recreating.
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view) return;
-    if (view.state.doc.toString() !== value) {
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } });
-    }
-  }, [value]);
-
   return <div ref={hostRef} className="h-full min-h-0 [&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto" />;
-}
+});
