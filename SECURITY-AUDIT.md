@@ -36,6 +36,13 @@ _Updated as fixes land. Each row links to the commit that closed it._
 | 5. RBAC + egress guards on identity-only raw routes; XFF trust | 6, 9, 10, 14, 20 | ✅ **Fixed** — new `internal/netguard` SSRF egress guard (blocks loopback/link-local/metadata, allows RFC1918+public, re-checks every redirect dial) wired into the HTTP tester (9) and calendar feed/CalDAV fetcher (10). Network-egress tools (HTTP tester, DNS, reachability, SSL, IP scanner) now require `control` on a new top-level `tools` resource — Owner+Operator only, not read-only Viewer (9, 14, 20). Netscan gains a 3-slot concurrency cap → 429 (14). `ClientIP` honors X-Forwarded-For/X-Real-Ip only from configured trusted proxies (default none → socket peer), closing rate-limiter/audit/session-IP spoofing (6). _Minor UX note: Viewers lose the network-diagnostic tools; the actual Owner user is unaffected._ |
 | 6. Medium/Low hardening | 11, 16, 17, 21, 22 | ✅ **Fixed** — 8 MiB `jsonBodyLimit` middleware on the /api router (streaming routes exempt) closes the unbounded-body OOM (11); per-user 2 GiB workspace quota rejects over-budget uploads with 413 (16); PatchPilot sudoers drop-in tightened to the binaries actually sudo-invoked — `apt-get` alone on Debian, no `apt`/`dpkg` (17); `X-Frame-Options`/`nosniff`/`Referrer-Policy` on every response (21); the 400 error handler + assistant-apply failures no longer echo raw internal errors (22). Verified live: headers present, oversized body capped, live bootstrap green. |
 
+**All six fixes in the recommended order are done, committed, and deployed.** The following findings fell _outside_ that ordered list and remain **open** — a deliberate boundary, listed here so the decision is explicit rather than silent:
+
+- **Telegram group-chat binding** (Medium) — any current/future member of a linked Telegram _group_ acts as the linking HomeHub user. Fix is small (reject `/link` in non-private chats, and/or bind the specific sender id); left for a follow-up because it touches the Telegram UX. **Recommended next.**
+- **`/assistant/actions/apply` executes client-supplied actions outside the RBAC/audit path** (Low) — no privilege escalation today (all three action kinds are already unrestricted for any authed user), but structurally latent; replaying through `SelfCall` is the clean fix.
+- **Converter sandbox drops UID only** (Low, _tentative_) — SVG/media inputs could drive SSRF/local-file reads; needs a network-namespace / protocol-whitelist change to the convert runner, larger than this pass.
+- **WoL ad-hoc target not validated** (Info) and **global signal stream discloses resource details** (Info, by-design) — informational; no action taken pending a conscious product decision.
+
 ---
 
 ## High
