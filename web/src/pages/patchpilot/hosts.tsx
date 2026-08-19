@@ -54,9 +54,9 @@ export function PatchpilotHostsPage() {
   // so the monitor is reachable even after it's been closed.
   const activeRun = (runs.data ?? []).find((r) => r.status === "running");
 
-  const doRunAll = () => {
+  const doRun = (hostIds?: string[]) => {
     runFleet.mutate(
-      {},
+      hostIds ? { hostIds } : {},
       {
         onSuccess: (run) => {
           setMonitorRunId(run.id); // pop the live monitor open immediately
@@ -67,9 +67,11 @@ export function PatchpilotHostsPage() {
       },
     );
   };
-  // Run-all touches every host; if any is critical, gate it behind the timer.
+  // Run-all touches every host; if any is critical, gate it behind the timer
+  // (with the option to skip the critical ones and run the rest).
   const criticalHosts = (hosts.data ?? []).filter((h) => h.critical);
-  const runAll = () => (criticalHosts.length > 0 ? setConfirmRunAll(true) : doRunAll());
+  const nonCriticalHosts = (hosts.data ?? []).filter((h) => !h.critical);
+  const runAll = () => (criticalHosts.length > 0 ? setConfirmRunAll(true) : doRun());
 
   if (hosts.isLoading) return <PageLoader />;
   if (hosts.isError) {
@@ -162,12 +164,21 @@ export function PatchpilotHostsPage() {
       <CriticalRunConfirm
         open={confirmRunAll}
         onOpenChange={setConfirmRunAll}
-        hostNames={criticalHosts.map((h) => h.name)}
+        criticalNames={criticalHosts.map((h) => h.name)}
+        skipCount={nonCriticalHosts.length}
         loading={runFleet.isPending}
         onConfirm={() => {
           setConfirmRunAll(false);
-          doRunAll();
+          doRun();
         }}
+        onSkipCritical={
+          nonCriticalHosts.length > 0
+            ? () => {
+                setConfirmRunAll(false);
+                doRun(nonCriticalHosts.map((h) => h.id));
+              }
+            : undefined
+        }
       />
     </div>
   );

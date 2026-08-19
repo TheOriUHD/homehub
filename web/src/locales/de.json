@@ -3181,8 +3181,13 @@
       "runConfirm": "Trotzdem ausführen",
       "runWait": "Bestätigen in {{s}}s",
       "scheduleTitle": "Zeitplan enthält einen kritischen Host",
-      "scheduleWarn": "Dieser Zeitplan zielt auf einen als kritisch / Hypervisor markierten Host. Geplante Läufe ändern sich nicht — dies bestätigt nur, dass du ihn einschließen wolltest:",
-      "scheduleConfirm": "Zeitplan speichern"
+      "scheduleWarn": "Geplante Läufe bleiben unverändert — dies bestätigt nur, dass du einen kritischen Host in diesen Zeitplan aufnehmen wolltest.",
+      "scheduleConfirm": "Zeitplan speichern",
+      "label": "Kritischer Host (Hypervisor)",
+      "label_other": "Kritische Hosts (Hypervisor)",
+      "skip": "Kritische überspringen",
+      "skipNote": "{{count}} weiterer Host wird trotzdem aktualisiert.",
+      "skipNote_other": "{{count}} weitere Hosts werden trotzdem aktualisiert."
     }
   },
   "signals": {

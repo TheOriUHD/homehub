@@ -195,7 +195,7 @@ export function useHostAction(instanceId: string) {
 export function useUpdateHost(instanceId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (vars: { hostId: string; body: { name?: string; enabled?: boolean; autoReboot?: boolean; notes?: string } }) =>
+    mutationFn: async (vars: { hostId: string; body: { name?: string; enabled?: boolean; autoReboot?: boolean; critical?: boolean; notes?: string } }) =>
       unwrap(
         await api.PUT("/patchpilot/{id}/hosts/{hostId}", {
           params: { path: { id: instanceId, hostId: vars.hostId } },
