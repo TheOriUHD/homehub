@@ -285,6 +285,14 @@ func (b *Bot) handleMessage(ctx context.Context, token string, msg *tgMessage) {
 	// account. Guessing is pointless: confirming a code links the chat to
 	// the CONFIRMING user's own account.
 	if strings.HasPrefix(text, "/link") {
+		// Linking is 1:1 with a single Telegram account, so it is only allowed
+		// in a PRIVATE chat. A group binding would let every current or later-
+		// added member act under the linking user's HomeHub identity and RBAC —
+		// so the whole group is never bound.
+		if msg.Chat.Type != "private" {
+			b.send(ctx, token, chatID, "For security, linking only works in a private chat with the bot — a group binding would let every member act as you. Open a direct chat with me and send /link there.")
+			return
+		}
 		if _, err := b.Store.GetTelegramChat(ctx, chatID); err == nil {
 			b.send(ctx, token, chatID, "This chat is already linked. An administrator can unlink it in HomeHub → Assistant → Telegram.")
 			return
@@ -307,6 +315,22 @@ func (b *Bot) handleMessage(ctx context.Context, token string, msg *tgMessage) {
 		// spammed into groups it was dragged into.
 		if msg.Chat.Type == "private" {
 			b.send(ctx, token, chatID, "This bot is private. To link this chat, send /link here and enter the code it gives you in HomeHub → Assistant → Telegram.")
+		}
+		return
+	}
+
+	// A linked chat must be private. Group chats can no longer be linked (see
+	// /link above); this also neutralizes any binding created before that
+	// restriction — it never runs /status or an assistant turn under the linked
+	// user's identity for a group. Only /unlink is honored, so the group can
+	// clean itself up; plain messages are ignored to avoid spamming the group.
+	if msg.Chat.Type != "private" {
+		switch {
+		case strings.HasPrefix(text, "/unlink"), strings.HasPrefix(text, "!unlink"):
+			_ = b.Store.DeleteTelegramChat(ctx, chatID)
+			b.send(ctx, token, chatID, "This chat is now unlinked. HomeHub only works in a private chat with the bot — message me directly and send /link there.")
+		case strings.HasPrefix(text, "/"), strings.HasPrefix(text, "!"):
+			b.send(ctx, token, chatID, "For security, HomeHub only works in a private chat with the bot, not a group. Send /unlink to disconnect this group.")
 		}
 		return
 	}

@@ -1,6 +1,11 @@
 package telegram
 
 import (
+	"context"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -54,5 +59,43 @@ func TestClaimRateLimitedPerUser(t *testing.T) {
 	// A different user is unaffected by the first user's lockout.
 	if _, _, err := b.Claim(uuid.New(), code); err != nil {
 		t.Fatalf("second user was wrongly rate-limited: %v", err)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// A group chat can never mint a link code: binding a group would let every
+// member act under the linking user's HomeHub identity (Finding 7).
+func TestLinkRejectedInGroupChat(t *testing.T) {
+	var sent string
+	b := &Bot{}
+	b.client.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		body, _ := io.ReadAll(r.Body)
+		vals, _ := url.ParseQuery(string(body))
+		sent = vals.Get("text")
+		return &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(strings.NewReader(`{"ok":true,"result":{}}`)),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	// no Store: a group /link must return before any DB access
+	for _, chatType := range []string{"group", "supergroup", "channel"} {
+		var msg tgMessage
+		msg.Text = "/link"
+		msg.Chat.ID = 4242
+		msg.Chat.Type = chatType
+		msg.Chat.Title = "Family Group"
+		b.handleMessage(context.Background(), "tok", &msg)
+
+		if len(b.pending) != 0 {
+			t.Fatalf("%s /link minted %d code(s); want 0", chatType, len(b.pending))
+		}
+		if !strings.Contains(strings.ToLower(sent), "private chat") {
+			t.Fatalf("%s /link reply = %q, want a private-chat notice", chatType, sent)
+		}
 	}
 }
