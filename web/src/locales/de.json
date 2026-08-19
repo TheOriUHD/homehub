@@ -1,0 +1,3268 @@
+{
+  "common": {
+    "appName": "HomeHub",
+    "loading": "Lädt…",
+    "save": "Speichern",
+    "saving": "Wird gespeichert…",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "confirm": "Bestätigen",
+    "back": "Zurück",
+    "continue": "Weiter",
+    "skip": "Vorerst überspringen",
+    "done": "Fertig",
+    "retry": "Erneut versuchen",
+    "search": "Suchen",
+    "actions": "Aktionen",
+    "name": "Name",
+    "description": "Beschreibung",
+    "none": "Keine",
+    "never": "Nie",
+    "optional": "optional",
+    "unknownError": "Etwas ist schiefgelaufen. Versuch es erneut — wenn es weiter passiert, wirf einen Blick in die Server-Logs.",
+    "requiredField": "Dieses Feld ist erforderlich",
+    "show": "Anzeigen",
+    "hide": "Ausblenden",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "you": "du",
+    "remove": "Entfernen"
+  },
+  "theme": {
+    "toggle": "Design umschalten",
+    "light": "Hell",
+    "dark": "Dunkel"
+  },
+  "nav": {
+    "overview": "Übersicht",
+    "health": "Systemzustand",
+    "history": "Verlauf",
+    "alerts": "Alarme",
+    "backups": "Backups",
+    "systems": "Systeme",
+    "administration": "Verwaltung",
+    "users": "Benutzer",
+    "roles": "Rollen",
+    "audit": "Audit-Log",
+    "settings": "Einstellungen",
+    "account": "Konto",
+    "signOut": "Abmelden",
+    "notifications": "Benachrichtigungen",
+    "menu": "Menü",
+    "assistant": "Assistent",
+    "tools": "Werkzeuge",
+    "signals": "Signale",
+    "calendar": "Kalender"
+  },
+  "palette": {
+    "placeholder": "Zu einer Seite oder Aktion springen…",
+    "empty": "Keine Treffer für „{{query}}“",
+    "hint": "Befehlspalette",
+    "sectionPages": "Seiten",
+    "sectionActions": "Aktionen"
+  },
+  "setup": {
+    "welcome": "Willkommen bei HomeHub",
+    "intro": "Eine Steuerzentrale für dein ganzes Homelab. Erstelle zuerst das Administratorkonto — es hat vollen Zugriff und kann nicht ausgesperrt werden.",
+    "adminAccount": "Administratorkonto",
+    "username": "Benutzername",
+    "usernameHint": "Kleinbuchstaben und Zahlen funktionieren am besten — du wirst ihn oft eintippen.",
+    "displayName": "Anzeigename",
+    "password": "Passwort",
+    "passwordHint": "Mindestens 12 Zeichen. Ein langer Satz schlägt kurzen Zeichensalat.",
+    "confirmPassword": "Passwort bestätigen",
+    "passwordMismatch": "Die Passwörter stimmen nicht überein",
+    "createAccount": "Konto erstellen",
+    "creating": "Wird erstellt…",
+    "alreadySetUp": "Dieses HomeHub ist bereits eingerichtet.",
+    "goToLogin": "Zur Anmeldung"
+  },
+  "login": {
+    "title": "Bei HomeHub anmelden",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "signIn": "Anmelden",
+    "signingIn": "Anmeldung läuft…",
+    "usePasskey": "Mit Passkey anmelden",
+    "passkeyFailed": "Die Passkey-Anmeldung wurde nicht abgeschlossen. Nimm dein Passwort oder versuch es erneut.",
+    "mfaTitle": "Zwei-Faktor-Bestätigung",
+    "mfaIntro": "Gib den 6-stelligen Code aus deiner Authenticator-App ein.",
+    "mfaCode": "Authentifizierungscode",
+    "verify": "Bestätigen",
+    "verifying": "Wird geprüft…",
+    "useRecoveryCode": "Stattdessen einen Wiederherstellungscode verwenden",
+    "useTotpCode": "Stattdessen einen Authenticator-Code verwenden",
+    "usePasskeyMfa": "Mit einem Passkey bestätigen",
+    "recoveryTitle": "Wiederherstellungscode",
+    "recoveryIntro": "Gib einen deiner gespeicherten Wiederherstellungscodes ein. Jeder Code funktioniert nur einmal.",
+    "recoveryCode": "Wiederherstellungscode",
+    "startOver": "Von vorn beginnen"
+  },
+  "invite": {
+    "title": "Du wurdest eingeladen",
+    "intro": "Lege ein Passwort fest, um das Konto <strong>{{username}}</strong> zu aktivieren.",
+    "invalid": "Dieser Einladungslink ist ungültig oder abgelaufen. Bitte deinen Administrator um einen neuen.",
+    "password": "Passwort wählen",
+    "activate": "Konto aktivieren",
+    "activating": "Wird aktiviert…"
+  },
+  "changePassword": {
+    "title": "Neues Passwort festlegen",
+    "intro": "Dein Passwort wurde von einem Administrator vergeben und muss geändert werden, bevor es weitergeht.",
+    "current": "Aktuelles Passwort",
+    "new": "Neues Passwort",
+    "confirm": "Neues Passwort bestätigen",
+    "change": "Passwort ändern",
+    "changing": "Wird geändert…",
+    "mismatch": "Die Passwörter stimmen nicht überein"
+  },
+  "overview": {
+    "greeting": "Willkommen zurück, {{name}}",
+    "subtitle": "Dein Homelab auf einen Blick.",
+    "empty": {
+      "title": "Noch nichts zu sehen",
+      "body": "Du hast noch keinen Zugriff auf Systeme. Sobald ein Administrator dir Zugriff gewährt, erscheinen sie hier."
+    },
+    "healthCard": "Systemzustand",
+    "healthOk": "Alle Systeme normal",
+    "healthIssues": "Braucht Aufmerksamkeit",
+    "recentActivity": "Letzte Aktivität",
+    "noActivity": "Noch nichts.",
+    "quickActions": "Schnellaktionen",
+    "addUser": "Benutzer einladen",
+    "createRole": "Rolle erstellen",
+    "viewAudit": "Audit-Log ansehen",
+    "allQuiet": "Alle {{count}} Systeme melden sich — alles ruhig.",
+    "problems": "{{count}} System(e) brauchen Aufmerksamkeit.",
+    "systemsTitle": "Verbundene Systeme",
+    "viewAll": "Alle anzeigen",
+    "noSystems": "Noch keine Systeme verbunden — füge unter Verwaltung → Systeme eins hinzu.",
+    "cards": {
+      "cameras": "Kameras zeichnen auf",
+      "nodes": "Proxmox-Nodes online",
+      "mcServers": "Minecraft-Server · {{players}} spielen",
+      "storage": "Speicher · {{used}} von {{total}}",
+      "tailnet": "Tailnet-Geräte online",
+      "dns": "DNS blockiert · {{blocked}} heute",
+      "containers": "Container laufen",
+      "ampServers": "AMP-Server laufen",
+      "caddySites": "Sites hinter Caddy",
+      "databases": "Datenbankserver",
+      "camerasLiveOnly": "Kameras, Live-Ansicht",
+      "tools": "Dateien im Arbeitsbereich"
+    },
+    "pin": "Nach vorn anheften",
+    "unpin": "Lösen",
+    "firingTitle": "{{count}} Alarm ausgelöst",
+    "firingTitle_other": "{{count}} Alarme ausgelöst",
+    "hub": {
+      "app": "HomeHub",
+      "uptime": "läuft seit {{uptime}}",
+      "database": "Datenbank",
+      "dbLatency": "{{ms}} ms Antwortzeit",
+      "jobs": "Jobs",
+      "jobsDetail": "{{running}} laufen · {{pending}} in der Warteschlange",
+      "jobsFailed": "{{count}} kürzlich fehlgeschlagen",
+      "live": "Live-Verbindungen",
+      "liveDetail": "WebSocket-Clients",
+      "alerts": "Alarme",
+      "alertsFiring": "gerade ausgelöst",
+      "alertsQuiet": "alles ruhig",
+      "backup": "Letztes Backup",
+      "backupFailed": "Fehlgeschlagen",
+      "backupNever": "Nie",
+      "details": "Systemzustand"
+    },
+    "customize": "Anpassen",
+    "customizeTitle": "Übersicht anpassen",
+    "customizeBody": "Wähle, welche Karten auf deiner Übersicht erscheinen, und hefte die wichtigsten nach vorn. Wird in deinem Konto gespeichert.",
+    "showCard": "{{name}} anzeigen",
+    "cardNames": {
+      "hub": "HomeHub-Vitalwerte",
+      "nvr": "Kameras",
+      "pve": "Proxmox-Nodes",
+      "mc": "Minecraft-Server",
+      "nas": "Speicher",
+      "ts": "Tailnet",
+      "dns": "DNS-Filter",
+      "docker": "Container",
+      "amp": "AMP-Server",
+      "caddy": "Caddy-Sites",
+      "db": "Datenbanken",
+      "tools": "Werkzeuge",
+      "signals": "Signale-Panel"
+    }
+  },
+  "health": {
+    "title": "Systemzustand",
+    "subtitle": "Der Zustand von HomeHub selbst.",
+    "version": "Version",
+    "uptime": "Laufzeit",
+    "database": "Datenbank",
+    "databaseSize": "Datenbankgröße",
+    "databaseLatency": "Abfragelatenz",
+    "reachable": "Erreichbar",
+    "unreachable": "Nicht erreichbar",
+    "jobs": "Hintergrund-Jobs",
+    "jobsWorkers": "Worker",
+    "jobsPending": "Wartend",
+    "jobsRunning": "Laufend",
+    "jobsFailed": "Fehlgeschlagen (24 h)",
+    "wsClients": "Live-Verbindungen",
+    "integrations": "Integrationen",
+    "noIntegrations": {
+      "title": "Noch keine Integrationen",
+      "body": "Der Zustand deiner Integrationen erscheint hier, sobald Systeme verbunden sind."
+    },
+    "loadFailed": "Die Zustandsdaten konnten nicht geladen werden."
+  },
+  "term": {
+    "connecting": "Verbinde…",
+    "disconnected": "Verbindung geschlossen.",
+    "reconnect": "Neu verbinden",
+    "searchPlaceholder": "Terminal durchsuchen…",
+    "searchPrev": "Vorheriger Treffer",
+    "searchNext": "Nächster Treffer",
+    "searchClose": "Suche schließen",
+    "vncDisconnected": "Vom entfernten Bildschirm getrennt.",
+    "vncDisconnectedUnclean": "Die Verbindung zum entfernten Bildschirm ist abgerissen.",
+    "vncSecurityFailure": "Die Verbindung wurde abgelehnt: {{reason}}",
+    "vncSecurityFailureUnknown": "Die Verbindung wurde beim Sicherheits-Handshake abgelehnt."
+  },
+  "users": {
+    "title": "Benutzer",
+    "subtitle": "Konten, Rollen und Zugriff.",
+    "add": "Benutzer hinzufügen",
+    "columns": {
+      "user": "Benutzer",
+      "roles": "Rollen",
+      "security": "Sicherheit",
+      "lastLogin": "Letzte Anmeldung",
+      "status": "Status"
+    },
+    "statusActive": "Aktiv",
+    "statusDisabled": "Deaktiviert",
+    "totpOn": "2FA",
+    "passkeys": "{{count}} Passkey",
+    "passkeys_other": "{{count}} Passkeys",
+    "mustChange": "Temp. Passwort",
+    "empty": {
+      "title": "Bisher nur du",
+      "body": "Füge einen Benutzer hinzu, um jemandem Zugriff zu geben — du bestimmst genau, was die Person sehen und tun darf."
+    },
+    "create": {
+      "title": "Benutzer hinzufügen",
+      "username": "Benutzername",
+      "displayName": "Anzeigename",
+      "email": "E-Mail",
+      "roles": "Rollen",
+      "rolesHint": "Wähle mindestens eine Rolle — oder lass es leer und vergib später individuelle Berechtigungen.",
+      "onboarding": "Wie soll die Person reinkommen?",
+      "invite": "Einladungslink",
+      "inviteHint": "Sie öffnet den Link und wählt ihr eigenes Passwort. Läuft in 72 Stunden ab.",
+      "tempPassword": "Temporäres Passwort",
+      "tempPasswordHint": "Du übergibst ein Einmal-Passwort; bei der ersten Anmeldung muss es ersetzt werden.",
+      "submit": "Benutzer erstellen"
+    },
+    "created": {
+      "title": "{{username}} erstellt",
+      "inviteIntro": "Schick der Person diesen Einladungslink — er wird nur einmal angezeigt und läuft {{expires}} ab.",
+      "tempIntro": "Übergib der Person dieses temporäre Passwort — es wird nur einmal angezeigt.",
+      "understood": "Ich habe es gespeichert"
+    },
+    "detail": {
+      "title": "Benutzerdetails",
+      "profile": "Profil",
+      "roles": "Rollen",
+      "overrides": "Individuelle Berechtigungen",
+      "overridesHint": "Zusätzliche Freigaben (oder Sperren) über die Rollen dieses Benutzers hinaus. Verweigern gewinnt immer.",
+      "sessions": "Aktive Sitzungen",
+      "revokeAll": "Alle Sitzungen beenden",
+      "resetAccess": "Zugang zurücksetzen",
+      "resetIntro": "Stelle einen neuen Einladungslink oder ein temporäres Passwort aus. Das bisherige Passwort funktioniert nicht mehr, sobald der neue Zugang benutzt wird.",
+      "newInvite": "Neuer Einladungslink",
+      "newTempPassword": "Neues temporäres Passwort",
+      "alsoRevoke": "Zusätzlich überall abmelden",
+      "dangerZone": "Gefahrenzone",
+      "deleteUser": "Benutzer löschen",
+      "deleteConfirmTitle": "{{username}} löschen?",
+      "deleteConfirmBody": "Konto, Sitzungen und persönliche Einstellungen werden dauerhaft entfernt. Die Audit-Historie bleibt erhalten.",
+      "disable": "Konto deaktivieren",
+      "enable": "Konto aktivieren",
+      "cannotDeleteSelf": "Du kannst dein eigenes Konto nicht löschen.",
+      "usernameHint": "Der Anmeldename. Eine Änderung greift bei der nächsten Anmeldung des Benutzers."
+    }
+  },
+  "roles": {
+    "title": "Rollen",
+    "subtitle": "Was jede Art von Benutzer sehen und tun darf.",
+    "add": "Rolle erstellen",
+    "system": "Integriert",
+    "custom": "Benutzerdefiniert",
+    "members": "{{count}} Mitglied",
+    "members_other": "{{count}} Mitglieder",
+    "noGrants": "Noch kein Zugriff gewährt",
+    "grantCount": "{{count}} Berechtigung",
+    "grantCount_other": "{{count}} Berechtigungen",
+    "viewAs": "Vorschau als diese Rolle",
+    "editor": {
+      "createTitle": "Rolle erstellen",
+      "editTitle": "Rolle bearbeiten",
+      "name": "Rollenname",
+      "description": "Beschreibung",
+      "grants": "Berechtigungen",
+      "grantsHint": "Jede Berechtigung gilt für eine Ressource und alles darunter. Standard ist Verweigern: Was nicht gewährt ist, bleibt unsichtbar.",
+      "addGrant": "Berechtigung hinzufügen",
+      "selector": "Ressource",
+      "selectorHint": "z. B. * (alles), system/health oder später proxmox/<id>/guest/114",
+      "levels": "Stufen",
+      "effect": "Wirkung",
+      "allow": "Erlauben",
+      "deny": "Verweigern",
+      "level": {
+        "view": "Ansehen",
+        "control": "Steuern",
+        "configure": "Konfigurieren",
+        "delete": "Löschen"
+      },
+      "levelHint": {
+        "view": "Sehen, dass es existiert, Zustand lesen",
+        "control": "Bedienen — starten, stoppen, ausführen",
+        "configure": "Einstellungen ändern",
+        "delete": "Vollständig entfernen"
+      },
+      "removeGrant": "Berechtigung entfernen",
+      "systemLocked": "Integrierte Rollen lassen sich nicht bearbeiten. Erstelle stattdessen eine eigene Rolle."
+    },
+    "deleteConfirmTitle": "Rolle „{{name}}“ löschen?",
+    "deleteConfirmBody": "{{count}} Benutzer besitzen diese Rolle und verlieren den Zugriff, den sie gewährt.",
+    "empty": {
+      "title": "Noch keine eigenen Rollen",
+      "body": "Erstelle eine Rolle, um Leuten genau den Zugriff zu geben, den sie brauchen — bis hinunter zu einem einzelnen Server oder Dienst."
+    }
+  },
+  "viewAs": {
+    "banner": "Vorschau als {{role}} — du siehst, was diese Rolle sieht.",
+    "exit": "Vorschau beenden"
+  },
+  "audit": {
+    "title": "Audit-Log",
+    "subtitle": "Jede zustandsändernde Aktion, dauerhaft protokolliert.",
+    "columns": {
+      "time": "Zeit",
+      "actor": "Akteur",
+      "action": "Aktion",
+      "resource": "Ressource",
+      "outcome": "Ergebnis",
+      "ip": "IP"
+    },
+    "outcome": {
+      "success": "Erfolg",
+      "failure": "Fehler",
+      "denied": "Verweigert"
+    },
+    "filter": {
+      "action": "Nach Aktion filtern",
+      "resource": "Nach Ressource filtern",
+      "outcome": "Jedes Ergebnis",
+      "clear": "Filter zurücksetzen"
+    },
+    "export": "CSV exportieren",
+    "detail": "Details",
+    "loadMore": "Ältere Einträge laden",
+    "empty": {
+      "title": "Keine passenden Einträge",
+      "body": "Nichts im Audit-Log passt zu diesen Filtern."
+    }
+  },
+  "settingsPage": {
+    "title": "Einstellungen",
+    "subtitle": "Anwendungsweite Konfiguration.",
+    "appUrl": "Externe URL",
+    "appUrlHint": "Wie Benutzer HomeHub erreichen, z. B. https://hub.example.com. Leer: HomeHub antwortet auf jeder Adresse, die der Browser verwendet. Setze sie, um diesen Origin auch hinter einem Reverse Proxy zu erlauben und Passkeys daran zu binden — eine HTTPS-Adresse schaltet Passkey-Anmeldung und Zwischenablage überall frei. Der Zugriff per IP im LAN funktioniert so oder so weiter.",
+    "sessionTtl": "Sitzungsdauer (Stunden)",
+    "sessionTtlHint": "Angemeldete Sitzungen verlängern sich bei Aktivität und laufen nach dieser Zeit ohne Nutzung ab.",
+    "saved": "Einstellungen gespeichert",
+    "retention": {
+      "title": "Metrik-Aufbewahrung",
+      "intro": "Wie lange gesammelte Metriken in jeder Auflösung aufbewahrt werden. Ältere Daten werden verdichtet und laufen dann aus.",
+      "raw": "Rohdaten (Stunden)",
+      "rawHint": "Messwerte in voller Auflösung, 6–720 Stunden. Grundlage für die 1h- und 6h-Ansichten.",
+      "fiveMin": "5-Minuten-Verdichtung (Tage)",
+      "fiveMinHint": "5-Minuten-Mittelwerte, 1–365 Tage. Grundlage für die 24h- und 7d-Ansichten.",
+      "hourly": "Stunden-Verdichtung (Tage)",
+      "hourlyHint": "Stunden-Mittelwerte, 7–3650 Tage. Grundlage für die 30d-Ansicht und darüber hinaus."
+    }
+  },
+  "account": {
+    "title": "Konto",
+    "subtitle": "Deine Anmeldesicherheit und Sitzungen.",
+    "password": "Passwort",
+    "passwordIntro": "Wenn du dein Passwort änderst, werden alle anderen Sitzungen abgemeldet.",
+    "changePassword": "Passwort ändern",
+    "twoFactor": "Zwei-Faktor-Authentifizierung",
+    "totpOn": "Authenticator-App ist aktiviert.",
+    "totpOff": "Füge eine Authenticator-App hinzu, damit ein gestohlenes Passwort allein nicht reicht.",
+    "enableTotp": "Zwei-Faktor aktivieren",
+    "disableTotp": "Deaktivieren",
+    "totpSetup": {
+      "title": "Zwei-Faktor einrichten",
+      "scan": "Scanne diesen QR-Code mit deiner Authenticator-App oder gib das Secret manuell ein.",
+      "secret": "Secret",
+      "enterCode": "Gib dann den 6-stelligen Code ein, den sie anzeigt:",
+      "verify": "Einschalten",
+      "recoveryTitle": "Sichere deine Wiederherstellungscodes",
+      "recoveryIntro": "Wenn du deinen Authenticator verlierst, kommst du mit einem dieser Codes rein. Jeder funktioniert nur einmal. Bewahre sie an einem sicheren Ort auf — sie werden nur jetzt angezeigt.",
+      "downloaded": "Ich habe sie gesichert"
+    },
+    "disableTotpConfirm": {
+      "title": "Zwei-Faktor deaktivieren?",
+      "body": "Dein Konto fällt auf die Anmeldung nur mit Passwort zurück. Gib zur Bestätigung dein Passwort ein."
+    },
+    "recoveryCodes": "Wiederherstellungscodes",
+    "recoveryLeft": "{{count}} unbenutzter Code übrig",
+    "recoveryLeft_other": "{{count}} unbenutzte Codes übrig",
+    "regenerate": "Neue Codes erzeugen",
+    "regenerateConfirm": "Das ersetzt alle vorhandenen Wiederherstellungscodes. Gib zur Bestätigung dein Passwort ein.",
+    "passkeysTitle": "Passkeys",
+    "passkeysIntro": "Melde dich mit Fingerabdruck, Gesicht oder Sicherheitsschlüssel an — ganz ohne Passwort.",
+    "addPasskey": "Passkey hinzufügen",
+    "passkeyName": "Diesem Passkey einen Namen geben",
+    "passkeyNameHint": "z. B. „MacBook Touch ID“ oder „YubiKey 5“",
+    "passkeyAdded": "Passkey hinzugefügt",
+    "passkeyLastUsed": "Zuletzt benutzt {{when}}",
+    "passkeyNever": "Nie benutzt",
+    "removePasskey": "Entfernen",
+    "removePasskeyConfirm": "Passkey „{{name}}“ entfernen? Du kannst dich damit nicht mehr anmelden.",
+    "noPasskeys": "Noch keine Passkeys.",
+    "sessions": "Aktive Sitzungen",
+    "sessionsIntro": "Überall, wo du gerade angemeldet bist.",
+    "currentSession": "Dieses Gerät",
+    "revoke": "Abmelden",
+    "revokeOthers": "Überall sonst abmelden",
+    "sessionCreated": "Angemeldet {{when}}",
+    "sessionSeen": "Aktiv {{when}}",
+    "passkeysInsecureContext": "Passkeys brauchen eine sichere Verbindung — öffne HomeHub über HTTPS (oder auf localhost), um sie hinzuzufügen oder zu benutzen. Vorhandene Passkeys bleiben registriert.",
+    "language": {
+      "title": "Sprache",
+      "subtitle": "In welcher Sprache HomeHub mit dir spricht — gilt sofort, nur auf diesem Gerät."
+    }
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "markAllRead": "Alle als gelesen markieren",
+    "empty": {
+      "title": "Alles auf Stand",
+      "body": "Alarme und Systemereignisse landen hier."
+    },
+    "viewAll": "Alle anzeigen"
+  },
+  "errors": {
+    "sessionExpired": "Deine Sitzung ist abgelaufen. Melde dich erneut an.",
+    "forbidden": "Darauf hast du keinen Zugriff.",
+    "notFound": {
+      "title": "Seite nicht gefunden",
+      "body": "Diese Seite existiert nicht — oder du hast keinen Zugriff darauf.",
+      "home": "Zurück zur Übersicht"
+    }
+  },
+  "integrations": {
+    "status": {
+      "pending": "Ausstehend",
+      "connecting": "Verbindet",
+      "connected": "Verbunden",
+      "degraded": "Beeinträchtigt",
+      "unreachable": "Nicht erreichbar",
+      "disabled": "Deaktiviert"
+    },
+    "form": {
+      "name": "Anzeigename",
+      "nameHintPve": "z. B. „Homelab-Cluster“",
+      "nameHintDocker": "z. B. „NAS-Docker“",
+      "nameHintPihole": "z. B. „Pi-hole primär“",
+      "nameHintAdguard": "z. B. „AdGuard Home“",
+      "nameHintHa": "z. B. „Zuhause“",
+      "nameHintMysql": "So erscheint dieser Server in HomeHub, z. B. \"Haupt-MariaDB\"",
+      "nameHintMongo": "So erscheint dieser Server in HomeHub, z. B. \"MongoDB Medien\"",
+      "nameHintTruenas": "So erscheint dieses NAS in HomeHub",
+      "nameHintMc": "So erscheint dieser Server in HomeHub, z. B. \"Survival-Server\"",
+      "secretKeep": "Leer lassen, um den gespeicherten Wert zu behalten",
+      "nameHintAmp": "So erscheint dieses Panel in HomeHub, z. B. „Game-Node“",
+      "nameHintTailscale": "So erscheint dieses Tailnet in HomeHub, z. B. „Heim-Tailnet“",
+      "nameHintCaddy": "So erscheint dieser Proxy in HomeHub, z. B. „Edge-Proxy“",
+      "nameHintAperture": "So erscheint dieser NVR in HomeHub, z. B. „Kameras“"
+    },
+    "pve": {
+      "host": "Host",
+      "hostHint": "Hostname oder IP, Port 8006 wird angenommen — oder eine vollständige URL wie https://pve.lan:8006",
+      "tokenId": "API-Token-ID",
+      "tokenIdHint": "Anlegen unter Datacenter → Permissions → API Tokens, z. B. root@pam!homehub (Privilege Separation abwählen oder dem Token PVEAuditor + PVEVMAdmin geben)",
+      "tokenSecret": "API-Token-Secret",
+      "tokenSecretHint": "Wird von Proxmox nur einmal beim Erstellen des Tokens angezeigt",
+      "tokenSecretKeep": "Leer lassen, um das gespeicherte Secret zu behalten",
+      "insecureTls": "TLS-Prüfung überspringen",
+      "insecureTlsHint": "Akzeptiert jedes Zertifikat. Besser: unten den Fingerprint pinnen.",
+      "fingerprint": "Zertifikat-Fingerprint",
+      "fingerprintHint": "SHA-256-Fingerprint von der Zertifikatseite des Nodes, z. B. AA:BB:… — sicherer, als die Prüfung zu überspringen"
+    },
+    "docker": {
+      "transport": "Verbindung",
+      "transportSocket": "Lokaler Socket",
+      "transportTcp": "TCP",
+      "transportSsh": "SSH",
+      "socketPath": "Socket-Pfad",
+      "socketPathHint": "Der Docker-Socket auf der Maschine, auf der HomeHub läuft. Im Container: erst in HomeHub hineinmounten.",
+      "host": "Host",
+      "hostHintTcp": "Hostname oder IP — Port 2376 mit TLS angenommen, 2375 ohne. :port anhängen zum Überschreiben.",
+      "hostHintSsh": "Hostname oder IP des Docker-Hosts. HomeHub führt „docker system dial-stdio“ über SSH aus.",
+      "port": "Port",
+      "username": "Benutzername",
+      "tls": "TLS verwenden (empfohlen für TCP)",
+      "tlsHint": "Mutual TLS wie in Dockers Zertifikats-Anleitung eingerichtet. Füge unten die PEM-Dateien ein.",
+      "caCert": "CA-Zertifikat (PEM)",
+      "clientCert": "Client-Zertifikat (PEM)",
+      "clientKey": "Client-Schlüssel (PEM)",
+      "authType": "Authentifizierung",
+      "authPassword": "Passwort",
+      "authKey": "Privater Schlüssel",
+      "sshPassword": "SSH-Passwort",
+      "sshKey": "Privater Schlüssel (PEM)",
+      "secretKeep": "Leer lassen, um den gespeicherten Wert zu behalten"
+    },
+    "pihole": {
+      "host": "Host",
+      "hostHint": "Hostname oder IP der Pi-hole-Weboberfläche, z. B. pihole.lan oder http://192.168.1.5:8080",
+      "password": "Passwort",
+      "passwordHint": "Ein App-Passwort aus v6 (Settings → Web Interface / API → App password) oder der v5-API-Token aus Settings → API",
+      "passwordKeep": "Leer lassen, um das gespeicherte Passwort zu behalten"
+    },
+    "adguard": {
+      "host": "Host",
+      "hostHint": "Hostname oder IP der AdGuard-Home-Weboberfläche — Port 3000 ist Standard, z. B. 192.168.1.5:3000",
+      "username": "Benutzername",
+      "usernameKeep": "Leer lassen, um den gespeicherten Benutzernamen zu behalten",
+      "password": "Passwort",
+      "passwordKeep": "Leer lassen, um das gespeicherte Passwort zu behalten"
+    },
+    "dns": {
+      "insecureTls": "TLS-Prüfung überspringen",
+      "insecureTlsHint": "Akzeptiert bei HTTPS-Verbindungen jedes Zertifikat."
+    },
+    "homeassistant": {
+      "host": "Host",
+      "hostHint": "Hostname oder IP — Port 8123 wird angenommen, z. B. homeassistant.lan:8123 oder http://192.168.1.10:8123",
+      "token": "Langlebiger Zugriffstoken",
+      "tokenHint": "Anlegen in deinem Home-Assistant-Profil → Sicherheit → Langlebige Zugangstoken",
+      "tokenKeep": "Leer lassen, um den gespeicherten Token zu behalten"
+    },
+    "mysql": {
+      "host": "Host",
+      "hostHint": "Adresse und Port — 3306 ist Standard",
+      "username": "Benutzername",
+      "usernameHint": "Am besten ein Monitoring-Benutzer mit PROCESS und SELECT; der volle Funktionsumfang braucht mehr Rechte",
+      "password": "Passwort",
+      "tls": "TLS verwenden",
+      "tlsHint": "Verschlüsselt die Verbindung zum Server"
+    },
+    "mongodb": {
+      "host": "Host",
+      "hostHint": "Adresse und Port — 27017 ist Standard",
+      "username": "Benutzername",
+      "usernameHint": "Nur leer lassen, wenn der Server anonymen Zugriff erlaubt",
+      "password": "Passwort",
+      "authSource": "Auth-Datenbank",
+      "authSourceHint": "Wo der Benutzer definiert ist — standardmäßig admin",
+      "tls": "TLS verwenden",
+      "tlsHint": "Verschlüsselt die Verbindung zum Server"
+    },
+    "truenas": {
+      "host": "Host",
+      "hostHint": "Die TrueNAS-Webadresse, z. B. truenas.lan oder https://192.168.1.8",
+      "apiKey": "API-Schlüssel",
+      "apiKeyHint": "In TrueNAS unter Credentials → API Keys anlegen",
+      "insecureTls": "TLS-Prüfung überspringen",
+      "insecureTlsHint": "Nötig für das selbstsignierte Zertifikat, mit dem TrueNAS ausgeliefert wird",
+      "username": "NAS-Benutzername (empfohlen ab 25.x)",
+      "usernameHint": "Das Konto, zu dem der API-Schlüssel gehört. Damit nutzt HomeHub die moderne WebSocket-API statt der veralteten REST-API, vor der dein NAS warnt."
+    },
+    "minecraft": {
+      "howTitle": "So funktioniert das Pairing",
+      "step1": "Erstelle die Instanz — du landest auf ihrem Setup-Tab.",
+      "step2": "Lade den Companion für deinen Servertyp herunter (Paper/Spigot, Velocity, Fabric oder Forge) und lege ihn in den plugins- bzw. mods-Ordner des Servers.",
+      "step3": "Kopple mit dem 6-stelligen Code vom Setup-Tab — entweder in homehub-companion.properties oder mit /homehub pair aus der Serverkonsole. Der Server verbindet sich nach außen; keine Ports zu öffnen."
+    },
+    "amp": {
+      "host": "Panel-Adresse",
+      "hostHint": "Host und Port des ADS-Controllers, z. B. amp.lan:8080 oder https://panel.example.com",
+      "username": "Benutzername",
+      "usernameHint": "Am besten ein eigener AMP-Benutzer — HomeHub bekommt genau dessen Berechtigungen",
+      "password": "Passwort",
+      "insecureTls": "TLS-Prüfung überspringen",
+      "insecureTlsHint": "Erlaubt ein selbstsigniertes Zertifikat auf dem Panel."
+    },
+    "tailscale": {
+      "tailnet": "Tailnet",
+      "tailnetHint": "Dein Tailnet-Name aus der Admin-Konsole, z. B. example.com — leer für den Standard des Tokens",
+      "apiKey": "API-Zugriffstoken",
+      "apiKeyHint": "Anlegen unter Settings → Keys in der Tailscale-Admin-Konsole (beginnt mit tskey-api-)",
+      "autoRenew": "API-Token automatisch erneuern",
+      "autoRenewHint": "In der letzten Woche täglich eine Info-Benachrichtigung; einen Tag vor Ablauf erstellt HomeHub einen klar benannten Ersatztoken, wechselt darauf und widerruft den alten."
+    },
+    "caddy": {
+      "baseUrl": "Helper-Adresse",
+      "baseUrlHint": "Wo caddy-reader auf dem Caddy-Host lauscht, z. B. 10.0.0.2:9776",
+      "code": "Pairing-Code",
+      "codeHint": "Führe `sudo caddy-reader pair` auf dem Caddy-Host aus und tippe die sechs Ziffern ein, die er ausgibt. Der Code ist einmal gültig und läuft in 15 Minuten ab.",
+      "repairNote": "Um den gespeicherten Token zu ersetzen, entferne dieses System und kopple es mit einem frischen Code neu.",
+      "adminWarning": "Richte das nicht auf Caddys Admin-API (Port 2019) — sie hat keine Authentifizierung und darf Loopback niemals verlassen. Der Helper ist die einzige sichere Schnittstelle.",
+      "installTitle": "Noch kein Helper? Installiere ihn auf dem Caddy-Host:"
+    },
+    "aperture": {
+      "baseUrl": "Aperture-Adresse",
+      "baseUrlHint": "Der Origin, den auch dein Browser erreicht, z. B. https://aperture.example.com",
+      "apiKey": "API-Token",
+      "apiKeyHint": "Settings → Integrations → API tokens in Aperture, angelegt von einem Admin mit den Scopes media:live, system:read, storage:read, cameras:read (beginnt mit apt_)"
+    },
+    "mc": {
+      "sshHost": "SSH-Host",
+      "sshHostHint": "Optional: die Maschine, auf der dieses Netzwerk läuft — für vollständige Neustarts.",
+      "sshPort": "SSH-Port",
+      "sshUser": "SSH-Benutzer",
+      "sshPassword": "SSH-Passwort",
+      "sshSecretHint": "Passwort oder Schlüssel — eins reicht. Verschlüsselt gespeichert, wird nie wieder angezeigt.",
+      "sshKey": "Privater SSH-Schlüssel",
+      "sshKeyHint": "PEM/OpenSSH-Format. Einem Passwort vorzuziehen."
+    }
+  },
+  "systems": {
+    "title": "Systeme",
+    "subtitle": "Alles, womit HomeHub verbunden ist — hier Systeme hinzufügen, testen und verwalten.",
+    "add": "System hinzufügen",
+    "open": "Öffnen",
+    "test": "Testen",
+    "testConnection": "Verbindung testen",
+    "testing": "Teste…",
+    "testFirst": "Teste die Verbindung vor dem Speichern.",
+    "remove": "Entfernen",
+    "enable": "Aktivieren",
+    "disable": "Deaktivieren",
+    "created": "{{name}} verbunden",
+    "removed": "System entfernt",
+    "editTitle": "{{name}} bearbeiten",
+    "deleteConfirmTitle": "„{{name}}“ entfernen?",
+    "deleteConfirmBody": "HomeHub vergisst dieses System und seine gespeicherten Zugangsdaten. Am System selbst ändert sich nichts.",
+    "empty": {
+      "title": "Noch keine Systeme",
+      "body": "Füge dein erstes System hinzu und verwalte dein Homelab von hier aus."
+    },
+    "wizard": {
+      "title": "System hinzufügen",
+      "intro": "Was möchtest du verbinden?",
+      "noForm": "Für diesen Systemtyp gibt es noch kein Einrichtungsformular.",
+      "categories": {
+        "infrastructure": "Infrastruktur",
+        "network": "Netzwerk & Edge",
+        "game": "Gameserver",
+        "data": "Datenbanken",
+        "home": "Zuhause & Kameras",
+        "other": "Sonstiges"
+      }
+    },
+    "types": {
+      "proxmox": "Proxmox VE",
+      "docker": "Docker",
+      "pihole": "Pi-hole",
+      "adguard": "AdGuard Home",
+      "homeassistant": "Home Assistant",
+      "minecraft": "Minecraft",
+      "mysql": "MySQL / MariaDB",
+      "mongodb": "MongoDB",
+      "truenas": "TrueNAS",
+      "amp": "AMP",
+      "tailscale": "Tailscale",
+      "caddy": "Caddy",
+      "aperture": "Aperture",
+      "patchpilot": "PatchPilot"
+    },
+    "landing": {
+      "pickInstance": "Instanz wählen",
+      "manage": "Zu den Systemen",
+      "empty": {
+        "title": "Kein {{type}} verbunden",
+        "body": "Verbinde eins unter Systeme, dann erscheint es hier."
+      }
+    }
+  },
+  "pve": {
+    "tabs": {
+      "summary": "Übersicht",
+      "guests": "Gäste",
+      "storage": "Storage",
+      "tasks": "Aufgaben",
+      "backups": "Backups"
+    },
+    "unreachableBanner": "Diese Proxmox-Instanz ist nicht erreichbar: {{message}}",
+    "degradedBanner": "Beeinträchtigt: {{message}}",
+    "summary": {
+      "cluster": "Cluster",
+      "standalone": "Einzelner Node",
+      "quorate": "Quorum vorhanden",
+      "noQuorum": "Kein Quorum",
+      "nodesLabel": "Nodes online",
+      "guestsLabel": "Gäste laufen",
+      "nodes": "Nodes",
+      "cores": "{{count}} Kern",
+      "cores_other": "{{count}} Kerne",
+      "nodeCpu": "{{pct}}% von {{count}} Kern",
+      "nodeCpu_other": "{{pct}}% von {{count}} Kernen",
+      "memValue": "{{used}} / {{total}} · {{pct}}%",
+      "cpuChart": "CPU",
+      "memChart": "RAM",
+      "chartCpu": "Node-CPU — letzte Stunde",
+      "chartMem": "Node-RAM — letzte Stunde",
+      "collecting": "Sammle Daten…"
+    },
+    "guests": {
+      "searchPlaceholder": "Nach Name, VMID, Node filtern…",
+      "columns": {
+        "guest": "Gast",
+        "node": "Node",
+        "status": "Status",
+        "cpu": "CPU",
+        "memory": "RAM",
+        "uptime": "Laufzeit",
+        "ip": "IP"
+      },
+      "template": "Vorlage",
+      "selected": "{{count}} ausgewählt",
+      "empty": {
+        "title": "Keine Gäste",
+        "body": "Auf dieser Instanz sind für dich keine VMs oder Container sichtbar."
+      },
+      "status": {
+        "running": "Läuft",
+        "stopped": "Gestoppt",
+        "paused": "Pausiert",
+        "suspended": "Suspendiert"
+      }
+    },
+    "actions": {
+      "start": "Starten",
+      "stop": "Stoppen",
+      "shutdown": "Herunterfahren",
+      "reboot": "Neustarten",
+      "suspend": "Suspendieren",
+      "resume": "Fortsetzen",
+      "migrate": "Migrieren",
+      "clone": "Klonen",
+      "snapshot": "Snapshot",
+      "backupNow": "Jetzt sichern",
+      "delete": "Löschen",
+      "console": "Konsole",
+      "started": "Task gestartet",
+      "stopConfirmTitle": "{{name}} hart stoppen?",
+      "stopConfirmBody": "Das zieht den Stecker — das Gast-Betriebssystem hat keine Chance, sauber herunterzufahren. Nimm „Herunterfahren“ für einen sauberen Stopp.",
+      "deleteConfirmTitle": "{{name}} (VMID {{vmid}}) löschen?",
+      "deleteConfirmBody": "Der Gast und seine Disks werden unwiderruflich zerstört. Das lässt sich nicht rückgängig machen.",
+      "deletePurge": "Auch aus Backup-Jobs und HA entfernen",
+      "bulkTitle": "{{action}} für {{count}} Gäste",
+      "bulkPartial": "{{ok}} gestartet, {{failed}} fehlgeschlagen"
+    },
+    "guest": {
+      "overview": "Übersicht",
+      "hardware": "Hardware",
+      "snapshots": "Snapshots",
+      "backup": "Backup",
+      "console": "Konsole",
+      "onNode": "auf {{node}}",
+      "cpuUsage": "CPU",
+      "memUsage": "RAM",
+      "diskUsage": "Disk",
+      "uptime": "Laufzeit",
+      "chartCpu": "CPU — letzte Stunde",
+      "chartMem": "RAM — letzte Stunde",
+      "migrateTitle": "{{name}} migrieren",
+      "migrateTarget": "Ziel-Node",
+      "migrateOnline": "Live-Migration (Gast läuft weiter)",
+      "cloneTitle": "{{name}} klonen",
+      "cloneNewId": "Neue VMID",
+      "cloneName": "Name",
+      "cloneFull": "Vollständiger Klon (unabhängige Kopie aller Disks)",
+      "cloneTarget": "Ziel-Node",
+      "hardwareKey": "Schlüssel",
+      "hardwareValue": "Wert",
+      "hardwareApply": "Änderungen anwenden",
+      "hardwareApplied": "Konfiguration angewendet",
+      "hardwareAddKey": "Weiteren Schlüssel setzen",
+      "snapshotNew": "Snapshot erstellen",
+      "snapshotName": "Name",
+      "snapshotDescription": "Beschreibung",
+      "snapshotVmstate": "RAM einschließen (vmstate)",
+      "snapshotRollback": "Zurückrollen",
+      "snapshotRollbackConfirmTitle": "Auf „{{name}}“ zurückrollen?",
+      "snapshotRollbackConfirmBody": "Der aktuelle Disk-Zustand des Gasts wird durch diesen Snapshot ersetzt. Alles seitdem geht verloren.",
+      "snapshotDeleteConfirmTitle": "Snapshot „{{name}}“ löschen?",
+      "snapshotDeleteConfirmBody": "Der Wiederherstellungspunkt wird entfernt. Der Gast selbst bleibt unberührt.",
+      "snapshotsEmpty": "Noch keine Snapshots.",
+      "backupStorage": "Ziel-Storage",
+      "backupMode": "Modus",
+      "backupModeHint": "Snapshot sichert im laufenden Betrieb mit minimaler Pause; Suspend und Stop sind konsistenter, unterbrechen aber den Gast.",
+      "consoleVnc": "Anzeige (VNC)",
+      "consoleSerial": "Serielles Terminal",
+      "sshIntro": "Pro Gast gespeichert, verschlüsselt. Wird nur für diese SSH-Option verwendet.",
+      "sshHost": "Host oder IP",
+      "sshPort": "Port",
+      "sshUser": "Benutzername",
+      "sshAuthPassword": "Passwort",
+      "sshAuthKey": "Privater Schlüssel",
+      "sshSecretPassword": "Passwort",
+      "sshSecretKey": "Privater Schlüssel (PEM)",
+      "sshSecretKeep": "Leer lassen, um das gespeicherte Secret zu behalten",
+      "sshSaved": "SSH-Zugang gespeichert",
+      "sshConnect": "Verbinden",
+      "sshNotConfigured": "Für diesen Gast ist noch kein SSH-Zugang konfiguriert.",
+      "agentUnavailable": "Gast-Agent nicht verfügbar",
+      "agentMoreIps": "+{{count}} weitere",
+      "agentAddresses": "Vom Gast-Agenten gemeldet",
+      "consoleQemuTitle": "VM-Konsole",
+      "consoleLxcTitle": "Container-Terminal",
+      "consoleLead": "Die eigene Konsole des Gasts, direkt aus Proxmox — öffnet sofort, ohne Zugangsdaten des Gasts.",
+      "consoleConnect": "Verbinden",
+      "consoleSerialInstead": "Stattdessen das serielle Terminal verwenden",
+      "consoleDisconnect": "Trennen",
+      "consoleSsh": "SSH-Sitzung",
+      "sshSecondaryTitle": "Per SSH ins Gast-Betriebssystem",
+      "sshSecondaryHint": "Alternative zur Konsole — verbindet übers Netzwerk und braucht gespeicherte Zugangsdaten.",
+      "sshAuthType": "Authentifizierung",
+      "hwGeneral": "Allgemein",
+      "hwNetwork": "Netzwerkgeräte",
+      "hwDisks": "Disks",
+      "hwDisksHint": "Hier nur lesbar — Disks zu vergrößern oder zu verschieben ist zu destruktiv für eine schnelle Änderung.",
+      "hwOther": "Weitere Optionen",
+      "hwOtherHint": "Fortgeschritten — rohe Proxmox-Werte, genau wie die API sie speichert.",
+      "hwName": "Name",
+      "hwCores": "Kerne",
+      "hwMemory": "RAM (MB)",
+      "hwMemoryGb": "≈ {{gb}} GiB",
+      "hwOnboot": "Beim Booten starten",
+      "hwAgent": "QEMU-Gast-Agent",
+      "hwBoot": "Bootreihenfolge",
+      "hwBootHint": "z. B. order=scsi0;net0",
+      "hwModel": "Modell",
+      "hwBridge": "Bridge",
+      "hwMac": "MAC-Adresse",
+      "hwVlan": "VLAN-Tag",
+      "hwVlanHint": "Leer = ungetaggt",
+      "hwAlsoSet": "Ebenfalls gesetzt:",
+      "hwModified": "Geändert",
+      "hwUnset": "nicht gesetzt",
+      "hwNoNet": "Keine Netzwerkgeräte.",
+      "hwNoDisks": "Keine Disks.",
+      "hwPending": "{{count}} ausstehende Änderung",
+      "hwPending_other": "{{count}} ausstehende Änderungen",
+      "hwDiscard": "Verwerfen",
+      "hwConfirmTitle": "{{count}} Konfigurationsänderung anwenden?",
+      "hwConfirmTitle_other": "{{count}} Konfigurationsänderungen anwenden?",
+      "hwConfirmBody": "Jeder geänderte Schlüssel unten wird in einem einzigen Vorgang in die Proxmox-Konfiguration des Gasts geschrieben."
+    },
+    "storage": {
+      "columns": {
+        "pool": "Pool",
+        "type": "Typ",
+        "content": "Inhalt",
+        "usage": "Belegung"
+      },
+      "inactive": "Inaktiv",
+      "sharedSection": "Gemeinsamer Storage",
+      "shared": "Gemeinsam",
+      "sharedNodes": "{{count}} Node",
+      "sharedNodes_other": "{{count}} Nodes",
+      "poolCount": "{{count}} Storage",
+      "poolCount_other": "{{count}} Storages"
+    },
+    "tasks": {
+      "columns": {
+        "time": "Gestartet",
+        "task": "Aufgabe",
+        "node": "Node",
+        "user": "Benutzer",
+        "status": "Status"
+      },
+      "running": "Läuft",
+      "ok": "OK",
+      "logTitle": "Aufgaben-Log",
+      "empty": "Keine kürzlichen Aufgaben."
+    },
+    "backups": {
+      "jobs": "Geplante Jobs",
+      "addJob": "Neuer Zeitplan",
+      "editJob": "Zeitplan bearbeiten",
+      "schedule": "Zeitplan",
+      "scheduleHint": "Proxmox-Kalenderereignis, z. B. 02:30 (täglich) oder sat 03:00",
+      "storage": "Ziel-Storage",
+      "guests": "Gäste",
+      "guestsHint": "Kommagetrennte VMIDs, leer = alle Gäste",
+      "allGuests": "Alle Gäste",
+      "jobSaved": "Backup-Zeitplan gespeichert",
+      "empty": {
+        "title": "Keine Backup-Zeitpläne",
+        "body": "Lege einen Zeitplan an, damit Backups laufen, ohne dass du daran denken musst."
+      }
+    }
+  },
+  "docker": {
+    "tabs": {
+      "containers": "Container",
+      "stacks": "Stacks",
+      "images": "Images",
+      "volumes": "Volumes",
+      "networks": "Netzwerke"
+    },
+    "unreachableBanner": "Dieser Docker-Host ist nicht erreichbar: {{message}}",
+    "degradedBanner": "Beeinträchtigt: {{message}}",
+    "containers": {
+      "searchPlaceholder": "Nach Name, Image, Projekt filtern…",
+      "columns": {
+        "container": "Container",
+        "state": "Zustand",
+        "ports": "Ports",
+        "created": "Erstellt"
+      },
+      "state": {
+        "running": "Läuft",
+        "exited": "Beendet",
+        "created": "Erstellt",
+        "paused": "Pausiert",
+        "restarting": "Startet neu",
+        "dead": "Tot"
+      },
+      "selected": "{{count}} ausgewählt",
+      "empty": {
+        "title": "Keine Container",
+        "body": "Auf diesem Host sind für dich keine Container sichtbar."
+      }
+    },
+    "actions": {
+      "start": "Starten",
+      "stop": "Stoppen",
+      "restart": "Neustarten",
+      "pause": "Pausieren",
+      "unpause": "Fortsetzen",
+      "kill": "Killen",
+      "recreate": "Neu erstellen",
+      "remove": "Entfernen",
+      "done": "{{action}} abgeschlossen",
+      "failedFor": "{{name}} fehlgeschlagen",
+      "bulkDone": "{{action}} auf {{count}} Container angewendet",
+      "bulkStopConfirmTitle": "{{count}} Container stoppen?",
+      "bulkStopConfirmBody": "Die ausgewählten Container erhalten ein Stopp-Signal und sind offline, bis sie wieder gestartet werden.",
+      "killConfirmTitle": "{{name}} killen?",
+      "killConfirmBody": "SIGKILL — der Prozess wird sofort beendet, ohne Chance auf ein sauberes Herunterfahren. Nimm Stoppen für einen sauberen Stopp.",
+      "removeConfirmTitle": "{{name}} entfernen?",
+      "removeConfirmBody": "Der Container und sein beschreibbarer Layer werden von diesem Host gelöscht. Benannte Volumes bleiben erhalten, außer du wählst unten etwas anderes.",
+      "removeForce": "Entfernen erzwingen",
+      "removeForceHint": "Killt den Container zuerst, falls er noch läuft",
+      "removeVolumes": "Auch anonyme Volumes löschen",
+      "removeVolumesHint": "Benannte Volumes werden nie angerührt",
+      "recreateTitle": "{{name}} neu erstellen?",
+      "recreateBody": "Der Container wird gestoppt, entfernt und mit seiner aktuellen Konfiguration neu erstellt. Daten in benannten Volumes überleben; der beschreibbare Layer nicht.",
+      "recreatePull": "Vorher das neueste Image ziehen",
+      "queuedTitle": "Eingereiht",
+      "queuedBody": "Läuft im Hintergrund — das Ergebnis landet in deinen Benachrichtigungen."
+    },
+    "container": {
+      "overview": "Übersicht",
+      "inspect": "Inspizieren",
+      "logs": "Logs",
+      "shell": "Shell",
+      "removed": "{{name}} entfernt",
+      "statStatus": "Status",
+      "statStarted": "Gestartet",
+      "statExitCode": "Exit-Code",
+      "statRestartPolicy": "Neustart-Richtlinie",
+      "statPorts": "Ports",
+      "chartCpu": "CPU — letzte Stunde",
+      "chartMem": "RAM — letzte Stunde",
+      "command": "Befehl",
+      "cmd": "Cmd",
+      "entrypoint": "Entrypoint",
+      "env": "Umgebung",
+      "envIntro": "Werte bleiben verborgen, bis du sie einblendest — genau hier stecken meist die Secrets.",
+      "envEmpty": "Keine Umgebungsvariablen.",
+      "mounts": "Mounts",
+      "mountsEmpty": "Keine Mounts.",
+      "mountType": "Typ",
+      "mountSource": "Quelle",
+      "mountDestination": "Ziel",
+      "mountMode": "Modus",
+      "mountRw": "rw",
+      "mountRo": "schreibgeschützt",
+      "networks": "Netzwerke",
+      "networksEmpty": "Mit keinem Netzwerk verbunden.",
+      "labels": "Labels",
+      "labelsEmpty": "Keine Labels.",
+      "labelKey": "Label",
+      "labelValue": "Wert",
+      "logsIntro": "Streamt die Ausgabe des Containers live, beginnend mit den neuesten Zeilen.",
+      "logsTail": "Verlaufszeilen",
+      "logsTailHint": "Wie viele vergangene Zeilen geladen werden, bevor die Live-Ausgabe folgt",
+      "logsOpen": "Log-Stream öffnen",
+      "shellIntro": "Öffnet ein interaktives Terminal im laufenden Container.",
+      "shellCommand": "Befehl",
+      "shellCommandHint": "Standard ist bash, Fallback sh",
+      "shellOpen": "Shell öffnen"
+    },
+    "stacks": {
+      "summary": "{{services}} Services · {{containers}} Container",
+      "redeploy": "Neu ausrollen",
+      "redeployTitle": "{{project}} neu ausrollen?",
+      "redeployBody": "Jeder Service in diesem Projekt wird aus seiner aktuellen Compose-Konfiguration neu erstellt. Rechne mit kurzer Downtime, während die Container neu starten.",
+      "redeployPull": "Vorher neueste Images ziehen",
+      "empty": {
+        "title": "Keine Compose-Stacks",
+        "body": "Container, die über docker compose gestartet wurden, erscheinen hier, gruppiert nach Projekt."
+      }
+    },
+    "images": {
+      "title": "Images",
+      "checkUpdates": "Auf Updates prüfen",
+      "pull": "Image ziehen",
+      "prune": "Aufräumen",
+      "columns": {
+        "image": "Image",
+        "size": "Größe",
+        "created": "Erstellt",
+        "status": "Status",
+        "updates": "Updates"
+      },
+      "untagged": "<ohne Tag>",
+      "moreTags": "+{{count}} weitere",
+      "inUse": "In Benutzung",
+      "dangling": "Verwaist",
+      "updateAvailable": "Update verfügbar",
+      "upToDate": "Aktuell",
+      "checkFailed": "Prüfung fehlgeschlagen",
+      "deleted": "Image entfernt",
+      "empty": {
+        "title": "Keine Images",
+        "body": "Zieh ein Image oder starte einen Container, dann erscheint es hier."
+      },
+      "pullTitle": "Image ziehen",
+      "pullReference": "Image-Referenz",
+      "pullReferenceHint": "z. B. nginx:latest oder ghcr.io/owner/app:1.2 — wird im Hintergrund gezogen",
+      "pruneConfirmTitle": "Unbenutzte Images aufräumen?",
+      "pruneConfirmBody": "Alle verwaisten Images auf diesem Host werden gelöscht, um Platz freizugeben. Images, die irgendein Container benutzt, bleiben.",
+      "deleteConfirmTitle": "Image {{name}} entfernen?",
+      "deleteConfirmBody": "Das Image wird von diesem Host entfernt. Bereits laufende Container laufen weiter; wer es wieder braucht, zieht es neu.",
+      "deleteForce": "Entfernen erzwingen",
+      "deleteForceHint": "Entfernt es auch, wenn es in mehreren Repositories getaggt ist oder von gestoppten Containern benutzt wird"
+    },
+    "registries": {
+      "title": "Registry-Zugangsdaten",
+      "intro": "Für Pulls und Update-Checks gegen private Registries. Verschlüsselt gespeichert.",
+      "add": "Registry hinzufügen",
+      "addIntro": "Docker Hub ist docker.io. Nimm möglichst einen Access-Token statt deines Kontopassworts.",
+      "registry": "Registry",
+      "registryHint": "z. B. docker.io, ghcr.io oder registry.example.com",
+      "username": "Benutzername",
+      "secret": "Passwort oder Token",
+      "secretHint": "Wird nur an diese Registry gesendet, nie wieder angezeigt",
+      "saved": "Registry-Zugangsdaten gespeichert",
+      "remove": "Entfernen",
+      "removeConfirmTitle": "Zugangsdaten für {{registry}} entfernen?",
+      "removeConfirmBody": "Pulls von dieser Registry werden anonym — private Images lassen sich dann nicht mehr ziehen oder aktualisieren.",
+      "empty": "Keine Registry-Zugangsdaten gespeichert. Öffentliche Images werden anonym gezogen."
+    },
+    "volumes": {
+      "title": "Volumes",
+      "prune": "Aufräumen",
+      "columns": {
+        "volume": "Volume",
+        "mountpoint": "Mountpunkt",
+        "created": "Erstellt",
+        "status": "Status"
+      },
+      "inUse": "In Benutzung",
+      "unused": "Unbenutzt",
+      "deleted": "Volume entfernt",
+      "empty": {
+        "title": "Keine Volumes",
+        "body": "Benannte Volumes von Containern oder Compose-Stacks erscheinen hier."
+      },
+      "pruneConfirmTitle": "Unbenutzte Volumes aufräumen?",
+      "pruneConfirmBody": "Jedes Volume ohne verbundenen Container wird gelöscht — samt aller Daten darin. Das lässt sich nicht rückgängig machen.",
+      "deleteConfirmTitle": "Volume „{{name}}“ löschen?",
+      "deleteConfirmBody": "Das Volume und alle Daten darin werden dauerhaft gelöscht. Das lässt sich nicht rückgängig machen."
+    },
+    "networks": {
+      "columns": {
+        "network": "Netzwerk",
+        "driver": "Treiber",
+        "scope": "Scope",
+        "containers": "Container"
+      },
+      "builtin": "Integriert",
+      "deleted": "Netzwerk entfernt",
+      "empty": {
+        "title": "Keine Netzwerke",
+        "body": "Benutzerdefinierte Bridge- und Overlay-Netzwerke erscheinen hier."
+      },
+      "deleteConfirmTitle": "Netzwerk „{{name}}“ löschen?",
+      "deleteConfirmBody": "Container erreichen sich über dieses Netzwerk nicht mehr. Das Entfernen schlägt fehl, solange noch Container verbunden sind."
+    },
+    "prune": {
+      "result": "{{bytes}} freigegeben · {{count}} gelöscht"
+    },
+    "unified": {
+      "tabs": {
+        "containers": "Container",
+        "hosts": "Hosts"
+      },
+      "hostsSummary": "{{online}} von {{total}} Hosts online",
+      "allHosts": "Alle Hosts",
+      "allStates": "Alle Zustände",
+      "columns": {
+        "host": "Host"
+      },
+      "unreachableHosts": "Einige Hosts waren nicht erreichbar: {{hosts}}",
+      "stats": {
+        "hostsOnline": "Hosts online",
+        "running": "Container laufen",
+        "stopped": "Gestoppt",
+        "unreachable": "Nicht erreichbare Hosts"
+      },
+      "socket": "lokaler Socket",
+      "stateCount": "{{n}} {{state}}",
+      "open": "Öffnen",
+      "countUnavailable": "Container nicht verfügbar",
+      "emptyBody": "Keine Container passen zu den aktuellen Filtern.",
+      "empty": {
+        "title": "Keine Docker-Hosts",
+        "body": "Verbinde einen Docker-Host, dann erscheint hier jeder Container.",
+        "action": "Zu den Systemen"
+      }
+    }
+  },
+  "dns": {
+    "title": "DNS",
+    "instancesSummary": "{{online}}/{{total}} Instanzen verbunden",
+    "instance": "Instanz",
+    "tabs": {
+      "overview": "Übersicht",
+      "queryLog": "Anfragen-Log",
+      "lists": "Listen",
+      "clients": "Clients",
+      "sync": "Sync"
+    },
+    "empty": {
+      "title": "Keine DNS-Instanzen verbunden",
+      "body": "Verbinde eine Pi-hole- oder AdGuard-Home-Integration, dann erscheint netzweites Ad-Blocking hier.",
+      "action": "Zu den Systemen"
+    },
+    "overview": {
+      "queriesToday": "Anfragen heute",
+      "blockedToday": "Blockiert heute",
+      "blockedPct": "Blockiert",
+      "instancesOnline": "Instanzen online",
+      "instanceSummary": "{{queries}} Anfragen heute · {{pct}} blockiert",
+      "chartQueries": "Anfragen pro Minute",
+      "chartBlocked": "Blockiert"
+    },
+    "blocking": {
+      "active": "Blockierung aktiv",
+      "disabled": "Blockierung deaktiviert",
+      "resumesIn": "geht in {{time}} weiter",
+      "disableFor": "Deaktivieren:",
+      "for5m": "5 Min",
+      "for30m": "30 Min",
+      "for1h": "1 Stunde",
+      "untilEnabled": "Bis zum Wiedereinschalten",
+      "enable": "Aktivieren",
+      "enabledToast": "Blockierung auf {{name}} aktiviert",
+      "disabledToast": "Blockierung auf {{name}} deaktiviert"
+    },
+    "queryLog": {
+      "searchPlaceholder": "Nach Domain filtern…",
+      "clientPlaceholder": "Client-Name oder IP…",
+      "statusAll": "Alle Status",
+      "status": {
+        "allowed": "Erlaubt",
+        "blocked": "Blockiert",
+        "cached": "Aus dem Cache"
+      },
+      "refresh": "Aktualisieren",
+      "columns": {
+        "time": "Zeit",
+        "domain": "Domain",
+        "client": "Client",
+        "type": "Typ",
+        "status": "Status",
+        "reason": "Grund"
+      },
+      "empty": {
+        "title": "Keine Anfragen",
+        "body": "Nichts passt zu diesen Filtern — oder diese Instanz hat noch keine Anfragen protokolliert."
+      }
+    },
+    "lists": {
+      "domainPlaceholder": "Domain oder Muster…",
+      "commentPlaceholder": "Kommentar (optional)",
+      "add": "Hinzufügen",
+      "added": "„{{domain}}“ hinzugefügt",
+      "removed": "„{{domain}}“ entfernt",
+      "types": {
+        "allow": "Erlauben",
+        "deny": "Sperren",
+        "allow_regex": "Erlauben (Regex)",
+        "deny_regex": "Sperren (Regex)",
+        "custom": "Eigene Regel"
+      },
+      "sections": {
+        "allow": "Erlaubnisliste",
+        "deny": "Sperrliste",
+        "allow_regex": "Erlauben (Regex)",
+        "deny_regex": "Sperren (Regex)",
+        "custom": "Eigene Regeln"
+      },
+      "entryCount_one": "{{count}} Eintrag",
+      "entryCount_other": "{{count}} Einträge",
+      "sectionEmpty": "Keine Einträge.",
+      "removeConfirmTitle": "„{{domain}}“ entfernen?",
+      "removeConfirmBody": "Der Eintrag wird sofort von {{name}} entfernt — passende Anfragen beurteilen dann nur noch die übrigen Regeln.",
+      "empty": {
+        "title": "Keine Listeneinträge",
+        "body": "Auf dieser Instanz konfigurierte Erlaubnis- und Sperreinträge erscheinen hier."
+      }
+    },
+    "clients": {
+      "title": "Clients",
+      "count_one": "{{count}} Client",
+      "count_other": "{{count}} Clients",
+      "add": "Client hinzufügen",
+      "columns": {
+        "client": "Client",
+        "identifiers": "Kennungen",
+        "groups": "Gruppen"
+      },
+      "unnamed": "Unbenannter Client",
+      "empty": {
+        "title": "Keine Clients",
+        "body": "Auf dieser Instanz konfigurierte Clients erscheinen hier."
+      },
+      "readOnlyNote": "Dieses Pi-hole läuft mit der v5-API — Clients und Gruppen sind hier nur lesbar. Aktualisiere auf Pi-hole v6, um sie aus HomeHub heraus zu verwalten.",
+      "editorTitleNew": "Client hinzufügen",
+      "editorTitleEdit": "{{name}} bearbeiten",
+      "name": "Name",
+      "identifiers": "Kennungen",
+      "identifiersHint": "Eine pro Zeile — IP, CIDR, MAC-Adresse oder Hostname",
+      "groups": "Gruppen",
+      "saved": "Client gespeichert",
+      "deleteConfirmTitle": "Client „{{name}}“ entfernen?",
+      "deleteConfirmBody": "Der Client und seine Gruppenzuordnungen werden von {{instance}} entfernt. Seine Anfragen folgen dann der Standardrichtlinie.",
+      "groupsTitle": "Gruppen",
+      "tagsTitle": "Tags",
+      "tagsHint": "Tags werden in AdGuard Home selbst definiert und Clients zugewiesen.",
+      "groupsEmpty": "Keine Gruppen auf dieser Instanz.",
+      "groupEnabled": "Gruppe {{name}} aktiviert",
+      "groupDeleteConfirmTitle": "Gruppe „{{name}}“ löschen?",
+      "groupDeleteConfirmBody": "Clients in dieser Gruppe verlieren die Zuordnung, und auf sie beschränkte Listeneinträge greifen nicht mehr."
+    },
+    "sync": {
+      "instanceA": "Instanz A",
+      "instanceB": "Instanz B",
+      "onlyOn": "Nur auf {{name}}",
+      "inSync": "Synchron",
+      "copyTo": "Auswahl kopieren → {{name}}",
+      "copied_one": "{{count}} Eintrag kopiert",
+      "copied_other": "{{count}} Einträge kopiert",
+      "failedTitle_one": "{{count}} Eintrag fehlgeschlagen",
+      "failedTitle_other": "{{count}} Einträge fehlgeschlagen",
+      "selectAll": "Alle auswählen",
+      "emptySide": "Nichts Einzigartiges — jeder Eintrag hier existiert auch auf {{name}}.",
+      "needTwo": {
+        "title": "Sync braucht zwei Instanzen",
+        "body": "Verbinde eine zweite Pi-hole- oder AdGuard-Home-Instanz, um Listeneinträge zu vergleichen und zwischen ihnen zu kopieren."
+      }
+    }
+  },
+  "db": {
+    "title": "Datenbanken",
+    "instancesSummary": "{{online}}/{{total}} Instanzen verbunden",
+    "empty": {
+      "title": "Keine Datenbank-Instanzen verbunden",
+      "body": "Verbinde eine MySQL-, MariaDB- oder MongoDB-Integration, dann erscheinen ihre Datenbanken hier.",
+      "action": "Zu den Systemen"
+    },
+    "tabs": {
+      "databases": "Datenbanken",
+      "console": "Konsole",
+      "sessions": "Sitzungen",
+      "performance": "Performance"
+    },
+    "chips": {
+      "connections": "{{current}}/{{max}} Verbindungen",
+      "ops": "{{ops}} Ops/s"
+    },
+    "dashboard": {
+      "instancesOnline": "Instanzen online",
+      "throughput": "Gesamtdurchsatz",
+      "throughputValue": "{{ops}} Ops/s",
+      "databases": "Datenbanken",
+      "engines": "Engines",
+      "opsSpark": "Ops/s · letzte Stunde",
+      "noSamples": "Noch keine Messwerte.",
+      "connections": "Verbindungen",
+      "uptime": "Laufzeit",
+      "slowQueries": "Langsame Abfragen",
+      "memResident": "Resident",
+      "memResidentValue": "{{mb}} MB",
+      "open": "Öffnen"
+    },
+    "create": {
+      "nameHint": "Buchstaben, Ziffern und Unterstriche.",
+      "database": {
+        "button": "Neue Datenbank",
+        "title": "Neue Datenbank",
+        "description": "Erstellt eine leere Datenbank auf {{name}}.",
+        "name": "Name",
+        "placeholder": "my_database",
+        "confirm": "Datenbank erstellen",
+        "created": "Datenbank „{{name}}“ erstellt",
+        "failed": "Die Datenbank konnte nicht erstellt werden"
+      },
+      "table": {
+        "button": "Neue Tabelle",
+        "title": "Neue Tabelle",
+        "description": "Entwirf die Spalten für eine neue Tabelle in {{database}}.",
+        "name": "Tabellenname",
+        "placeholder": "my_table",
+        "columns": "Spalten",
+        "colName": "Spaltenname",
+        "colNamePlaceholder": "column_name",
+        "colType": "Spaltentyp",
+        "colLength": "Länge oder Präzision",
+        "colDefault": "Standardwert",
+        "defaultPlaceholder": "keiner",
+        "nullable": "Nullable",
+        "primaryKey": "Primärschlüssel",
+        "autoIncrement": "Auto-Inkrement",
+        "addColumn": "Spalte hinzufügen",
+        "removeColumn": "Spalte {{name}} entfernen",
+        "preview": "SQL-Vorschau",
+        "previewHint": "Näherung — der Server baut und führt das echte Statement aus.",
+        "confirm": "Tabelle erstellen",
+        "created": "Tabelle „{{name}}“ erstellt",
+        "failed": "Die Tabelle konnte nicht erstellt werden"
+      },
+      "collection": {
+        "button": "Neue Collection",
+        "title": "Neue Collection",
+        "description": "Erstellt eine leere Collection in {{database}}.",
+        "name": "Name",
+        "placeholder": "my_collection",
+        "confirm": "Collection erstellen",
+        "created": "Collection „{{name}}“ erstellt",
+        "failed": "Die Collection konnte nicht erstellt werden"
+      }
+    },
+    "databases": {
+      "count_one": "{{count}} Datenbank",
+      "count_other": "{{count}} Datenbanken",
+      "columns": {
+        "name": "Datenbank",
+        "size": "Größe",
+        "objects": "Objekte"
+      },
+      "browse": "Durchsuchen",
+      "collapse": "Einklappen",
+      "dump": "Dump",
+      "empty": {
+        "title": "Keine Datenbanken sichtbar",
+        "body": "Diese Instanz meldet keine Datenbanken, die du sehen darfst."
+      },
+      "objects": {
+        "columns": {
+          "name": "Name",
+          "kind": "Art",
+          "engine": "Engine",
+          "rows": "Zeilen (ca.)",
+          "size": "Größe"
+        },
+        "kind": {
+          "table": "Tabelle",
+          "collection": "Collection"
+        },
+        "peek": "Reinschauen",
+        "empty": "Keine Tabellen oder Collections in dieser Datenbank.",
+        "loadFailed": "Die Objekte dieser Datenbank konnten nicht geladen werden"
+      }
+    },
+    "browse": {
+      "tabs": {
+        "data": "Daten",
+        "structure": "Struktur"
+      },
+      "estRows_one": "≈ {{formatted}} Zeile",
+      "estRows_other": "≈ {{formatted}} Zeilen",
+      "estDocs_one": "≈ {{formatted}} Dokument",
+      "estDocs_other": "≈ {{formatted}} Dokumente",
+      "lastFetch": "geladen in {{ms}} ms",
+      "addRow": "Zeile hinzufügen",
+      "insertDocument": "Dokument einfügen",
+      "emptyRows": "Keine Zeilen anzuzeigen — die Tabelle ist leer oder nichts passt zu den Filtern.",
+      "emptyDocs": "Keine Dokumente anzuzeigen — die Collection ist leer oder nichts passt zum Filter.",
+      "loadFailedHint": "Die Engine hat die Anfrage abgelehnt — prüf die Filter und versuch es erneut.",
+      "filter": {
+        "placeholder": "Filtern…",
+        "clear": "Filter zurücksetzen",
+        "active_one": "{{count}} Filter aktiv",
+        "active_other": "{{count}} Filter aktiv",
+        "opAria": "Filteroperator für {{column}}",
+        "valueAria": "Filterwert für {{column}}",
+        "ops": {
+          "auto": "auto",
+          "eq": "=",
+          "ne": "≠",
+          "lt": "<",
+          "lte": "≤",
+          "gt": ">",
+          "gte": "≥",
+          "like": "LIKE",
+          "is_null": "IS NULL",
+          "not_null": "NOT NULL"
+        }
+      },
+      "sortAria": "Nach {{column}} sortieren",
+      "pagination": {
+        "range": "{{from}}–{{to}} von {{total}}",
+        "pageSize": "Zeilen pro Seite",
+        "prev": "Vorherige Seite",
+        "next": "Nächste Seite"
+      },
+      "mongo": {
+        "filterPlaceholder": "{\"field\": \"value\"} — Extended-JSON-Filter",
+        "filterAria": "Dokumentfilter",
+        "invalidFilter": "Der Filter ist kein gültiges JSON.",
+        "sortPlaceholder": "Sortierfeld…",
+        "sortAria": "Sortierfeld",
+        "dirAria": "Sortierrichtung",
+        "dirAsc": "Aufsteigend",
+        "dirDesc": "Absteigend"
+      },
+      "row": {
+        "editTitle": "Zeile bearbeiten",
+        "addTitle": "Zeile hinzufügen",
+        "editDescription": "{{database}}.{{object}} — die Zeile wird über die Werte identifiziert, die sie beim Laden hatte.",
+        "addDescription": "{{database}}.{{object}} — Spaltenstandards erscheinen als Platzhalter.",
+        "editAria": "Zeile bearbeiten",
+        "deleteAria": "Zeile löschen",
+        "null": "NULL",
+        "primaryKeyChip": "PRI",
+        "autoIncrementChip": "auto_increment",
+        "insert": "Einfügen",
+        "added": "Zeile eingefügt",
+        "updated_one": "{{count}} Zeile aktualisiert",
+        "updated_other": "{{count}} Zeilen aktualisiert",
+        "deleted_one": "{{count}} Zeile gelöscht",
+        "deleted_other": "{{count}} Zeilen gelöscht",
+        "deleteTitle": "Diese Zeile löschen?",
+        "deleteBody": "Die Zeile mit {{identity}} wird dauerhaft entfernt.",
+        "failed": "Änderung fehlgeschlagen"
+      },
+      "doc": {
+        "editTitle": "Dokument bearbeiten",
+        "insertTitle": "Dokument einfügen",
+        "editDescription": "Ersetzt das gesamte Dokument mit dieser _id in {{database}}.{{object}}.",
+        "insertDescription": "Extended JSON für das neue Dokument in {{database}}.{{object}}.",
+        "jsonAria": "Dokument-JSON",
+        "invalidJson": "Das Dokument ist kein gültiges JSON.",
+        "editAria": "Dokument bearbeiten",
+        "deleteAria": "Dokument löschen",
+        "inserted": "Dokument eingefügt",
+        "updated_one": "{{count}} Dokument aktualisiert",
+        "updated_other": "{{count}} Dokumente aktualisiert",
+        "deleted_one": "{{count}} Dokument gelöscht",
+        "deleted_other": "{{count}} Dokumente gelöscht",
+        "deleteTitle": "Dieses Dokument löschen?",
+        "deleteBody": "Das Dokument mit _id {{id}} wird dauerhaft entfernt.",
+        "failed": "Änderung fehlgeschlagen"
+      },
+      "structure": {
+        "columns": "Spalten",
+        "indexes": "Indizes",
+        "colName": "Spalte",
+        "colType": "Typ",
+        "colNullable": "Nullable",
+        "colDefault": "Standard",
+        "colKeys": "Schlüssel",
+        "idxName": "Index",
+        "idxUnique": "Eindeutig",
+        "idxColumns": "Spalten",
+        "nullableYes": "ja",
+        "nullableNo": "nein",
+        "noIndexes": "Keine Indizes.",
+        "sampleKeys": "Beobachtete Schlüssel",
+        "sampleKeysHint": "Schlüssel aus einer Stichprobe der neuesten Dokumente.",
+        "overview": "Übersicht"
+      },
+      "danger": {
+        "title": "Gefahrenzone",
+        "truncate": "Tabelle leeren",
+        "truncateDesc": "Entfernt jede Zeile — aktuell ≈ {{formatted}} —, behält aber die Tabelle und ihre Struktur.",
+        "truncateConfirmTitle": "{{object}} leeren?",
+        "truncateConfirmBody": "Alle ≈ {{formatted}} Zeilen in {{database}}.{{object}} werden dauerhaft gelöscht. Die Tabelle selbst bleibt.",
+        "truncated": "Tabelle „{{object}}“ geleert",
+        "dropTable": "Tabelle löschen",
+        "dropCollection": "Collection löschen",
+        "dropDesc": "Löscht {{object}} und alles darin dauerhaft. Es gibt kein Zurück.",
+        "dropConfirmTitle": "{{object}} löschen?",
+        "dropConfirmBodyTable": "Die Tabelle {{database}}.{{object}} und alle ≈ {{formatted}} Zeilen darin werden unwiderruflich zerstört. Es gibt kein Zurück.",
+        "dropConfirmBodyCollection": "Die Collection {{database}}.{{object}} und alle ≈ {{formatted}} Dokumente darin werden unwiderruflich zerstört. Es gibt kein Zurück.",
+        "dropped": "„{{object}}“ gelöscht",
+        "typeToConfirm": "Tippe {{name}} zur Bestätigung",
+        "confirmPlaceholder": "{{name}}",
+        "failed": "Aktion fehlgeschlagen"
+      }
+    },
+    "peek": {
+      "title": "Einblick: {{collection}}",
+      "description": "Die neuesten Dokumente aus {{database}}.{{collection}}, dargestellt als Extended JSON.",
+      "limit": "Limit",
+      "empty": "Keine Dokumente zurückgegeben.",
+      "denied": "Du brauchst die Stufe „Steuern“, um Dokumente einzusehen."
+    },
+    "dump": {
+      "title": "Dump von {{database}}",
+      "description": "Streamt einen vollständigen Dump von „{{database}}“ auf ein Backup-Ziel. Das Ergebnis des Jobs kommt als Benachrichtigung.",
+      "target": "Backup-Ziel",
+      "targetPlaceholder": "Ziel wählen…",
+      "confirm": "Dump einreihen",
+      "queued": "Dump von „{{database}}“ eingereiht",
+      "failed": "Der Dump konnte nicht eingereiht werden"
+    },
+    "console": {
+      "scope": "Datenbank-Scope",
+      "noScope": "Kein Datenbank-Scope",
+      "placeholder": "SELECT * FROM …",
+      "statementAria": "SQL-Statement",
+      "run": "Ausführen",
+      "runHint": "Strg/⌘ + Enter führt das Statement aus",
+      "historyHint": "↑ im leeren Editor ruft frühere Statements auf",
+      "identityTitle": "Statements laufen mit den echten Rechten dieser Verbindung.",
+      "audited": "auditiert",
+      "auditedTitle": "Jedes Statement wird im Audit-Log protokolliert.",
+      "truncatedBanner": "Ergebnis gekürzt — die ersten {{count}} Zeilen werden angezeigt.",
+      "rows_one": "{{count}} Zeile",
+      "rows_other": "{{count}} Zeilen",
+      "rowsAffected_one": "{{count}} Zeile betroffen",
+      "rowsAffected_other": "{{count}} Zeilen betroffen",
+      "duration": "{{ms}} ms",
+      "idle": "Führe ein Statement aus, um hier Ergebnisse zu sehen.",
+      "runFailed": "Statement fehlgeschlagen"
+    },
+    "sessions": {
+      "columns": {
+        "id": "ID",
+        "user": "Benutzer / Client",
+        "database": "Datenbank",
+        "command": "Befehl",
+        "time": "Zeit",
+        "state": "Zustand",
+        "query": "Abfrage"
+      },
+      "kill": "Killen",
+      "killConfirmTitle": "Sitzung {{id}} killen?",
+      "killConfirmBody": "Die Verbindung wird sofort beendet — was auch immer sie gerade tat, wird abgebrochen oder zurückgerollt.",
+      "killed": "Sitzung {{id}} beendet",
+      "killFailed": "Die Sitzung konnte nicht beendet werden",
+      "showQuery": "Abfrage anzeigen",
+      "hideQuery": "Abfrage ausblenden",
+      "empty": {
+        "title": "Keine aktiven Sitzungen",
+        "body": "Verbindungen zu dieser Instanz erscheinen hier."
+      }
+    },
+    "performance": {
+      "qps": "Abfragen pro Sekunde",
+      "threadsConnected": "Verbundene Threads",
+      "slowQueries": "Langsame Abfragen (gesamt)",
+      "opsPerSec": "Operationen pro Sekunde",
+      "connections": "Verbindungen",
+      "memResident": "Residenter Speicher",
+      "empty": {
+        "title": "Noch keine Performance-Daten",
+        "body": "Diagramme erscheinen, sobald HomeHub Metriken für diese Instanz gesammelt hat."
+      }
+    }
+  },
+  "ha": {
+    "title": "Home Assistant",
+    "versionShort": "v{{version}}",
+    "entityCount_one": "{{count}} Entität",
+    "entityCount_other": "{{count}} Entitäten",
+    "unreachableBanner": "Diese Home-Assistant-Instanz ist nicht erreichbar: {{message}}",
+    "degradedBanner": "Beeinträchtigt: {{message}}",
+    "serviceError": "Service-Aufruf fehlgeschlagen",
+    "tabs": {
+      "dashboard": "Dashboard",
+      "entities": "Entitäten",
+      "automations": "Automatisierungen"
+    },
+    "board": {
+      "title": "Mein Dashboard",
+      "subtitle": "Persönlich für dein Konto — nur du siehst dieses Layout.",
+      "edit": "Dashboard bearbeiten",
+      "addCard": "Karte hinzufügen",
+      "saveError": "Dein Dashboard konnte nicht gespeichert werden",
+      "unavailable": "Entität nicht verfügbar",
+      "unavailableBody": "Aus Home Assistant entfernt oder außerhalb deiner Berechtigungen.",
+      "groupUntitled": "Gruppe",
+      "removeCard": "Karte entfernen",
+      "moveLeft": "Karte nach links schieben",
+      "moveRight": "Karte nach rechts schieben",
+      "cycleSize": "Kartengröße: {{size}}. Klicken zum Ändern.",
+      "sizeAbbr": {
+        "small": "S",
+        "medium": "M",
+        "large": "L"
+      },
+      "sizeName": {
+        "small": "Klein",
+        "medium": "Mittel",
+        "large": "Groß"
+      },
+      "editCard": "Karte bearbeiten",
+      "empty": {
+        "title": "Dein Dashboard",
+        "body": "Ein persönliches Board für dieses Home Assistant — leer, bis du die Entitäten hinzufügst, die dich wirklich interessieren. Nur du siehst es."
+      },
+      "dialog": {
+        "addTitle": "Karte hinzufügen",
+        "editTitle": "Karte bearbeiten",
+        "typePrompt": "Wähle, was die Karte zeigt.",
+        "entityType": "Entitätskarte",
+        "entityTypeBody": "Eine Entität mit allen Bedienelementen.",
+        "groupType": "Gruppenkarte",
+        "groupTypeBody": "Eine betitelte Liste von Entitäten mit kompakten Bedienelementen.",
+        "groupTitle": "Titel",
+        "groupTitlePlaceholder": "z. B. Wohnzimmer",
+        "titleHint": "Wird als Kopfzeile der Karte angezeigt.",
+        "displayName": "Anzeigename",
+        "displayNameHint": "Ersetzt den Namen der Entität auf dieser Karte. Leer lassen, um das Original zu behalten.",
+        "displayNamePlaceholder": "Eigener Name der Entität",
+        "selectedCount_one": "{{count}} Entität ausgewählt",
+        "selectedCount_other": "{{count}} Entitäten ausgewählt",
+        "selectedHint": "Mit den Pfeilen umsortieren; tippe einen Namen, um eine Zeile auf dieser Karte umzubenennen.",
+        "renamePlaceholder": "Umbenennen…",
+        "renameRow": "{{name}} umbenennen",
+        "moveUp": "{{name}} nach oben schieben",
+        "moveDown": "{{name}} nach unten schieben",
+        "maxEntities": "Eine Gruppe fasst höchstens {{max}} Entitäten.",
+        "save": "Karte speichern"
+      },
+      "summary": {
+        "lightsOn": "{{on}} von {{total}} an",
+        "avgTemp": "Ø {{temp}}°",
+        "mixed_one": "{{count}} Entität · {{active}} aktiv",
+        "mixed_other": "{{count}} Entitäten · {{active}} aktiv"
+      }
+    },
+    "searchPlaceholder": "Entitäten durchsuchen…",
+    "areaFilter": "Bereich",
+    "allAreas": "Alle Bereiche",
+    "noArea": "Kein Bereich",
+    "empty": {
+      "title": "Keine Entitäten",
+      "body": "Hier ist noch nichts sichtbar. Entitäten erscheinen, sobald Home Assistant sie meldet und deine Rolle sie sehen darf."
+    },
+    "noMatches": {
+      "title": "Keine passenden Entitäten",
+      "body": "Nichts passt zur aktuellen Suche und den Filtern. Setze sie zurück, um wieder alles zu sehen."
+    },
+    "state": {
+      "on": "An",
+      "off": "Aus",
+      "unknown": "Unbekannt",
+      "unavailable": "Nicht verfügbar"
+    },
+    "light": {
+      "brightness": "Helligkeit",
+      "controls": "Bedienung",
+      "color": "Farbe",
+      "colorTemp": "Farbtemperatur",
+      "colorMode": "Farbmodus"
+    },
+    "cover": {
+      "open": "Öffnen",
+      "close": "Schließen",
+      "stop": "Stopp",
+      "position": "Position"
+    },
+    "lock": {
+      "lock": "Abschließen",
+      "unlock": "Aufschließen"
+    },
+    "media": {
+      "playPause": "Wiedergabe / Pause",
+      "volume": "Lautstärke"
+    },
+    "scene": {
+      "activate": "Aktivieren"
+    },
+    "script": {
+      "run": "Ausführen"
+    },
+    "buttonEntity": {
+      "press": "Drücken"
+    },
+    "vacuum": {
+      "start": "Starten",
+      "pause": "Pausieren",
+      "returnToBase": "Zur Basis zurückkehren"
+    },
+    "alarm": {
+      "armHome": "Zuhause scharf",
+      "armAway": "Abwesend scharf",
+      "disarm": "Unscharf schalten"
+    },
+    "climate": {
+      "currentTemp": "Aktuell",
+      "target": "Ziel",
+      "decrease": "Zieltemperatur senken",
+      "increase": "Zieltemperatur erhöhen",
+      "hvacMode": "Modus"
+    },
+    "hvacAction": {
+      "heating": "Heizt",
+      "cooling": "Kühlt",
+      "idle": "Leerlauf",
+      "off": "Aus",
+      "drying": "Trocknet",
+      "fan": "Lüfter",
+      "preheating": "Heizt vor",
+      "defrosting": "Taut ab"
+    },
+    "hvacMode": {
+      "off": "Aus",
+      "heat": "Heizen",
+      "cool": "Kühlen",
+      "heat_cool": "Heizen/Kühlen",
+      "auto": "Auto",
+      "dry": "Trocknen",
+      "fan_only": "Nur Lüfter"
+    },
+    "binaryClass": {
+      "battery": {
+        "on": "Niedrig",
+        "off": "Normal"
+      },
+      "battery_charging": {
+        "on": "Lädt",
+        "off": "Lädt nicht"
+      },
+      "connectivity": {
+        "on": "Verbunden",
+        "off": "Getrennt"
+      },
+      "door": {
+        "on": "Offen",
+        "off": "Geschlossen"
+      },
+      "garage_door": {
+        "on": "Offen",
+        "off": "Geschlossen"
+      },
+      "gas": {
+        "on": "Gas erkannt",
+        "off": "Frei"
+      },
+      "lock": {
+        "on": "Entriegelt",
+        "off": "Verriegelt"
+      },
+      "moisture": {
+        "on": "Nass",
+        "off": "Trocken"
+      },
+      "motion": {
+        "on": "Bewegung",
+        "off": "Keine Bewegung"
+      },
+      "occupancy": {
+        "on": "Belegt",
+        "off": "Frei"
+      },
+      "opening": {
+        "on": "Offen",
+        "off": "Geschlossen"
+      },
+      "plug": {
+        "on": "Eingesteckt",
+        "off": "Ausgesteckt"
+      },
+      "power": {
+        "on": "Strom",
+        "off": "Kein Strom"
+      },
+      "presence": {
+        "on": "Zu Hause",
+        "off": "Abwesend"
+      },
+      "problem": {
+        "on": "Problem",
+        "off": "OK"
+      },
+      "safety": {
+        "on": "Unsicher",
+        "off": "Sicher"
+      },
+      "smoke": {
+        "on": "Rauch erkannt",
+        "off": "Frei"
+      },
+      "tamper": {
+        "on": "Manipuliert",
+        "off": "Frei"
+      },
+      "window": {
+        "on": "Offen",
+        "off": "Geschlossen"
+      }
+    },
+    "automations": {
+      "title": "Automatisierungen",
+      "scenes": "Szenen",
+      "scripts": "Skripte",
+      "triggerNow": "Jetzt auslösen",
+      "running": "Läuft",
+      "lastTriggered": "Zuletzt ausgelöst {{time}}",
+      "lastActivated": "Zuletzt aktiviert {{time}}",
+      "neverTriggered": "Nie ausgelöst",
+      "empty": {
+        "title": "Keine Automatisierungen",
+        "body": "Automatisierungen, Szenen und Skripte aus Home Assistant erscheinen hier, sobald deine Rolle sie sehen darf."
+      }
+    },
+    "detail": {
+      "lastChanged": "Geändert {{time}}",
+      "lastUpdated": "Aktualisiert {{time}}",
+      "attributes": "Attribute",
+      "noAttributes": "Diese Entität meldet keine Attribute.",
+      "attributeKey": "Attribut",
+      "attributeValue": "Wert",
+      "noHistory": "Für diese Entität wurde noch kein Verlauf aufgezeichnet."
+    }
+  },
+  "mc": {
+    "title": "Minecraft",
+    "companionVersion": "Companion {{version}}",
+    "tabs": {
+      "console": "Konsole",
+      "players": "Spieler",
+      "setup": "Setup",
+      "performance": "Performance"
+    },
+    "chips": {
+      "players": "{{online}}/{{max}}"
+    },
+    "stats": {
+      "tps": "TPS",
+      "players": "Spieler",
+      "heap": "Heap",
+      "heapValue": "{{used}}/{{max}} MB",
+      "heapValueNoMax": "{{used}} MB"
+    },
+    "console": {
+      "offlineBanner": "Companion offline — angezeigt wird der zuletzt aufgezeichnete Verlauf.",
+      "loadOlder": "Ältere Zeilen laden",
+      "loadingOlder": "Lädt…",
+      "loadOlderFailed": "Ältere Zeilen konnten nicht geladen werden",
+      "loadFailed": "Der Konsolenverlauf konnte nicht geladen werden.",
+      "historyBegins": "Hier beginnt der Verlauf — ältere Zeilen wurden verworfen",
+      "jumpToLatest": "Zum Ende springen",
+      "empty": "Noch keine Konsolenausgabe aufgezeichnet. Sie erscheint live, sobald der Companion sich verbindet.",
+      "commandPlaceholder": "Serverbefehl ausführen — z. B. list, say hallo",
+      "commandAria": "Konsolenbefehl",
+      "commandFailed": "Befehl fehlgeschlagen",
+      "commandRejected": "Der Server hat den Befehl abgelehnt"
+    },
+    "players": {
+      "onlineTitle": "Spieler online",
+      "empty": {
+        "title": "Niemand online",
+        "body": "Spieler erscheinen hier, sobald sie beitreten."
+      },
+      "offline": {
+        "title": "Companion offline",
+        "body": "Die Spieleranzeige kommt zurück, sobald der Server sich wieder verbindet."
+      },
+      "downstreamTitle": "Nachgelagerte Server",
+      "downstreamBody": "Backends hinter diesem Velocity-Proxy.",
+      "playerCount_one": "{{count}} Spieler",
+      "playerCount_other": "{{count}} Spieler",
+      "viewDetail": "Inventar & Statistiken ansehen →"
+    },
+    "setup": {
+      "pairingTitle": "Pairing",
+      "pairingIntro": "Kopple den Companion einmal — er speichert seinen eigenen Token und verbindet sich ab dann von selbst neu.",
+      "currentCode": "Pairing-Code",
+      "expiresIn": "Läuft in {{time}} ab",
+      "expired": "Dieser Code ist abgelaufen — erzeuge einen neuen.",
+      "generate": "Neuen Code erzeugen",
+      "generated": "Neuer Pairing-Code ausgestellt",
+      "noCode": "Kein aktiver Pairing-Code. Erzeuge einen, um einen Companion zu koppeln.",
+      "paired": "Gekoppelt {{when}}",
+      "notPaired": "Noch nicht gekoppelt — folge den Schritten unten.",
+      "codePlaceholder": "<pairing code>",
+      "instructionsTitle": "Server verbinden",
+      "instructionsIntro": "Vier Schritte, und die Konsole leuchtet auf.",
+      "step1": "Lade den Companion für deinen Loader herunter",
+      "downloadMeta": "{{versions}} · {{size}}",
+      "step2": "Lege die Jar in den plugins/-Ordner des Servers (mods/ bei Fabric und Forge)",
+      "step3": "Zeig ihm den Weg zu diesem HomeHub",
+      "step3Body": "Lege entweder homehub-companion.properties mit dem Inhalt unten neben die Server-Jar, oder führe den Pair-Befehl direkt in der Serverkonsole aus.",
+      "propertiesLabel": "homehub-companion.properties",
+      "commandLabel": "…oder aus der Serverkonsole",
+      "step4": "Server starten (oder neu starten)",
+      "step4Body": "Der Companion koppelt sich und verbindet sich ab jetzt automatisch neu — mehr ist nicht zu tun.",
+      "back": "Zurück zur Konsole",
+      "modeInGame": "Im Spiel",
+      "modeConsole": "Konsole",
+      "serversTitle": "Server in diesem Netzwerk",
+      "serversIntro": "Jeder gekoppelte Proxy und Subserver. Entfernen widerruft den Token seines Companions.",
+      "noServers": "Noch nichts gekoppelt — erzeuge unten einen Code und kopple deinen ersten Server.",
+      "neverConnected": "nie verbunden",
+      "removeServer": "Entfernen",
+      "removeTitle": "{{name}} entfernen?",
+      "removeBody": "Der Token des Companions wird widerrufen; der Server lässt sich später mit einem frischen Code neu koppeln. Der Metrik-Verlauf bleibt erhalten.",
+      "labelField": "Servername",
+      "labelHint": "So heißt der neue Server hier, z. B. Lobby, SMP, Proxy. Leer: der eigene Name des Servers.",
+      "labelPlaceholder": "Lobby",
+      "sshTitle": "SSH-Hostzugang",
+      "sshIntro": "Ein Login auf die Maschine, auf der dieses Netzwerk läuft — die Grundlage für vollständige Neustarts (screen) durch HomeHub und den Assistenten. Konfigurierbar über das Bearbeiten des Systems (Host, Benutzer, Passwort oder Schlüssel).",
+      "sshTest": "SSH testen",
+      "sshConfigured": "SSH-Zugang ist für dieses Netzwerk konfiguriert.",
+      "sshNotConfigured": "Nicht konfiguriert — bearbeite das System auf der Systeme-Seite und fülle die SSH-Felder aus.",
+      "sshOk": "Verbunden: {{detail}}",
+      "moveServer": "In ein anderes Netzwerk verschieben",
+      "moveTo": "Verschieben nach {{name}}",
+      "moved": "{{name}} verschoben — der Companion bleibt gekoppelt"
+    },
+    "performance": {
+      "tps": "TPS",
+      "mspt": "MSPT",
+      "players": "Spieler online",
+      "heap": "Heap belegt",
+      "empty": {
+        "title": "Noch keine Performance-Daten",
+        "body": "Diagramme erscheinen, sobald der Companion TPS, Spieler und Speicher meldet."
+      }
+    },
+    "landing": {
+      "title": "Minecraft",
+      "subtitle": "Jeder Server mit Live-Spielern, Tickrate und Speicher.",
+      "serversConnected": "Server verbunden",
+      "playersOnline": "Spieler online",
+      "emptyTitle": "Noch keine Server",
+      "emptyBody": "Füge unter Verwaltung → Systeme einen Minecraft-Server hinzu und kopple seinen Companion.",
+      "notPairedMeta": "noch nicht gekoppelt",
+      "serverCount": "{{count}} Server"
+    },
+    "networkSubtitle": "{{connected}} / {{total}} Server verbunden · {{players}} Spieler online",
+    "network": {
+      "emptyTitle": "Noch keine Server in diesem Netzwerk",
+      "emptyBody": "Öffne das Setup, um den Proxy und jeden Subserver mit einem eigenen Code zu koppeln.",
+      "unknownLoader": "noch nicht verbunden",
+      "offline": "Companion offline",
+      "backends": "{{count}} Backends"
+    },
+    "server": {
+      "back": "Alle Server",
+      "gone": "Dieser Server gehört nicht (mehr) zum Netzwerk.",
+      "restart": "Neustarten",
+      "restartTitle": "{{name}} neu starten?",
+      "restartBody": "Stoppt den Server sauber über SSH und startet ihn dann aus seiner eigenen start.sh neu. Spieler werden für den Bootvorgang getrennt.",
+      "restartDone": "{{name}} neu gestartet",
+      "restartFailed": "Neustart fehlgeschlagen",
+      "start": "Starten",
+      "stop": "Stoppen",
+      "startDone": "{{name}} gestartet",
+      "stopDone": "{{name}} gestoppt",
+      "stopTitle": "{{name}} stoppen?",
+      "stopBody": "Stoppt den Server sauber über SSH. Spieler werden getrennt, bis du ihn wieder startest.",
+      "powerFailed": "Aktion fehlgeschlagen"
+    },
+    "detail": {
+      "position": "Position",
+      "vitals": "Vitalwerte",
+      "effects": "Aktive Effekte",
+      "inventory": "Inventar",
+      "armor": "Ausgerüstet",
+      "emptyInv": "Leeres Inventar",
+      "enderChest": "Endertruhe",
+      "statistics": "Statistiken"
+    }
+  },
+  "history": {
+    "title": "Verlauf",
+    "subtitle": "Jede Metrik, jeder Zeitraum — verglichen in einem Diagramm.",
+    "picker": {
+      "title": "Serien",
+      "hint": "Wähle bis zu {{max}} Serien zum Vergleichen.",
+      "toggle": "Serien ({{count}} ausgewählt)"
+    },
+    "timeframe": {
+      "1h": "1h",
+      "6h": "6h",
+      "24h": "24h",
+      "7d": "7d",
+      "30d": "30d"
+    },
+    "maxSeriesTitle": "Mehr geht nicht",
+    "maxSeriesBody": "Bis zu {{max}} Serien passen in ein Diagramm. Wähle eine ab, um eine andere hinzuzufügen.",
+    "emptyCatalog": {
+      "title": "Noch keine Metriken",
+      "body": "Metriken erscheinen hier, sobald verbundene Systeme Daten melden. Schau in ein paar Minuten wieder rein."
+    },
+    "noSelection": {
+      "title": "Nichts ausgewählt",
+      "body": "Wähle eine oder mehrere Serien aus der Liste, um sie hier darzustellen."
+    },
+    "noData": {
+      "title": "Keine Daten in diesem Zeitfenster",
+      "body": "Die gewählten Serien haben in diesem Zeitraum keine Messwerte. Probiere ein größeres Fenster."
+    },
+    "partialError": "Einige Serien konnten nicht geladen werden.",
+    "scrub": {
+      "title": "Zustand zu einem Zeitpunkt",
+      "hint": "Fahre über das Diagramm, um jede Serie zu einem Moment abzulesen — klicke, um ihn festzupinnen.",
+      "stateAt": "Zustand um {{time}}",
+      "unpin": "Lösen",
+      "addAlert": "Alarm aus dieser Serie erstellen"
+    }
+  },
+  "alerts": {
+    "title": "Alarme",
+    "subtitle": "Regeln, die deine Metriken beobachten und dich benachrichtigen, wenn sie eine Grenze überschreiten.",
+    "add": "Neuer Alarm",
+    "columns": {
+      "state": "Zustand",
+      "series": "Serie",
+      "condition": "Bedingung",
+      "severity": "Schweregrad"
+    },
+    "state": {
+      "ok": "OK",
+      "firing": "Ausgelöst",
+      "unknown": "Unbekannt"
+    },
+    "severity": {
+      "info": "Info",
+      "warning": "Warnung",
+      "error": "Fehler"
+    },
+    "conditionAbove": "{{metric}} über {{value}} für {{duration}}",
+    "conditionBelow": "{{metric}} unter {{value}} für {{duration}}",
+    "toggleAria": "Alarm {{name}} umschalten",
+    "created": "Alarm erstellt",
+    "updated": "Alarm aktualisiert",
+    "deleted": "Alarm gelöscht",
+    "deleteConfirmTitle": "Alarm „{{name}}“ löschen?",
+    "deleteConfirmBody": "Die Regel hört sofort auf zu beobachten. Vergangene Benachrichtigungen bleiben; neue werden nicht mehr ausgelöst.",
+    "empty": {
+      "title": "Noch keine Alarme",
+      "body": "Erstelle eine Regel und HomeHub behält die Metrik für dich im Auge — Tag und Nacht. Der einfachste Start: Wähle eine Serie auf der Verlaufsseite.",
+      "action": "Verlauf öffnen"
+    },
+    "editor": {
+      "createTitle": "Neuer Alarm",
+      "editTitle": "Alarm bearbeiten",
+      "intro": "Wird ausgelöst, wenn die Metrik den Schwellwert über die gesamte Dauer hinweg reißt.",
+      "namePlaceholder": "z. B. Hohe CPU auf pve1",
+      "resource": "Ressource",
+      "resourcePlaceholder": "Ressource wählen…",
+      "metric": "Metrik",
+      "metricPlaceholder": "Metrik wählen…",
+      "operator": "Bedingung",
+      "above": "Über",
+      "below": "Unter",
+      "threshold": "Schwellwert",
+      "sustained": "Anhaltend für",
+      "sustainedHint": "Kurze Spitzen unterhalb dieser Dauer lösen nie aus."
+    }
+  },
+  "backups": {
+    "title": "Backups",
+    "subtitle": "Sichere diese HomeHub-Installation und stelle sie aus einem gespeicherten Archiv wieder her.",
+    "targets": {
+      "title": "Ziele",
+      "intro": "Wohin Backup-Archive geschrieben werden.",
+      "add": "Ziel hinzufügen",
+      "types": {
+        "local": "Lokaler Pfad",
+        "smb": "SMB-Freigabe",
+        "nfs": "NFS-Export",
+        "s3": "S3-kompatibel"
+      },
+      "typeDescriptions": {
+        "local": "Ein Verzeichnis auf der Maschine, auf der HomeHub läuft",
+        "smb": "Eine Windows- oder Samba-Netzwerkfreigabe",
+        "nfs": "Ein NFS-Export in deinem Netzwerk",
+        "s3": "MinIO, Garage, AWS S3 oder ein anderer S3-kompatibler Speicher"
+      },
+      "status": {
+        "unknown": "Noch nicht geprüft",
+        "ok": "OK",
+        "error": "Fehler"
+      },
+      "capacityFree": "{{free}} frei von {{total}}",
+      "retentionBadge": "{{days}} Tage Aufbewahrung",
+      "encryptedBadge": "Verschlüsselt",
+      "disabledBadge": "Deaktiviert",
+      "test": "Testen",
+      "testing": "Teste…",
+      "testOk": "Das Ziel ist erreichbar und beschreibbar.",
+      "testFailed": "Test fehlgeschlagen",
+      "testFirst": "Teste das Ziel vor dem Speichern.",
+      "runNow": "Jetzt sichern",
+      "runQueuedTitle": "Backup eingereiht",
+      "runQueuedBody": "Das Ergebnis landet in deinen Benachrichtigungen, sobald es fertig ist.",
+      "browse": "Archive durchsuchen",
+      "pickType": "Wohin sollen die Backups?",
+      "editTitle": "„{{name}}“ bearbeiten",
+      "nameHint": "z. B. „NAS-Backups“",
+      "secretKeep": "Leer lassen, um den gespeicherten Wert zu behalten",
+      "retention": "Aufbewahrung (Tage)",
+      "retentionHint": "Ältere Archive werden nach jedem erfolgreichen Backup aufgeräumt.",
+      "retentionRange": "Zwischen 1 und 3650 Tagen",
+      "encrypt": "Archive verschlüsseln",
+      "encryptHint": "Archive werden mit dem Backup-Schlüssel dieser Installation versiegelt. Exportiere ihn im Abschnitt „Verschlüsselungsschlüssel“ auf dieser Seite und bewahre ihn offline auf — ohne ihn lassen sich verschlüsselte Archive nirgendwo sonst wiederherstellen.",
+      "enabledHint": "Deaktivierte Ziele werden von Zeitplänen übersprungen und lassen sich nicht als Backup-Ziel verwenden.",
+      "created": "Ziel hinzugefügt",
+      "updated": "Ziel gespeichert",
+      "deleted": "Ziel entfernt",
+      "deleteConfirmTitle": "„{{name}}“ entfernen?",
+      "deleteConfirmBody": "HomeHub vergisst dieses Ziel und seine gespeicherten Zugangsdaten. Bereits dort gespeicherte Archive werden NICHT gelöscht.",
+      "empty": {
+        "title": "Noch keine Backup-Ziele",
+        "body": "Füge ein Ziel hinzu — einen lokalen Pfad, eine Netzwerkfreigabe oder einen S3-Bucket —, um mit dem Sichern von HomeHub zu beginnen."
+      }
+    },
+    "fields": {
+      "path": "Pfad",
+      "pathHint": "Ein vorhandenes Verzeichnis, in das HomeHub schreiben darf",
+      "host": "Host",
+      "share": "Freigabe",
+      "subdir": "Unterverzeichnis",
+      "subdirHint": "Optionaler Ordner in der Freigabe für die Archive",
+      "domain": "Domäne",
+      "username": "Benutzername",
+      "password": "Passwort",
+      "export": "Export",
+      "uid": "UID",
+      "uidHint": "Numerischer Eigentümer für geschriebene Dateien, falls der Export Benutzer per Squash umschreibt",
+      "gid": "GID",
+      "endpoint": "Endpunkt",
+      "endpointHint": "Vollständige URL der S3-API, z. B. https://s3.example.com",
+      "bucket": "Bucket",
+      "prefix": "Präfix",
+      "prefixHint": "Optionales Schlüssel-Präfix für die Archive",
+      "region": "Region",
+      "accessKey": "Access Key",
+      "secretKey": "Secret Key"
+    },
+    "archives": {
+      "title": "Archive auf „{{name}}“",
+      "intro": "Auf diesem Ziel gespeicherte Wiederherstellungspunkte, neueste zuerst.",
+      "encrypted": "Verschlüsselt",
+      "inspect": "Prüfen",
+      "restore": "Wiederherstellen",
+      "empty": {
+        "title": "Noch keine Archive",
+        "body": "Führe ein Backup auf dieses Ziel aus, um den ersten Wiederherstellungspunkt zu erstellen."
+      },
+      "manifest": {
+        "version": "HomeHub-Version",
+        "createdAt": "Erstellt",
+        "dumpFormat": "Dump-Format",
+        "encrypted": "Verschlüsselt",
+        "yes": "Ja",
+        "no": "Nein"
+      },
+      "restoreTitle": "Dieses Backup wiederherstellen?",
+      "restoreWarningTitle": "Das lässt sich nicht rückgängig machen",
+      "restoreWarningReplace": "Die Wiederherstellung ersetzt die gesamte aktuelle Datenbank durch den Inhalt dieses Archivs.",
+      "restoreWarningLost": "Alles, was seit {{date}} erstellt oder geändert wurde — Benutzer, Einstellungen, Verlauf, einfach alles — geht verloren.",
+      "restoreWarningRestart": "HomeHub startet neu, um die Wiederherstellung abzuschließen, und alle (auch du) werden abgemeldet.",
+      "restoreArchiveLabel": "Archiv",
+      "restoreWord": "RESTORE",
+      "restoreTypeToConfirm": "Tippe {{word}} zur Bestätigung",
+      "restoreConfirm": "Wiederherstellen",
+      "restoreQueuedTitle": "Wiederherstellung gestartet",
+      "restoreQueuedBody": "HomeHub startet neu, sobald sie abgeschlossen ist — du wirst abgemeldet."
+    },
+    "schedules": {
+      "title": "Zeitpläne",
+      "intro": "Wiederkehrende Backups im Cron-Takt.",
+      "add": "Zeitplan hinzufügen",
+      "empty": {
+        "title": "Noch keine Zeitpläne",
+        "body": "Füge einen Zeitplan hinzu, um automatisch zu sichern. Du brauchst mindestens ein Ziel."
+      },
+      "nextRun": "Nächster Lauf {{time}}",
+      "paused": "Pausiert",
+      "lastRun": "Letzter Lauf {{time}}",
+      "lastNever": "Noch nie gelaufen",
+      "toggleAria": "Zeitplan für {{name}} umschalten",
+      "created": "Zeitplan erstellt",
+      "deleted": "Zeitplan gelöscht",
+      "deleteConfirmTitle": "Diesen Zeitplan löschen?",
+      "deleteConfirmBody": "Geplante Backups auf „{{name}}“ stoppen. Vorhandene Archive bleiben unberührt.",
+      "target": "Ziel",
+      "targetPlaceholder": "Ziel wählen",
+      "cadence": "Rhythmus",
+      "presetDaily": "Täglich zu einer Uhrzeit",
+      "presetWeekly": "Wöchentlich an einem Tag",
+      "presetCustom": "Eigener Cron",
+      "time": "Uhrzeit",
+      "day": "Tag",
+      "cron": "Cron-Ausdruck",
+      "cronHint": "Standard-Cron mit 5 Feldern: Minute, Stunde, Monatstag, Monat, Wochentag",
+      "invalidCron": "Gib einen Cron-Ausdruck mit 5 Feldern ein",
+      "preview": "Läuft {{text}}",
+      "previewCustom": "Läuft nach diesem Cron-Ausdruck"
+    },
+    "cron": {
+      "daily": "jeden Tag um {{time}}",
+      "weekly": "jeden {{day}} um {{time}}",
+      "monthly": "monatlich am {{dom}}. um {{time}}",
+      "everyMinute": "jede Minute",
+      "everyNMinutes": "alle {{n}} Minuten",
+      "hourly": "jede Stunde um :{{m}}",
+      "everyNHours": "alle {{n}} Stunden"
+    },
+    "history": {
+      "title": "Verlauf",
+      "intro": "Backup-, Wiederherstellungs- und Aufräumläufe.",
+      "empty": {
+        "title": "Noch nichts gelaufen",
+        "body": "Backup-, Wiederherstellungs- und Aufräumläufe erscheinen hier."
+      },
+      "columns": {
+        "kind": "Art",
+        "target": "Ziel",
+        "status": "Status",
+        "size": "Größe",
+        "duration": "Dauer",
+        "started": "Gestartet"
+      },
+      "kind": {
+        "app-backup": "Backup",
+        "restore": "Wiederherstellung",
+        "prune": "Aufräumen"
+      },
+      "status": {
+        "running": "Läuft",
+        "succeeded": "Erfolgreich",
+        "failed": "Fehlgeschlagen"
+      }
+    },
+    "key": {
+      "title": "Verschlüsselungsschlüssel",
+      "intro": "Verschlüsselte Archive lassen sich nur mit diesem Schlüssel lesen. Um sie außerhalb dieser Installation wiederherzustellen, brauchst du eine Kopie davon.",
+      "reveal": "Schlüssel anzeigen",
+      "auditNote": "Das Anzeigen des Schlüssels wird im Audit-Log protokolliert.",
+      "warning": "Bewahre diesen Schlüssel sicher und offline auf — im Passwort-Manager oder ausgedruckt. Wer ihn besitzt, kann deine verschlüsselten Backups lesen; ohne ihn sind sie unwiederbringlich verloren.",
+      "hide": "Ausblenden"
+    }
+  },
+  "channels": {
+    "title": "Ausgehende Kanäle",
+    "intro": "Wohin Benachrichtigungen über die App hinaus gehen — gemeinsam genutzt von Alarmen und Ereignissen, pro Benutzer unter Konto gewählt.",
+    "add": "Kanal hinzufügen",
+    "pickType": "Wohin sollen Benachrichtigungen gehen?",
+    "editTitle": "{{name}} bearbeiten",
+    "namePlaceholder": "z. B. Homelab-Discord",
+    "secretKeep": "Leer lassen, um den gespeicherten Wert zu behalten",
+    "test": "Testen",
+    "testOk": "Testbenachrichtigung zugestellt",
+    "testFailed": "Zustellung fehlgeschlagen",
+    "toggleAria": "Kanal {{name}} umschalten",
+    "created": "Kanal hinzugefügt",
+    "updated": "Kanal gespeichert",
+    "deleted": "Kanal entfernt",
+    "deleteConfirmTitle": "„{{name}}“ entfernen?",
+    "deleteConfirmBody": "Benachrichtigungen fließen nicht mehr über diesen Kanal, und Benutzer, die ihn abonniert haben, verlieren diese Zustellung. Seine gespeicherten Secrets werden gelöscht.",
+    "empty": {
+      "title": "Noch keine Kanäle",
+      "body": "Füge einen Kanal hinzu, damit Alarme und Ereignisse dich auch außerhalb der App erreichen."
+    },
+    "types": {
+      "webhook": "Webhook",
+      "email": "E-Mail",
+      "ntfy": "ntfy",
+      "gotify": "Gotify",
+      "telegram": "Telegram",
+      "discord": "Discord"
+    },
+    "fields": {
+      "url": "URL",
+      "authHeader": "Name des Auth-Headers",
+      "authHeaderHint": "z. B. Authorization oder X-Api-Key — wird bei jeder Zustellung mitgesendet",
+      "authValue": "Wert des Auth-Headers",
+      "smtpHost": "SMTP-Host",
+      "smtpPort": "Port",
+      "from": "Absenderadresse",
+      "username": "SMTP-Benutzername",
+      "password": "SMTP-Passwort",
+      "server": "Server",
+      "topic": "Topic",
+      "token": "Zugriffstoken",
+      "chatId": "Chat-ID",
+      "botToken": "Bot-Token",
+      "webhookUrl": "Webhook-URL",
+      "webhookUrlHint": "Servereinstellungen → Integrationen → Webhooks, dann die URL kopieren"
+    },
+    "email": {
+      "note": "Mails gehen an die Konto-E-Mail-Adresse jedes abonnierten Benutzers."
+    },
+    "telegram": {
+      "note": "Erstelle mit @BotFather einen Bot, um den Token zu bekommen, schreib dem Bot einmal und lies dann deine Chat-ID aus https://api.telegram.org/bot<token>/getUpdates."
+    }
+  },
+  "notifPrefs": {
+    "title": "Benachrichtigungen",
+    "intro": "Wähle, wie dich jede Art von Ereignis erreicht. Der Schalter steuert die Zustellung in der App.",
+    "inapp": "In-App-Benachrichtigung",
+    "inappAria": "In-App-Benachrichtigungen für {{event}}",
+    "channels": "Kanäle",
+    "channelCount_one": "{{count}} Kanal",
+    "channelCount_other": "{{count}} Kanäle",
+    "events": {
+      "integration": {
+        "unreachable": "Integration geht offline",
+        "recovered": "Integration erholt sich"
+      },
+      "alert": {
+        "firing": "Alarm wird ausgelöst",
+        "resolved": "Alarm löst sich auf"
+      },
+      "docker": {
+        "job": "Docker-Job-Ergebnisse"
+      },
+      "security": "Sicherheitsereignisse"
+    }
+  },
+  "truenas": {
+    "tabs": {
+      "overview": "Übersicht",
+      "datasets": "Datasets",
+      "shares": "Freigaben",
+      "snapshots": "Snapshots",
+      "performance": "Performance"
+    },
+    "chips": {
+      "pools": "{{count}} Pool",
+      "pools_other": "{{count}} Pools",
+      "capacity": "{{size}} Kapazität",
+      "memory": "{{size}} RAM"
+    },
+    "overview": {
+      "alerts": "Alarme",
+      "pools": "Pools",
+      "disks": "Disks",
+      "healthy": "Gesund",
+      "unhealthy": "Nicht gesund",
+      "usedOfTotal": "{{used}} von {{total}}",
+      "percentFull": "{{pct}}% belegt",
+      "pct": "{{pct}}%",
+      "free": "{{size}} frei",
+      "fragmentation": "{{pct}}% fragmentiert",
+      "celsius": "{{value}}°C",
+      "system": {
+        "title": "System",
+        "version": "Version",
+        "model": "Modell",
+        "cores": "Kerne",
+        "uptime": "Laufzeit",
+        "unavailable": "Systemdetails sind nicht verfügbar."
+      },
+      "memory": {
+        "title": "Arbeitsspeicher",
+        "total": "Gesamt",
+        "zfsCache": "ZFS-Cache",
+        "services": "Dienste",
+        "free": "Frei",
+        "unavailable": "Auf diesem System sind keine Speicherdaten verfügbar.",
+        "dial": "Arbeitsspeicher: {{total}} gesamt — {{segments}}",
+        "segment": "{{name}}: {{size}} ({{pct}}%)"
+      },
+      "storage": {
+        "title": "Speicher",
+        "unavailable": "Keine Pool-Kapazität zum Zusammenfassen."
+      },
+      "noDisks": "Keine Disks gemeldet.",
+      "noPools": {
+        "title": "Keine Pools",
+        "body": "Dieses TrueNAS-System hat keine Pools, die du sehen darfst, oder es sind keine eingerichtet."
+      },
+      "diskColumns": {
+        "name": "Gerät",
+        "model": "Modell",
+        "serial": "Seriennummer",
+        "size": "Größe",
+        "type": "Typ",
+        "temperature": "Temp",
+        "pool": "Pool"
+      },
+      "alertCount": "{{count}} aktive(r) Alarm(e)",
+      "alertsMore": "{{count}} weitere anzeigen",
+      "alertsLess": "Weniger anzeigen"
+    },
+    "datasets": {
+      "columns": {
+        "name": "Dataset",
+        "type": "Typ",
+        "used": "Belegt",
+        "available": "Verfügbar",
+        "compression": "Kompression",
+        "mountpoint": "Mountpunkt"
+      },
+      "empty": {
+        "title": "Keine Datasets",
+        "body": "Auf diesem System sind keine Datasets sichtbar."
+      }
+    },
+    "shares": {
+      "on": "Aktiviert",
+      "off": "Deaktiviert",
+      "columns": {
+        "type": "Typ",
+        "name": "Name",
+        "path": "Pfad",
+        "enabled": "Status",
+        "comment": "Kommentar"
+      },
+      "empty": {
+        "title": "Keine Freigaben",
+        "body": "Es sind keine SMB-, NFS- oder iSCSI-Freigaben eingerichtet."
+      }
+    },
+    "snapshots": {
+      "columns": {
+        "name": "Snapshot",
+        "dataset": "Dataset",
+        "used": "Belegt",
+        "created": "Erstellt"
+      },
+      "empty": {
+        "title": "Keine Snapshots",
+        "body": "Es wurden keine ZFS-Snapshots gefunden."
+      }
+    },
+    "performance": {
+      "poolCapacity": "Pool-Kapazität",
+      "diskTemps": "Disk-Temperaturen",
+      "collecting": "Sammle Daten…",
+      "empty": {
+        "title": "Noch kein Verlauf",
+        "body": "Der Verlauf von Kapazität und Temperaturen erscheint hier, sobald die Metrik-Engine ein paar Messwerte gesammelt hat."
+      },
+      "tempsUnavailable": "Dieses NAS meldet keine Disk-Temperaturen."
+    },
+    "traffic": {
+      "in": "Ein:",
+      "out": "Aus:",
+      "linkUp": "Link aktiv",
+      "linkDown": "Link inaktiv"
+    },
+    "stats": {
+      "cpu": "CPU-Auslastung",
+      "load": "Systemlast",
+      "load1": "1 Min",
+      "load5": "5 Min",
+      "load15": "15 Min",
+      "memory": "Arbeitsspeicher {{total}}",
+      "memAvailable": "Verfügbar",
+      "arc": "ZFS ARC"
+    },
+    "alerts": {
+      "bell": "Alarme",
+      "activeCount_one": "{{count}} aktiver Alarm",
+      "activeCount_other": "{{count}} aktive Alarme",
+      "dismissedCount_one": "{{count}} verworfener Alarm",
+      "dismissedCount_other": "{{count}} verworfene Alarme",
+      "noneActive": "Keine aktiven Alarme — alles in Ordnung.",
+      "clearAll": "Alle verwerfen",
+      "dismiss": "Alarm verwerfen",
+      "viewAll": "Alle Alarme anzeigen",
+      "empty": {
+        "title": "Keine Alarme",
+        "body": "Wenn TrueNAS Systemalarme meldet, erscheinen sie hier und an der Glocke."
+      }
+    }
+  },
+  "amp": {
+    "subtitle": "CubeCoders AMP",
+    "unreachableBanner": "Das Panel ist nicht erreichbar: {{message}}",
+    "overview": {
+      "serversRunning": "Server laufen",
+      "playersOnline": "Spieler online",
+      "targetOnline": "Online",
+      "targetOffline": "Offline",
+      "cores": "{{count}} Kerne",
+      "ram": "{{gb}} GB RAM",
+      "players": "Spieler",
+      "memory": "RAM",
+      "emptyTitle": "Keine Gameserver",
+      "emptyBody": "Dieses Panel hat noch keine Instanzen. Lege sie in AMP an, dann erscheinen sie hier."
+    },
+    "state": {
+      "undefined": "Unbekannt",
+      "stopped": "Gestoppt",
+      "preStart": "Vorbereitung",
+      "configuring": "Konfiguriert",
+      "starting": "Startet",
+      "running": "Läuft",
+      "restarting": "Startet neu",
+      "stopping": "Stoppt",
+      "preparingForSleep": "Bereitet Ruhezustand vor",
+      "sleeping": "Ruht",
+      "waiting": "Wartet",
+      "installing": "Installiert",
+      "updating": "Aktualisiert",
+      "awaitingInput": "Wartet auf Eingabe",
+      "failed": "Fehlgeschlagen",
+      "suspended": "Angehalten",
+      "maintenance": "Wartung",
+      "indeterminate": "Unbestimmt",
+      "offline": "Instanz gestoppt"
+    },
+    "instance": {
+      "back": "Alle Server",
+      "uptime": "Laufzeit",
+      "start": "Starten",
+      "stop": "Stoppen",
+      "restart": "Neustarten",
+      "kill": "Killen",
+      "update": "Anwendung aktualisieren",
+      "moreActions": "Weitere Aktionen",
+      "lifecycleStart": "Instanz starten",
+      "lifecycleStop": "Instanz stoppen",
+      "lifecycleRestart": "Instanz neu starten",
+      "killTitle": "Prozess killen?",
+      "killBody": "„{{name}}“ wird sofort beendet, ohne zu speichern. Nimm Stoppen für ein sauberes Herunterfahren.",
+      "actionFailed": "Aktion fehlgeschlagen",
+      "offlineTitle": "Diese Instanz ist gestoppt",
+      "offlineBody": "Der Container der Instanz läuft nicht, daher sind Konsole und Status nicht erreichbar. Starte ihn, und alles kommt zurück."
+    },
+    "console": {
+      "loading": "Konsole lädt…",
+      "loadFailed": "Die Konsole konnte nicht geladen werden.",
+      "empty": "Noch keine Konsolenausgabe.",
+      "commandPlaceholder": "Serverbefehl ausführen — z. B. say hallo",
+      "commandAria": "Konsolenbefehl"
+    }
+  },
+  "ts": {
+    "unreachableBanner": "Die Tailscale-API ist nicht erreichbar: {{message}}",
+    "tabs": {
+      "devices": "Geräte",
+      "keys": "Auth-Keys",
+      "dns": "DNS"
+    },
+    "devices": {
+      "online": "Geräte online",
+      "updatesAvailable": "Updates verfügbar",
+      "pendingApproval": "warten auf Freigabe",
+      "emptyTitle": "Keine Geräte",
+      "emptyBody": "Geräte erscheinen hier, sobald sie dem Tailnet beitreten.",
+      "device": "Gerät",
+      "status": "Status",
+      "address": "Tailscale-IP",
+      "version": "OS · Version",
+      "owner": "Besitzer / Tags",
+      "routes": "Routen",
+      "onlineNow": "Online",
+      "unauthorized": "Braucht Freigabe",
+      "update": "Update",
+      "exitNode": "Exit-Node",
+      "subnets": "{{enabled}}/{{total}} Subnetze",
+      "authorize": "Gerät freigeben",
+      "editRoutes": "Routen bearbeiten",
+      "enableKeyExpiry": "Schlüsselablauf aktivieren",
+      "disableKeyExpiry": "Schlüsselablauf deaktivieren",
+      "expireKey": "Schlüssel ablaufen lassen",
+      "remove": "Gerät entfernen",
+      "removeTitle": "Dieses Gerät entfernen?",
+      "removeBody": "„{{name}}“ wird vom Tailnet getrennt und muss sich neu authentifizieren, um zurückzukommen.",
+      "expireTitle": "Node-Key ablaufen lassen?",
+      "expireBody": "„{{name}}“ muss sich neu authentifizieren, um verbunden zu bleiben.",
+      "routesTitle": "Routen — {{name}}",
+      "exitNodeLabel": "Als Exit-Node verwenden",
+      "exitNodeHint": "Erlaubt Geräten, ihren gesamten Internetverkehr über diese Maschine zu leiten.",
+      "subnetRoutes": "Subnetz-Routen",
+      "actionFailed": "Aktion fehlgeschlagen"
+    },
+    "keys": {
+      "create": "Neuer Auth-Key",
+      "emptyTitle": "Keine Auth-Keys",
+      "emptyBody": "Mit Auth-Keys treten Server und Container dem Tailnet ohne interaktive Anmeldung bei.",
+      "description": "Beschreibung",
+      "descriptionPlaceholder": "z. B. NAS-Bootstrap",
+      "properties": "Eigenschaften",
+      "createdCol": "Erstellt",
+      "expires": "Läuft ab",
+      "noDescription": "(keine Beschreibung)",
+      "revoked": "Widerrufen",
+      "expired": "Abgelaufen",
+      "reusable": "Wiederverwendbar",
+      "ephemeral": "Flüchtig",
+      "preauthorized": "Vorab freigegeben",
+      "revoke": "Widerrufen",
+      "revokeTitle": "Diesen Key widerrufen?",
+      "revokeBody": "„{{name}}“ funktioniert sofort nicht mehr. Bereits beigetretene Geräte bleiben verbunden.",
+      "revokeFailed": "Der Key konnte nicht widerrufen werden",
+      "createTitle": "Neuer Auth-Key",
+      "createFailed": "Der Key konnte nicht erstellt werden",
+      "expiryDays": "Läuft ab nach (Tagen)",
+      "expiryHint": "1–365 Tage. Danach registriert der Key keine Geräte mehr.",
+      "reusableLabel": "Wiederverwendbar",
+      "reusableHint": "Kann mehr als ein Gerät registrieren.",
+      "ephemeralLabel": "Flüchtig",
+      "ephemeralHint": "Geräte verschwinden kurz nach dem Trennen aus dem Tailnet — für Container und CI.",
+      "preauthorizedLabel": "Vorab freigegeben",
+      "preauthorizedHint": "Geräte überspringen die manuelle Freigabe, wenn Gerätefreigabe aktiv ist.",
+      "createdTitle": "Auth-Key erstellt",
+      "createdBody": "Kopiere den Key jetzt — er wird nur dieses eine Mal angezeigt.",
+      "autoRenewTitle": "HomeHubs API-Token automatisch erneuern",
+      "autoRenewBody": "In der letzten Woche täglich eine Info-Benachrichtigung; einen Tag vor Ablauf erstellt HomeHub einen klar benannten Ersatz, wechselt darauf und widerruft den alten Token.",
+      "autoRenewSaved": "Automatische Erneuerung aktualisiert"
+    },
+    "dns": {
+      "nameservers": "Globale Nameserver",
+      "nameserversHint": "Resolver, die jedes Tailnet-Gerät verwendet.",
+      "addNameserver": "Hinzufügen",
+      "magicDnsHint": "Geräte bekommen Namen wie nas.tailnet.ts.net. Braucht mindestens einen Nameserver.",
+      "searchPaths": "Such-Domains",
+      "searchPathsHint": "Domains, die an kurze Hostnamen angehängt werden.",
+      "addSearchPath": "Hinzufügen",
+      "none": "Keine konfiguriert.",
+      "saved": "DNS-Einstellungen gespeichert",
+      "saveFailed": "Die DNS-Einstellungen konnten nicht gespeichert werden"
+    }
+  },
+  "caddy": {
+    "subtitle": "Caddy Reverse Proxy",
+    "unreachableBanner": "Der Helper ist nicht erreichbar: {{message}}",
+    "degradedBanner": "Der Helper läuft, erreicht Caddy aber nicht: {{message}}",
+    "tabs": {
+      "sites": "Sites",
+      "served": "Laufende Konfiguration"
+    },
+    "sites": {
+      "fileLabel": "Verwaltet",
+      "add": "Site hinzufügen",
+      "emptyTitle": "Noch keine Sites",
+      "emptyBody": "Füge eine Site hinzu und Caddy liefert sie aus — die Änderung wird von Caddy selbst validiert, bevor irgendetwas die Festplatte berührt.",
+      "refusedTitle": "Dieses Caddyfile kann nicht verwaltet werden",
+      "readOnlyBanner": "Dieser Helper ist schreibgeschützt: Sites lassen sich auflisten, aber nicht ändern. Um Änderungen zu erlauben, starte caddy-reader auf dem Caddy-Host mit --writable neu.",
+      "domain": "Domain",
+      "upstream": "Upstream",
+      "options": "Optionen",
+      "dns": "DNS · {{provider}}",
+      "insecure": "unsicherer Upstream",
+      "headers": "{{count}} Header",
+      "extraDirectives": "{{count}} zusätzliche Direktive(n)",
+      "remove": "Site entfernen",
+      "removeTitle": "Diese Site entfernen?",
+      "removeBody": "Caddy stellt {{domain}} nicht mehr bereit, sobald die Änderung angewendet ist.",
+      "saved": "Gespeichert. Caddy neu geladen.",
+      "saveFailed": "Die Änderung wurde nicht angewendet",
+      "advancedTitle": "Erweiterte Blöcke",
+      "advancedBody": "Site-Blöcke, die der Editor nicht abbildet. Sie bleiben exakt wie geschrieben erhalten — hier angezeigt, damit die Liste nie darüber lügt, was in der Datei steht.",
+      "globalTitle": "Globale Optionen",
+      "globalBody": "Gilt für jede Site, die dieser Caddy ausliefert."
+    },
+    "reasons": {
+      "noProxy": "kein reverse_proxy",
+      "multiProxy": "mehr als ein reverse_proxy",
+      "nestedBlock": "enthält einen verschachtelten Block",
+      "tlsAdvanced": "tls-Block macht mehr als eine DNS-Challenge",
+      "transport": "unbekannter transport",
+      "matchers": "Matcher oder mehrere Upstreams",
+      "unknownOption": "unbekannte reverse_proxy-Option",
+      "other": "erweitert"
+    },
+    "editor": {
+      "addTitle": "Site hinzufügen",
+      "editTitle": "{{domain}} bearbeiten",
+      "domain": "Domain",
+      "domainHint": "Nur die Domain — kein Schema, kein Pfad",
+      "extraDomains": "Zusätzliche Adressen",
+      "extraDomainsHint": "Kommagetrennt, vom selben Block ausgeliefert",
+      "scheme": "Upstream-Schema",
+      "schemeHint": "Meist leer; https für einen TLS-Upstream",
+      "host": "Upstream-Host",
+      "port": "Port",
+      "dnsProvider": "DNS-Challenge-Provider",
+      "dnsProviderHint": "Für Wildcard-/interne Zertifikate, z. B. cloudflare",
+      "dnsArgs": "DNS-Challenge-Argumente",
+      "dnsArgsHint": "Bleiben exakt wie geschrieben — meist ein {env.*}-Platzhalter, wird nie expandiert",
+      "encode": "Kompression",
+      "encodeHint": "Argumente für `encode`, z. B. gzip zstd — leer für keine",
+      "insecure": "Upstream-TLS-Prüfung überspringen",
+      "insecureHint": "Für https-Upstreams mit selbstsignierten Zertifikaten.",
+      "headerUp": "Upstream-Header (header_up)",
+      "addHeader": "Header hinzufügen",
+      "unknownKept": "Dieser Block enthält Direktiven, die der Editor nicht abbildet. Beim Speichern bleiben sie exakt wie geschrieben erhalten:"
+    },
+    "served": {
+      "emptyTitle": "Nichts wird ausgeliefert",
+      "emptyBody": "Die laufende Konfiguration hat keine host-gebundenen Routen.",
+      "proxiedTitle": "Weitergeleitete Domains",
+      "proxiedBody": "Was die laufende Konfiguration tatsächlich routet — live aus Caddy gelesen, über den Helper.",
+      "upstream": "Upstream",
+      "unresolvableTitle": "Weitergeleitet, Ziel nicht bestimmbar",
+      "unresolvableBody": "Diese Domains werden weitergeleitet, aber wohin, lässt sich statisch nicht beantworten.",
+      "noProxyTitle": "Ohne Proxy ausgeliefert",
+      "noProxyBody": "Domains, die etwas anderes beantwortet als ein Reverse Proxy — ein Dateiserver, eine Weiterleitung."
+    },
+    "setup": {
+      "menuLabel": "Helper-Einrichtung",
+      "title": "caddy-reader-Helper",
+      "installStep": "Installiere den Helper auf dem Caddy-Host",
+      "setupStep": "Richte den Dienst ein",
+      "setupNote": "Er stellt ein paar Fragen mit sinnvollen Vorgaben und endet mit einem sechsstelligen Pairing-Code. Späteres erneutes Ausführen gibt einen frischen Code aus.",
+      "repairStep": "Dieses System neu koppeln",
+      "repairHint": "Gib den Code aus dem Setup-Befehl ein, um den gespeicherten Token zu ersetzen — nach einer Neuinstallation des Helpers oder wenn die Kopplung verloren ging.",
+      "repairButton": "Neu koppeln",
+      "repairSuccess": "Helper neu gekoppelt",
+      "repairFailed": "Neukopplung fehlgeschlagen"
+    }
+  },
+  "nvr": {
+    "subtitle": "Aperture NVR",
+    "openAperture": "Aperture öffnen",
+    "overview": {
+      "recording": "Kameras zeichnen auf",
+      "retention": "kürzeste Aufbewahrung",
+      "days": "{{days}} Tage",
+      "hours": "{{hours}} h",
+      "throughput": "Aufnahmedurchsatz"
+    },
+    "grid": {
+      "emptyTitle": "Keine Kameras sichtbar",
+      "emptyBody": "Aperture meldet keine Kameras, die dieses Konto sehen darf.",
+      "connecting": "Verbinde…",
+      "retrying": "neuer Versuch in {{seconds}}s",
+      "coverage": "{{pct}}% Abdeckung",
+      "notRecording": "zeichnet nicht auf",
+      "expand": "{{name}} vergrößern",
+      "liveOnly": "Nur live"
+    }
+  },
+  "assistant": {
+    "title": "Assistent",
+    "subtitle": "Antworten aus den Live-Daten deiner Systeme · {{provider}} · {{model}}",
+    "disabledSubtitle": "Nicht aktiviert",
+    "settings": "Einstellungen",
+    "settingsTitle": "Assistent-Einstellungen",
+    "offTitle": "Der Assistent ist aus",
+    "offBody": "Ein Administrator kann ihn in den Assistent-Einstellungen aktivieren.",
+    "offBodyAdmin": "Verbinde einen KI-Provider, dann beantwortet der Assistent Fragen zu deinen Systemen aus Live-Daten — begrenzt auf die Berechtigungen des jeweiligen Benutzers.",
+    "setUp": "Einrichten",
+    "enable": "Aktiviert",
+    "enableHint": "Schaltet den Assistenten für alle ein. Jeder Benutzer sieht immer nur, was seine eigenen Berechtigungen erlauben.",
+    "provider": "KI-Provider",
+    "providerHint": "Cloud-APIs oder ein Modell auf deiner eigenen Hardware — alles OpenAI-kompatible funktioniert.",
+    "model": "Modell",
+    "modelHint": "Der Modellname, den dein Provider erwartet.",
+    "apiKey": "API-Schlüssel",
+    "apiKeyHint": "Verschlüsselt im Tresor gespeichert, wird nie wieder angezeigt.",
+    "apiKeySetHint": "Ein Schlüssel ist gespeichert. Gib einen neuen ein, um ihn zu ersetzen, oder lass das Feld leer, um ihn zu behalten.",
+    "scopeNote": "Der Assistent hat derzeit nur Lese-Werkzeuge: Systeme, Alarme, Metriken, Benachrichtigungen und (mit Berechtigung) das Audit-Log. Er kann nichts verändern.",
+    "saved": "Assistent-Einstellungen gespeichert",
+    "chatTitle": "Unterhaltung",
+    "clear": "Leeren",
+    "clearTitle": "Unterhaltung leeren",
+    "clearBody": "Löscht deinen Chatverlauf mit dem Assistenten. Der Assistent behält kein weiteres Gedächtnis.",
+    "emptyHint": "Frag etwas über dein Homelab.",
+    "emptyExamples": "„Ist alles gesund?“ · „Wie voll ist das NAS?“ · „Welche Alarme gab es heute?“",
+    "placeholder": "Frag etwas über deine Systeme…",
+    "send": "Senden",
+    "thinking": "Schaue mir deine Systeme an…",
+    "failed": "Der Assistent konnte nicht antworten",
+    "baseUrl": "Endpunkt-URL",
+    "baseUrlHint": "Wo die API erreichbar ist. Vorausgefüllt mit der üblichen Adresse der Runtime — ändere sie, wenn deine woanders läuft.",
+    "apiKeyOptionalHint": "Lokale Runtimes brauchen meist keinen Schlüssel — leer lassen, außer deine verlangt einen.",
+    "apiKeyPlaceholder": "sk-…",
+    "groupCloud": "Cloud",
+    "groupLocal": "Lokal / selbst gehostet",
+    "widgetSubtitle": "Dein Homelab, auf Abruf",
+    "openWidget": "Assistent öffnen",
+    "openFull": "Ganze Seite öffnen",
+    "chips": {
+      "tapHint": "Chip antippen zum Steuern",
+      "devices": "{{count}} Geräte",
+      "toggle": "{{name}} umschalten",
+      "brightness": "Helligkeit",
+      "controlFailed": "Steuerung fehlgeschlagen",
+      "start": "Starten",
+      "stop": "Stoppen",
+      "restart": "Neustarten"
+    },
+    "cancel": "Generierung stoppen",
+    "scanNetwork": "Im Netzwerk suchen",
+    "scanning": "Durchsuche dein Netzwerk…",
+    "scanEmpty": "Kein LM Studio gefunden. Stelle sicher, dass sein Server läuft und „Serve on Local Network“ aktiviert ist.",
+    "scanNoModels": "erreichbar, aber kein Modell geladen",
+    "testEndpoint": "Endpunkt testen",
+    "endpointOkModels": "Erreichbar — geladen: {{models}}.",
+    "endpointOkEmpty": "Erreichbar, aber noch kein Modell geladen.",
+    "useModel": "{{model}} verwenden",
+    "lmGuideTitle": "LM Studio verbinden",
+    "lmGuide1": "Öffne in LM Studio den Developer-Tab und starte den Server.",
+    "lmGuide2": "Aktiviere „Serve on Local Network“ — sonst lauscht er nur auf dieser einen Maschine.",
+    "lmGuide3": "Lade ein Modell (eines mit Tool-Use beantwortet Fragen am besten).",
+    "lmGuide4": "Der Endpunkt ist http://<IP dieser Maschine>:1234/v1 — finde ihn oben oder teste ihn hier.",
+    "apiKeyStoredHint": "Für {{provider}} ist ein Schlüssel gespeichert — jeder Provider hat seinen eigenen. Gib einen neuen ein, um ihn zu ersetzen, oder lass das Feld leer, um ihn zu behalten.",
+    "scanLocked": "gefunden — braucht seinen API-Schlüssel (unten eingeben, dann testen)",
+    "telegram": {
+      "button": "Telegram",
+      "title": "Telegram-Brücke",
+      "subtitle": "Sprich mit dem Assistenten aus Telegram — er antwortet dort und kann auf dein Homelab einwirken.",
+      "running": "Brücke läuft als {{bot}}",
+      "starting": "Brücke aktiviert — verbinde…",
+      "step1a": "Schreibe",
+      "step1b": " auf Telegram, sende /newbot und kopiere den Token, den du bekommst.",
+      "step2": "Füge den Token unten ein, aktiviere die Brücke und speichere.",
+      "step3": "Sende in deinem Chat mit dem Bot /link — er antwortet mit einem Code.",
+      "token": "Bot-Token",
+      "tokenStored": "Ein Token ist gespeichert — füge nur einen neuen ein, um ihn zu ersetzen.",
+      "enable": "Brücke aktivieren",
+      "saved": "Telegram-Einstellungen gespeichert",
+      "chats": "Verknüpfte Chats",
+      "noChats": "Noch keine Chats verknüpft — normale Nachrichten aus einem verknüpften Chat gehen direkt an den Assistenten.",
+      "linkChat": "Chat verknüpfen",
+      "modes": "Normale Nachrichten sprechen mit dem KI-Assistenten unter den Berechtigungen des verknüpften Benutzers. Nachrichten, die mit ! oder / beginnen, sind Befehlsauslöser — bald konfigurierbar.",
+      "step4": "Tippe diesen Code hier (unten) ein, während du angemeldet bist. Vorher wird nichts verknüpft.",
+      "enterCode": "Sende /link an {{bot}} und gib dann den Code, den du bekommst, hier ein:",
+      "linkedAs": "Verknüpft {{label}}",
+      "yourBot": "dein Bot"
+    }
+  },
+  "tools": {
+    "title": "Werkzeuge",
+    "subtitle": "Kleine Apps, die in HomeHub wohnen.",
+    "comingSoon": "Bald verfügbar",
+    "converter": {
+      "title": "Konverter",
+      "tile": "Konvertiere zwischen Text-, Bild-, Audio-, Video- und Tabellenformaten — Batches inklusive."
+    },
+    "editor": {
+      "title": "Texteditor",
+      "subtitle": "Dateien im Arbeitsbereich mit Syntax-Hervorhebung — hier gespeichert, für den Assistenten lesbar.",
+      "tile": "Schreibe und bearbeite Dateien mit Hervorhebung, behalte sie in deinem Arbeitsbereich, lade sie unter beliebigem Namen herunter.",
+      "fileCount": "{{count}} Datei(en) in deinem Arbeitsbereich",
+      "newFile": "Neue Datei",
+      "fileName": "Dateiname",
+      "empty": {
+        "title": "Noch keine Dateien",
+        "body": "Erstelle deine erste Datei — sie wird in deinem Arbeitsbereich gespeichert und der Assistent kann sie lesen."
+      },
+      "pick": {
+        "title": "Datei auswählen",
+        "body": "Wähle links eine Datei oder erstelle eine neue."
+      },
+      "saved": "{{name}} gespeichert",
+      "unsaved": "Ungespeicherte Änderungen",
+      "download": "Herunterladen",
+      "downloadHint": "Lädt den aktuellen Inhalt unter dem Dateinamen herunter",
+      "deleteTitle": "{{name}} löschen?",
+      "deleteBody": "Das entfernt die Datei dauerhaft aus deinem Arbeitsbereich.",
+      "cursor": "Z. {{line}}, Sp. {{col}}",
+      "chars": "{{count}} Zeichen",
+      "saveHint": "Strg+S speichert · das Namensfeld ist zugleich der Downloadname",
+      "loadError": {
+        "title": "Die Datei konnte nicht geöffnet werden",
+        "body": "Die Datei ließ sich nicht laden — versuch es erneut oder wähle eine andere."
+      },
+      "filter": "Dateien filtern…",
+      "noMatch": "Keine Dateien passen",
+      "undo": "Rückgängig",
+      "redo": "Wiederholen",
+      "find": "Suchen & Ersetzen (Strg+F)",
+      "wrapToggle": "Zeilenumbruch umschalten",
+      "fontSmaller": "Kleinere Schrift",
+      "fontBigger": "Größere Schrift",
+      "selected": "{{count}} ausgewählt",
+      "savedAt": "Gespeichert {{time}}",
+      "closeTitle": "{{name}} schließen?",
+      "closeBody": "Diese Datei hat ungespeicherte Änderungen.",
+      "closeDiscard": "Änderungen verwerfen",
+      "closeSave": "Speichern & schließen",
+      "saveAsTitle": "Datei speichern",
+      "saveAsBody": "Benenne die Datei — die Endung bestimmt die Syntax-Hervorhebung.",
+      "modeText": "Text",
+      "modeRich": "Markdown",
+      "fullPage": "Als ganzseitiges Dokument öffnen",
+      "menu": {
+        "file": "Datei",
+        "new": "Neu",
+        "open": "Öffnen…",
+        "openRecent": "Zuletzt geöffnet",
+        "save": "Speichern",
+        "saveAs": "Speichern unter…"
+      },
+      "picker": {
+        "title": "Datei öffnen",
+        "empty": "Hier ist noch nichts."
+      },
+      "binaryRefused": "Diese Datei ist binär — lade sie stattdessen im Dateimanager herunter."
+    },
+    "files": {
+      "title": "Dateien",
+      "subtitle": "Dein Arbeitsbereich — Uploads, Downloads und alles, was der Editor speichert. Der Assistent kann das hier lesen.",
+      "tile": "Verwalte die Dateien im Arbeitsbereich: von der Festplatte hochladen, herunterladen, umbenennen, im Editor öffnen.",
+      "upload": "Hochladen",
+      "uploaded": "{{count}} Datei(en) hochgeladen",
+      "tooLarge": "{{name}} liegt über dem Limit von 1 MiB",
+      "binary": "{{name}} sieht binär aus — der Arbeitsbereich speichert Text",
+      "open": "Im Editor öffnen",
+      "rename": "Umbenennen",
+      "dropHint": "Zieh Dateien irgendwo auf diese Liste, um sie hochzuladen",
+      "empty": {
+        "title": "Noch keine Dateien",
+        "body": "Lade Dateien hoch oder erstelle eine im Editor."
+      },
+      "view": "Dokument ansehen",
+      "newFolder": "Neuer Ordner",
+      "folderName": "Ordnername",
+      "root": "Arbeitsbereich",
+      "binaryFile": "Binärdatei",
+      "deleteFolderBody": "Der Ordner und alles darin — Dateien und Unterordner — werden gelöscht. Das lässt sich nicht rückgängig machen."
+    },
+    "recent": "Zuletzt verwendete Dateien",
+    "apps": "Integrierte Apps",
+    "backToUtilities": "Werkzeuge",
+    "mdView": {
+      "rendered": "Gerendert",
+      "plain": "Reiner Text",
+      "contents": "Inhalt"
+    },
+    "workbench": {
+      "allUtilities": "Alle Werkzeuge"
+    }
+  },
+  "patchpilot": {
+    "subtitle": "Agentenlose Updates für deine Linux-Flotte",
+    "tabs": {
+      "hosts": "Hosts",
+      "schedules": "Zeitpläne",
+      "runs": "Läufe"
+    },
+    "chips": {
+      "hosts_one": "{{count}} Host",
+      "hosts_other": "{{count}} Hosts",
+      "updates_one": "{{count}} Update",
+      "updates_other": "{{count}} Updates",
+      "reboot_one": "{{count}} braucht Neustart",
+      "reboot_other": "{{count}} brauchen Neustart"
+    },
+    "wizard": {
+      "nameHint": "Ein Name für diese Flotte — die Maschinen, die du gemeinsam patchst.",
+      "intro": "Nach dem Anlegen der Flotte fügst du jeden Host über SSH hinzu. HomeHub installiert ein eigenes Konto mit minimalen Rechten; sonst bleibt nichts zurück."
+    },
+    "hosts": {
+      "title": "Hosts",
+      "add": "Host hinzufügen",
+      "empty": {
+        "title": "Noch keine Hosts",
+        "body": "Füge eine Maschine über SSH hinzu. HomeHub richtet passwortlosen Zugang ein und verwaltet Updates von hier aus."
+      },
+      "runAll": "Alle aktualisieren",
+      "col": {
+        "name": "Host",
+        "os": "OS",
+        "manager": "Paketmanager",
+        "updates": "Updates",
+        "lastRun": "Letzter Lauf",
+        "status": "Status"
+      },
+      "upToDate": "Aktuell",
+      "pending_one": "{{count}} Update",
+      "pending_other": "{{count}} Updates",
+      "rebootRequired": "Neustart erforderlich",
+      "never": "Nie",
+      "disabled": "Deaktiviert",
+      "runAllStarted": "Update auf allen Hosts gestartet"
+    },
+    "addHost": {
+      "title": "Host hinzufügen",
+      "hostname": "Hostname oder IP",
+      "port": "SSH-Port",
+      "user": "SSH-Benutzername",
+      "userHint": "Ein vorhandener Login mit sudo (oder root). Wird einmal benutzt, um das patchpilot-Konto einzurichten, danach verworfen.",
+      "password": "Passwort",
+      "passwordHint": "Für den Login oben. Wird nie gespeichert — nur während der Einrichtung benutzt.",
+      "rootPassword": "Root-Passwort",
+      "rootPasswordHint": "Nur nötig, wenn dieses Konto per su zu root wird.",
+      "name": "Anzeigename",
+      "detect": "Verbindung testen",
+      "detecting": "Prüfe…",
+      "onboard": "Host hinzufügen",
+      "onboarding": "Richte ein…",
+      "detected": "{{os}} · {{manager}} · Rechte per {{escalation}}",
+      "refusal": "Dieser Host kann hier nicht aufgenommen werden",
+      "manualKey": "Du willst den Schlüssel lieber selbst installieren? Füge den öffentlichen Schlüssel dieser Flotte zu den authorized_keys des Ziels hinzu und gib ihm passwortloses sudo für den Paketmanager.",
+      "steps": "Einrichtungsfortschritt",
+      "intro": "HomeHub richtet passwortlosen Zugang über SSH ein und verwaltet Updates dann von hier aus. Der Login unten wird einmal benutzt und nie gespeichert.",
+      "manualKeyTitle": "Schlüssel stattdessen manuell installieren",
+      "onboarded": "Host hinzugefügt",
+      "autoReboot": "Nach Updates automatisch neu starten",
+      "autoRebootHint": "Wenn ein Update einen Neustart braucht, wird dieser Host danach automatisch neu gestartet."
+    },
+    "hostDetail": {
+      "back": "Alle Hosts",
+      "dryRun": "Auf Updates prüfen",
+      "dryRunning": "Prüfe…",
+      "run": "Jetzt aktualisieren",
+      "running": "Aktualisiere…",
+      "reboot": "Neustarten",
+      "rebootConfirm": "{{name}} jetzt neu starten?",
+      "repair": "Sudoers reparieren",
+      "remove": "Host entfernen",
+      "removeConfirm": "{{name}} aus der Flotte entfernen? Das patchpilot-Konto bleibt auf dem Host; lösche es dort, wenn es weg soll.",
+      "enabled": "Aktiviert",
+      "enabledHint": "Deaktivierte Hosts werden von Zeitplänen und „Alle aktualisieren“ übersprungen.",
+      "autoReboot": "Nach Updates automatisch neu starten",
+      "autoRebootHint": "Wenn ein Lauf diesen Host mit Neustartbedarf zurücklässt, wird er automatisch neu gestartet.",
+      "notes": "Notizen",
+      "history": "Letzte Läufe",
+      "noHistory": "Noch keine Läufe.",
+      "updatesAvailable": "{{count}} Update(s) verfügbar",
+      "dryRunUpToDate": "Keine Updates verfügbar."
+    },
+    "schedules": {
+      "title": "Zeitpläne",
+      "add": "Neuer Zeitplan",
+      "empty": {
+        "title": "Keine Zeitpläne",
+        "body": "Lege einen Zeitplan an, um eine Gruppe von Hosts automatisch zu patchen."
+      },
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "deleteConfirm": "Den Zeitplan „{{name}}“ löschen?",
+      "runNow": "Jetzt ausführen",
+      "enabled": "Aktiviert",
+      "nextRun": "Nächster Lauf",
+      "lastRun": "Letzter Lauf",
+      "hosts_one": "{{count}} Host",
+      "hosts_other": "{{count}} Hosts",
+      "suppressReboot": "Nie neu starten",
+      "form": {
+        "name": "Name",
+        "frequency": "Häufigkeit",
+        "time": "Uhrzeit",
+        "dayOfWeek": "Wochentag",
+        "dayOfMonth": "Monatstag",
+        "hosts": "Hosts",
+        "selectHosts": "Wähle, welche Hosts dieser Zeitplan patcht.",
+        "suppressReboot": "Neustart-Erkennung überspringen",
+        "suppressRebootHint": "Nach diesem Zeitplan nicht prüfen, ob Hosts einen Neustart brauchen.",
+        "cronPreview": "Läuft: {{cron}}",
+        "create": "Zeitplan erstellen",
+        "save": "Speichern",
+        "minute": "Minute",
+        "hour": "Stunde",
+        "dayOfMonthHint": "1–28 (begrenzt, damit ein monatlicher Lauf den Februar nie überspringt)",
+        "namePlaceholder": "Wöchentliches Patchen",
+        "noHosts": "Wähle mindestens einen Host.",
+        "monthlyMode": "Am",
+        "monthlyModeDom": "Monatstag",
+        "monthlyModeWeekday": "Einem Wochentag",
+        "occurrence": "Welcher"
+      },
+      "freq": {
+        "daily": "Täglich",
+        "weekly": "Wöchentlich",
+        "monthly": "Monatlich",
+        "hourly": "Stündlich"
+      },
+      "skipped": "Zuletzt übersprungen: {{reason}}",
+      "created": "Zeitplan erstellt",
+      "saved": "Zeitplan gespeichert",
+      "deleted": "Zeitplan gelöscht",
+      "deleteTitle": "Zeitplan löschen",
+      "editTitle": "Zeitplan bearbeiten",
+      "enabledLabel": "Aktiviert",
+      "noReboot": "Startet nie neu",
+      "runBusy": "Ein Lauf ist bereits im Gange",
+      "runStarted": "Lauf gestartet",
+      "occurrence": {
+        "1": "Erster",
+        "2": "Zweiter",
+        "3": "Dritter",
+        "4": "Vierter",
+        "L": "Letzter"
+      }
+    },
+    "runs": {
+      "title": "Läufe",
+      "empty": {
+        "title": "Noch keine Läufe",
+        "body": "Aktualisiere einen Host oder starte einen Zeitplan, um hier Verlauf zu sehen."
+      },
+      "col": {
+        "started": "Gestartet",
+        "trigger": "Auslöser",
+        "status": "Status",
+        "summary": "Zusammenfassung"
+      },
+      "trigger": {
+        "manual": "Manuell",
+        "scheduled": "Geplant"
+      },
+      "viewLog": "Log ansehen",
+      "hostRuns": "Ergebnisse pro Host",
+      "running": "Läuft…",
+      "log": "Log",
+      "noLog": "Keine Ausgabe aufgezeichnet.",
+      "startedAt": "Gestartet",
+      "finishedAt": "Beendet",
+      "packages": "Pakete",
+      "rebootRequired": "Neustart erforderlich"
+    },
+    "status": {
+      "running": "Läuft",
+      "success": "Erfolg",
+      "partial": "Teilweise",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "pending": "Ausstehend",
+      "skipped": "Übersprungen"
+    },
+    "monitor": {
+      "title": "Update-Lauf",
+      "progress": "Fortschritt",
+      "viewCurrent": "Aktuellen Lauf ansehen",
+      "following": "Folgt",
+      "autoFollow": "Folgt automatisch dem aktiven Host",
+      "waiting": "Warte auf Ausgabe…"
+    }
+  },
+  "signals": {
+    "title": "Signale",
+    "subtitle": "Alles, was deine Systeme gerade melden — Ausfälle, Warnungen, bemerkenswerte Ereignisse und Dinge, die sich von selbst behoben haben.",
+    "all": "Alle ({{count}})",
+    "sev": {
+      "critical": "kritisch",
+      "warning": "Warnung",
+      "info": "Info",
+      "recovered": "behoben"
+    },
+    "empty": {
+      "title": "Alles ruhig.",
+      "body": "Nichts braucht deine Aufmerksamkeit — neue Signale erscheinen hier, sobald ein Monitor etwas sieht."
+    },
+    "dismiss": "Verwerfen",
+    "dismissSelected": "{{count}} ausgewählte verwerfen",
+    "select": "Auswählen",
+    "selectAll": "Alle auswählen",
+    "selectNone": "Auswahl aufheben",
+    "times": "×{{count}}",
+    "detail": "Details",
+    "resolvedNote": "hat sich von selbst behoben",
+    "openAll": "Alle Signale öffnen",
+    "confirmTitle": "{{count}} Signal(e) verwerfen?",
+    "confirmBody": "Mindestens eines davon ist eine Warnung oder schlimmer. Verwerfen entfernt es aus der Liste — stelle sicher, dass es behandelt oder notiert ist."
+  },
+  "calendar": {
+    "today": "Heute",
+    "prev": "Zurück",
+    "next": "Weiter",
+    "newEvent": "Neuer Termin",
+    "more": "+{{count}} weitere",
+    "view": {
+      "month": "Monat",
+      "week": "Woche"
+    },
+    "kinds": {
+      "local": "Lokal",
+      "caldav": "CalDAV",
+      "ics": "ICS-Feed",
+      "trash": "Müllabfuhr"
+    },
+    "repeat": {
+      "none": "Nie",
+      "daily": "Jeden Tag",
+      "weekly": "Jede Woche",
+      "biweekly": "Alle 2 Wochen",
+      "monthly": "Jeden Monat",
+      "yearly": "Jedes Jahr",
+      "custom": "Benutzerdefiniert…"
+    },
+    "editor": {
+      "newTitle": "Neuer Termin",
+      "editTitle": "Termin bearbeiten",
+      "titlePlaceholder": "Titel",
+      "calendar": "Kalender",
+      "allDay": "Ganztägig",
+      "starts": "Beginn",
+      "ends": "Ende",
+      "repeat": "Wiederholung",
+      "location": "Ort",
+      "url": "URL",
+      "notes": "Notizen",
+      "readOnly": "Dieser Kalender ist schreibgeschützt — seine Termine kommen aus einem abonnierten Feed."
+    },
+    "scope": {
+      "saveTitle": "Wiederkehrenden Termin speichern",
+      "deleteTitle": "Wiederkehrenden Termin löschen",
+      "body": "Das ist ein wiederkehrender Termin. Wie weit soll die Änderung reichen?",
+      "this": "Nur dieser Termin",
+      "thisHint": "Andere Wiederholungen bleiben unberührt.",
+      "following": "Dieser und alle folgenden",
+      "followingHint": "Die Serie wird an dieser Stelle geteilt.",
+      "all": "Alle Termine",
+      "allHint": "Jede Wiederholung, vergangene wie künftige."
+    },
+    "manage": {
+      "title": "Kalender",
+      "add": "Kalender hinzufügen",
+      "addTitle": "Kalender hinzufügen",
+      "empty": "Noch keine Kalender — lege einen lokalen an, verbinde CalDAV oder abonniere einen Feed.",
+      "name": "Name",
+      "color": "Farbe",
+      "nameCaldavHint": "Leer lassen, um den Kalendernamen des Servers zu verwenden.",
+      "caldavUrl": "CalDAV-Adresse",
+      "caldavUrlHint": "Die Konto- oder Sammlungs-URL — Nextcloud, iCloud, Radicale, Baikal…",
+      "username": "Benutzername",
+      "password": "Passwort",
+      "discover": "Kalender suchen",
+      "pickCollection": "Kalender auswählen",
+      "noCollections": "Hinter dieser Adresse wurden keine Kalender gefunden.",
+      "icsUrl": "Feed-URL",
+      "trashUrl": "Abfuhrplan-URL (ICS)",
+      "icsUrlHint": "…oder lade stattdessen eine .ics-Datei hoch.",
+      "uploadIcs": ".ics-Datei hochladen",
+      "reminders": "Erinnerungen",
+      "remindersHint": "Wann du vor jedem Abfuhrtermin erinnert wirst — wähle ruhig mehrere Stufen.",
+      "daysBefore": "{{count}} Tag(e) vorher",
+      "hoursBefore": "{{count}} h vorher",
+      "syncNow": "Jetzt synchronisieren",
+      "synced": "{{name}} synchronisiert",
+      "added": "{{name}} hinzugefügt",
+      "addedWithError": "Hinzugefügt, aber die erste Synchronisierung schlug fehl: {{error}}",
+      "editTitle": "{{name}} bearbeiten",
+      "deleteTitle": "{{name}} löschen?",
+      "deleteBody": "Der Kalender und alle seine Termine verschwinden aus HomeHub. Synchronisierte Quellen bleiben unberührt."
+    }
+  }
+}
