@@ -150,12 +150,8 @@ export function MoonrakerModulePage() {
         <PrintCard snap={snap} instanceId={instanceId} canControl={hasControl} />
       )}
 
-      {snap.cameras.length > 0 && (
-        <CameraSection cameras={snap.cameras} instanceId={instanceId} canControl={hasControl} />
-      )}
-
-      {/* Temperatures — the hero. Heaters (controllable), then sensors, then
-          temperature fans, all discovered dynamically. */}
+      {/* Temperatures — full-width hero so a printer with many sensors stays
+          compact instead of a tall single column. */}
       {(snap.heaters.length > 0 || snap.sensors.length > 0 || snap.tempFans.length > 0) && (
         <Section icon={Thermometer} title={t("moonraker.sections.temperatures")}>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -172,39 +168,50 @@ export function MoonrakerModulePage() {
         </Section>
       )}
 
-      {snap.toolhead && (
-        <Section icon={Move3d} title={t("moonraker.sections.control")}>
-          <div className="grid gap-3 lg:grid-cols-2">
-            <MovementCard snap={snap} instanceId={instanceId} canControl={hasControl} />
-            <ExtruderCard snap={snap} instanceId={instanceId} canControl={hasControl} />
-          </div>
-        </Section>
-      )}
+      {/* Two-column dashboard (Fluidd-style): camera + motion controls on the
+          left, fans / lights / macros on the right — no stranded empty space. */}
+      <div className="grid items-start gap-5 lg:grid-cols-2">
+        <div className="space-y-5">
+          {snap.cameras.length > 0 && (
+            <CameraSection cameras={snap.cameras} instanceId={instanceId} canControl={hasControl} />
+          )}
+          {snap.toolhead && (
+            <Section icon={Move3d} title={t("moonraker.sections.control")}>
+              <div className="space-y-3">
+                <MovementCard snap={snap} instanceId={instanceId} canControl={hasControl} />
+                <ExtruderCard snap={snap} instanceId={instanceId} canControl={hasControl} />
+              </div>
+            </Section>
+          )}
+        </div>
 
-      {snap.fans.length > 0 && (
-        <Section icon={FanIcon} title={t("moonraker.sections.fans")}>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {snap.fans.map((f) => (
-              <FanCard key={f.object} fan={f} instanceId={instanceId} canControl={hasControl} />
-            ))}
-          </div>
-        </Section>
-      )}
+        <div className="space-y-5">
+          {snap.fans.length > 0 && (
+            <Section icon={FanIcon} title={t("moonraker.sections.fans")}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {snap.fans.map((f) => (
+                  <FanCard key={f.object} fan={f} instanceId={instanceId} canControl={hasControl} />
+                ))}
+              </div>
+            </Section>
+          )}
 
-      {(snap.leds.length > 0 || snap.outputPins.length > 0) && (
-        <Section icon={Lightbulb} title={t("moonraker.sections.lights")}>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {snap.leds.map((l) => (
-              <LedCard key={l.object} led={l} instanceId={instanceId} canControl={hasControl} />
-            ))}
-            {snap.outputPins.map((p) => (
-              <OutputPinCard key={p.object} pin={p} instanceId={instanceId} canControl={hasControl} />
-            ))}
-          </div>
-        </Section>
-      )}
+          {(snap.leds.length > 0 || snap.outputPins.length > 0) && (
+            <Section icon={Lightbulb} title={t("moonraker.sections.lights")}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {snap.leds.map((l) => (
+                  <LedCard key={l.object} led={l} instanceId={instanceId} canControl={hasControl} />
+                ))}
+                {snap.outputPins.map((p) => (
+                  <OutputPinCard key={p.object} pin={p} instanceId={instanceId} canControl={hasControl} />
+                ))}
+              </div>
+            </Section>
+          )}
 
-      {snap.macros.length > 0 && <MacroBoard snap={snap} instanceId={instanceId} canControl={hasControl} />}
+          {snap.macros.length > 0 && <MacroBoard snap={snap} instanceId={instanceId} canControl={hasControl} />}
+        </div>
+      </div>
 
       <Console instanceId={instanceId} canControl={hasControl} />
 
@@ -1033,7 +1040,7 @@ function MacroBoard({ snap, instanceId, canControl }: { snap: MoonrakerSnapshot;
       {filtered.length === 0 ? (
         <p className="text-fg-subtle text-[13px]">{t("moonraker.macros.noMatch")}</p>
       ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
           {filtered.map((m) => {
             const btn = (
               <button
@@ -1245,7 +1252,7 @@ function CameraTile({
     <div
       className={cn(
         "border-edge group relative overflow-hidden rounded-lg border bg-black",
-        expanded ? "mx-auto w-full" : "w-full sm:w-[320px]",
+        expanded ? "mx-auto w-full" : "w-full max-w-[560px]",
       )}
       style={{ ...aspectStyle(cam.aspectRatio), maxHeight: expanded ? "78vh" : undefined }}
     >
