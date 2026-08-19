@@ -106,14 +106,55 @@ func path(paths map[string]string, name string) string {
 // genuinely IPv6-only host is the rare exception.
 const aptAcquire = " -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o Acquire::ForceIPv4=true"
 
+// aptSecurityMirror is a shell preamble (run in the same sh invocation, before
+// the apt command) that works around security.ubuntu.com being Cloudflare-
+// fronted and unreachable on some networks. The symptom is specific and nasty:
+// the TCP handshake to Cloudflare succeeds, but bulk index downloads crawl to a
+// few KB/s and time out (an MTU/PMTUD black hole), so `apt-get update` exits
+// 100 with "Connection timed out [IP: 172.66.x.x]" even though the host's
+// primary mirror served every other index in seconds. Ubuntu updates then fail
+// wholesale while Debian (different security host) is fine.
+//
+// The workaround: when the host's Ubuntu sources point -security at
+// security.ubuntu.com AND a quick probe confirms it's unreachable, rebuild the
+// source list in a temp dir with that host rewritten to the host's OWN primary
+// archive mirror — which carries the identical <codename>-security suite — and
+// export $PP_SRCOPT so apt uses it for THIS run only (via Dir::Etc overrides).
+// Nothing on the host is modified; the temp dir is removed on exit. Hosts that
+// don't reference security.ubuntu.com (Debian, Proxmox, ARM/ports, apt-cacher,
+// or a mirror that already replaced it) and healthy Ubuntu hosts fall straight
+// through with $PP_SRCOPT empty, so their behaviour is unchanged.
+const aptSecurityMirror = `PP_SRCOPT=''; PP_TMP=''
+trap '[ -n "$PP_TMP" ] && rm -rf "$PP_TMP"' EXIT
+if grep -rqsE 'https?://security\.ubuntu\.com/ubuntu' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null; then
+  PP_PRIMARY=$(grep -rhosE 'https?://[A-Za-z0-9._:-]+/ubuntu' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | grep -v '://security\.ubuntu\.com/' | head -n1)
+  PP_CN=$(. /etc/os-release 2>/dev/null; echo "${VERSION_CODENAME:-}")
+  if [ -n "$PP_PRIMARY" ] && [ -n "$PP_CN" ]; then
+    PP_OK=1
+    if command -v curl >/dev/null 2>&1; then curl -4 -sfL --max-time 10 -o /dev/null "http://security.ubuntu.com/ubuntu/dists/${PP_CN}-security/main/binary-amd64/Packages.gz" || PP_OK=0
+    elif command -v wget >/dev/null 2>&1; then wget -q -T 10 -t 1 -O /dev/null "http://security.ubuntu.com/ubuntu/dists/${PP_CN}-security/main/binary-amd64/Packages.gz" || PP_OK=0
+    else PP_OK=0; fi
+    if [ "$PP_OK" = 0 ]; then
+      PP_TMP=$(mktemp -d) && mkdir -p "$PP_TMP/parts" && : > "$PP_TMP/list"
+      [ -f /etc/apt/sources.list ] && sed -E "s#https?://security\.ubuntu\.com/ubuntu#$PP_PRIMARY#g" /etc/apt/sources.list > "$PP_TMP/list"
+      for f in /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do [ -e "$f" ] || continue; sed -E "s#https?://security\.ubuntu\.com/ubuntu#$PP_PRIMARY#g" "$f" > "$PP_TMP/parts/$(basename "$f")"; done
+      PP_SRCOPT="-o Dir::Etc::sourcelist=$PP_TMP/list -o Dir::Etc::sourceparts=$PP_TMP/parts"
+      echo "patchpilot: security.ubuntu.com is unreachable on this host; routing ${PP_CN}-security via $PP_PRIMARY for this run"
+    fi
+  fi
+fi
+`
+
 // UpdateCommand builds the full upgrade command, wrapped by the given sudo
 // prefix (e.g. "sudo -n " or "" for a root session).
 func UpdateCommand(mgr string, paths map[string]string, sudo string) string {
 	aptGet := path(paths, "apt-get")
 	switch mgr {
 	case MgrApt, MgrAptProxmox:
-		return fmt.Sprintf(
-			"%s%s%s update && DEBIAN_FRONTEND=noninteractive %s%s%s -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade && %s%s -y autoremove",
+		// $PP_SRCOPT (set by aptSecurityMirror) reroutes a Cloudflare-blackholed
+		// security.ubuntu.com to the host's working mirror; empty otherwise.
+		return aptSecurityMirror + fmt.Sprintf(
+			"%s%s $PP_SRCOPT%s update && DEBIAN_FRONTEND=noninteractive %s%s $PP_SRCOPT%s -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade && %s%s -y autoremove",
 			sudo, aptGet, aptAcquire, sudo, aptGet, aptAcquire, sudo, aptGet)
 	case MgrDNF:
 		return sudo + path(paths, "dnf") + " -y upgrade"
@@ -134,7 +175,7 @@ func DryRunCommand(mgr string, paths map[string]string, sudo string) string {
 	case MgrApt, MgrAptProxmox:
 		aptGet := path(paths, "apt-get")
 		apt := path(paths, "apt")
-		return fmt.Sprintf("%s%s"+aptAcquire+" update >/dev/null 2>&1; %s%s -s dist-upgrade; %s%s list --upgradable 2>/dev/null",
+		return aptSecurityMirror + fmt.Sprintf("%s%s $PP_SRCOPT"+aptAcquire+" update >/dev/null 2>&1; %s%s $PP_SRCOPT -s dist-upgrade; %s%s $PP_SRCOPT list --upgradable 2>/dev/null",
 			sudo, aptGet, sudo, aptGet, sudo, apt)
 	case MgrDNF:
 		// check-update exits 100 when updates exist — not an error.
