@@ -659,6 +659,9 @@ paths:
                 displayName: { type: string, minLength: 1, maxLength: 128 }
                 email: { type: string, nullable: true }
                 status: { type: string, enum: [active, disabled] }
+                hideSignals:
+                  type: boolean
+                  description: Per-user override to hide the signals surface.
                 roleIds:
                   type: array
                   items: { type: string, format: uuid }
@@ -792,6 +795,7 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 64 }
                 description: { type: string, maxLength: 512 }
+                hideSignals: { type: boolean }
                 grants:
                   type: array
                   items: { $ref: "#/components/schemas/GrantInput" }
@@ -841,6 +845,9 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 64 }
                 description: { type: string, maxLength: 512 }
+                hideSignals:
+                  type: boolean
+                  description: May be changed even on built-in roles; other fields cannot.
                 grants:
                   type: array
                   items: { $ref: "#/components/schemas/GrantInput" }
@@ -6606,7 +6613,7 @@ components:
 
     User:
       type: object
-      required: [id, username, displayName, status, mustChangePassword, totpEnabled, passkeyCount, roleIds, createdAt]
+      required: [id, username, displayName, status, mustChangePassword, totpEnabled, passkeyCount, roleIds, hideSignals, createdAt]
       properties:
         id: { type: string, format: uuid }
         username: { type: string }
@@ -6614,6 +6621,9 @@ components:
         email: { type: string, nullable: true }
         status: { type: string, enum: [active, disabled] }
         mustChangePassword: { type: boolean }
+        hideSignals:
+          type: boolean
+          description: Per-user override that hides the signals surface for this account.
         totpEnabled: { type: boolean }
         passkeyCount: { type: integer }
         roleIds:
@@ -6672,12 +6682,15 @@ components:
 
     Role:
       type: object
-      required: [id, name, description, isSystem, memberCount, grants, createdAt, updatedAt]
+      required: [id, name, description, isSystem, hideSignals, memberCount, grants, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
         description: { type: string }
         isSystem: { type: boolean }
+        hideSignals:
+          type: boolean
+          description: When true, members of this role do not see the signals surface (settable on built-in roles too).
         memberCount: { type: integer }
         grants:
           type: array
@@ -6687,13 +6700,16 @@ components:
 
     Me:
       type: object
-      required: [user, grants]
+      required: [user, grants, signalsHidden]
       properties:
         user: { $ref: "#/components/schemas/User" }
         grants:
           type: array
           description: Effective grants for UI presentation. The server re-checks every request regardless.
           items: { $ref: "#/components/schemas/Grant" }
+        signalsHidden:
+          type: boolean
+          description: Effective signals visibility for this account (own override, or every role hides them). When true the client hides the signals bell, panel, and page.
         viewAsRoleId: { type: string, format: uuid, nullable: true }
 
     LoginResult:

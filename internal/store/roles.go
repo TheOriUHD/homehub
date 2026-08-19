@@ -13,6 +13,7 @@ type Role struct {
 	Name        string    `db:"name"`
 	Description string    `db:"description"`
 	IsSystem    bool      `db:"is_system"`
+	HideSignals bool      `db:"hide_signals"`
 	CreatedAt   time.Time `db:"created_at"`
 	UpdatedAt   time.Time `db:"updated_at"`
 }
@@ -34,17 +35,17 @@ type GrantSpec struct {
 
 func (s *Store) ListRoles(ctx context.Context) ([]Role, error) {
 	return scanMany[Role](s.pool.Query(ctx,
-		`select id, name, description, is_system, created_at, updated_at from roles order by is_system desc, lower(name)`))
+		`select id, name, description, is_system, hide_signals, created_at, updated_at from roles order by is_system desc, lower(name)`))
 }
 
 func (s *Store) GetRole(ctx context.Context, id uuid.UUID) (*Role, error) {
 	return scanOne[Role](s.pool.Query(ctx,
-		`select id, name, description, is_system, created_at, updated_at from roles where id = $1`, id))
+		`select id, name, description, is_system, hide_signals, created_at, updated_at from roles where id = $1`, id))
 }
 
 func (s *Store) GetRoleByName(ctx context.Context, name string) (*Role, error) {
 	return scanOne[Role](s.pool.Query(ctx,
-		`select id, name, description, is_system, created_at, updated_at from roles where lower(name) = lower($1)`, name))
+		`select id, name, description, is_system, hide_signals, created_at, updated_at from roles where lower(name) = lower($1)`, name))
 }
 
 func (s *Store) CreateRole(ctx context.Context, name, description string, isSystem bool, grants []GrantSpec) (*Role, error) {
@@ -52,10 +53,10 @@ func (s *Store) CreateRole(ctx context.Context, name, description string, isSyst
 	err := s.WithTx(ctx, func(tx pgx.Tx) error {
 		row := tx.QueryRow(ctx, `
 			insert into roles (name, description, is_system) values ($1, $2, $3)
-			returning id, name, description, is_system, created_at, updated_at`,
+			returning id, name, description, is_system, hide_signals, created_at, updated_at`,
 			name, description, isSystem)
 		var r Role
-		if err := row.Scan(&r.ID, &r.Name, &r.Description, &r.IsSystem, &r.CreatedAt, &r.UpdatedAt); err != nil {
+		if err := row.Scan(&r.ID, &r.Name, &r.Description, &r.IsSystem, &r.HideSignals, &r.CreatedAt, &r.UpdatedAt); err != nil {
 			return err
 		}
 		role = &r
@@ -80,6 +81,21 @@ func (s *Store) UpdateRole(ctx context.Context, id uuid.UUID, name, description 
 		}
 		return insertGrants(ctx, tx, &id, nil, grants)
 	})
+}
+
+// SetRoleHideSignals toggles whether members of this role see the signals
+// surface. Allowed on system roles too (it is a display preference, not a
+// grant), so an admin can hide signals from e.g. the built-in Viewer role.
+func (s *Store) SetRoleHideSignals(ctx context.Context, id uuid.UUID, hide bool) error {
+	tag, err := s.pool.Exec(ctx,
+		`update roles set hide_signals = $2, updated_at = now() where id = $1`, id, hide)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (s *Store) DeleteRole(ctx context.Context, id uuid.UUID) error {

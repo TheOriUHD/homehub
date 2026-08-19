@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, Navigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
   ArrowRight,
@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { api, isApiError, unwrap, type Signal } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { live } from "@/lib/ws";
 import { cn, formatRelative } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
@@ -58,6 +59,7 @@ export function useSignals(limit = 200) {
 
 export function SignalsPage() {
   const { t } = useTranslation();
+  const { me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
   const signals = useSignals(500);
@@ -108,6 +110,8 @@ export function SignalsPage() {
 
   const allVisibleSelected = visible.length > 0 && visible.every((s) => selected.has(s.id));
 
+  // Signals are hidden for this account (per-user or by role) — send them home.
+  if (me?.signalsHidden) return <Navigate to="/" replace />;
   if (signals.isLoading) return <PageLoader />;
   if (signals.isError) {
     return (
@@ -376,10 +380,14 @@ function DetailView({ value, depth = 0 }: { value: unknown; depth?: number }) {
  */
 export function SignalsPanel() {
   const { t } = useTranslation();
+  const { me } = useAuth();
   const signals = useSignals(50);
   const items = signals.data?.items ?? [];
   const counts = signals.data?.counts;
   const top = items.slice(0, 5);
+
+  // Hidden for this account — don't render the overview card at all.
+  if (me?.signalsHidden) return null;
 
   return (
     <Card className="p-0">

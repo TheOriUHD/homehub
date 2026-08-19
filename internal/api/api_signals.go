@@ -45,6 +45,11 @@ func (s *Server) ListSignals(ctx context.Context, req ListSignalsRequestObject) 
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
+	// The signals surface can be hidden for a role or an individual user; such
+	// accounts get an empty, zeroed stream (the UI also hides the bell/panel/page).
+	if hidden, err := s.store.SignalsHiddenForUser(ctx, id.User.ID); err == nil && hidden {
+		return ListSignals200JSONResponse{Items: []Signal{}, Counts: SignalCounts{}}, nil
+	}
 	limit := 200
 	if req.Params.Limit != nil && *req.Params.Limit > 0 {
 		limit = *req.Params.Limit

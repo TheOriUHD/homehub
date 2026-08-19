@@ -184,6 +184,7 @@ func (s *Server) userDetail(ctx context.Context, user *store.User) (*UserDetail,
 		Email:              apiUser.Email,
 		Status:             UserDetailStatus(apiUser.Status),
 		MustChangePassword: apiUser.MustChangePassword,
+		HideSignals:        apiUser.HideSignals,
 		TotpEnabled:        apiUser.TotpEnabled,
 		PasskeyCount:       apiUser.PasskeyCount,
 		RoleIds:            apiUser.RoleIds,
@@ -265,6 +266,13 @@ func (s *Server) UpdateUser(ctx context.Context, req UpdateUserRequestObject) (U
 			}
 		}
 		changes["status"] = newStatus
+	}
+
+	if req.Body.HideSignals != nil {
+		if err := s.store.SetUserHideSignals(ctx, user.ID, *req.Body.HideSignals); err != nil {
+			return nil, err
+		}
+		changes["hideSignals"] = *req.Body.HideSignals
 	}
 
 	if req.Body.RoleIds != nil {

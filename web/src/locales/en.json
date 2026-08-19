@@ -295,7 +295,11 @@
       "disable": "Disable account",
       "enable": "Enable account",
       "cannotDeleteSelf": "You cannot delete your own account.",
-      "usernameHint": "The login name. Changing it takes effect on the user's next sign-in."
+      "usernameHint": "The login name. Changing it takes effect on the user's next sign-in.",
+      "signals": "Signals",
+      "signalsHint": "Control whether this user sees the signals stream.",
+      "hideSignals": "Hide the signals stream for this user",
+      "hideSignalsHint": "Hides the signals bell, overview panel, and page for this account — regardless of role."
     }
   },
   "roles": {
@@ -344,7 +348,8 @@
     "empty": {
       "title": "No custom roles yet",
       "body": "Create a role to give people exactly the access they need — down to a single server or service."
-    }
+    },
+    "hideSignals": "Hide signals"
   },
   "viewAs": {
     "banner": "Previewing as {{role}} — you see what this role sees.",

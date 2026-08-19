@@ -294,6 +294,7 @@ func toAPIUser(u *store.User, roleIDs []uuid.UUID, totpEnabled bool, passkeyCoun
 		Email:              u.Email,
 		Status:             UserStatus(u.Status),
 		MustChangePassword: u.MustChangePassword,
+		HideSignals:        u.HideSignals,
 		TotpEnabled:        totpEnabled,
 		PasskeyCount:       passkeyCount,
 		RoleIds:            roleIDs,
@@ -374,7 +375,11 @@ func (s *Server) meFor(ctx context.Context, id *httpctx.Identity) (Me, error) {
 	if err != nil {
 		return Me{}, err
 	}
-	me := Me{User: user, Grants: toAPIGrants(grants)}
+	hidden, err := s.store.SignalsHiddenForUser(ctx, id.User.ID)
+	if err != nil {
+		return Me{}, err
+	}
+	me := Me{User: user, Grants: toAPIGrants(grants), SignalsHidden: hidden}
 	me.ViewAsRoleId = id.ViewAsRole
 	return me, nil
 }
