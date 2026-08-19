@@ -300,7 +300,13 @@ export function AppShell() {
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-3">
         <div className="space-y-0.5">
           {visible(mainNav).map((item) => (
-            <SidebarLink key={item.to} item={item} active={pathname === item.to} />
+            <SidebarLink
+              key={item.to}
+              item={item}
+              // Stay highlighted on sub-routes too (e.g. /tools/subnet keeps
+              // Utilities lit) — but never let "/" match everything.
+              active={pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to + "/"))}
+            />
           ))}
         </div>
         {typeEntries.length > 0 && (

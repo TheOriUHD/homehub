@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
-  ArrowLeft,
   BookOpenText,
   ChevronRight,
   Download,
@@ -24,7 +23,7 @@ import {
 import { api, isApiError, unwrap } from "@/lib/api";
 import { fileLanguage, formatBytes, timeAgo } from "@/lib/file-lang";
 import { cn } from "@/lib/utils";
-import { toolsBackTarget } from "./workbench";
+import { WorkbenchLayout } from "./workbench";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
 import { Dialog, DialogContent } from "@/ui/dialog";
@@ -183,10 +182,8 @@ export function ToolsFilesPage() {
   const crumbs = path ? path.split("/") : [];
 
   return (
-    <div className="space-y-4">
-      <Link to={toolsBackTarget()} className="text-fg-subtle hover:text-fg inline-flex items-center gap-1.5 text-[13px]">
-        <ArrowLeft className="size-3.5" /> {t("tools.backToUtilities")}
-      </Link>
+    <WorkbenchLayout>
+      <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <span className="bg-accent-soft text-accent-soft-fg flex size-10 items-center justify-center rounded-xl">
           <FolderOpen className="size-5" />
@@ -474,5 +471,6 @@ export function ToolsFilesPage() {
         </Dialog>
       )}
     </div>
+    </WorkbenchLayout>
   );
 }

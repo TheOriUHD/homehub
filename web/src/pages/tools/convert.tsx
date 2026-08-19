@@ -1,8 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   ArrowRight,
   Aperture,
   CheckCircle2,
@@ -34,7 +32,7 @@ import {
   type ConvertOutput,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { toolsBackTarget } from "./workbench";
+import { WorkbenchLayout } from "./workbench";
 import { formatBytes } from "@/lib/file-lang";
 import { useLiveInvalidate } from "@/lib/live";
 import { Button } from "@/ui/button";
@@ -150,11 +148,9 @@ export function ToolsConvertPage() {
   const overCap = picked.length > 50 || totalBytes > 2 * 1024 ** 3;
 
   return (
-    <div className="space-y-6">
+    <WorkbenchLayout>
+      <div className="space-y-6">
       <div className="space-y-3">
-        <Link to={toolsBackTarget()} className="text-fg-subtle hover:text-fg inline-flex items-center gap-1.5 text-[13px]">
-          <ArrowLeft className="size-3.5" /> Utilities
-        </Link>
         <div className="flex items-center gap-3">
           <span className="bg-accent-soft text-accent-soft-fg flex size-10 items-center justify-center rounded-xl">
             <ArrowRight className="size-5" />
@@ -276,7 +272,8 @@ export function ToolsConvertPage() {
 
       {/* Recent conversions */}
       <RecentConversions activeId={activeBatchId} onOpen={setActiveBatchId} />
-    </div>
+      </div>
+    </WorkbenchLayout>
   );
 }
 
