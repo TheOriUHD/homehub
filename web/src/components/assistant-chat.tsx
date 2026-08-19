@@ -6,9 +6,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   Box,
+  Check,
   Eraser,
   Gamepad2,
   Lightbulb,
+  Loader2,
   Pickaxe,
   Send,
   Server,
@@ -16,6 +18,7 @@ import {
   ShieldCheck,
   Sparkles,
   Wrench,
+  X,
 } from "lucide-react";
 import { api, isApiError, unwrap, type HaEntity } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -54,6 +57,21 @@ type HistoryItem = {
   pending?: boolean;
 };
 
+type ToolStep = { name: string; running: boolean; isError?: boolean };
+type PendingAction = { kind: string; summary: string; params: unknown };
+type Live = { userText: string; segments: string[]; tools: ToolStep[]; error?: string };
+type StreamEvent = {
+  type: "text" | "tool" | "tool_result" | "confirm" | "done" | "error";
+  text?: string;
+  tool?: string;
+  isError?: boolean;
+  actions?: PendingAction[];
+  message?: string;
+};
+
+/** Friendly label for a tool name in the live spinner chips. */
+const toolLabel = (name: string) => name.replace(/_/g, " ");
+
 export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -68,23 +86,115 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
     queryFn: async () => unwrap(await api.GET("/assistant/history")),
   });
 
-  const send = useMutation({
-    mutationFn: async (message: string) => {
+  // Streaming turn: interim text, tool spinners, a confirmation card for
+  // write actions. `live` is the in-progress assistant bubble; `pending` is
+  // the write actions awaiting the user's approval after a turn finishes.
+  const [live, setLive] = useState<Live | null>(null);
+  const [pending, setPending] = useState<PendingAction[] | null>(null);
+  const [applying, setApplying] = useState(false);
+  const streaming = live !== null;
+
+  const sendStream = useCallback(
+    async (message: string) => {
+      setPending(null);
       const controller = new AbortController();
       abortRef.current = controller;
-      return unwrap(
-        await api.POST("/assistant/chat", { body: { message }, signal: controller.signal }),
-      );
+      setLive({ userText: message, segments: [], tools: [] });
+      let confirmActions: PendingAction[] | null = null;
+      try {
+        const res = await fetch("/api/assistant/chat/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ message }),
+          signal: controller.signal,
+        });
+        if (!res.ok || !res.body) {
+          setLive((l) => (l ? { ...l, error: t("assistant.failed") } : l));
+          return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            let e: StreamEvent;
+            try {
+              e = JSON.parse(line);
+            } catch {
+              continue;
+            }
+            if (e.type === "confirm") confirmActions = e.actions ?? null;
+            setLive((prev) => {
+              if (!prev) return prev;
+              switch (e.type) {
+                case "text":
+                  return { ...prev, segments: [...prev.segments, e.text ?? ""] };
+                case "tool":
+                  return { ...prev, tools: [...prev.tools, { name: e.tool ?? "", running: true }] };
+                case "tool_result": {
+                  const tools = [...prev.tools];
+                  for (let i = tools.length - 1; i >= 0; i--) {
+                    if (tools[i].name === e.tool && tools[i].running) {
+                      tools[i] = { ...tools[i], running: false, isError: e.isError };
+                      break;
+                    }
+                  }
+                  return { ...prev, tools };
+                }
+                case "error":
+                  return { ...prev, error: e.message };
+                default:
+                  return prev;
+              }
+            });
+          }
+        }
+        await queryClient.invalidateQueries({ queryKey: ["assistant", "history"] });
+        if (confirmActions && confirmActions.length > 0) setPending(confirmActions);
+      } catch (err) {
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
+          toast("error", t("assistant.failed"), err instanceof Error ? err.message : t("common.unknownError"));
+        }
+        await queryClient.invalidateQueries({ queryKey: ["assistant", "history"] });
+      } finally {
+        abortRef.current = null;
+        setLive(null);
+      }
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["assistant", "history"] }),
-    onError: (err) => {
-      void queryClient.invalidateQueries({ queryKey: ["assistant", "history"] });
-      // A cancel is the user's own act, not a failure worth a toast.
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      toast("error", t("assistant.failed"), isApiError(err) ? err.message : t("common.unknownError"));
-    },
-  });
+    [queryClient, t, toast],
+  );
+
   const cancelSend = useCallback(() => abortRef.current?.abort(), []);
+
+  const applyActions = useCallback(async () => {
+    if (!pending) return;
+    setApplying(true);
+    try {
+      const res = await fetch("/api/assistant/actions/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ actions: pending }),
+      });
+      if (!res.ok) {
+        toast("error", t("assistant.failed"));
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["assistant", "history"] });
+      setPending(null);
+    } catch {
+      toast("error", t("assistant.failed"));
+    } finally {
+      setApplying(false);
+    }
+  }, [pending, queryClient, t, toast]);
 
   const clear = useMutation({
     mutationFn: async () => {
@@ -97,20 +207,16 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
   });
 
   const items: HistoryItem[] = [...((history.data as HistoryItem[] | undefined) ?? [])];
-  if (send.isPending && send.variables) {
-    items.push({ id: -1, role: "user", content: send.variables, ts: "" });
-    items.push({ id: -2, role: "assistant", content: "", ts: "", pending: true });
-  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [items.length, send.isPending]);
+  }, [items.length, live, pending]);
 
   const submit = () => {
     const message = draft.trim();
-    if (!message || send.isPending) return;
+    if (!message || streaming) return;
     setDraft("");
-    send.mutate(message);
+    void sendStream(message);
   };
 
   return (
@@ -132,6 +238,24 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
         {items.map((item) => (
           <MessageBubble key={item.id} item={item} compact={variant === "widget"} />
         ))}
+        {live && (
+          <>
+            <MessageBubble
+              key="live-user"
+              item={{ id: -1, role: "user", content: live.userText, ts: "" }}
+              compact={variant === "widget"}
+            />
+            <StreamingBubble live={live} />
+          </>
+        )}
+        {pending && !live && (
+          <ConfirmCard
+            actions={pending}
+            applying={applying}
+            onApprove={applyActions}
+            onCancel={() => setPending(null)}
+          />
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -147,7 +271,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
             }
           }}
         />
-        {send.isPending ? (
+        {streaming ? (
           <Button variant="secondary" onClick={cancelSend} aria-label={t("assistant.cancel")}>
             <Square className="size-3.5 fill-current" />
           </Button>
@@ -205,6 +329,94 @@ function MessageBubble({ item, compact }: { item: HistoryItem; compact?: boolean
           <AssistantMarkdown content={item.content} />
         )}
         {!isUser && !item.pending && <ActionChips steps={item.steps ?? []} compact={compact} />}
+      </div>
+    </div>
+  );
+}
+
+/** The in-progress assistant bubble: interim text as it streams, a spinner
+ * per running tool, and an ongoing indicator until the turn finishes. */
+function StreamingBubble({ live }: { live: Live }) {
+  const { t } = useTranslation();
+  const text = live.segments.join("\n\n");
+  return (
+    <div className="flex justify-start">
+      <div className="bg-bg-subtle text-fg max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm">
+        {text ? (
+          <AssistantMarkdown content={text} />
+        ) : (
+          <span className="text-fg-muted flex items-center gap-2 text-[13px]">
+            <Sparkles className="size-3.5 animate-pulse" />
+            {t("assistant.thinking")}
+          </span>
+        )}
+        {live.tools.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {live.tools.map((s, i) => (
+              <span
+                key={i}
+                className="border-edge text-fg-muted inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]"
+              >
+                {s.running ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : s.isError ? (
+                  <X className="text-danger size-3" />
+                ) : (
+                  <Check className="text-success size-3" />
+                )}
+                {toolLabel(s.name)}
+              </span>
+            ))}
+          </div>
+        )}
+        {live.error ? (
+          <p className="text-danger mt-1.5 text-[12.5px]">{live.error}</p>
+        ) : (
+          <span className="text-fg-subtle mt-1.5 flex items-center gap-1.5 text-[11.5px]">
+            <Loader2 className="size-3 animate-spin" />
+            {t("assistant.working")}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The write-action confirmation gate: nothing was changed yet — the user
+ * approves (or cancels) the actions the assistant queued. */
+function ConfirmCard({
+  actions,
+  applying,
+  onApprove,
+  onCancel,
+}: {
+  actions: PendingAction[];
+  applying: boolean;
+  onApprove: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex justify-start">
+      <div className="border-accent/40 bg-accent-soft/30 max-w-[85%] rounded-xl border px-3.5 py-2.5">
+        <p className="text-fg mb-1.5 text-[13px] font-medium">{t("assistant.confirmTitle")}</p>
+        <ul className="mb-2.5 space-y-1">
+          {actions.map((a, i) => (
+            <li key={i} className="text-fg-muted flex items-start gap-1.5 text-[12.5px]">
+              <span className="bg-accent mt-1.5 size-1.5 shrink-0 rounded-full" />
+              {a.summary}
+            </li>
+          ))}
+        </ul>
+        <div className="flex gap-2">
+          <Button size="sm" variant="primary" loading={applying} onClick={onApprove}>
+            <Check className="size-3.5" />
+            {t("assistant.approve")}
+          </Button>
+          <Button size="sm" variant="ghost" disabled={applying} onClick={onCancel}>
+            {t("common.cancel")}
+          </Button>
+        </div>
       </div>
     </div>
   );

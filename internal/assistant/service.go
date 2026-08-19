@@ -64,6 +64,97 @@ When a command needs an in-game or device name you don't know, look it up with t
 detail tools before asking the user.`)
 }
 
+// Event is one streamed step of a turn (for RunTurnStream).
+type Event struct {
+	Type    string          `json:"type"` // text | tool | tool_result | confirm | done | error
+	Text    string          `json:"text,omitempty"`
+	Final   bool            `json:"final,omitempty"`
+	Tool    string          `json:"tool,omitempty"`
+	Input   json.RawMessage `json:"input,omitempty"`
+	IsError bool            `json:"isError,omitempty"`
+	Actions []PendingAction `json:"actions,omitempty"`
+	Message string          `json:"message,omitempty"`
+}
+
+// RunTurnStream runs a turn like RunTurn but streams each step through emit:
+// interim assistant text as rounds complete, a tool/tool_result pair around
+// each tool, a confirm event carrying any write actions the model queued
+// (which are NOT executed — the user approves them in the UI), then done.
+func (s *Service) RunTurnStream(ctx context.Context, provider Provider, cfg Config, access Access, text string, emit func(Event)) error {
+	history, err := s.Store.ListAssistantMessages(ctx, access.UserID, historyWindow)
+	if err != nil {
+		return err
+	}
+	turns := make([]Turn, 0, len(history)+1)
+	for _, msg := range history {
+		turns = append(turns, Turn{Role: msg.Role, Text: msg.Content})
+	}
+	turns = append(turns, Turn{Role: "user", Text: text})
+	if err := s.Store.AddAssistantMessage(ctx, access.UserID, "user", text, nil); err != nil {
+		return err
+	}
+
+	defs := s.Toolbox.Defs()
+	var steps []StepInfo
+	var pending []PendingAction
+	var reply Reply
+	for round := 0; ; round++ {
+		reply, err = provider.Chat(ctx, cfg.Model, systemPrompt(access.DisplayName), turns, defs)
+		if err != nil {
+			return err
+		}
+		last := len(reply.Calls) == 0 || round >= maxToolRounds
+		if txt := strings.TrimSpace(reply.Text); txt != "" {
+			emit(Event{Type: "text", Text: txt, Final: last})
+		}
+		if last {
+			break
+		}
+		turns = append(turns, Turn{Role: "assistant", Text: reply.Text, Calls: reply.Calls})
+		results := make([]ToolResult, 0, len(reply.Calls))
+		for _, call := range reply.Calls {
+			emit(Event{Type: "tool", Tool: call.Name, Input: call.Input})
+			step := StepInfo{Tool: call.Name, Input: call.Input}
+			raw, runErr := s.Toolbox.RunTool(ctx, access, call.Name, call.Input)
+			if runErr != nil {
+				step.IsError = true
+				results = append(results, ToolResult{ID: call.ID, Content: runErr.Error(), IsError: true})
+				emit(Event{Type: "tool_result", Tool: call.Name, IsError: true})
+			} else if pa, ok := raw.(*PendingAction); ok {
+				pending = append(pending, *pa)
+				results = append(results, ToolResult{ID: call.ID, Content: "Queued for the user's confirmation — do NOT tell them it is done; it happens after they approve."})
+				emit(Event{Type: "tool_result", Tool: call.Name})
+			} else {
+				out, _ := json.Marshal(raw)
+				results = append(results, ToolResult{ID: call.ID, Content: string(out)})
+				emit(Event{Type: "tool_result", Tool: call.Name})
+			}
+			steps = append(steps, step)
+		}
+		turns = append(turns, Turn{Role: "user", Results: results})
+	}
+
+	final := strings.TrimSpace(reply.Text)
+	if final == "" && len(pending) > 0 {
+		final = "Ready to apply — confirm below."
+	}
+	if final == "" {
+		final = "(no reply)"
+	}
+	var trace json.RawMessage
+	if len(steps) > 0 {
+		trace, _ = json.Marshal(steps)
+	}
+	if err := s.Store.AddAssistantMessage(ctx, access.UserID, "assistant", final, trace); err != nil {
+		return err
+	}
+	if len(pending) > 0 {
+		emit(Event{Type: "confirm", Actions: pending})
+	}
+	emit(Event{Type: "done"})
+	return nil
+}
+
 // RunTurn executes one user message: history in, tool loop, reply out.
 // Both sides of the exchange are persisted before returning.
 func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, access Access, text string) (string, []StepInfo, error) {

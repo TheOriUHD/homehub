@@ -71,6 +71,9 @@ func Handler(deps Deps) http.Handler {
 		apiRouter.Get("/files/{id}/download", deps.API.HandleFileDownload)
 		// IP scanner: streams NDJSON results as hosts complete.
 		apiRouter.Post("/netscan", deps.API.HandleNetscan)
+		// Assistant: streamed turn (NDJSON) + confirmed write actions.
+		apiRouter.Post("/assistant/chat/stream", deps.API.HandleAssistantChatStream)
+		apiRouter.Post("/assistant/actions/apply", deps.API.HandleAssistantApply)
 		// Companion agents authenticate with pairing codes/tokens, not sessions.
 		apiRouter.Get("/mc/agent", func(w http.ResponseWriter, r *http.Request) {
 			deps.MC.HandleAgent(w, r, api.ClientIP(r))

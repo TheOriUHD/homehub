@@ -122,6 +122,22 @@ func (tb *Toolbox) tools() []tool {
 		},
 		{
 			def: ToolDef{
+				Name:        "create_calendar_event",
+				Description: "Propose creating a calendar event. This does NOT create it immediately — it is queued and the user must confirm. Pass start (and end) as local date-times like \"2026-08-25 10:00\", or a date like \"2026-08-25\" for an all-day event. Tell the user what you're queuing; the confirmation happens in the UI.",
+				InputSchema: obj(`"title":{"type":"string"},"start":{"type":"string","description":"Local start, e.g. 2026-08-25 10:00 or 2026-08-25 for all-day"},"end":{"type":"string","description":"Local end (optional; defaults to +1h, or the same day for all-day)"},"allDay":{"type":"boolean"},"location":{"type":"string"},"notes":{"type":"string"},"url":{"type":"string"},"calendar":{"type":"string","description":"Target calendar name (optional; defaults to the first writable one)"},"repeat":{"type":"string","description":"none, daily, weekly, biweekly, monthly, or yearly"}`, "title", "start"),
+			},
+			run: tb.proposeCreateEvent,
+		},
+		{
+			def: ToolDef{
+				Name:        "dismiss_signals",
+				Description: "Propose dismissing one or more signals (from list_signals) by their id. This does NOT dismiss them immediately — it is queued and the user must confirm. Use list_signals first to get the ids.",
+				InputSchema: obj(`"ids":{"type":"array","items":{"type":"integer"},"description":"Signal ids to dismiss"}`, "ids"),
+			},
+			run: tb.proposeDismissSignals,
+		},
+		{
+			def: ToolDef{
 				Name:        "my_notifications",
 				Description: "The user's most recent HomeHub notifications (inbox).",
 				InputSchema: obj(`"limit":{"type":"integer","description":"Max entries, default 10, max 20"}`),
@@ -232,22 +248,27 @@ func (tb *Toolbox) Defs() []ToolDef {
 
 // Run executes one named tool. Unknown names and refusals come back as
 // readable errors for the model to relay.
-func (tb *Toolbox) Run(ctx context.Context, access Access, name string, input json.RawMessage) (string, error) {
+// RunTool runs a tool and returns its RAW result (which may be a
+// *PendingAction for write tools that need user confirmation).
+func (tb *Toolbox) RunTool(ctx context.Context, access Access, name string, input json.RawMessage) (any, error) {
 	for _, tl := range tb.allTools() {
-		if tl.def.Name != name {
-			continue
+		if tl.def.Name == name {
+			return tl.run(ctx, access, input)
 		}
-		out, err := tl.run(ctx, access, input)
-		if err != nil {
-			return "", err
-		}
-		raw, err := json.Marshal(out)
-		if err != nil {
-			return "", err
-		}
-		return string(raw), nil
 	}
-	return "", fmt.Errorf("no such tool: %s", name)
+	return nil, fmt.Errorf("no such tool: %s", name)
+}
+
+func (tb *Toolbox) Run(ctx context.Context, access Access, name string, input json.RawMessage) (string, error) {
+	out, err := tb.RunTool(ctx, access, name, input)
+	if err != nil {
+		return "", err
+	}
+	raw, err := json.Marshal(out)
+	if err != nil {
+		return "", err
+	}
+	return string(raw), nil
 }
 
 // ---- tool implementations ---------------------------------------------------
@@ -518,6 +539,175 @@ func (tb *Toolbox) scanNetwork(ctx context.Context, _ Access, input json.RawMess
 	return map[string]any{"scanned": n, "aliveCount": len(alive), "hosts": alive}, nil
 }
 
+// PendingAction is what a write tool returns instead of executing: a
+// concrete, validated change awaiting the user's confirmation in the UI.
+// The turn surfaces it; the /assistant/actions/apply endpoint executes it.
+type PendingAction struct {
+	Kind    string          `json:"kind"`
+	Summary string          `json:"summary"`
+	Params  json.RawMessage `json:"params"`
+}
+
+// parseWhen accepts a local date-time or a bare date (all-day).
+func parseWhen(s string) (t time.Time, dateOnly bool, err error) {
+	s = strings.TrimSpace(s)
+	for _, layout := range []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02T15:04", "2006-01-02 15:04:05", "2006-01-02 15:04"} {
+		if v, e := time.ParseInLocation(layout, s, time.Local); e == nil {
+			return v, false, nil
+		}
+	}
+	if v, e := time.ParseInLocation("2006-01-02", s, time.Local); e == nil {
+		return v, true, nil
+	}
+	return time.Time{}, false, fmt.Errorf("could not read the date/time %q — use e.g. 2026-08-25 10:00", s)
+}
+
+func repeatToRRule(repeat string) string {
+	switch strings.ToLower(strings.TrimSpace(repeat)) {
+	case "daily":
+		return "FREQ=DAILY"
+	case "weekly":
+		return "FREQ=WEEKLY"
+	case "biweekly":
+		return "FREQ=WEEKLY;INTERVAL=2"
+	case "monthly":
+		return "FREQ=MONTHLY"
+	case "yearly":
+		return "FREQ=YEARLY"
+	default:
+		return ""
+	}
+}
+
+// calendarCreateParams is the concrete payload the apply endpoint executes.
+type calendarCreateParams struct {
+	CalendarID   uuid.UUID `json:"calendarId"`
+	CalendarName string    `json:"calendarName"`
+	Title        string    `json:"title"`
+	StartsAt     time.Time `json:"startsAt"`
+	EndsAt       time.Time `json:"endsAt"`
+	AllDay       bool      `json:"allDay"`
+	Location     string    `json:"location,omitempty"`
+	Description  string    `json:"description,omitempty"`
+	URL          string    `json:"url,omitempty"`
+	RRule        string    `json:"rrule,omitempty"`
+}
+
+func (tb *Toolbox) proposeCreateEvent(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+	var args struct {
+		Title, Start, End, Location, Notes, URL, Calendar, Repeat string
+		AllDay                                                    *bool
+	}
+	if err := json.Unmarshal(input, &args); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(args.Title) == "" || strings.TrimSpace(args.Start) == "" {
+		return nil, fmt.Errorf("a title and a start time are required")
+	}
+	start, dateOnly, err := parseWhen(args.Start)
+	if err != nil {
+		return nil, err
+	}
+	allDay := dateOnly
+	if args.AllDay != nil {
+		allDay = *args.AllDay
+	}
+	var end time.Time
+	if strings.TrimSpace(args.End) != "" {
+		end, _, err = parseWhen(args.End)
+		if err != nil {
+			return nil, err
+		}
+	} else if allDay {
+		end = start.Add(24 * time.Hour)
+	} else {
+		end = start.Add(time.Hour)
+	}
+	if !end.After(start) {
+		if allDay {
+			end = start.Add(24 * time.Hour)
+		} else {
+			end = start.Add(time.Hour)
+		}
+	}
+
+	// Resolve the target calendar: named, else the first writable local one.
+	cals, err := tb.Store.ListCalendars(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var target *store.Calendar
+	for i := range cals {
+		c := &cals[i]
+		if c.ReadOnly {
+			continue
+		}
+		if args.Calendar != "" {
+			if strings.EqualFold(c.Name, strings.TrimSpace(args.Calendar)) {
+				target = c
+				break
+			}
+			continue
+		}
+		if target == nil {
+			target = c
+		}
+	}
+	if target == nil {
+		if args.Calendar != "" {
+			return nil, fmt.Errorf("no writable calendar named %q — check list_calendars", args.Calendar)
+		}
+		return nil, fmt.Errorf("there is no writable calendar yet — create a local calendar first")
+	}
+
+	params := calendarCreateParams{
+		CalendarID: target.ID, CalendarName: target.Name, Title: strings.TrimSpace(args.Title),
+		StartsAt: start, EndsAt: end, AllDay: allDay,
+		Location: strings.TrimSpace(args.Location), Description: strings.TrimSpace(args.Notes),
+		URL: strings.TrimSpace(args.URL), RRule: repeatToRRule(args.Repeat),
+	}
+	raw, _ := json.Marshal(params)
+	when := start.Format("Mon Jan 2, 15:04")
+	if allDay {
+		when = start.Format("Mon Jan 2") + " (all day)"
+	}
+	summary := fmt.Sprintf("Create “%s” on %s in %s", params.Title, when, target.Name)
+	if params.RRule != "" {
+		summary += " (repeating)"
+	}
+	return &PendingAction{Kind: "calendar.create", Summary: summary, Params: raw}, nil
+}
+
+func (tb *Toolbox) proposeDismissSignals(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+	var args struct {
+		Ids []int64 `json:"ids"`
+	}
+	if err := json.Unmarshal(input, &args); err != nil {
+		return nil, err
+	}
+	if len(args.Ids) == 0 {
+		return nil, fmt.Errorf("no signal ids given")
+	}
+	// Summarize with the signals' titles so the confirmation is meaningful.
+	rows, _ := tb.Store.ListSignals(ctx, 500)
+	titleByID := map[int64]string{}
+	for _, r := range rows {
+		titleByID[r.ID] = r.Title
+	}
+	names := make([]string, 0, len(args.Ids))
+	for _, id := range args.Ids {
+		if t := titleByID[id]; t != "" {
+			names = append(names, t)
+		}
+	}
+	raw, _ := json.Marshal(map[string]any{"ids": args.Ids})
+	summary := fmt.Sprintf("Dismiss %d signal(s)", len(args.Ids))
+	if len(names) > 0 {
+		summary += ": " + strings.Join(names, ", ")
+	}
+	return &PendingAction{Kind: "signals.dismiss", Summary: summary, Params: raw}, nil
+}
+
 func (tb *Toolbox) listSignals(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
 	var args struct {
 		Severity string `json:"severity"`
@@ -535,6 +725,7 @@ func (tb *Toolbox) listSignals(ctx context.Context, _ Access, input json.RawMess
 		return nil, err
 	}
 	type sig struct {
+		ID       int64  `json:"id"`
 		Severity string `json:"severity"`
 		Source   string `json:"source"`
 		Title    string `json:"title"`
@@ -554,6 +745,7 @@ func (tb *Toolbox) listSignals(ctx context.Context, _ Access, input json.RawMess
 			_ = json.Unmarshal(row.Detail, &detail)
 		}
 		out = append(out, sig{
+			ID:       row.ID,
 			Severity: row.Severity,
 			Source:   row.SourceName,
 			Title:    row.Title,

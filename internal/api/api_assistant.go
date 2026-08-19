@@ -210,33 +210,9 @@ func (s *Server) AssistantChat(ctx context.Context, req AssistantChatRequestObje
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	enabled, providerName, model, baseURL := s.settings.Assistant(ctx)
-	if !enabled {
-		return AssistantChat409JSONResponse(errBody("assistant_disabled", "the assistant is not enabled — an administrator can turn it on in its settings")), nil
-	}
-	info := assistant.ProviderByID(providerName)
-	if info == nil {
-		return AssistantChat409JSONResponse(errBody("assistant_unconfigured", "the configured AI provider no longer exists")), nil
-	}
-	apiKey, _ := s.assistantKeyFor(ctx, providerName)
-	if info.RequiresKey && apiKey == "" {
-		return AssistantChat409JSONResponse(errBody("assistant_unconfigured", "the assistant has no API key configured")), nil
-	}
-
-	cfg := assistant.Config{Provider: providerName, Model: model, APIKey: apiKey, BaseURL: baseURL}
-	provider, err := assistant.NewProviderFor(cfg)
-	if err != nil {
-		return AssistantChat409JSONResponse(errBody("assistant_unconfigured", err.Error())), nil
-	}
-	svc := &assistant.Service{
-		Store: s.store,
-		Toolbox: &assistant.Toolbox{
-			Store:   s.store,
-			Metrics: s.metrics,
-			Call: func(cctx context.Context, method, path string, body any) (int, []byte) {
-				return s.SelfCall(cctx, id, method, path, body)
-			},
-		},
+	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id)
+	if code != "" {
+		return AssistantChat409JSONResponse(errBody(code, emsg)), nil
 	}
 
 	message := strings.TrimSpace(req.Body.Message)
