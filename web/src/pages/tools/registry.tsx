@@ -32,6 +32,9 @@ export type ToolDef = {
   title: string;
   desc: string;
   Component: LazyExoticComponent<ComponentType>;
+  /** The tool fills the pane height and scrolls its own inner area (e.g. a
+   *  results list) — the workbench body must NOT add a scroller of its own. */
+  fill?: boolean;
 };
 
 export const CATEGORY_LABEL: Record<ToolCategory, string> = {
@@ -98,6 +101,7 @@ export const TOOLS: ToolDef[] = [
     title: "IP scanner",
     desc: "Sweep your subnet — alive hosts, hostnames, MAC/vendor and open ports.",
     Component: lazy(() => import("./apps/ipscan")),
+    fill: true,
   },
   {
     id: "wol",

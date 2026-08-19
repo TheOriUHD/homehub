@@ -30,7 +30,9 @@ export function WorkbenchLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-[calc(100dvh-6.5rem)] gap-4 overflow-hidden">
       <WorkbenchSidebar />
-      <div className="min-w-0 flex-1 overflow-y-auto">{children}</div>
+      {/* The pane is a fixed-height flex column with no scroll of its own —
+          each page owns its scrolling, so the page itself never scrolls. */}
+      <div className="flex min-w-0 min-h-0 flex-1 flex-col">{children}</div>
     </div>
   );
 }
