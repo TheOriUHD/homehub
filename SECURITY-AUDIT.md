@@ -1,0 +1,294 @@
+# HomeHub — Security Audit
+_Generated 2026-08-19 by a 12-dimension multi-agent review (auth/sessions, RBAC & IDOR, secrets/vault, SSRF, injection, PatchPilot SSH, file cloud, web/transport, WebSocket authz, assistant/LLM & prompt injection, device auth & DoS, frontend XSS), with an adversarial verification pass on every high/critical candidate. **This is a findings-only report — nothing here has been patched.** Fixes are for a dedicated follow-up pass._
+## Scope & ground rules
+- **The session-cookie + RBAC model is intentional and stays.** No finding recommends MFA, per-action re-authentication, shorter sessions, or any extra prompt. Logged-in-with-permission means logged-in; every remediation below is transparent to end users.
+- **Running over http on a trusted LAN is by design.** Transport-dependent risks are noted but 'not HTTPS' is never rated on its own.
+- Findings are concrete and code-cited (`file:line`). Every High was independently confirmed by an adversarial verifier reading the actual code.
+
+**Totals:** 4 High · 8 Medium · 10 Low · 2 Info. No Criticals.
+
+## Overall posture
+The foundations are sound: SQL is parameterized throughout (no injection found in `internal/store`), secrets live in an AES-GCM vault, session tokens are stored hashed, the origin guard blocks cross-site state changes, and the RBAC engine itself is correct. **No finding is a break of the core design.** The real issues cluster into five recurring patterns — fixing the patterns fixes most of the list.
+### Root-cause themes (fix these and most findings fall)
+1. **Newer / raw handlers gate on _identity_ but not _RBAC_.** The recently-added raw routes — `POST /api/netscan`, the HTTP-request-tester, `POST /api/calendars` + `/calendars/discover`, `POST /api/assistant/actions/apply`, `POST /api/files/upload` — check only `IdentityFrom(ctx) != nil` and skip the `s.can(...)` check the older strict handlers apply. A read-only **Viewer** can therefore drive SSRF, port-scan the LAN, create calendars, and upload unbounded data. _(Findings 9, 10, 13, 14, 16, 20.)_
+2. **List / detail endpoints don't re-apply per-sub-resource visibility.** Several endpoints authorize with the coarse `visibleUnder(parent)` and then return child data the caller has no grant on — over REST (PatchPilot run detail, TrueNAS shares/alerts, Tailscale keys) and over WebSocket (AMP/MC console topics, metrics topics). A single-child grant passes the parent check, then sibling data leaks. _(Findings 4, 8, 12, 18, 19.)_
+3. **No egress controls on server-side fetches.** SSH host keys are never verified (`InsecureIgnoreHostKey`), and outbound HTTP (calendar feeds, the HTTP tester, converter tools) has no private-range / cloud-metadata / loopback / scheme filtering. Classic SSRF + LAN man-in-the-middle surface. _(Findings 2, 9, 10, 15.)_
+4. **Caller-supplied provenance and inputs are trusted.** `X-Forwarded-For`/`X-Real-Ip` are honored with no trusted-proxy allowlist (spoofs the rate-limit key, audit IP, and session-device list); JSON bodies are unbounded; there are no per-user storage quotas or concurrent-scan caps. _(Findings 6, 11, 16, 14.)_
+5. **The assistant runs control actions _before_ the confirmation gate can see them.** The new write-tool confirm gate only covers the two 'proposer' tools; the pre-existing control tools (Home Assistant services, Docker/Proxmox/AMP/Minecraft lifecycle, DNS blocking) still execute immediately in the tool loop, so prompt-injected content in tool output can trigger them without a confirm. _(Findings 1, 5, 13.)_
+
+## Recommended fix order (for the next pass)
+1. **Prompt-injection → immediate control-tool execution** (Finding 1) — highest blast radius; the assistant can be steered by untrusted device/file/container text into disruptive actions.
+2. **PatchPilot SSH host-key verification** (Finding 2) — add TOFU pinning; a rogue LAN device can capture managed hosts' root passwords.
+3. **SQL console cross-database bypass** (Finding 3) — a one-database grant currently reads/writes every database.
+4. **WebSocket sub-resource topic leakage** (Finding 4) + the REST list-scoping gaps (8, 12, 18, 19).
+5. **Add RBAC + egress guards to the identity-only raw routes** (9, 10, 14, 20) and the `X-Forwarded-For` trust (6).
+6. Medium/Low hardening (11, 16, 17, 21, 22) as capacity allows.
+
+---
+
+## High
+
+### [HIGH] Prompt injection in tool outputs can trigger immediate, unconfirmed execution of CONTROL tools (HA/Docker/Proxmox/AMP/Minecraft/DNS)
+- **Area:** assistant tool loop / control tools  
+- **Confidence:** confirmed  
+- **Location:** `internal/assistant/service.go:118 (and :189); internal/assistant/tools_systems.go:301,326,343,431,456,473,490`  
+- **Auditor:** assistant-llm
+
+**Scenario.** The tool loop executes a tool at RunTool (service.go:118) BEFORE inspecting the result. Only results of concrete type *PendingAction are diverted to the user-confirm gate (service.go:123); every CONTROL tool (ha_call_service tools_systems.go:301, docker_container_action :326, mc_command :343, mc_power :431, amp_instance_action :456, pve_guest_action :473, dns_blocking :490) instead calls tb.call -> SelfCall and executes its side effect immediately, then returns a raw map that falls into the else branch (service.go:127). So, unlike the benign write tools (calendar create / signals dismiss, which return *PendingAction and wait for /assistant/actions/apply), the destructive control tools have NO confirmation gate. Meanwhile large amounts of attacker-influenceable text flow back into the model as tool output: scan_network hostnames (tools.go:536 — any device on the trusted LAN names itself), ha_entities friendly-names/states (a malicious/compromised IoT device), list_signals Body+Detail (tools.go:783-807 — log excerpts and entity lists from monitored systems), list_calendar_events Title/Location (tools.go:476 — pulled from untrusted external ICS/CalDAV feeds a household member subscribed to), mc_command console reactions (tools_systems.go:395 — includes in-game player chat/names), and read_workspace_file content. Within maxToolRounds=6 the model can read one of these, be steered by an embedded instruction, and call a control tool in a later round. The only barrier is the soft system-prompt line 'ask before disruptive actions' (service.go:50-53), which is exactly what an injection overrides. RBAC IS enforced on each control endpoint (LevelControl, verified in DockerContainerAction, DnsSetBlocking, AmpInstanceAction, HaCallService), so blast radius is bounded by the invoking user's grants — but for an admin/operator that means an injected calendar title or a LAN device hostname can silently drive: Home Assistant services on locks/alarms/switches (physical safety), Docker/Proxmox/AMP stop|kill|reboot of live VMs and containers, arbitrary Minecraft console commands (EssentialsX admin: /sudo, /eco, /kick, world edits), and turning OFF DNS ad/tracking blocking.
+
+**Remediation (UX-preserving).** Route the disruptive control tools through the SAME propose/confirm PendingAction gate already used for calendar/signals so the actual mutation happens only after the user clicks approve in the existing actions UI — this is a per-action confirm click, not a re-auth prompt, so it preserves the logged-in-with-permission UX. At minimum, make control tools return a PendingAction whenever the triggering context came from tool-output content rather than the user's own message, and treat every tool result as untrusted data (delimit/label it in the prompt) so the model does not read device names, calendar text, signal bodies or MC chat as instructions.
+
+### [HIGH] SSH host-key verification fully disabled (no TOFU/no pinning) — LAN MITM steals managed hosts' root passwords and defeats patching integrity
+- **Area:** patchpilot SSH transport (onboarding + every run)  
+- **Confidence:** confirmed · verifier: **confirmed**  
+- **Location:** `internal/integrations/patchpilot/ssh.go:86 (dial), used by ConnectPassword ssh.go:112-137 and ConnectKey ssh.go:141-152; onboarding.go:124; store has no host_key field (store/patchpilot.go:12-34)`  
+- **Auditor:** patchpilot-ssh
+
+**Scenario.** dial() sets HostKeyCallback: ssh.InsecureIgnoreHostKey() and the store persists no host-key fingerprint, so no host key is ever verified, pinned, or trust-on-first-use recorded — for onboarding OR for any subsequent run. Any device on the trusted LAN (a compromised IoT box, a household member's laptop) that can ARP-spoof/DNS-poison the path between the HomeHub server and a target host becomes a silent man-in-the-middle. (1) During onboarding, ConnectPassword sends the operator's login password via ssh.Password + keyboard-interactive (ssh.go:122-131) and ResolveEscalation then drives the sudo/su ROOT password over the same connection (detection.go:174-195) — the attacker's fake sshd captures both the login and root/sudo passwords of the real server in cleartext, and can hand HomeHub a forged 'success' while installing the orchestrator key + NOPASSWD-root sudoers on the attacker's own box. (2) On every scheduled/manual run (ConnectKey, orchestrator.go:178/187), the attacker impersonates the host and can silently swallow the upgrade while streaming fabricated 'upgrade complete' log output (orchestrator.go:189-197) — hosts appear patched in the UI but never are, so the whole fleet stays vulnerable indefinitely while the dashboard shows green. The captured root password is a durable credential to the actual host; pubkey auth means the ed25519 private key itself is not recoverable via MITM, but credential capture + patch-suppression are.
+
+**Remediation (UX-preserving).** Adopt trust-on-first-use pinning without adding any operator prompt to the normal flow: add a host_key column, capture the presented host public key on the first onboarding connection, and on every later dial verify against the stored key (ssh.FixedHostKey / a comparing HostKeyCallback). Surface a visible banner in the UI only when a pinned key later changes (host rebuild = one-click re-pin) — no password/OTP/re-auth is introduced. To also protect the onboarding credentials themselves (the highest-value payload), display the captured host-key fingerprint in the detect/onboard wizard for the operator to eyeball before secrets are sent; this is a passive confirmation, not an auth challenge, so the unintrusive UX is preserved. Applies equally to the sibling bridges at internal/term/ssh.go:47, docker/ssh.go:45, minecraft/ssh.go:61.
+
+> _Verifier note:_ ssh.go:86 sets HostKeyCallback: ssh.InsecureIgnoreHostKey() unconditionally in dial(), used by both ConnectPassword (ssh.go:132) and ConnectKey (ssh.go:146). store/patchpilot.go:12-38 (PatchpilotHost + ppHostCols) has no host-key/fingerprint column — nothing is pinned or trust-on-first-use recorded. onboarding.go:42/124 call ConnectPassword sending the operator login password via ssh.Password + KeyboardInteractive (ssh.go:122-131); ResolveEscalation (detection.go:174-195) then drives the sudo/su ROOT password over the same unverified connection. registry.go:98 (every run) calls ConnectKey. A LAN MITM thus captures cleartext login+root passwords at onboarding and can suppress/fabricate patch runs. Precondition is an active on-path MITM (ARP/DNS spoof) on the LAN, a real but non-trivial requirement, so high (not critical) is appropriate. Note this InsecureIgnoreHostKey pattern is repeated in term/ssh.go:47, docker/ssh.go:45, minecraft/ssh.go:61, confirming the in-code 'matching HomeHub's other SSH bridges' rationale.
+
+### [HIGH] SQL console lets a per-database grant read/write every other database on the instance (cross-schema RBAC bypass)
+- **Area:** database console / dbsql connection  
+- **Confidence:** confirmed · verifier: **confirmed**  
+- **Location:** `internal/api/api_databases.go:278 (DbQuery) → internal/integrations/dbsql/conn.go:239-252 (Conn.Query)`  
+- **Auditor:** rbac-idor
+
+**Scenario.** An admin grants a household member `control` only on one database, e.g. `mysql/<id>/database/appdb` (the model explicitly supports per-database resources — see visibleDbName/dbObjectAccess). DbQuery authorizes with `s.can(resource+"/database/appdb", control)` and then calls sqlConn.Query(ctx, "appdb", statement). Query only runs `USE `appdb`` and executes the raw statement on the shared pool, which authenticates as the integration's configured (privileged) DB user. MySQL/MariaDB allow fully-qualified cross-schema references, so the member submits `SELECT * FROM secretdb.customers`, `INSERT/UPDATE/DROP TABLE otherdb.x`, or `SELECT host,user,authentication_string FROM mysql.user` (the systemSchemas check at conn.go:246 only blocks USE-ing a system schema, never a qualified reference in the statement). Result: full read/write/DDL over every database on the server plus dump of stored credential hashes — total defeat of per-database grants for anyone holding console access to a single database.
+
+**Remediation (UX-preserving).** When the console request is authorized at the per-database scope (a `.../database/<name>` grant rather than instance-level control), confine execution to that one schema without adding any user prompt: run the statement over a connection whose effective SQL privileges are limited to the granted schema (e.g. a per-grant least-privilege DB account / SET ROLE), or reject statements that reference any schema other than the granted one and any system schema (parse qualified identifiers and multi-statements). Full cross-schema/system-schema access stays available only to callers who already hold instance-level `control`, preserving today's UX for full admins.
+
+> _Verifier note:_ api_databases.go:263-278 scopes authz to target=resource+"/database/"+database and s.can(...LevelControl), then calls sqlConn.Query(qctx, database, req.Body.Statement) passing the raw statement unmodified. conn.go:239-254 only runs `USE `<database>`` (quoteIdent) and then conn.QueryContext(ctx, statement) verbatim on c.db, the shared pool authenticated as the integration's configured (privileged) DB user. The systemSchemas guard at conn.go:246 only rejects USE-ing a system schema as the scope target; it never inspects the statement. MySQL/MariaDB honor fully-qualified cross-schema references, so a member holding control on one database (Resources() at conn.go:315-330 publishes one grantable node per user DB, and visibleDbName/dbObjectAccess confirm per-DB grants are a first-class model) can run `SELECT * FROM secretdb.customers`, `DROP TABLE otherdb.x`, or `SELECT host,user,authentication_string FROM mysql.user` after USE-ing their granted schema. Full cross-schema read/write/DDL plus credential-hash dump. correctedSeverity high (matches).
+
+### [HIGH] WebSocket instance topics leak sibling sub-resource console/status data across per-server grant boundaries
+- **Area:** WebSocket hub — integration realtime fanout / authorizeTopic  
+- **Confidence:** confirmed · verifier: **confirmed**  
+- **Location:** `internal/app/app.go:359-363 (authorizeTopic integration: case); publishers internal/integrations/amp/conn.go:573,575 and internal/integrations/minecraft/registry.go:386,393,399 via internal/integration/manager.go:222 and internal/app/app.go:138-141`  
+- **Auditor:** ws-realtime
+
+**Scenario.** HomeHub's RBAC model and REST layer support granting a household member view on a single child of an integration host — one AMP game-server instance (amp/<panel>/instance/<id>) or one Minecraft server (minecraft/<net>/server/<sid>). REST enforces that granularity: AmpConsole calls ampInstanceAccess -> s.can(amp/<panel>/instance/<id>, view) (api_amp.go:224,178) and McConsole calls mcServer -> minecraft/<net>/server/<sid> (api_minecraft.go:633). But live console output, status, and player lists for EVERY sibling instance/server on that host are fanned out on a single whole-instance topic: AMP publishes event 'console'/{instanceId,lines} to integration:amp/<panel> (amp/conn.go:573-579 through the Deps.Publish closure at manager.go:219-223), and Minecraft publishes 'console'/'status'/'players-changed' keyed by serverId to integration:minecraft/<networkID> (registry.go:386-399, mapped at app.go:138-141). authorizeTopic authorizes that topic only via engine.VisibleUnder(amp/<panel>) / VisibleUnder(minecraft/<net>) (app.go:359-363), which returns true for anyone who can see ANY one child. A member granted only one server opens the app's own WebSocket, sends {"type":"subscribe","topic":"integration:amp/<panelUUID>"} (the panel UUID is visible to them via AmpListInstances), and receives real-time console output — chat, RCON/admin commands, player IP addresses, server logs — for every other game server on the host, each line already tagged with the sibling instanceId/serverId so it is trivially attributable. The subscribe-time and per-fanout re-check both use the same coarse VisibleUnder, so neither closes the gap.
+
+**Remediation (UX-preserving).** Make topic granularity match grant granularity without adding any user-facing prompt: publish sub-resource live data on sub-resource-scoped topics (e.g. integration:amp/<panel>/instance/<id>, minecraft/<net>/server/<sid>) and add authorizeTopic cases that authorize the exact sub-resource with engine.VisibleUnder/Can on that path; alternatively, have Hub.Publish drop payload rows whose per-row resource fails the client's authorize check before trySend. The frontend simply subscribes to the specific sub-resource topics for the servers it already renders — logged-in-with-permission stays logged-in, no re-auth.
+
+> _Verifier note:_ Traced the full exploit path. REST enforces per-child granularity: AMP via ampInstanceAccess -> s.can(amp/<panel>/instance/<id>, view) (internal/api/api_amp.go:177-178, list filter at :86), Minecraft via mcServer -> visibleUnder(minecraft/<net>/server/<sid>) (internal/api/api_minecraft.go:45-47). But live data fans out on a per-HOST topic: AMP publishes 'console'/{instanceId,lines} to integration:amp/<panelID> (internal/integrations/amp/conn.go:573, via Deps.Publish closure internal/integration/manager.go:219-222 using inst.ResourcePath()); Minecraft publishes console/status/players keyed by serverId to integration:minecraft/<networkID> (internal/integrations/minecraft/registry.go:386,393,399, mapped internal/app/app.go:138-141). authorizeTopic gates 'integration:*' solely via engine.VisibleUnder(<panel-or-net>) (internal/app/app.go:359-363). VisibleUnder -> EvaluateSubtree (internal/rbac/rbac.go:167-196) returns true when any grant selector is a descendant of the prefix: for selector amp/<panel>/instance/<id> and prefix amp/<panel>, segmentsMatch(sel[:2], pre) is true (rbac.go:190-193). Both the subscribe-time check (internal/ws/hub.go:199) and the per-publish re-check (internal/ws/hub.go:89) call the same coarse authorize; delivery does no per-instance filtering (hub.go:84-94). So a member granted a single sibling can subscribe to the host topic and receive every sibling's live console/status/players. Confidentiality breach across authorization boundaries (in-game/RCON chat, admin commands, player data, server logs). High confirmed.
+
+---
+
+## Medium
+
+### [MEDIUM] Any sender in a linked Telegram group chat acts as the linked HomeHub user (chat-level, not sender-level, binding)
+- **Area:** telegram bridge  
+- **Confidence:** confirmed  
+- **Location:** `internal/telegram/bot.go:277-364 (handleMessage) and :287-302 (/link)`  
+- **Auditor:** assistant-llm
+
+**Scenario.** Bindings are per chat_id, and handleMessage serves every incoming message under chat.UserID with no check on msg.From (bot.go:351 runs the assistant turn as chat.UserID; bot.go:329 /status the same). /link (bot.go:287) is accepted in any chat type — including groups (the code even labels with msg.Chat.Title) — and once a signed-in HomeHub user confirms the code (api_telegram.go:240) the whole group is bound (store telegram.go one row per chat). From then on ANY current or later-added member of that Telegram group can send plain messages that run full assistant turns — including the immediately-executing control actions from Finding 1 — under the linking user's identity and RBAC, and can read that user's assistant history/context (RunTurn loads history by the linked userID). Telegram group membership is mutable and unrelated to HomeHub identity, so a kid, guest, or later-added member effectively wields the admin's homelab permissions. The unlinked-chat branch (bot.go:308-312) shows groups were considered only for the spam angle, not the identity angle.
+
+**Remediation (UX-preserving).** Restrict linking to private chats: reject /link (and Claim) when msg.Chat.Type != 'private'. Where group use is genuinely wanted, additionally bind the specific Telegram from-user id at claim time and only serve messages from that sender. Both preserve the intended 1:1 UX with no added prompts.
+
+### [MEDIUM] Client IP is taken from unauthenticated X-Forwarded-For/X-Real-Ip headers, letting a LAN caller evade the login IP rate-limiter and forge the source IP in audit records and session lists
+- **Area:** auth rate-limiting / audit / session provenance  
+- **Confidence:** confirmed  
+- **Location:** `internal/api/server.go:144-158 (ClientIP); consumed at internal/auth/service.go:112,214,259 (rate limiter keys), internal/store/audit.go:35-43 (audit_log.ip), internal/store/sessions.go:24-30 (sessions.ip); server binds all interfaces with no proxy trust at internal/config/config.go:40 and internal/app/app.go:301-316`  
+- **Auditor:** authn-sessions
+
+**Scenario.** HomeHub listens on :8080 on all interfaces and is reachable directly by any device on the LAN (household members / untrusted LAN hosts). ClientIP() returns r.Header.Get("X-Real-Ip") or the first X-Forwarded-For token before ever falling back to r.RemoteAddr, and there is no trusted-proxy allowlist — so a direct caller fully controls the value. Concrete effects: (1) The login/MFA IP limiter (ipLimiter.Allow("ip:"+ip) in PasswordLogin/CompleteTOTP/CompleteRecovery/FinishPasskeyLogin) is defeated by sending a unique X-Forwarded-For per request, removing the IP-based throttle (per-username limiter and per-account lockout still cap single-account guessing, which is why this is not high). (2) Every audit_log row — including auth.login failures and every privileged action — records the attacker-chosen IP (audit.Actor.IP -> InsertAudit), so post-incident attribution is unreliable and an attacker can make actions appear to originate from an arbitrary/other LAN host. (3) sessions.ip is stored from the same source and surfaced in ListMySessions/ListUserSessions, so a user reviewing 'active devices' sees forged origins.
+
+**Remediation (UX-preserving).** Only honor X-Forwarded-For/X-Real-Ip when the immediate peer (r.RemoteAddr) is a configured trusted proxy or loopback; otherwise use r.RemoteAddr's host. Add an optional trusted-proxy CIDR setting (default: none / loopback only) and parse XFF right-to-left, taking the last untrusted hop. This is transparent to end users (no auth/UX change), keeps reverse-proxy deployments working when configured, and stops direct-LAN spoofing of the rate-limit key, audit IP, and session IP.
+
+### [MEDIUM] Minecraft companion pairing endpoint has no rate limit or attempt lockout — unauthenticated brute-force of the 6-digit code and a DB-query DoS from any LAN host
+- **Area:** Minecraft companion agent WS pairing (/api/mc/agent)  
+- **Confidence:** confirmed  
+- **Location:** `internal/integrations/minecraft/registry.go:298 (pair) and internal/store/minecraft.go:71 (ConsumeMinecraftPairing); route at internal/httpserver/server.go:78`  
+- **Auditor:** companion-dos
+
+**Scenario.** The /api/mc/agent WebSocket is registered under /api but is deliberately session-less (server.go:77-80): sessionMiddleware no-ops without a cookie, originGuard lets GET through, and HandleAgent (registry.go:209) does its own auth from the first frame. A `pair` frame carries a 6-digit code that ConsumeMinecraftPairing (store/minecraft.go:71-82) matches with `delete ... where code=$1 and expires_at>now()` across ALL networks (no integration scoping). There is NO rate limiter, NO per-IP throttle, and NO wrong-guess counter: a wrong code deletes zero rows and returns an error with no penalty, so an attacker gets unlimited free guesses against the live code for its full 15-minute TTL (api_minecraft.go:343). Two concrete attacks: (1) DoS — any device on the LAN opens WS connections and floods `pair` frames at max rate; each guess forces a Postgres DELETE round-trip plus a WS accept/goroutine, with nothing bounding the request rate. (2) Brute-force — a persistent attacker sweeping ~550 attempts/sec covers ~500k of the 1M code space within one 15-minute pairing window (~50% hit chance each time an admin pairs); on success the attacker redeems the code, receives a permanent agent token (registry.go:322-326), and thereafter receives any console commands the admin routes to that server (Session.Command, registry.go:129) and can inject fabricated console/status/player frames into the admin UI (pump, registry.go:380-399), plus leaves a bogus server row. The codebase's own sibling — the caddy-reader helper — does this correctly: it counts wrong guesses and burns the code after 5 (helper/caddy-reader/pairing.go:129-148, pairMaxAttempts=5).
+
+**Remediation (UX-preserving).** Mirror the caddy-reader helper and the existing auth limiter without touching the admin/companion happy path: (a) add a per-client-IP token-bucket to HandleAgent reusing the auth keyedLimiter pattern (internal/auth/ratelimit.go) so flood/brute-force is throttled; (b) track a wrong-guess counter on the pending pairing row and delete it after N failures (e.g. 5), exactly like pairing.go — a legitimate companion still redeems on the first correct code; (c) optionally scope ConsumeMinecraftPairing so a code is only matchable while its integration is in the pairing state. None of these add prompts or re-auth; the admin still clicks 'generate code' and the companion still pairs once.
+
+### [MEDIUM] Patchpilot run detail returns every host's command logs, ignoring per-host visibility (IDOR/object scoping)
+- **Area:** patchpilot run detail  
+- **Confidence:** confirmed  
+- **Location:** `internal/api/api_patchpilot.go:471-496 (PatchpilotRunDetail); same pattern in PatchpilotRuns:447`  
+- **Auditor:** rbac-idor
+
+**Scenario.** Per-host isolation is enforced everywhere else in this module — PatchpilotHosts (line 145), PatchpilotHost, PatchpilotHostRuns (377), PatchpilotDryRun (290/294) and PatchpilotRunHost (315/319) all resolve via ppHost and check `visibleUnder`/`can` on `patchpilot/<fleet>/host/<hostID>`. PatchpilotRunDetail only calls ppFleet, which passes on `visibleUnder(patchpilot/<fleet>)` for a user granted view on just ONE host in the fleet. It then returns ListPatchpilotHostRuns for the whole run, and toAPIPatchpilotHostRun exposes each host's full command Log, ErrorSummary, PackagesUpgraded and HostName. So a member granted view on host A can call the run-detail endpoint and read the complete patch/command output, package inventory and hostnames of hosts B, C, … they have no grant on — recon material (internal hostnames, installed package versions/vulns, error output).
+
+**Remediation (UX-preserving).** Filter the returned host runs to those the caller may see: for each host run, keep it only when `visibleUnder(root+"/host/"+hostRun.HostID)` (the same check PatchpilotHosts already applies), and drop the rest. Apply the same per-host filter to PatchpilotRuns' per-host summary data. No UX change for users who can already see all hosts.
+
+### [MEDIUM] HTTP request tester is a full-read, write-capable SSRF proxy usable by any authenticated user (including read-only Viewer), with no RBAC gate and no loopback/link-local guard
+- **Area:** nettools HTTP tester / utilities API  
+- **Confidence:** confirmed  
+- **Location:** `internal/nettools/http.go:50 (DoHTTP) and internal/api/api_nettools.go:153-172 (ToolHTTP handler)`  
+- **Auditor:** ssrf
+
+**Scenario.** ToolHTTP gates only on httpctx.IdentityFrom(ctx) != nil (api_nettools.go:154) with no s.can() RBAC check (the comment at api_nettools.go:19-22 states 'No RBAC resource'). So the lowest-trust built-in role, Viewer (rbac/seed.go:38-44, read-only: allow view, deny system) can drive it. DoHTTP (http.go:50) accepts any http/https URL with NO host filtering, allows state-changing methods POST/PUT/PATCH/DELETE (allowedMethods, http.go:38-41), forwards arbitrary user-supplied request headers verbatim (http.go:73-77), follows up to 5 redirects (http.go:84-89), and returns the FULL response body up to 5 MiB back to the caller (http.go:99-130, FinalURL/Body). Concrete path: a read-only Viewer POSTs to the tools/http endpoint with url=http://127.0.0.1:<port>/ (a loopback-only admin service on the HomeHub host that the Viewer's own device cannot reach) or url=http://169.254.169.254/latest/meta-data/ and reads the full response, and can issue POST/PUT/DELETE to those internal services. This is a privilege escalation past the read-only grant (a Viewer gains a server-side, write-capable HTTP client) and past the LAN boundary (reaches host loopback + link-local). DNS is resolved fresh per request with no re-check, so a rebinding hostname also reaches internal targets. The same missing-RBAC root cause lets a Viewer port-scan arbitrary hosts via ToolReachability/CheckTCP (nettools.go:141) and aim DNS queries at an arbitrary host:port via the 'custom' resolver in ToolDNS (api_nettools.go:102-106).
+
+**Remediation (UX-preserving).** Keep RFC1918/LAN reach and the current no-prompt UX. Two UX-preserving changes: (1) gate the utility endpoints (ToolHTTP, ToolReachability, ToolDNS custom-server, ToolSSL) behind an RBAC level on a tools resource (e.g. require LevelControl) so read-only Viewers cannot drive the server's outbound client, matching how backups (api_backups.go) and assistant-config (api_assistant.go) are gated; (2) attach a net.Dialer Control hook to the client that rejects link-local 169.254.0.0/16 (cloud/metadata) and re-validates the connected IP on every dial/redirect to close DNS rebinding, while still permitting normal RFC1918 targets. Severity rises to high if the host runs on a cloud VM with an instance-metadata service.
+
+### [MEDIUM] Any authenticated user (including read-only Viewer) can register a server-fetched ICS/CalDAV URL that an unattended 15-minute job re-pulls, giving a persistent, redirect-following, rebinding-capable SSRF with an error-text oracle
+- **Area:** calendar feed/CalDAV fetch  
+- **Confidence:** confirmed  
+- **Location:** `internal/api/api_calendar.go:86 (CreateCalendar), :163 (DiscoverCalendars); internal/calendar/service.go:150 (syncFeed) and :44-51 (client with default redirect policy); internal/app/app.go:268 and :497 (calendar.sync every */15)`  
+- **Auditor:** ssrf
+
+**Scenario.** CreateCalendar (api_calendar.go:87-89) and DiscoverCalendars (api_calendar.go:164) gate only on IdentityFrom != nil, no s.can() check, so a read-only Viewer can perform these writes/probes despite lacking any write grant in the RBAC model. A Viewer creates an ICS/trash calendar with an arbitrary url. syncFeed (service.go:150-175) issues a GET with the shared s.client (service.go:49) which uses Go's DEFAULT redirect policy (up to 10 hops, no CheckRedirect) and no scheme/target guard, then reads 8 MiB and parses it. Critically this runs not just on-demand but UNATTENDED every 15 minutes via the registered calendar.sync job (app.go:268-271, schedule '*/15 * * * *' at app.go:497) with no user in the loop. Consequences: (a) a benign-looking public URL can 302-redirect to http://127.0.0.1:<port>/ or http://169.254.169.254/, which the default client follows into internal/loopback targets; (b) DNS is re-resolved on every 15-minute run, so a rebinding domain that first resolves public later resolves to an internal IP; (c) fetch outcomes are stored to the calendar's syncError (service.go:122-129) and returned to any signed-in user via toAPICalendar (api_calendar.go:33-36), turning the blind SSRF into an oracle to fingerprint/port-probe internal services (connection refused vs. HTTP status vs. parse error). DiscoverCalendars additionally sends on-demand PROPFIND requests to an arbitrary user-supplied URL. (Cross-host redirects do drop CalDAV basic-auth because Go's stdlib strips Authorization across hosts, so stored CalDAV passwords are not leaked via redirect.)
+
+**Remediation (UX-preserving).** Preserve the shared-household-calendar UX with no prompts, but: (1) require an RBAC write level (e.g. LevelControl on a calendar resource) on CreateCalendar/UpdateCalendar/DeleteCalendar/SyncCalendar/DiscoverCalendars instead of bare authentication, so a read-only Viewer cannot plant feed URLs; (2) give the calendar http.Client a net.Dialer Control hook that rejects link-local 169.254.0.0/16 and re-validates the resolved IP on each dial (covering redirects and each scheduled re-sync) to stop rebinding, and cap/deny redirects that change host class; (3) genericize the text stored in syncError rather than echoing raw upstream/connection errors, to remove the internal-service oracle.
+
+### [MEDIUM] No request-body size limit on any JSON API endpoint → unauthenticated memory-exhaustion DoS
+- **Area:** web/transport layer — /api router body handling (generated strict handlers)  
+- **Confidence:** confirmed  
+- **Location:** `internal/httpserver/server.go:61-91 (the /api Route wires withHTTPContext, sessionMiddleware, originGuard — but no body-limit middleware); internal/api/gen.go:31663 (representative of 116 handlers that call json.NewDecoder(r.Body).Decode(&body) with no cap)`  
+- **Auditor:** web-transport
+
+**Scenario.** The three streaming/upload raw routes set their own http.MaxBytesReader (files upload 512MiB, netscan/assistant 64-256KiB), but every one of the 116 generated JSON endpoints decodes r.Body with an unbounded json.NewDecoder(r.Body).Decode. There is no MaxBytesReader on the /api router and no ambient reverse-proxy limit in the shipped systemd deployment. Login is reachable pre-auth: sessionMiddleware just proceeds when there is no cookie, and originGuard passes non-browser clients (no Origin / no Sec-Fetch-Site). Any host on the LAN (no account needed) POSTs a multi-gigabyte JSON body (e.g. a single huge string field) to /api/auth/login; the decoder buffers the value into memory → OOM, killing the whole control-plane process. Any authenticated household member can do the same against any endpoint. No ReadTimeout is set either (only ReadHeaderTimeout), so a slow-body variant also ties up handlers.
+
+**Remediation (UX-preserving).** Add one middleware on the /api chi router that wraps r.Body in http.MaxBytesReader with a generous JSON cap (e.g. 4-8 MiB), applied before sessionMiddleware. Exempt (or register before) the routes that legitimately stream large bodies and already cap themselves — /api/files/upload, /api/netscan, /api/assistant/*. Optionally set a modest http.Server ReadTimeout for non-streaming paths. Purely server-side; no UX/prompt/re-auth impact.
+
+### [MEDIUM] Live metrics WebSocket topic broadcasts per-sub-resource metric samples beyond a user's grants
+- **Area:** WebSocket hub — metrics fanout / authorizeTopic  
+- **Confidence:** confirmed  
+- **Location:** `internal/integration/manager.go:338 (publish metrics:<type>/<id>) + internal/metrics/metrics.go:160 (WirePayload embeds sample.Resource); authorized at internal/app/app.go:359-363`  
+- **Auditor:** ws-realtime
+
+**Scenario.** collect() publishes every metric sample for a whole instance to metrics:<type>/<instanceID>, and WirePayload emits each sample with its own fine-grained resource path (e.g. proxmox/<id>/guest/114, docker/<id>/container/<name>) plus metric/value (metrics.go:160-172). authorizeTopic authorizes metrics: topics only by engine.VisibleUnder(<type>/<instanceID>) (app.go:359-363), true for anyone who can see any single child. The REST equivalent, QueryMetrics, gates the exact resource: s.can(req.Params.Resource, view) (api_resources.go:134). A household member granted view on one Proxmox guest or one Docker container subscribes to metrics:proxmox/<instanceID> and receives live CPU/memory/disk/network values for every guest/container on that host — sibling resources they have no grant on and cannot query over REST.
+
+**Remediation (UX-preserving).** Fan metrics out per sample resource: publish each sample (or per-resource batch) on a resource-scoped topic (metrics:<sample.Resource>) authorized by VisibleUnder/Can on that resource, or filter the samples slice per client by resource visibility inside Hub.Publish before trySend. Purely a wire-scoping change; the metrics UI subscribes to the resources it charts, so no prompts or re-auth are introduced.
+
+---
+
+## Low
+
+### [LOW] /assistant/actions/apply trusts arbitrary client-supplied actions and executes them outside the RBAC/audit handler path
+- **Area:** assistant apply endpoint  
+- **Confidence:** confirmed  
+- **Location:** `internal/api/api_assistant_stream.go:134-162 (HandleAssistantApply) and :164-221 (applyAssistantAction)`  
+- **Auditor:** assistant-llm
+
+**Scenario.** HandleAssistantApply decodes Actions straight from the request body (api_assistant_stream.go:142) with no verification that the model ever proposed them, then applyAssistantAction executes them by calling store/calendar services DIRECTLY (s.calendar.CreateEvent :175, s.store.CreateCalendar :196, s.store.DismissSignals :214) rather than replaying through SelfCall — so the RBAC checks and audit logging that the equivalent REST handlers run are bypassed. Today this is NOT a privilege escalation: the three supported kinds map to operations any authenticated user can already perform via the normal endpoints (CreateCalendarEvent, CreateCalendar and DismissSignals each require only authentication, no specific permission — confirmed in api_calendar.go:86/300 and api_signals.go:75), so the confirm/propose step provides no security value but also grants nothing extra. The risk is latent and structural: the 'propose' gate can be skipped entirely by posting fabricated actions, and because apply re-implements the write instead of going through the audited/permission-checked handler, any future action kind that maps to a permission-gated operation would become executable here without that check. Note calendar.create_calendar with kind ics/trash also triggers an outbound Sync fetch of an attacker-chosen URL (:203) — same SSRF surface as the normal CreateCalendar, so no new capability today, but it compounds if apply ever diverges.
+
+**Remediation (UX-preserving).** Execute approved actions by replaying them through SelfCall (the same in-process handler path the model's reads already use) so RBAC and audit are inherited automatically, and/or validate each submitted action against a short-lived server-side record of what was actually proposed during the turn. This keeps the one-click approve UX unchanged.
+
+### [LOW] Netscan has no cap on concurrent scans and no permission gate — any authenticated user can exhaust goroutines/sockets/FDs
+- **Area:** Netscan IP sweep (POST /api/netscan)  
+- **Confidence:** confirmed  
+- **Location:** `internal/api/api_netscan.go:40 (HandleNetscan, only checks IdentityFrom) and internal/netscan/netscan.go:92-99 (48 host workers, each spawning up to 32 port goroutines + 1 ping)`  
+- **Auditor:** companion-dos
+
+**Scenario.** HandleNetscan only checks `IdentityFrom(ctx) == nil` (api_netscan.go:42) — any logged-in user including the lowest-privilege household member, with no RBAC permission check unlike most other endpoints. Per-scan input is capped (65536 hosts, 500 ports, conc 48), but there is NO limit on the number of scans a user may run concurrently and no global/per-user semaphore. One full-range scan peaks at ~48*(32+1) ≈ 1.5k goroutines plus that many in-flight TCP dials and ICMP sockets; a user firing dozens of concurrent POST /api/netscan requests multiplies this into tens of thousands of goroutines and file descriptors, exhausting the host's FD limit and starving the rest of the service. The client-disconnect cancels a scan, but an attacker simply holds the connections open.
+
+**Remediation (UX-preserving).** Add a small global (or per-user) semaphore bounding concurrent active scans (e.g. 2-4), returning 429 when exceeded — invisible to normal single-scan use. Consider gating netscan behind the same RBAC permission other LAN tools use so a restricted role cannot launch sweeps at all; neither change adds prompts to the existing single-scan UX.
+
+### [LOW] Converter sandbox drops UID only — no network/protocol isolation; SVG & media inputs can drive SSRF / local-file reads
+- **Area:** convert runner (external tool execution)  
+- **Confidence:** tentative  
+- **Location:** `internal/convert/runner.go:169 (ffmpegArgs, no -protocol_whitelist), internal/convert/runner.go:113 (imageArgs svg), internal/convert/runner.go:553 (run: setpriv UID drop only, SysProcAttr sets Setpgid, no netns)`  
+- **Auditor:** files-cloud
+
+**Scenario.** An authenticated user (workspace/convert is not RBAC-gated — any account can reach it) uploads a crafted SVG whose <image href> points at an internal LAN host, or a container/playlist input that references file://http:// resources. External tools are launched with a UID drop to nobody (setpriv --reuid 65534) but with full network access, no `-protocol_whitelist` on ffmpeg, and no restrictive ImageMagick policy.xml. The tool can therefore make outbound requests to internal LAN endpoints (SSRF, e.g. other admin panels or HomeHub's own API) or read world-readable local files, and the fetched/read bytes can be muxed into the converted output the user then downloads (exfiltration). The UID drop the sandbox relies on does not mitigate SSRF or world-readable file disclosure. Repo has no -protocol_whitelist, no policy.xml, and no CLONE_NEWNET/unshare (confirmed by grep). Impact is real but exploitability is version/config dependent: modern ffmpeg default whitelists and recent librsvg/ImageMagick policies block much of this, hence tentative.
+
+**Remediation (UX-preserving).** Harden the sandbox without touching UX: pass ffmpeg `-protocol_whitelist file,crypto,data` (and an explicit input `-f`/demuxer where feasible), ship and enforce a restrictive ImageMagick policy.xml disabling URL/HTTPS/MSL/EPHEMERAL and the SVG remote-fetch delegate, and/or launch each tool in a network-isolated namespace (unshare -n / SysProcAttr Cloneflags CLONE_NEWNET). All server-side; no prompts or re-auth.
+
+### [LOW] Workspace personal-cloud has no per-user storage quota and blobs never expire — authenticated disk-fill DoS of the whole control plane
+- **Area:** workspace files (raw upload / blob storage)  
+- **Confidence:** likely  
+- **Location:** `internal/api/api_files.go:314 (HandleFileUpload — only per-file/body MaxBytesReader, no quota), internal/httpserver/server.go:70 (route has no RBAC gate, handler checks only id!=nil), contrast internal/convert/service.go:21 (convert has 24h Retention; workspace blobs have none)`  
+- **Auditor:** files-cloud
+
+**Scenario.** Uploads are capped per file (512 MiB) and per request (~513 MiB) but there is no per-user total-storage quota and no retention/reaping for workspace blobs under {DataDir}/workspace, and the route is reachable by any authenticated session regardless of RBAC level. The least-privileged household account can repeatedly POST 512 MiB blobs; accumulation is unbounded and permanent, filling the disk that also backs PostgreSQL and degrading or crashing the entire shared control plane for every user.
+
+**Remediation (UX-preserving).** Enforce a per-user byte budget at upload time (SUM(blob_size)+text octet_length vs a configurable ceiling) and reject over-budget uploads with 413; optionally add opportunistic reaping of orphaned blobs. Purely server-side accounting — no added prompts or re-authentication.
+
+### [LOW] "Least-privilege" managed sudoers is effectively unrestricted root — path-only NOPASSWD grant on package managers (plus unused dpkg/apt entries)
+- **Area:** patchpilot bootstrap / sudoers generation  
+- **Confidence:** confirmed  
+- **Location:** `internal/integrations/patchpilot/pkgmgr.go:147-182 (SudoersContent, emits `<user> ALL=(ALL) NOPASSWD: <path>, ...`), managerBinaries apt→[apt-get,apt,dpkg] pkgmgr.go:32; claim at bootstrap.go:9-11 / 224`  
+- **Auditor:** patchpilot-ssh
+
+**Scenario.** The generated drop-in whitelists the package-manager binaries by absolute path with NO argument constraints (pkgmgr.go:181), while only the reboot verbs are argument-constrained (systemctl reboot / shutdown -r now, pkgmgr.go:169-180). apt-get/dnf/pacman/zypper/dpkg each run arbitrary code as root by design — e.g. `sudo -n apt-get -o APT::Update::Pre-Invoke::='/bin/sh -c id>/root/pwn' update`, `sudo -n dpkg --unpack /tmp/evil.deb` (root maintainer scripts), `sudo -n pacman --hookdir=/tmp ...`. So anyone who can authenticate as the patchpilot account — i.e. anyone holding the fleet's orchestrator ed25519 private key (vault-sealed, but see the MITM/credential-theft finding) — has unconstrained root on every managed host, not merely the ability to patch. The documented 'least privilege: exactly the package-manager and reboot binaries' claim overstates the isolation and may lead an operator to under-protect the key. Concretely over-broad: dpkg and apt are added to the whitelist (pkgmgr.go:32) but are never invoked via sudo (only apt-get is, pkgmgr.go:83-88), so dpkg's clean arbitrary-root primitive is granted for nothing.
+
+**Remediation (UX-preserving).** Package management is inherently root-equivalent, so treat and document the orchestrator private key as full fleet-root (protect it accordingly) rather than implying the sudoers rule sandboxes it — there is no UX-visible change here. Tighten the whitelist to only the binaries actually invoked with sudo: drop dpkg and apt from managerBinaries' sudoers contribution (keep them for detection only) so the drop-in lists apt-get alone for Debian. This is a transparent hardening with no operator-facing change; it does not lower the privilege ceiling but removes a needless direct arbitrary-root path and aligns the rule with reality.
+
+### [LOW] TrueNAS shares/alerts/stats are not pool-scoped, leaking share paths to a single-pool viewer
+- **Area:** truenas listing endpoints  
+- **Confidence:** confirmed  
+- **Location:** `internal/api/api_truenas.go:206 (TruenasShares), :257 (TruenasAlerts), :~305 (TruenasStats)`  
+- **Auditor:** rbac-idor
+
+**Scenario.** TruenasOverview (105), TruenasDatasets (183) and TruenasSnapshots (242) correctly filter results by per-pool view grants (`resource+"/pool/"+name`). TruenasShares, TruenasAlerts and TruenasStats discard the resource returned by truenasConn (which only did `visibleUnder`, passing for any single-pool grant) and return the instance-wide list unfiltered. A member granted view on only `truenas/<id>/pool/tankA` can therefore enumerate every SMB/NFS share on the box — names, filesystem paths (e.g. /mnt/tankB/private) and comments — plus all system alerts, revealing datasets/pools they have no grant to see.
+
+**Remediation (UX-preserving).** Filter shares by the pool their Path/dataset belongs to using the same `s.can(resource+"/pool/"+rootPool(...), view)` check already used for datasets and snapshots (skip shares whose pool is not visible). For alerts/stats, either apply an analogous per-pool filter or require instance-level view for those tabs. No prompt or UX change.
+
+### [LOW] Tailscale key listing gated only by device-subtree visibility, not tailnet-level permission
+- **Area:** tailscale auth keys  
+- **Confidence:** confirmed  
+- **Location:** `internal/api/api_tailscale.go:317-338 (TsKeys)`  
+- **Auditor:** rbac-idor
+
+**Scenario.** TsCreateKey (353) and TsRevokeKey (410) correctly require `configure` on the tailnet resource. TsKeys resolves via tsConn (which only performs `visibleUnder`) and lists pre-auth keys with no `can` check, so a member granted view on a single device (`tailscale/<id>/device/<devID>`) passes subtree visibility and can enumerate all pre-auth key metadata for the tailnet (descriptions, reusable/ephemeral/preauthorized flags, tags, expiry). The secret value is not exposed (only TsCreateKey returns it), so impact is limited to recon about how devices can join the tailnet.
+
+**Remediation (UX-preserving).** Gate TsKeys with the same `s.can(resource, configure)` used by create/revoke (key management is a configure-level surface), or at minimum require `view` on the tailnet root rather than mere device-subtree visibility. No UX change for admins who manage keys.
+
+### [LOW] /api/netscan lets any authenticated account drive the server to port-scan arbitrary LAN ranges (identity-only, no RBAC)
+- **Area:** raw route authorization — /api/netscan  
+- **Confidence:** confirmed  
+- **Location:** `internal/api/api_netscan.go:42 (HandleNetscan checks only httpctx.IdentityFrom(ctx)==nil); internal/api/api_netscan.go:19 (NetscanInterfaces same)`  
+- **Auditor:** web-transport
+
+**Scenario.** HandleNetscan enforces identity and, being POST, is covered by originGuard, but it performs no RBAC check — unlike server-side actions against integrations, which gate on s.can(..., LevelControl). Every integration/system action has an RBAC resource (system/integrations, per-pool, per-guest, etc.), but there is no resource for netscan. A zero-grant household member (or any account) can therefore make the HomeHub host sweep and TCP-probe up to 65,536 addresses × 500 ports of any IPv4 range on the LAN, on demand and unthrottled per session — turning the control plane into a LAN reconnaissance/port-scan tool for users who otherwise have no infrastructure privileges. Bounded per request but unbounded in frequency.
+
+**Remediation (UX-preserving).** If the scanner is meant to be a privileged utility, gate HandleNetscan and NetscanInterfaces behind an RBAC resource/level (mirroring the existing s.can(ctx, id, ResX, rbac.LevelControl) pattern used by the docker/proxmox terminal-mint endpoints) — that is UX-preserving, no added prompts. If it is intentionally an all-users workbench utility, treat as accepted risk and document it; either way it should be a deliberate authorization decision, not identity-only.
+
+### [LOW] Missing baseline security-response headers (frame-ancestors / nosniff / referrer-policy) on SPA and API responses
+- **Area:** web/transport layer — global response headers  
+- **Confidence:** confirmed  
+- **Location:** `internal/httpserver/server.go:49-95 (Handler sets only recoverer at root; no security-header middleware); internal/httpserver/server.go:292-324 (spaHandler serves index.html/JS with only Cache-Control)`  
+- **Auditor:** web-transport
+
+**Scenario.** No X-Frame-Options / CSP frame-ancestors, no Referrer-Policy, and no X-Content-Type-Options on the SPA shell or the JSON API responses (nosniff is set only on the download/netscan/assistant paths). This is genuinely defense-in-depth rather than high-impact here: SameSite=Lax on the session cookie means a cross-site attacker frame receives no credentials (clickjacking yields a logged-out view), and the one route that serves user-controlled bytes (file download) already sends attachment + nosniff. Residual exposure: full app URL leaked via Referer to any external link a user clicks from the app, and MIME-sniffing latitude on JSON responses that lack nosniff.
+
+**Remediation (UX-preserving).** Add a small static header middleware on the root chi router (X-Frame-Options: DENY or CSP frame-ancestors 'none', X-Content-Type-Options: nosniff, Referrer-Policy: no-referrer). Constant headers, zero UX impact, no prompts.
+
+### [LOW] Verbose internal error strings returned to clients on 400 and in streaming handlers
+- **Area:** web/transport layer — error surfacing  
+- **Confidence:** confirmed  
+- **Location:** `internal/httpserver/server.go:330 (requestErrorHandler echoes raw err.Error() as the 400 body for all strict handlers); internal/api/api_assistant_stream.go:105 and :152 (stream/apply echo err.Error()); internal/api/api_netscan.go decode error paths`  
+- **Auditor:** web-transport
+
+**Scenario.** The 500 path (responseErrorHandler) correctly hides details and logs server-side, but requestErrorHandler returns the raw Go error verbatim (e.g. 'can't decode JSON body: ...') for every generated endpoint, and the assistant/netscan streaming handlers forward err.Error() straight to the caller. Depending on the failing layer these strings can expose internal structure — JSON parser positions, downstream/provider messages, or wrapped store errors — to any caller who can reach the endpoint. Low sensitivity but an unnecessary information disclosure.
+
+**Remediation (UX-preserving).** Return a generic client message ('invalid request body', 'the assistant hit an error') and log the detailed err server-side, mirroring what responseErrorHandler already does for 500s. No UX change for legitimate users.
+
+---
+
+## Informational / by-design
+
+### [INFO] Wake-on-LAN ad-hoc target does not validate the broadcast address, allowing a DNS lookup + UDP datagram to an arbitrary host:port
+- **Area:** Wake-on-LAN (POST /api/tools/wol wake)  
+- **Confidence:** confirmed  
+- **Location:** `internal/api/api_nettools.go:255-257 (ad-hoc broadcast path) vs api_nettools.go:204 (saved-target path validates with net.ParseIP); sent at internal/nettools/ping.go:109 (net.ResolveUDPAddr)`  
+- **Auditor:** companion-dos
+
+**Scenario.** When WolWake is called with an inline MAC (no saved targetId), the `broadcast` value from the request body is used verbatim (api_nettools.go:255-257) with no net.ParseIP validation — unlike CreateWolTarget which rejects non-IPs (api_nettools.go:204). SendMagicPacket passes it straight to net.ResolveUDPAddr (ping.go:109), so an authenticated user can supply a hostname, causing the server to perform a DNS resolution and send a 102-byte UDP datagram to an arbitrary host and (unbounded-in-this-path) port. Impact is minor — the payload is a fixed benign WoL magic packet and the caller is already authenticated — but it is a small unvalidated server-side outbound-contact primitive and an inconsistency with the saved-target path.
+
+**Remediation (UX-preserving).** Validate the ad-hoc `broadcast` with net.ParseIP (reusing the check already present at api_nettools.go:204) and apply the same `port < 65536` upper bound the CreateWolTarget path uses, rejecting hostnames and out-of-range ports before calling SendMagicPacket. No UX change — legitimate broadcast IPs still pass.
+
+### [INFO] Global signal stream discloses resource details across RBAC boundaries (by-design, flagged for a conscious decision)
+- **Area:** signals notification stream  
+- **Confidence:** confirmed  
+- **Location:** `internal/api/api_signals.go:43-73 (ListSignals) / internal/store/signals.go:101 (ListSignals)`  
+- **Auditor:** rbac-idor
+
+**Scenario.** Signals are global: ListSignals returns every live signal (title, body, source_name, source_id, detail) to any signed-in user with no per-resource visibility filter. A household member with zero integration grants still sees entries like 'VM 105 bank-server is down' or a container/host name they otherwise cannot see in any integration view. This is the product's stated design (signals, like calendar, are shared), so it is reported as info, not a defect — but it is a genuine cross-RBAC information exposure worth a conscious sign-off.
+
+**Remediation (UX-preserving).** If shared visibility is intended, no code change — keep as-is. If per-viewer scoping is later desired without changing UX, filter each signal in ListSignals by `visibleUnder(source_type+"/"+source_id)` (fall back to showing collector-level/system signals that have no source), so members see only signals for resources they can already view.
+
+---
+
+## Coverage & method
+12 parallel auditors read the actual source (Go backend + React frontend) across: authentication & sessions; authorization/RBAC & IDOR; secrets & the vault; SSRF & outbound fetches; SQL & command injection; PatchPilot SSH/remote execution; the workspace file cloud; the web/transport layer & raw routes; the WebSocket hub & topic authorization; the assistant/LLM subsystem & prompt injection; external-device auth & denial-of-service; and frontend XSS/client trust. Every High/Critical candidate was then re-read by an adversarial verifier that tried to refute it. Two facts were also spot-checked by hand and matched the agents' findings: PatchPilot's `ssh.InsecureIgnoreHostKey()` (Finding 2) and the absence of any private-range filtering on server-side URL fetches (Findings 9, 10).
+
+**Clean areas** (no real findings): SQL parameterization in `internal/store`, the AES-GCM vault sealing and master-key handling, password hashing, WebAuthn challenge/origin verification, the frontend markdown renderers (react-markdown without `rehype-raw`; no `dangerouslySetInnerHTML` on untrusted content), and CSRF (the origin guard covers state-changing routes).
