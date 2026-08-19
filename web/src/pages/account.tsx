@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { LanguagePicker } from "@/components/language";
 import { startRegistration } from "@simplewebauthn/browser";
 import QRCode from "qrcode";
 import { Bell, ChevronDown, Fingerprint, Laptop, ShieldCheck, Smartphone } from "lucide-react";
@@ -32,6 +33,7 @@ export function AccountPage() {
       </div>
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <div className="space-y-4">
+          <LanguageCard />
           <PasswordCard />
           <TotpCard />
           <NotificationPrefsCard />
@@ -42,6 +44,20 @@ export function AccountPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ---- language ---------------------------------------------------------------
+
+function LanguageCard() {
+  const { t } = useTranslation();
+  return (
+    <Card>
+      <CardHeader title={t("account.language.title")} description={t("account.language.subtitle")} />
+      <CardBody>
+        <LanguagePicker />
+      </CardBody>
+    </Card>
   );
 }
 

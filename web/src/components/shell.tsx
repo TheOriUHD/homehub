@@ -48,6 +48,7 @@ import { useTheme } from "@/lib/theme";
 import { useBackupsVisible } from "@/pages/backups/shared";
 import { LogoMark, Wordmark } from "./logo";
 import { NotificationsBell } from "./notifications";
+import { LanguagePrompt, languagePromptPending } from "./language";
 import { CommandPalette } from "./command-palette";
 import { Kbd, PageLoader } from "@/ui/misc";
 import { Button } from "@/ui/button";
@@ -71,6 +72,9 @@ export function AppShell() {
   const { me, loading, can, signOut } = useAuth();
   const [theme, setTheme] = useTheme();
   const [mobileNav, setMobileNav] = useState(false);
+  // One-time language prompt for accounts that never picked (shown in
+  // English; choosing applies instantly).
+  const [langPrompt, setLangPrompt] = useState(languagePromptPending);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -114,6 +118,13 @@ export function AppShell() {
   }
   if (!me) return <Navigate to="/login" />;
   if (me.user.mustChangePassword) return <Navigate to="/change-password" />;
+  if (langPrompt) {
+    return (
+      <div className="bg-bg min-h-full">
+        <LanguagePrompt onDone={() => setLangPrompt(false)} />
+      </div>
+    );
+  }
 
   const mainNav: NavItem[] = [
     { to: "/", label: t("nav.overview"), icon: Home },
