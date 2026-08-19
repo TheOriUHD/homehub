@@ -42,6 +42,16 @@ func scanFileMeta(row interface{ Scan(...any) error }, f *UserFile) error {
 	return row.Scan(&f.ID, &f.UserID, &f.Name, &f.Folder, &f.IsBinary, &f.Mime, &f.Size, &f.CreatedAt, &f.UpdatedAt)
 }
 
+// UserFilesTotalBytes sums a user's workspace storage — blob sizes plus the
+// octet length of text files — for per-user quota enforcement at upload time.
+func (s *Store) UserFilesTotalBytes(ctx context.Context, userID uuid.UUID) (int64, error) {
+	var total int64
+	err := s.pool.QueryRow(ctx,
+		`SELECT COALESCE(SUM(CASE WHEN is_binary THEN blob_size ELSE octet_length(content) END), 0)
+		 FROM user_files WHERE user_id=$1`, userID).Scan(&total)
+	return total, err
+}
+
 // ListUserFiles returns the user's files newest-edited first, WITHOUT
 // content (content loads per file).
 func (s *Store) ListUserFiles(ctx context.Context, userID uuid.UUID) ([]UserFile, error) {
