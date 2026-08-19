@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
+  BookOpenText,
   Download,
   FileCode2,
   FolderOpen,
@@ -25,6 +26,8 @@ import { EmptyState } from "@/ui/states";
 import { useToast } from "@/ui/toast";
 
 const MAX_BYTES = 1 << 20;
+
+const isMdName = (name: string) => /\.(md|markdown)$/i.test(name);
 
 /**
  * The workspace file manager: everything the editor saves lives here, plus
@@ -179,22 +182,50 @@ export function ToolsFilesPage() {
           />
         ) : (
           <div className="divide-edge divide-y">
-            {rows.map((f) => (
+            {rows.map((f) => {
+              const md = isMdName(f.name);
+              return (
               <div key={f.id} className="group hover:bg-bg-subtle/60 flex items-center gap-3 px-4 py-2.5">
-                <FileCode2 className="text-fg-subtle size-4 shrink-0" />
+                {md ? (
+                  <BookOpenText className="text-fg-subtle size-4 shrink-0" />
+                ) : (
+                  <FileCode2 className="text-fg-subtle size-4 shrink-0" />
+                )}
                 <div className="min-w-0 flex-1">
-                  <Link
-                    to="/tools/editor"
-                    search={{ file: f.id }}
-                    className="text-fg hover:text-accent block truncate font-mono text-[13px]"
-                  >
-                    {f.name}
-                  </Link>
+                  {/* .md files read by default — the row opens the full-page
+                      document view; the pencil still edits. */}
+                  {md ? (
+                    <Link
+                      to="/tools/md/$fileId"
+                      params={{ fileId: f.id }}
+                      className="text-fg hover:text-accent block truncate font-mono text-[13px]"
+                    >
+                      {f.name}
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/tools/editor"
+                      search={{ file: f.id }}
+                      className="text-fg hover:text-accent block truncate font-mono text-[13px]"
+                    >
+                      {f.name}
+                    </Link>
+                  )}
                   <p className="text-fg-subtle text-[11.5px]">
                     {fileLanguage(f.name)} · {formatBytes(f.size)} · {timeAgo(f.updatedAt)}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  {md && (
+                    <Link
+                      to="/tools/md/$fileId"
+                      params={{ fileId: f.id }}
+                      className="text-fg-subtle hover:text-fg rounded-md p-1.5"
+                      title={t("tools.files.view")}
+                    >
+                      <BookOpenText className="size-4" />
+                    </Link>
+                  )}
                   <Link
                     to="/tools/editor"
                     search={{ file: f.id }}
@@ -229,7 +260,8 @@ export function ToolsFilesPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
         <div className="border-edge text-fg-subtle border-t px-4 py-2 text-center text-[12px]">

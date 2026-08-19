@@ -1,0 +1,44 @@
+/* Crepe re-skinned onto the HomeHub tokens: the frame theme supplies the
+ * structure, these overrides make it follow the app's palette in both modes
+ * (the --hh-* custom properties already flip with the theme). */
+.hh-crepe .milkdown {
+  --crepe-color-background: var(--hh-surface);
+  --crepe-color-on-background: var(--hh-fg);
+  --crepe-color-surface: var(--hh-surface);
+  --crepe-color-surface-low: var(--hh-bg-subtle);
+  --crepe-color-on-surface: var(--hh-fg);
+  --crepe-color-on-surface-variant: var(--hh-fg-muted);
+  --crepe-color-outline: var(--hh-edge);
+  --crepe-color-primary: var(--hh-accent);
+  --crepe-color-secondary: var(--hh-accent-soft);
+  --crepe-color-on-secondary: var(--hh-accent-soft-fg);
+  --crepe-color-inverse: var(--hh-fg);
+  --crepe-color-on-inverse: var(--hh-bg);
+  --crepe-color-inline-code: var(--hh-accent-soft-fg);
+  --crepe-color-inline-area: var(--hh-bg-subtle);
+  --crepe-color-error: var(--hh-danger, #dc2626);
+  --crepe-color-hover: var(--hh-surface-hover);
+  --crepe-color-selected: var(--hh-accent-soft);
+  --crepe-font-default: inherit;
+  --crepe-font-title: inherit;
+  --crepe-base-font-size: 15px;
+  background: transparent;
+  padding: 0;
+}
+
+.hh-crepe {
+  background: var(--hh-surface);
+}
+
+.hh-crepe .milkdown .ProseMirror {
+  padding: 20px 28px 48px;
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+/* Read-only: hide the editing chrome that would otherwise linger. */
+.hh-crepe[data-readonly] .milkdown milkdown-block-handle,
+.hh-crepe[data-readonly] .milkdown milkdown-slash-menu,
+.hh-crepe[data-readonly] .milkdown milkdown-toolbar {
+  display: none;
+}

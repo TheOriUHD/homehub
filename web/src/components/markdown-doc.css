@@ -1,0 +1,219 @@
+/* Reading typography for rendered markdown documents. Scoped under .hh-mddoc
+ * so it can't leak; every color is a theme token so dark mode just works. */
+.hh-mddoc {
+  color: var(--hh-fg);
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-wrap: break-word;
+}
+
+.hh-mddoc > :first-child {
+  margin-top: 0;
+}
+
+.hh-mddoc h1,
+.hh-mddoc h2,
+.hh-mddoc h3,
+.hh-mddoc h4 {
+  color: var(--hh-fg);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  margin: 1.6em 0 0.5em;
+}
+.hh-mddoc h1 {
+  font-size: 1.9em;
+  margin-top: 0.4em;
+}
+.hh-mddoc h2 {
+  font-size: 1.45em;
+  border-bottom: 1px solid var(--hh-edge);
+  padding-bottom: 0.25em;
+}
+.hh-mddoc h3 {
+  font-size: 1.17em;
+}
+.hh-mddoc h4 {
+  font-size: 1em;
+}
+.hh-mddoc h1 a,
+.hh-mddoc h2 a,
+.hh-mddoc h3 a,
+.hh-mddoc h4 a {
+  color: inherit;
+}
+
+.hh-mddoc p {
+  margin: 0.7em 0;
+}
+
+.hh-mddoc a {
+  color: var(--hh-accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--hh-accent) 40%, transparent);
+  text-underline-offset: 3px;
+}
+.hh-mddoc a:hover {
+  text-decoration-color: var(--hh-accent);
+}
+
+.hh-mddoc ul,
+.hh-mddoc ol {
+  margin: 0.6em 0;
+  padding-left: 1.6em;
+}
+.hh-mddoc ul {
+  list-style: disc;
+}
+.hh-mddoc ol {
+  list-style: decimal;
+}
+.hh-mddoc li {
+  margin: 0.25em 0;
+}
+.hh-mddoc li > ul,
+.hh-mddoc li > ol {
+  margin: 0.2em 0;
+}
+.hh-mddoc li:has(> input[type="checkbox"]) {
+  list-style: none;
+  margin-left: -1.3em;
+}
+.hh-mddoc li > input[type="checkbox"] {
+  margin-right: 0.5em;
+  vertical-align: -0.1em;
+}
+
+.hh-mddoc blockquote {
+  border-left: 3px solid var(--hh-accent);
+  background: var(--hh-bg-subtle);
+  border-radius: 0 8px 8px 0;
+  color: var(--hh-fg-muted);
+  margin: 0.9em 0;
+  padding: 0.5em 1em;
+}
+.hh-mddoc blockquote p {
+  margin: 0.3em 0;
+}
+
+.hh-mddoc code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+}
+.hh-mddoc :not(pre) > code {
+  background: var(--hh-bg-subtle);
+  border: 1px solid var(--hh-edge);
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+}
+.hh-mddoc pre {
+  background: var(--hh-bg-subtle);
+  border: 1px solid var(--hh-edge);
+  border-radius: 10px;
+  margin: 0.9em 0;
+  overflow-x: auto;
+  padding: 0.9em 1.1em;
+  line-height: 1.55;
+}
+
+.hh-mddoc hr {
+  border: 0;
+  border-top: 1px solid var(--hh-edge);
+  margin: 1.8em 0;
+}
+
+.hh-mddoc table {
+  border-collapse: collapse;
+  display: block;
+  margin: 1em 0;
+  max-width: 100%;
+  overflow-x: auto;
+  width: max-content;
+}
+.hh-mddoc th,
+.hh-mddoc td {
+  border: 1px solid var(--hh-edge);
+  padding: 0.4em 0.8em;
+}
+.hh-mddoc th {
+  background: var(--hh-bg-subtle);
+  font-weight: 600;
+  text-align: left;
+}
+.hh-mddoc tr:nth-child(2n) td {
+  background: color-mix(in oklab, var(--hh-bg-subtle) 55%, transparent);
+}
+
+.hh-mddoc img {
+  border-radius: 10px;
+  max-width: 100%;
+}
+
+/* Syntax tokens (rehype-highlight → hljs classes). One restrained palette
+ * driven by the accent plus a few fixed hues that read on both surfaces. */
+.hh-mddoc .hljs-comment,
+.hh-mddoc .hljs-quote {
+  color: var(--hh-fg-subtle);
+  font-style: italic;
+}
+.hh-mddoc .hljs-keyword,
+.hh-mddoc .hljs-selector-tag,
+.hh-mddoc .hljs-meta {
+  color: oklch(0.55 0.19 300);
+}
+.hh-mddoc .hljs-string,
+.hh-mddoc .hljs-regexp,
+.hh-mddoc .hljs-addition {
+  color: oklch(0.55 0.12 150);
+}
+.hh-mddoc .hljs-number,
+.hh-mddoc .hljs-literal,
+.hh-mddoc .hljs-symbol {
+  color: oklch(0.6 0.14 60);
+}
+.hh-mddoc .hljs-title,
+.hh-mddoc .hljs-function,
+.hh-mddoc .hljs-section,
+.hh-mddoc .hljs-name {
+  color: var(--hh-accent);
+}
+.hh-mddoc .hljs-attr,
+.hh-mddoc .hljs-attribute,
+.hh-mddoc .hljs-variable,
+.hh-mddoc .hljs-template-variable {
+  color: oklch(0.55 0.13 230);
+}
+.hh-mddoc .hljs-deletion {
+  color: oklch(0.55 0.18 25);
+}
+.hh-mddoc .hljs-emphasis {
+  font-style: italic;
+}
+.hh-mddoc .hljs-strong {
+  font-weight: 600;
+}
+
+:root[data-theme="dark"] .hh-mddoc .hljs-keyword,
+:root[data-theme="dark"] .hh-mddoc .hljs-selector-tag,
+:root[data-theme="dark"] .hh-mddoc .hljs-meta {
+  color: oklch(0.75 0.15 300);
+}
+:root[data-theme="dark"] .hh-mddoc .hljs-string,
+:root[data-theme="dark"] .hh-mddoc .hljs-regexp,
+:root[data-theme="dark"] .hh-mddoc .hljs-addition {
+  color: oklch(0.75 0.12 150);
+}
+:root[data-theme="dark"] .hh-mddoc .hljs-number,
+:root[data-theme="dark"] .hh-mddoc .hljs-literal,
+:root[data-theme="dark"] .hh-mddoc .hljs-symbol {
+  color: oklch(0.78 0.13 60);
+}
+:root[data-theme="dark"] .hh-mddoc .hljs-attr,
+:root[data-theme="dark"] .hh-mddoc .hljs-attribute,
+:root[data-theme="dark"] .hh-mddoc .hljs-variable,
+:root[data-theme="dark"] .hh-mddoc .hljs-template-variable {
+  color: oklch(0.75 0.11 230);
+}
+:root[data-theme="dark"] .hh-mddoc .hljs-deletion {
+  color: oklch(0.72 0.16 25);
+}

@@ -2901,7 +2901,10 @@
       "closeDiscard": "Discard changes",
       "closeSave": "Save & close",
       "saveAsTitle": "Save file",
-      "saveAsBody": "Name the file — the extension sets the syntax highlighting."
+      "saveAsBody": "Name the file — the extension sets the syntax highlighting.",
+      "modeText": "Text",
+      "modeRich": "Markdown",
+      "fullPage": "Open as full-page document"
     },
     "files": {
       "title": "Files",
@@ -2917,11 +2920,17 @@
       "empty": {
         "title": "No files yet",
         "body": "Upload files or create one in the editor."
-      }
+      },
+      "view": "View document"
     },
     "recent": "Recent files",
     "apps": "Built-in apps",
-    "backToUtilities": "Utilities"
+    "backToUtilities": "Utilities",
+    "mdView": {
+      "rendered": "Rendered",
+      "plain": "Plain text",
+      "contents": "Contents"
+    }
   },
   "patchpilot": {
     "subtitle": "Agentless updates across your Linux fleet",
