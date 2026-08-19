@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Circle, Copy, Play, RotateCcw, Square } from "lucide-react";
+import { ChevronDown, Circle, Copy, Download, ExternalLink, FileText, Play, RotateCcw, Square } from "lucide-react";
 import { api, unwrap } from "@/lib/api";
 import { cn, copyText } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { useToast } from "@/ui/toast";
+import {
+  Dropdown,
+  DropdownContent,
+  DropdownItem,
+  DropdownTrigger,
+} from "@/ui/dropdown";
 import { ToolCard } from "../kit";
 
 /**
@@ -74,6 +80,28 @@ const STATUS_TONE: Record<Status, string> = {
   dead: "text-fg-subtle/50",
   up: "text-warning",
   open: "text-success",
+};
+
+/** Best-guess URL to open a host in the browser: https only when a secure
+ *  web port is open and a plain one isn't, else http. */
+function openUrl(row: Row): string {
+  const p = row.openPorts;
+  const secureOnly = (p.includes(443) || p.includes(8443)) && !(p.includes(80) || p.includes(8080));
+  return `${secureOnly ? "https" : "http"}://${row.ip}`;
+}
+
+function downloadBlob(name: string, content: string, mime: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: mime }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const csvCell = (v: string | number) => {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
 export default function IpScanTool() {
@@ -237,6 +265,38 @@ export default function IpScanTool() {
     if (list && (await copyText(list))) toast("success", `Copied ${aliveCount} addresses`);
   };
 
+  const aliveRows = () => allRows.filter((r) => r.status === "up" || r.status === "open");
+
+  const exportTxt = () => {
+    const rows = aliveRows();
+    if (rows.length === 0) return;
+    downloadBlob("alive-ips.txt", rows.map((r) => r.ip).join("\n") + "\n", "text/plain;charset=utf-8");
+    toast("success", `Exported ${rows.length} addresses`);
+  };
+
+  const exportCsv = () => {
+    const rows = aliveRows();
+    if (rows.length === 0) return;
+    const header = ["IP", "Hostname", "MAC", "Vendor", "RTT (ms)", "Open Ports"];
+    const lines = [header.join(",")];
+    for (const r of rows) {
+      lines.push(
+        [
+          r.ip,
+          r.hostname ?? "",
+          r.mac ?? "",
+          r.vendor ?? "",
+          r.rttMs !== undefined ? (r.rttMs < 10 ? r.rttMs.toFixed(1) : Math.round(r.rttMs)) : "",
+          r.openPorts.join(" "),
+        ]
+          .map(csvCell)
+          .join(","),
+      );
+    }
+    downloadBlob("ip-scan.csv", lines.join("\n") + "\n", "text/csv;charset=utf-8");
+    toast("success", `Exported ${rows.length} hosts`);
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <ToolCard title="Range" className="shrink-0">
@@ -320,15 +380,34 @@ export default function IpScanTool() {
               >
                 Alive only
               </button>
-              <Button size="sm" variant="ghost" onClick={copyAlive} disabled={aliveCount === 0}>
-                <Copy className="size-3.5" />
-                Copy alive
-              </Button>
+              <Dropdown>
+                <DropdownTrigger asChild>
+                  <Button size="sm" variant="ghost" disabled={aliveCount === 0}>
+                    <Download className="size-3.5" />
+                    Export
+                    <ChevronDown className="size-3" />
+                  </Button>
+                </DropdownTrigger>
+                <DropdownContent align="end">
+                  <DropdownItem onSelect={copyAlive}>
+                    <Copy className="size-3.5" />
+                    Copy alive IPs
+                  </DropdownItem>
+                  <DropdownItem onSelect={exportTxt}>
+                    <FileText className="size-3.5" />
+                    Download IP list (.txt)
+                  </DropdownItem>
+                  <DropdownItem onSelect={exportCsv}>
+                    <Download className="size-3.5" />
+                    Download CSV (all details)
+                  </DropdownItem>
+                </DropdownContent>
+              </Dropdown>
             </div>
           }
         >
           <div className="border-edge flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
-            <div className="text-fg-subtle bg-bg-subtle grid shrink-0 grid-cols-[24px_132px_1.2fr_1.2fr_1.4fr_64px] items-center gap-2 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide">
+            <div className="text-fg-subtle bg-bg-subtle grid shrink-0 grid-cols-[24px_156px_1.1fr_1.2fr_1.4fr_60px] items-center gap-2 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide">
               <span />
               <span>Address</span>
               <span>Hostname</span>
@@ -358,12 +437,12 @@ function HostRow({ row, onCopy }: { row: Row; onCopy: () => void }) {
   return (
     <div
       className={cn(
-        "group hover:bg-bg-subtle/60 grid grid-cols-[24px_132px_1.2fr_1.2fr_1.4fr_64px] items-center gap-2 px-3 py-1.5 text-[12.5px]",
+        "group hover:bg-bg-subtle/60 grid grid-cols-[24px_156px_1.1fr_1.2fr_1.4fr_60px] items-center gap-2 px-3 py-1.5 text-[12.5px]",
         dim && "opacity-55",
       )}
     >
       <Circle className={cn("size-2.5 fill-current", STATUS_TONE[row.status])} />
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         <span className="text-fg font-mono">{row.ip}</span>
         <button
           type="button"
@@ -373,6 +452,18 @@ function HostRow({ row, onCopy }: { row: Row; onCopy: () => void }) {
         >
           <Copy className="size-3" />
         </button>
+        {(row.status === "up" || row.status === "open") && (
+          <a
+            href={openUrl(row)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-fg-subtle hover:text-accent opacity-0 transition-opacity group-hover:opacity-100"
+            title="Open in browser"
+          >
+            <ExternalLink className="size-3" />
+          </a>
+        )}
       </div>
       {/* Hostname */}
       <span className="text-fg min-w-0 truncate">
