@@ -65,6 +65,10 @@ func Handler(deps Deps) http.Handler {
 
 		apiRouter.Get("/ws", wsHandler(deps))
 		apiRouter.Get("/term/{sessionID}", termHandler(deps))
+		// Workspace cloud: multipart uploads of any file type, raw downloads.
+		// Registered directly (not via the generated API) so bodies stream.
+		apiRouter.Post("/files/upload", deps.API.HandleFileUpload)
+		apiRouter.Get("/files/{id}/download", deps.API.HandleFileDownload)
 		// Companion agents authenticate with pairing codes/tokens, not sessions.
 		apiRouter.Get("/mc/agent", func(w http.ResponseWriter, r *http.Request) {
 			deps.MC.HandleAgent(w, r, api.ClientIP(r))

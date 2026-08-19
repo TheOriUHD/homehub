@@ -127,11 +127,14 @@ func (tb *Toolbox) listWorkspaceFiles(ctx context.Context, access Access, _ json
 	}
 	type fileInfo struct {
 		Name      string    `json:"name"`
-		SizeBytes int       `json:"sizeBytes"`
+		SizeBytes int64     `json:"sizeBytes"`
 		UpdatedAt time.Time `json:"updatedAt"`
 	}
 	out := make([]fileInfo, 0, len(rows))
 	for _, f := range rows {
+		if f.IsBinary {
+			continue // blobs aren't readable context
+		}
 		out = append(out, fileInfo{Name: f.Name, SizeBytes: f.Size, UpdatedAt: f.UpdatedAt})
 	}
 	return out, nil
