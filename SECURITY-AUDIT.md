@@ -34,7 +34,7 @@ _Updated as fixes land. Each row links to the commit that closed it._
 | 3. SQL console cross-database bypass | 3 | ✅ **Fixed** — raw SQL console now requires instance-level `control` (matching what the UI already gates on), so a per-database grant no longer reaches the free-form console. Statement-parsing confinement was rejected as unsound (`schema.table` ≡ `table.column`). No real-user UX change. |
 | 4. WebSocket sub-resource topic leakage + REST list-scoping | 4, 8, 12, 18, 19 | ✅ **Fixed** — WS delivery now filtered per-event by the exact sub-resource (`Hub.PublishScoped`/`PublishRows` + a view-level authorizer): AMP/MC console/status/players (4) and metrics samples (8) reach only clients with view on that child. REST: PatchPilot run detail filters host runs per-host (12); TrueNAS shares filtered per-pool + alerts require instance-view (18); Tailscale keys require tailnet-root view (19). Coarse subscribe topics unchanged → no frontend change. |
 | 5. RBAC + egress guards on identity-only raw routes; XFF trust | 6, 9, 10, 14, 20 | ✅ **Fixed** — new `internal/netguard` SSRF egress guard (blocks loopback/link-local/metadata, allows RFC1918+public, re-checks every redirect dial) wired into the HTTP tester (9) and calendar feed/CalDAV fetcher (10). Network-egress tools (HTTP tester, DNS, reachability, SSL, IP scanner) now require `control` on a new top-level `tools` resource — Owner+Operator only, not read-only Viewer (9, 14, 20). Netscan gains a 3-slot concurrency cap → 429 (14). `ClientIP` honors X-Forwarded-For/X-Real-Ip only from configured trusted proxies (default none → socket peer), closing rate-limiter/audit/session-IP spoofing (6). _Minor UX note: Viewers lose the network-diagnostic tools; the actual Owner user is unaffected._ |
-| 6. Medium/Low hardening | 11, 16, 17, 21, 22 | ⬜ Pending |
+| 6. Medium/Low hardening | 11, 16, 17, 21, 22 | ✅ **Fixed** — 8 MiB `jsonBodyLimit` middleware on the /api router (streaming routes exempt) closes the unbounded-body OOM (11); per-user 2 GiB workspace quota rejects over-budget uploads with 413 (16); PatchPilot sudoers drop-in tightened to the binaries actually sudo-invoked — `apt-get` alone on Debian, no `apt`/`dpkg` (17); `X-Frame-Options`/`nosniff`/`Referrer-Policy` on every response (21); the 400 error handler + assistant-apply failures no longer echo raw internal errors (22). Verified live: headers present, oversized body capped, live bootstrap green. |
 
 ---
 
@@ -178,6 +178,8 @@ _Updated as fixes land. Each row links to the commit that closed it._
 
 **Remediation (UX-preserving).** Add one middleware on the /api chi router that wraps r.Body in http.MaxBytesReader with a generous JSON cap (e.g. 4-8 MiB), applied before sessionMiddleware. Exempt (or register before) the routes that legitimately stream large bodies and already cap themselves — /api/files/upload, /api/netscan, /api/assistant/*. Optionally set a modest http.Server ReadTimeout for non-streaming paths. Purely server-side; no UX/prompt/re-auth impact.
 
+**✅ Fixed.** New `jsonBodyLimit` middleware on the /api router (registered right after `withHTTPContext`, before `sessionMiddleware`, so pre-auth `/api/auth/login` is covered) wraps every request body in an 8 MiB `MaxBytesReader` — **except** the four self-capping streaming routes (`streamingBodyPaths`: files/upload, netscan, assistant chat-stream, assistant actions-apply), which must not be truncated. An oversized JSON POST now stops at 8 MiB and is rejected (400 via the generic error handler) instead of buffering to OOM. Verified live: a 9 MiB body is refused while 7 MiB and normal bodies pass. The optional global `ReadTimeout` was **not** set — it would break legitimate large uploads and long assistant streams; the body cap is the memory-safety control.
+
 ### [MEDIUM] Live metrics WebSocket topic broadcasts per-sub-resource metric samples beyond a user's grants
 - **Area:** WebSocket hub — metrics fanout / authorizeTopic  
 - **Confidence:** confirmed  
@@ -236,6 +238,8 @@ _Updated as fixes land. Each row links to the commit that closed it._
 
 **Remediation (UX-preserving).** Enforce a per-user byte budget at upload time (SUM(blob_size)+text octet_length vs a configurable ceiling) and reject over-budget uploads with 413; optionally add opportunistic reaping of orphaned blobs. Purely server-side accounting — no added prompts or re-authentication.
 
+**✅ Fixed.** New `Store.UserFilesTotalBytes` sums the user's storage (`blob_size` for binaries + `octet_length(content)` for text). `HandleFileUpload` seeds a running `usedBytes` from it and, before persisting each part (text and binary branches alike), rejects with **413** once `usedBytes + thisFile > workspaceQuotaBytes` (2 GiB/user); binary blobs already written to disk are removed on rejection. No single account can now fill the disk backing PostgreSQL. Opportunistic orphan-blob reaping was not added (out of scope for the DoS fix); the quota is the control.
+
 ### [LOW] "Least-privilege" managed sudoers is effectively unrestricted root — path-only NOPASSWD grant on package managers (plus unused dpkg/apt entries)
 - **Area:** patchpilot bootstrap / sudoers generation  
 - **Confidence:** confirmed  
@@ -245,6 +249,8 @@ _Updated as fixes land. Each row links to the commit that closed it._
 **Scenario.** The generated drop-in whitelists the package-manager binaries by absolute path with NO argument constraints (pkgmgr.go:181), while only the reboot verbs are argument-constrained (systemctl reboot / shutdown -r now, pkgmgr.go:169-180). apt-get/dnf/pacman/zypper/dpkg each run arbitrary code as root by design — e.g. `sudo -n apt-get -o APT::Update::Pre-Invoke::='/bin/sh -c id>/root/pwn' update`, `sudo -n dpkg --unpack /tmp/evil.deb` (root maintainer scripts), `sudo -n pacman --hookdir=/tmp ...`. So anyone who can authenticate as the patchpilot account — i.e. anyone holding the fleet's orchestrator ed25519 private key (vault-sealed, but see the MITM/credential-theft finding) — has unconstrained root on every managed host, not merely the ability to patch. The documented 'least privilege: exactly the package-manager and reboot binaries' claim overstates the isolation and may lead an operator to under-protect the key. Concretely over-broad: dpkg and apt are added to the whitelist (pkgmgr.go:32) but are never invoked via sudo (only apt-get is, pkgmgr.go:83-88), so dpkg's clean arbitrary-root primitive is granted for nothing.
 
 **Remediation (UX-preserving).** Package management is inherently root-equivalent, so treat and document the orchestrator private key as full fleet-root (protect it accordingly) rather than implying the sudoers rule sandboxes it — there is no UX-visible change here. Tighten the whitelist to only the binaries actually invoked with sudo: drop dpkg and apt from managerBinaries' sudoers contribution (keep them for detection only) so the drop-in lists apt-get alone for Debian. This is a transparent hardening with no operator-facing change; it does not lower the privilege ceiling but removes a needless direct arbitrary-root path and aligns the rule with reality.
+
+**✅ Fixed.** New `sudoersBinaries(mgr)` returns only the sudo-invoked binaries (`apt-get` for Debian; `dnf`/`pacman`/`zypper`/`apk` elsewhere), and `SudoersContent` now iterates it instead of `managerBinaries` — so `apt` and `dpkg` are kept for detection but dropped from the NOPASSWD drop-in, removing dpkg's needless direct arbitrary-root primitive. Package management stays root-equivalent (the orchestrator key is effectively fleet-root — protect it as such), so this is alignment-with-reality hardening, not a lowered ceiling. New onboards get the tighter rule; existing hosts pick it up via `RepairSudoers`. Live bootstrap suite still green.
 
 ### [LOW] TrueNAS shares/alerts/stats are not pool-scoped, leaking share paths to a single-pool viewer
 - **Area:** truenas listing endpoints  
@@ -292,6 +298,8 @@ _Updated as fixes land. Each row links to the commit that closed it._
 
 **Remediation (UX-preserving).** Add a small static header middleware on the root chi router (X-Frame-Options: DENY or CSP frame-ancestors 'none', X-Content-Type-Options: nosniff, Referrer-Policy: no-referrer). Constant headers, zero UX impact, no prompts.
 
+**✅ Fixed.** `securityHeaders` middleware on the root chi router sets `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer` on every response (SPA shell, API, helper). SAMEORIGIN rather than DENY (the frontend uses no cross-origin frames today, and this keeps any future same-origin embedding working while still blocking the cross-origin clickjacking vector). Verified live on `/healthz`.
+
 ### [LOW] Verbose internal error strings returned to clients on 400 and in streaming handlers
 - **Area:** web/transport layer — error surfacing  
 - **Confidence:** confirmed  
@@ -301,6 +309,8 @@ _Updated as fixes land. Each row links to the commit that closed it._
 **Scenario.** The 500 path (responseErrorHandler) correctly hides details and logs server-side, but requestErrorHandler returns the raw Go error verbatim (e.g. 'can't decode JSON body: ...') for every generated endpoint, and the assistant/netscan streaming handlers forward err.Error() straight to the caller. Depending on the failing layer these strings can expose internal structure — JSON parser positions, downstream/provider messages, or wrapped store errors — to any caller who can reach the endpoint. Low sensitivity but an unnecessary information disclosure.
 
 **Remediation (UX-preserving).** Return a generic client message ('invalid request body', 'the assistant hit an error') and log the detailed err server-side, mirroring what responseErrorHandler already does for 500s. No UX change for legitimate users.
+
+**✅ Fixed.** `requestErrorHandler` (the 400 path shared by all 116 generated endpoints) now returns a constant `"invalid request"` instead of echoing the raw Go error — the main disclosure surface. The assistant-apply failure summary likewise no longer echoes `err.Error()` (logged server-side instead). The netscan/files raw handlers already returned generic messages. The assistant chat-stream provider error is intentionally kept: it's the self-hosting admin's own LLM provider message (e.g. "rate limited", "invalid key"), which they need to configure the feature — a deliberate, low-risk exception.
 
 ---
 

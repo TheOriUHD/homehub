@@ -42,6 +42,28 @@ func managerBinaries(mgr string) []string {
 	return nil
 }
 
+// sudoersBinaries are the package-manager binaries actually invoked via sudo,
+// i.e. the only ones that belong in the NOPASSWD drop-in. Deliberately narrower
+// than managerBinaries (which also lists detection-only names): apt and dpkg
+// are never run with sudo, and granting them NOPASSWD would hand out a needless
+// second direct arbitrary-root primitive (dpkg maintainer scripts) beyond the
+// one apt-get already implies. Debian therefore lists apt-get alone.
+func sudoersBinaries(mgr string) []string {
+	switch mgr {
+	case MgrApt, MgrAptProxmox:
+		return []string{"apt-get"}
+	case MgrDNF:
+		return []string{"dnf"} // needs-restarting is added separately below
+	case MgrPacman:
+		return []string{"pacman"}
+	case MgrZypper:
+		return []string{"zypper"}
+	case MgrApk:
+		return []string{"apk"}
+	}
+	return nil
+}
+
 // RequiredCommands must all resolve to an absolute path or bootstrap aborts.
 func RequiredCommands(mgr string) []string {
 	base := append([]string{}, managerBinaries(mgr)...)
@@ -146,7 +168,7 @@ func RebootRequiredCommand(mgr string, paths map[string]string, sudo string) str
 // Sorted for determinism (so repair-sudoers is idempotent).
 func SudoersContent(user, mgr string, paths map[string]string) string {
 	cmds := map[string]bool{}
-	for _, b := range managerBinaries(mgr) {
+	for _, b := range sudoersBinaries(mgr) {
 		if p := paths[b]; strings.HasPrefix(p, "/") {
 			cmds[p] = true
 		}

@@ -32,6 +32,11 @@ const maxUploadBytes = 512 << 20   // 512 MiB per uploaded blob
 const maxFileName = 200
 const maxFolderPath = 400
 
+// workspaceQuotaBytes caps each user's total workspace storage. Uploads that
+// would push a user over it are rejected with 413, so no single account can
+// fill the disk that also backs PostgreSQL and starve the whole control plane.
+const workspaceQuotaBytes = 2 << 30 // 2 GiB per user
+
 func validFileName(name string) (string, bool) {
 	name = strings.TrimSpace(name)
 	if name == "" || len(name) > maxFileName {
@@ -325,6 +330,15 @@ func (s *Server) HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Per-user storage quota: start from what the user already holds and add
+	// each file as it lands, rejecting once the ceiling is crossed.
+	usedBytes, err := s.store.UserFilesTotalBytes(ctx, id.User.ID)
+	if err != nil {
+		s.logger.Error("workspace quota lookup", "error", err)
+		http.Error(w, `{"code":"upload_failed","message":"could not store the file"}`, http.StatusInternalServerError)
+		return
+	}
+
 	folder := ""
 	var uploaded []WorkspaceFile
 	names := map[string]bool{}
@@ -372,12 +386,17 @@ func (s *Server) HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 			}
 			isText := errors.Is(rerr, io.EOF) || errors.Is(rerr, io.ErrUnexpectedEOF)
 			if isText && looksLikeText(head) {
+				if usedBytes+int64(len(head)) > workspaceQuotaBytes {
+					http.Error(w, `{"code":"quota_exceeded","message":"you have reached your workspace storage limit"}`, http.StatusRequestEntityTooLarge)
+					return
+				}
 				f, cerr := s.store.CreateUserFile(ctx, id.User.ID, name, folder, string(head))
 				if cerr != nil {
 					s.logger.Error("workspace upload (text)", "error", cerr)
 					http.Error(w, `{"code":"upload_failed","message":"could not store the file"}`, http.StatusInternalServerError)
 					return
 				}
+				usedBytes += int64(len(head))
 				names[name] = true
 				uploaded = append(uploaded, toAPIFile(f, false))
 				continue
@@ -416,6 +435,11 @@ func (s *Server) HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, msg, code)
 				return
 			}
+			if usedBytes+size > workspaceQuotaBytes {
+				_ = os.Remove(s.blobPath(fid))
+				http.Error(w, `{"code":"quota_exceeded","message":"you have reached your workspace storage limit"}`, http.StatusRequestEntityTooLarge)
+				return
+			}
 
 			mimeType := part.Header.Get("Content-Type")
 			if mimeType == "" || mimeType == "application/octet-stream" {
@@ -432,6 +456,7 @@ func (s *Server) HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, `{"code":"upload_failed","message":"could not store the file"}`, http.StatusInternalServerError)
 				return
 			}
+			usedBytes += size
 			names[name] = true
 			uploaded = append(uploaded, toAPIFile(f, false))
 		}

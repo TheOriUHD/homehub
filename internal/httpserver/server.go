@@ -49,6 +49,7 @@ type Deps struct {
 func Handler(deps Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(recoverer(deps.Logger))
+	r.Use(securityHeaders)
 
 	if deps.Helper != nil {
 		registerHelperRoutes(r, deps.Helper)
@@ -60,6 +61,7 @@ func Handler(deps Deps) http.Handler {
 
 	r.Route("/api", func(apiRouter chi.Router) {
 		apiRouter.Use(withHTTPContext)
+		apiRouter.Use(jsonBodyLimit)
 		apiRouter.Use(sessionMiddleware(deps))
 		apiRouter.Use(originGuard(deps))
 
@@ -95,6 +97,46 @@ func Handler(deps Deps) http.Handler {
 }
 
 // ---- middleware ------------------------------------------------------------
+
+// securityHeaders sets constant defense-in-depth response headers on every
+// route (SPA shell, API, helper). SAMEORIGIN (not DENY) so any same-origin
+// embedding the app may add later keeps working; cross-origin framing —
+// the clickjacking vector — is still blocked.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Frame-Options", "SAMEORIGIN")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "no-referrer")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// maxJSONBody caps ordinary JSON request bodies. Generous for legitimate API
+// payloads, small enough that a single request can't exhaust memory.
+const maxJSONBody = 8 << 20 // 8 MiB
+
+// streamingBodyPaths are the raw routes that legitimately stream large or
+// bespoke bodies and set their OWN http.MaxBytesReader; the generic JSON cap
+// must not wrap them (it would truncate a 512 MiB upload at 8 MiB).
+var streamingBodyPaths = map[string]bool{
+	"/api/files/upload":            true,
+	"/api/netscan":                 true,
+	"/api/assistant/chat/stream":   true,
+	"/api/assistant/actions/apply": true,
+}
+
+// jsonBodyLimit wraps the request body of the 116 generated JSON endpoints in
+// a MaxBytesReader so an unbounded (even pre-auth) POST can't OOM the process.
+// Runs before sessionMiddleware so /api/auth/login is covered too.
+func jsonBodyLimit(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil && !streamingBodyPaths[r.URL.Path] {
+			r.Body = http.MaxBytesReader(w, r.Body, maxJSONBody)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
 
 func withHTTPContext(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -326,8 +368,11 @@ func spaHandler(ui fs.FS) http.HandlerFunc {
 
 // ---- error writing ---------------------------------------------------------
 
-func requestErrorHandler(w http.ResponseWriter, _ *http.Request, err error) {
-	writeJSONError(w, http.StatusBadRequest, "bad_request", err.Error())
+func requestErrorHandler(w http.ResponseWriter, _ *http.Request, _ error) {
+	// The raw err (JSON parser positions, wrapped store/provider messages) is
+	// not echoed to the caller — that leaks internal structure. Strict handlers
+	// that want a specific client message return a typed 4xx response instead.
+	writeJSONError(w, http.StatusBadRequest, "bad_request", "invalid request")
 }
 
 func responseErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *http.Request, error) {

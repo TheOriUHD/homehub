@@ -136,7 +136,9 @@ func (s *Server) HandleAssistantApply(w http.ResponseWriter, r *http.Request) {
 	for _, a := range body.Actions {
 		sm, err := s.applyAssistantAction(ctx, id, a)
 		if err != nil {
-			summaries = append(summaries, "⚠️ "+sm+" — failed: "+err.Error())
+			// Don't echo the raw error (may wrap store/internal detail); log it.
+			s.logger.Warn("assistant apply action failed", "kind", a.Kind, "error", err)
+			summaries = append(summaries, "⚠️ "+sm+" — failed")
 			continue
 		}
 		summaries = append(summaries, "✓ "+sm)
