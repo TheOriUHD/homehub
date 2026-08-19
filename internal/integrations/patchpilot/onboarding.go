@@ -145,6 +145,8 @@ func (r *Registry) Onboard(ctx context.Context, integrationID uuid.UUID, in Comm
 	result, berr := BootstrapStandard(ctx, conn, facts, kp.PublicKey, step)
 	if berr != nil {
 		if be, ok := berr.(*BootstrapError); ok {
+			r.logger.Warn("patchpilot bootstrap failed", "host", in.Host, "code", be.Code,
+				"summary", be.Summary, "output", truncate(be.Output, 800))
 			step(BootstrapStep{Step: "error", Status: "error", Message: be.Summary + " — " + be.Guidance, Code: be.Code})
 		}
 		return nil, berr
