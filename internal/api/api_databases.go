@@ -258,8 +258,21 @@ func (s *Server) DbQuery(ctx context.Context, req DbQueryRequestObject) (DbQuery
 	if !ok {
 		return DbQuery400JSONResponse{BadRequestJSONResponse(errBody("wrong_engine", "the SQL console is for MySQL/MariaDB — MongoDB uses the collection browser"))}, nil
 	}
-	// Control on the targeted database; a console without a database scope
-	// requires control on the whole instance.
+	// The console executes arbitrary SQL as the integration's privileged DB
+	// account. A single fully-qualified reference (`SELECT ... FROM otherdb.t`,
+	// `mysql.user`) escapes any per-database USE scope, and that CANNOT be
+	// safely confined by parsing the statement — `schema.table` is
+	// syntactically indistinguishable from `table.column`, so a schema
+	// allow-list would either over-block ordinary SQL or be trivially evaded.
+	// So the raw console requires INSTANCE-level control: the same grant the UI
+	// already requires to show the console tab. A per-database grant still
+	// unlocks the structured browser (databases / tables / peek), which is
+	// read-scoped server-side, but not the free-form console. This closes the
+	// cross-schema/system-schema bypass a one-database grant otherwise had.
+	if !s.can(ctx, id, resource, rbac.LevelControl) {
+		s.deniedAudit(ctx, id, "db.query", resource)
+		return DbQuery403JSONResponse{forbidden()}, nil
+	}
 	target := resource
 	database := ""
 	if req.Body.Database != nil && *req.Body.Database != "" {
@@ -268,10 +281,6 @@ func (s *Server) DbQuery(ctx context.Context, req DbQueryRequestObject) (DbQuery
 		if !s.visibleDbName(ctx, id, resource, database) {
 			return DbQuery404JSONResponse{notFoundErr("database")}, nil
 		}
-	}
-	if !s.can(ctx, id, target, rbac.LevelControl) {
-		s.deniedAudit(ctx, id, "db.query", target)
-		return DbQuery403JSONResponse{forbidden()}, nil
 	}
 	qctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
