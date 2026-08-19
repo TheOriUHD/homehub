@@ -55,7 +55,8 @@
     "notifications": "Notifications",
     "menu": "Menu",
     "assistant": "Assistant",
-    "tools": "Utilities"
+    "tools": "Utilities",
+    "signals": "Signals"
   },
   "palette": {
     "placeholder": "Jump to a page or action…",
@@ -192,7 +193,8 @@
       "amp": "AMP servers",
       "caddy": "Caddy sites",
       "db": "Databases",
-      "tools": "Utilities"
+      "tools": "Utilities",
+      "signals": "Signals panel"
     }
   },
   "health": {
@@ -3146,5 +3148,31 @@
       "autoFollow": "Auto-following the active host",
       "waiting": "Waiting for output…"
     }
+  },
+  "signals": {
+    "title": "Signals",
+    "subtitle": "Everything your systems are reporting right now — failures, warnings, notable events, and things that fixed themselves.",
+    "all": "All ({{count}})",
+    "sev": {
+      "critical": "critical",
+      "warning": "warning",
+      "info": "info",
+      "recovered": "recovered"
+    },
+    "empty": {
+      "title": "All quiet.",
+      "body": "Nothing needs your attention — new signals show up here the moment a monitor sees something."
+    },
+    "dismiss": "Dismiss",
+    "dismissSelected": "Dismiss {{count}} selected",
+    "select": "Select",
+    "selectAll": "Select all",
+    "selectNone": "Clear selection",
+    "times": "×{{count}}",
+    "detail": "Details",
+    "resolvedNote": "resolved itself",
+    "openAll": "Open all signals",
+    "confirmTitle": "Dismiss {{count}} signal(s)?",
+    "confirmBody": "At least one of these is a warning or worse. Dismissing removes it from the list — make sure it has been handled or noted."
   }
 }

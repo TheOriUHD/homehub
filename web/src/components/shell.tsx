@@ -33,7 +33,10 @@ import {
   Sun,
   Users,
   X,
- Wrench, ServerCog } from "lucide-react";
+  Wrench,
+  ServerCog,
+  Radio,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { RES } from "@/lib/perms";
@@ -117,6 +120,7 @@ export function AppShell() {
     // could enable it.
     ...(assistantVisible ? [{ to: "/assistant", label: t("nav.assistant"), icon: Sparkles }] : []),
     { to: "/health", label: t("nav.health"), icon: Activity, requires: RES.health },
+    { to: "/signals", label: t("nav.signals"), icon: Radio },
     { to: "/tools", label: t("nav.tools"), icon: Wrench },
     // History and Alerts are visible to everyone — their contents are already
     // permission-filtered server-side.

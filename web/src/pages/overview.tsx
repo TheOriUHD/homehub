@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { api, isApiError, unwrap, type Integration } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { SignalsPanel } from "@/pages/signals";
 import { RES } from "@/lib/perms";
 import { statusTone, systemTypeIcon, useIntegrations } from "@/lib/systems";
 import { networkPlayers } from "@/pages/mc/shared";
@@ -456,7 +457,11 @@ export function OverviewPage() {
 
       {customizeOpen && (
         <CustomizeDialog
-          cards={[{ key: "hub", title: t("overview.cardNames.hub"), node: null }, ...defs]}
+          cards={[
+            { key: "hub", title: t("overview.cardNames.hub"), node: null },
+            { key: "signals", title: t("overview.cardNames.signals"), node: null },
+            ...defs,
+          ]}
           pins={pins}
           hidden={hidden}
           onTogglePin={togglePin}
@@ -468,6 +473,8 @@ export function OverviewPage() {
       {can(RES.health) && !hidden.includes("hub") && (
         <HomeHubCard firingCount={alertsVisible ? firing.length : null} />
       )}
+
+      {!hidden.includes("signals") && <SignalsPanel />}
 
       {problems.length > 0 && (
         <div className="flex flex-wrap gap-2">

@@ -3800,6 +3800,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/signals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The live global signal stream with severity counts */
+        get: operations["listSignals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/signals/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss one or more signals */
+        post: operations["dismissSignals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/folders": {
         parameters: {
             query?: never;
@@ -5185,6 +5219,36 @@ export interface components {
             path: string;
             /** Format: date-time */
             createdAt: string;
+        };
+        Signal: {
+            /** Format: int64 */
+            id: number;
+            collector: string;
+            /** @description Integration type id, or "system" */
+            sourceType: string;
+            /** Format: uuid */
+            sourceId?: string;
+            sourceName: string;
+            /** @enum {string} */
+            severity: "info" | "warning" | "critical" | "recovered";
+            title: string;
+            body: string;
+            /** @description Deep payload — log excerpts, entity lists, run ids… */
+            detail?: unknown;
+            /** @description Occurrences folded into this row */
+            count: number;
+            /** Format: date-time */
+            firstSeen: string;
+            /** Format: date-time */
+            lastSeen: string;
+            /** Format: date-time */
+            resolvedAt?: string;
+        };
+        SignalCounts: {
+            info: number;
+            warning: number;
+            critical: number;
+            recovered: number;
         };
         TelegramSettings: {
             enabled: boolean;
@@ -12622,6 +12686,60 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    listSignals: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live signals, newest activity first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Signal"][];
+                        counts: components["schemas"]["SignalCounts"];
+                    };
+                };
+            };
+        };
+    };
+    dismissSignals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: number[];
+                };
+            };
+        };
+        responses: {
+            /** @description How many live signals were dismissed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        dismissed: number;
+                    };
+                };
+            };
         };
     };
     listFolders: {

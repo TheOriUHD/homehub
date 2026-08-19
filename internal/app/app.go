@@ -48,6 +48,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/notify"
 	"github.com/TheOriUHD/homehub/internal/rbac"
 	"github.com/TheOriUHD/homehub/internal/settings"
+	"github.com/TheOriUHD/homehub/internal/signals"
 	"github.com/TheOriUHD/homehub/internal/store"
 	"github.com/TheOriUHD/homehub/internal/telegram"
 	"github.com/TheOriUHD/homehub/internal/term"
@@ -155,6 +156,16 @@ func Run(ctx context.Context) error {
 	registerPatchpilotJobs(jobEngine, st, ppRegistry, logger)
 	manager.StatusChanged = statusNotifier(engine, notifySvc)
 	registerTailscaleRenewal(jobEngine, st, v, manager, engine, notifySvc, logger)
+
+	// Signals: the global notification stream. Collectors sweep every system
+	// once a minute (each on its own cadence) and reconcile what they see.
+	signalsSvc := signals.NewService(st, hub.Publish, logger)
+	signals.RegisterBuiltins(signalsSvc, signals.Deps{Store: st, Manager: manager})
+	jobEngine.Register("signals.sweep", func(ctx context.Context, _ json.RawMessage) error {
+		signalsSvc.Sweep(ctx)
+		_, _ = st.PruneSignals(ctx, 30*24*time.Hour)
+		return nil
+	})
 
 	docker.RegisterJobs(func(kind string, fn func(ctx context.Context, payload json.RawMessage) error) {
 		jobEngine.Register(kind, fn)
@@ -324,6 +335,10 @@ func authorizeTopic(ctx context.Context, engine *rbac.Engine, userID uuid.UUID, 
 	case topic == "convert":
 		// Personal converter progress — delivered per-user via PublishUser.
 		return true
+	case topic == "signals":
+		// The global signal stream — one homelab, one truth; identity is the
+		// authorization.
+		return true
 	case topic == "health":
 		ok, err := engine.Can(ctx, principal, api.ResHealth, rbac.LevelView)
 		return err == nil && ok
@@ -455,5 +470,12 @@ func ensureMaintenanceSchedule(ctx context.Context, st *store.Store) error {
 	if err != nil {
 		return err
 	}
-	return st.EnsureSchedule(ctx, "PatchPilot due check", "patchpilot.check", map[string]any{}, "* * * * *", next)
+	if err := st.EnsureSchedule(ctx, "PatchPilot due check", "patchpilot.check", map[string]any{}, "* * * * *", next); err != nil {
+		return err
+	}
+	next, err = jobs.NextRun("* * * * *", time.Now())
+	if err != nil {
+		return err
+	}
+	return st.EnsureSchedule(ctx, "Signals sweep", "signals.sweep", map[string]any{}, "* * * * *", next)
 }
