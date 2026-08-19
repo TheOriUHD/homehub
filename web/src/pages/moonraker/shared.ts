@@ -116,3 +116,33 @@ export function useMoonrakerFirmwareRestart(instanceId: string) {
     onSuccess: () => invalidate(qc, instanceId),
   });
 }
+
+/** Persist a camera's display flags (flip H/V independently, rotation). */
+export function useMoonrakerSetWebcam(instanceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      name: string;
+      flipHorizontal?: boolean;
+      flipVertical?: boolean;
+      rotation?: 0 | 90 | 180 | 270;
+    }) =>
+      unwrap(
+        await api.POST("/moonraker/{id}/webcam", {
+          params: { path: { id: instanceId } },
+          body: vars,
+        }),
+      ),
+    onSuccess: () => invalidate(qc, instanceId),
+  });
+}
+
+/** Backend proxy URL for a camera's live MJPEG stream (works over HTTPS/off-LAN). */
+export function webcamStreamUrl(instanceId: string, name: string): string {
+  return `/api/moonraker/${instanceId}/webcam/stream?name=${encodeURIComponent(name)}`;
+}
+
+/** Backend proxy URL for a camera's still frame. */
+export function webcamSnapshotUrl(instanceId: string, name: string): string {
+  return `/api/moonraker/${instanceId}/webcam/snapshot?name=${encodeURIComponent(name)}`;
+}

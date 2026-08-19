@@ -106,6 +106,7 @@ type Snapshot struct {
 	Leds       []Led       `json:"leds"`
 	OutputPins []OutputPin `json:"outputPins"`
 	Macros     []Macro     `json:"macros"`
+	Cameras    []Camera    `json:"cameras"`
 	Extra      []string    `json:"extra"`
 	UpdatedAt  time.Time   `json:"updatedAt"`
 	Live       bool        `json:"live"`
@@ -218,16 +219,18 @@ type Conn struct {
 	client *client
 	deps   integration.Deps
 
-	mu          sync.Mutex
-	objects     []string             // discovered object names
-	subNames    []string             // the subset we query/subscribe for state
-	macros      []Macro              // discovered macros (with descriptions)
-	discAt      time.Time            // last discovery
-	state       map[string]objFields // live merged state (from WS, seeded by REST)
-	stateAt     time.Time            // when state was last refreshed
-	live        bool                 // true while the WS subscription is up
-	meta        PrinterMeta          // last REST-fetched printer meta (for live snapshots)
-	lastPublish time.Time            // coalesces high-rate WS snapshot pushes
+	mu           sync.Mutex
+	objects      []string             // discovered object names
+	subNames     []string             // the subset we query/subscribe for state
+	macros       []Macro              // discovered macros (with descriptions)
+	discAt       time.Time            // last discovery
+	state        map[string]objFields // live merged state (from WS, seeded by REST)
+	stateAt      time.Time            // when state was last refreshed
+	live         bool                 // true while the WS subscription is up
+	meta         PrinterMeta          // last REST-fetched printer meta (for live snapshots)
+	lastPublish  time.Time            // coalesces high-rate WS snapshot pushes
+	webcamsCache []webcamWire         // cached /server/webcams/list
+	webcamsAt    time.Time            // webcam cache timestamp
 
 	cancel context.CancelFunc // stops the WS loop
 }
@@ -388,6 +391,9 @@ func (c *Conn) Snapshot(ctx context.Context) (*Snapshot, error) {
 	c.mu.Lock()
 	c.meta = snap.Printer
 	c.mu.Unlock()
+	if cams := c.Cameras(ctx); cams != nil {
+		snap.Cameras = cams
+	}
 	return snap, nil
 }
 
@@ -571,7 +577,7 @@ func macrosFrom(objects []string) []Macro {
 func buildSnapshot(objects []string, state map[string]objFields, macros []Macro) *Snapshot {
 	snap := &Snapshot{
 		Heaters: []Heater{}, Sensors: []Sensor{}, TempFans: []TempFan{},
-		Fans: []Fan{}, Leds: []Led{}, OutputPins: []OutputPin{}, Extra: []string{},
+		Fans: []Fan{}, Leds: []Led{}, OutputPins: []OutputPin{}, Cameras: []Camera{}, Extra: []string{},
 		Macros: macros, UpdatedAt: time.Now(),
 	}
 	if snap.Macros == nil {

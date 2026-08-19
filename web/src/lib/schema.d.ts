@@ -2265,6 +2265,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/moonraker/{id}/webcam": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Persist a camera's display settings (flip H/V, rotation)
+         * @description Writes the per-camera display flags back through Moonraker so they stick and stay in sync with the printer's other UIs. Horizontal and vertical flip are independent. Requires control on the instance.
+         */
+        post: operations["moonrakerSetWebcam"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patchpilot/{id}/hosts": {
         parameters: {
             query?: never;
@@ -6009,6 +6029,7 @@ export interface components {
             leds: components["schemas"]["MoonrakerLed"][];
             outputPins: components["schemas"]["MoonrakerOutputPin"][];
             macros: components["schemas"]["MoonrakerMacro"][];
+            cameras: components["schemas"]["MoonrakerCamera"][];
             /** @description Object names the printer exposes that have no dedicated control yet */
             extra: string[];
             /** Format: date-time */
@@ -6112,6 +6133,20 @@ export interface components {
             object: string;
             name: string;
             description?: string;
+        };
+        MoonrakerCamera: {
+            name: string;
+            /** @description the streamer, e.g. mjpegstreamer-adaptive, uv4l-mjpeg, webrtc */
+            service: string;
+            flipHorizontal: boolean;
+            flipVertical: boolean;
+            /** @description 0 | 90 | 180 | 270 */
+            rotation: number;
+            targetFps: number;
+            /** @description e.g. 4:3, 16:9 */
+            aspectRatio: string;
+            /** @description a still-image URL is available for this camera */
+            snapshot: boolean;
         };
         PatchpilotHost: {
             /** Format: uuid */
@@ -10395,6 +10430,40 @@ export interface operations {
                 };
                 content?: never;
             };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    moonrakerSetWebcam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description the camera's name */
+                    name: string;
+                    flipHorizontal?: boolean;
+                    flipVertical?: boolean;
+                    /** @enum {integer} */
+                    rotation?: 0 | 90 | 180 | 270;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             502: components["responses"]["UpstreamError"];
         };

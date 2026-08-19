@@ -219,6 +219,9 @@ func (c *Conn) publishSnapshot(force bool) {
 	snap := buildSnapshot(objects, state, macros)
 	snap.Live = true
 	snap.Printer = meta
+	if cams := c.camerasCached(); len(cams) > 0 {
+		snap.Cameras = cams
+	}
 	if wh, ok := state["webhooks"]; ok {
 		if s := wh.str("state"); s != "" {
 			snap.Klippy.State = s

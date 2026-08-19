@@ -76,6 +76,11 @@ func Handler(deps Deps) http.Handler {
 		// Assistant: streamed turn (NDJSON) + confirmed write actions.
 		apiRouter.Post("/assistant/chat/stream", deps.API.HandleAssistantChatStream)
 		apiRouter.Post("/assistant/actions/apply", deps.API.HandleAssistantApply)
+		// Moonraker webcams: proxy the printer's MJPEG stream / snapshot so the
+		// browser can show it over HTTPS and from off-LAN (registered raw so the
+		// long-lived stream body isn't buffered by the generated handlers).
+		apiRouter.Get("/moonraker/{id}/webcam/stream", deps.API.HandleMoonrakerWebcamStream)
+		apiRouter.Get("/moonraker/{id}/webcam/snapshot", deps.API.HandleMoonrakerWebcamSnapshot)
 		// Companion agents authenticate with pairing codes/tokens, not sessions.
 		apiRouter.Get("/mc/agent", func(w http.ResponseWriter, r *http.Request) {
 			deps.MC.HandleAgent(w, r, api.ClientIP(r))

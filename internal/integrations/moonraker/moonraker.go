@@ -94,9 +94,18 @@ type rpcResult struct {
 }
 
 func (c *client) do(ctx context.Context, method, path string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, method, c.base+path, nil)
+	return c.doBody(ctx, method, path, nil, "", out)
+}
+
+// doBody is the shared request path; body/contentType are empty for the GET and
+// query-param POST actions, and set for the one JSON body call (webcam update).
+func (c *client) doBody(ctx context.Context, method, path string, body io.Reader, contentType string, out any) error {
+	req, err := http.NewRequestWithContext(ctx, method, c.base+path, body)
 	if err != nil {
 		return err
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
 	}
 	if c.key != "" {
 		req.Header.Set("X-Api-Key", c.key)
@@ -141,6 +150,11 @@ func (c *client) get(ctx context.Context, path string, out any) error {
 // parameters (e.g. /printer/gcode/script?script=…), so callers pre-encode.
 func (c *client) post(ctx context.Context, path string) error {
 	return c.do(ctx, http.MethodPost, path, nil)
+}
+
+// postJSON POSTs a JSON body (used for the webcam item update).
+func (c *client) postJSON(ctx context.Context, path string, body []byte) error {
+	return c.doBody(ctx, http.MethodPost, path, bytes.NewReader(body), "application/json", nil)
 }
 
 func friendlyNetErr(err error) error {

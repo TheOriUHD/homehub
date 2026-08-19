@@ -3546,6 +3546,39 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /moonraker/{id}/webcam:
+    post:
+      operationId: moonrakerSetWebcam
+      summary: Persist a camera's display settings (flip H/V, rotation)
+      description: >-
+        Writes the per-camera display flags back through Moonraker so they stick
+        and stay in sync with the printer's other UIs. Horizontal and vertical
+        flip are independent. Requires control on the instance.
+      tags: [moonraker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, description: the camera's name }
+                flipHorizontal: { type: boolean }
+                flipVertical: { type: boolean }
+                rotation: { type: integer, enum: [0, 90, 180, 270] }
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /patchpilot/{id}/hosts:
     get:
       operationId: patchpilotHosts
@@ -8748,7 +8781,7 @@ components:
 
     MoonrakerSnapshot:
       type: object
-      required: [klippy, printer, heaters, sensors, tempFans, fans, leds, outputPins, macros, extra, updatedAt, live]
+      required: [klippy, printer, heaters, sensors, tempFans, fans, leds, outputPins, macros, cameras, extra, updatedAt, live]
       properties:
         klippy: { $ref: "#/components/schemas/MoonrakerKlippy" }
         printer: { $ref: "#/components/schemas/MoonrakerPrinterMeta" }
@@ -8779,6 +8812,9 @@ components:
         macros:
           type: array
           items: { $ref: "#/components/schemas/MoonrakerMacro" }
+        cameras:
+          type: array
+          items: { $ref: "#/components/schemas/MoonrakerCamera" }
         extra:
           type: array
           description: Object names the printer exposes that have no dedicated control yet
@@ -8908,6 +8944,19 @@ components:
         object: { type: string }
         name: { type: string }
         description: { type: string }
+
+    MoonrakerCamera:
+      type: object
+      required: [name, service, flipHorizontal, flipVertical, rotation, targetFps, aspectRatio, snapshot]
+      properties:
+        name: { type: string }
+        service: { type: string, description: "the streamer, e.g. mjpegstreamer-adaptive, uv4l-mjpeg, webrtc" }
+        flipHorizontal: { type: boolean }
+        flipVertical: { type: boolean }
+        rotation: { type: integer, description: "0 | 90 | 180 | 270" }
+        targetFps: { type: integer }
+        aspectRatio: { type: string, description: "e.g. 4:3, 16:9" }
+        snapshot: { type: boolean, description: "a still-image URL is available for this camera" }
 
     PatchpilotHost:
       type: object
