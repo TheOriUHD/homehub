@@ -1,20 +1,26 @@
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { FileQuestion } from "lucide-react";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState } from "@/ui/states";
-import { FileQuestion } from "lucide-react";
 import { toolById } from "./registry";
+import { rememberWorkbench, WorkbenchSidebar } from "./workbench";
 
 /**
- * The uniform chrome every client-side utility renders inside: a back link,
- * the tool's icon/title/description from the registry, then the tool body.
- * Tools own only their body — the header is central, so every utility looks
- * like it belongs to the same app.
+ * A small utility open = workbench mode: the categorized sidebar on the
+ * left (big three apps pinned on top), the tool filling the rest of the
+ * width. Tools own only their body — the chrome is central, so every
+ * utility looks like it belongs to the same app.
  */
 export function ToolAppPage() {
   const { toolId } = useParams({ from: "/shell/tools/$toolId" });
   const tool = toolById(toolId);
+
+  // Opening any utility turns the hub into a workbench for the session;
+  // big apps entered from the sidebar return here instead of the grid.
+  useEffect(() => {
+    if (tool) rememberWorkbench(toolId);
+  }, [tool, toolId]);
 
   if (!tool) {
     return (
@@ -35,16 +41,11 @@ export function ToolAppPage() {
   const Body = tool.Component;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
-      <div>
-        <Link
-          to="/tools"
-          className="text-fg-subtle hover:text-fg mb-3 inline-flex items-center gap-1.5 text-[13px]"
-        >
-          <ArrowLeft className="size-3.5" />
-          Utilities
-        </Link>
-        <div className="flex items-start gap-3">
+    <div className="flex min-h-[calc(100dvh-6.5rem)] items-stretch gap-4">
+      <WorkbenchSidebar activeToolId={toolId} />
+
+      <div className="min-w-0 flex-1">
+        <div className="mb-5 flex items-start gap-3">
           <span className="bg-accent-soft text-accent-soft-fg flex size-11 shrink-0 items-center justify-center rounded-xl">
             <Icon className="size-5" />
           </span>
@@ -53,11 +54,11 @@ export function ToolAppPage() {
             <p className="text-fg-muted mt-0.5 text-sm">{tool.desc}</p>
           </div>
         </div>
-      </div>
 
-      <Suspense fallback={<PageLoader className="py-16" />}>
-        <Body />
-      </Suspense>
+        <Suspense fallback={<PageLoader className="py-16" />}>
+          <Body />
+        </Suspense>
+      </div>
     </div>
   );
 }
