@@ -219,7 +219,7 @@ func (c *haBatteryCollector) Collect(ctx context.Context) ([]Observation, error)
 				out = append(out, Observation{
 					Key:      key,
 					Severity: sev,
-					Title:    fmt.Sprintf("%s battery at %.0f%%", e.Name, pct),
+					Title:    fmt.Sprintf("%s at %.0f%%", batteryLabel(e.Name), pct),
 					Body:     "Charge or replace the battery soon.",
 					Detail: map[string]any{
 						"entityId": e.EntityID, "battery": pct,
@@ -227,7 +227,7 @@ func (c *haBatteryCollector) Collect(ctx context.Context) ([]Observation, error)
 					},
 					SourceType: "homeassistant", SourceID: srcID(inst.ID), SourceName: inst.Name,
 					AutoResolve:  true,
-					ResolveTitle: fmt.Sprintf("%s battery recovered", e.Name),
+					ResolveTitle: fmt.Sprintf("%s recovered", batteryLabel(e.Name)),
 					ResolveBody:  "The battery level is back above 20%.",
 				})
 			case "binary_sensor":
@@ -237,7 +237,7 @@ func (c *haBatteryCollector) Collect(ctx context.Context) ([]Observation, error)
 				out = append(out, Observation{
 					Key:      key,
 					Severity: SevWarning,
-					Title:    fmt.Sprintf("%s reports a low battery", e.Name),
+					Title:    fmt.Sprintf("%s is low", batteryLabel(e.Name)),
 					Body:     "Charge or replace the battery soon.",
 					Detail: map[string]any{
 						"entityId": e.EntityID,
@@ -245,12 +245,21 @@ func (c *haBatteryCollector) Collect(ctx context.Context) ([]Observation, error)
 					},
 					SourceType: "homeassistant", SourceID: srcID(inst.ID), SourceName: inst.Name,
 					AutoResolve:  true,
-					ResolveTitle: fmt.Sprintf("%s battery recovered", e.Name),
+					ResolveTitle: fmt.Sprintf("%s recovered", batteryLabel(e.Name)),
 				})
 			}
 		}
 	}
 	return out, nil
+}
+
+// batteryLabel avoids "<Name> battery at N%" reading as "… Battery battery at N%"
+// when the entity name already mentions the battery.
+func batteryLabel(name string) string {
+	if strings.Contains(strings.ToLower(name), "batter") {
+		return name
+	}
+	return name + " battery"
 }
 
 // ---- PatchPilot -------------------------------------------------------------
@@ -398,6 +407,17 @@ func (c *backupCollector) Collect(ctx context.Context) ([]Observation, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Only report on targets that STILL EXIST. Run history outlives a deleted
+	// target, so without this a removed target's last (failed) run would
+	// resurrect a phantom "Backups to X are failing" forever.
+	targets, terr := c.Store.ListBackupTargets(ctx)
+	if terr != nil {
+		return nil, terr
+	}
+	live := make(map[string]bool, len(targets))
+	for _, tg := range targets {
+		live[tg.Name] = true
+	}
 	type state struct {
 		lastStatus  string
 		lastError   string
@@ -417,8 +437,8 @@ func (c *backupCollector) Collect(ctx context.Context) ([]Observation, error) {
 	}
 	var out []Observation
 	for name, st := range byTarget {
-		if name == "" {
-			continue
+		if name == "" || !live[name] {
+			continue // unnamed, or the target was deleted — don't flag ghosts
 		}
 		if st.lastStatus == "failed" {
 			body := st.lastError
