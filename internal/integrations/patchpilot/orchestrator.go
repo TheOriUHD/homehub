@@ -265,6 +265,11 @@ func redactCmd(cmd string) string {
 
 // DryRun connects to a host and reports available updates without changing it.
 func (r *Registry) DryRun(ctx context.Context, h *store.PatchpilotHost) (*DryRunResult, error) {
+	// Bound the whole probe: the caller's HTTP request context carries no
+	// deadline, so without this a wedged apt (e.g. a stalled mirror) would keep
+	// the handler goroutine alive as long as the client stays connected.
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
 	conn, err := r.connectHost(ctx, h)
 	if err != nil {
 		return nil, err
@@ -285,6 +290,9 @@ func (r *Registry) DryRun(ctx context.Context, h *store.PatchpilotHost) (*DryRun
 
 // Reboot issues an explicit reboot (only ever on operator request).
 func (r *Registry) Reboot(ctx context.Context, h *store.PatchpilotHost) error {
+	// Reboot is quick; bound it so a hung transport can't pin the handler.
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
 	conn, err := r.connectHost(ctx, h)
 	if err != nil {
 		return err

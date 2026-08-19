@@ -99,6 +99,13 @@ func path(paths map[string]string, name string) string {
 	return name
 }
 
+// aptAcquire bounds apt's network fetches so one slow or blackholed mirror
+// (the classic security.ubuntu.com-over-IPv6 stall) can't hang a run: cap each
+// connection at 20s, retry a bounded 3 times, and prefer IPv4 to sidestep a
+// dead AAAA route. Homelab hosts are effectively always IPv4-reachable; a
+// genuinely IPv6-only host is the rare exception.
+const aptAcquire = " -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o Acquire::ForceIPv4=true"
+
 // UpdateCommand builds the full upgrade command, wrapped by the given sudo
 // prefix (e.g. "sudo -n " or "" for a root session).
 func UpdateCommand(mgr string, paths map[string]string, sudo string) string {
@@ -106,8 +113,8 @@ func UpdateCommand(mgr string, paths map[string]string, sudo string) string {
 	switch mgr {
 	case MgrApt, MgrAptProxmox:
 		return fmt.Sprintf(
-			"%s%s update && DEBIAN_FRONTEND=noninteractive %s%s -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade && %s%s -y autoremove",
-			sudo, aptGet, sudo, aptGet, sudo, aptGet)
+			"%s%s%s update && DEBIAN_FRONTEND=noninteractive %s%s%s -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade && %s%s -y autoremove",
+			sudo, aptGet, aptAcquire, sudo, aptGet, aptAcquire, sudo, aptGet)
 	case MgrDNF:
 		return sudo + path(paths, "dnf") + " -y upgrade"
 	case MgrPacman:
@@ -127,7 +134,7 @@ func DryRunCommand(mgr string, paths map[string]string, sudo string) string {
 	case MgrApt, MgrAptProxmox:
 		aptGet := path(paths, "apt-get")
 		apt := path(paths, "apt")
-		return fmt.Sprintf("%s%s update >/dev/null 2>&1; %s%s -s dist-upgrade; %s%s list --upgradable 2>/dev/null",
+		return fmt.Sprintf("%s%s"+aptAcquire+" update >/dev/null 2>&1; %s%s -s dist-upgrade; %s%s list --upgradable 2>/dev/null",
 			sudo, aptGet, sudo, aptGet, sudo, apt)
 	case MgrDNF:
 		// check-update exits 100 when updates exist — not an error.
