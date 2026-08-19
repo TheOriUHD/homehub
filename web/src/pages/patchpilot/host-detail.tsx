@@ -124,28 +124,25 @@ export function PatchpilotHostDetailPage() {
       toast("success", t("patchpilot.hostDetail.run"), bodyOf(data)),
     );
 
-  const doReboot = () =>
-    invoke("reboot", () => action.reboot(hostId), (data) => {
-      setConfirm(null);
-      toast("success", t("patchpilot.hostDetail.reboot"), bodyOf(data));
-    });
+  const doReboot = () => {
+    setConfirm(null); // close the dialog at once; the reboot runs in the background
+    invoke("reboot", () => action.reboot(hostId), (data) =>
+      toast("success", t("patchpilot.hostDetail.reboot"), bodyOf(data)),
+    );
+  };
 
   const doRepair = () =>
     invoke("repair", () => action.repairSudoers(hostId), (data) =>
       toast("success", t("patchpilot.hostDetail.repair"), bodyOf(data)),
     );
 
-  const doRemove = () =>
+  const doRemove = () => {
+    setConfirm(null); // close the dialog at once
     deleteHost.mutate(hostId, {
-      onSuccess: () => {
-        setConfirm(null);
-        void navigate({ to: "/patchpilot/$instanceId", params: { instanceId } });
-      },
-      onError: (e) => {
-        setConfirm(null);
-        toast("error", errMsg(e));
-      },
+      onSuccess: () => void navigate({ to: "/patchpilot/$instanceId", params: { instanceId } }),
+      onError: (e) => toast("error", errMsg(e)),
     });
+  };
 
   // ---- settings persistence -------------------------------------------------
 

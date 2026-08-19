@@ -118,9 +118,22 @@ func execGroup(h store.PatchpilotHost) int {
 func (r *Registry) executeRun(ctx context.Context, run *store.PatchpilotRun, hosts []store.PatchpilotHost, suppressReboot bool) {
 	defer r.clearRunning(run.IntegrationID)
 
+	// Pre-create a pending host-run per host so the run shows its full roster
+	// from the first tick — the progress denominator and the monitor's host
+	// rail are correct immediately, not growing as hosts start.
+	hostRuns := make([]*store.PatchpilotHostRun, len(hosts))
+	for i, h := range hosts {
+		hr, err := r.store.CreatePatchpilotHostRun(ctx, store.PatchpilotHostRun{RunID: run.ID, HostID: &hosts[i].ID, HostName: h.Name})
+		if err != nil {
+			r.logger.Error("create host run", "host", h.Name, "error", err)
+			continue
+		}
+		hostRuns[i] = hr
+	}
+
 	var success, failed, skipped int
-	for _, h := range hosts {
-		outcome := r.executeHostRun(ctx, run, h, suppressReboot)
+	for i, h := range hosts {
+		outcome := r.executeHostRun(ctx, run, hostRuns[i], h, suppressReboot)
 		switch outcome {
 		case "success":
 			success++
@@ -146,9 +159,8 @@ func (r *Registry) executeRun(ctx context.Context, run *store.PatchpilotRun, hos
 }
 
 // executeHostRun runs one host's slice and returns its terminal status.
-func (r *Registry) executeHostRun(ctx context.Context, run *store.PatchpilotRun, h store.PatchpilotHost, suppressReboot bool) string {
-	hr, err := r.store.CreatePatchpilotHostRun(ctx, store.PatchpilotHostRun{RunID: run.ID, HostID: &h.ID, HostName: h.Name})
-	if err != nil {
+func (r *Registry) executeHostRun(ctx context.Context, run *store.PatchpilotRun, hr *store.PatchpilotHostRun, h store.PatchpilotHost, suppressReboot bool) string {
+	if hr == nil { // its row failed to create above
 		return "failed"
 	}
 	_ = r.store.StartPatchpilotHostRun(ctx, hr.ID)
@@ -185,12 +197,18 @@ func (r *Registry) executeHostRun(ctx context.Context, run *store.PatchpilotRun,
 		return fail(fmt.Sprintf("package manager exited %d", code))
 	}
 
-	// Reboot detection (never auto-reboots — just reports).
+	// Reboot detection. A host only reboots when it opted in (auto_reboot) and
+	// the schedule didn't suppress it — otherwise we just report.
 	rebootRequired := false
 	if !suppressReboot {
 		out, rc, _ := conn.Run(rctx, RebootRequiredCommand(h.PackageManager, paths, "sudo -n "))
 		_ = out
 		rebootRequired = rc == 0
+	}
+	autoRebooted := false
+	if rebootRequired && h.AutoReboot && !suppressReboot {
+		r.appendLog(rctx, run, hr.ID, h, "\n[patchpilot] reboot required — auto-rebooting this host\n")
+		autoRebooted = true
 	}
 
 	// Count what changed via a post-run simulate (cheap; advisory).
@@ -202,10 +220,19 @@ func (r *Registry) executeHostRun(ctx context.Context, run *store.PatchpilotRun,
 	}
 
 	code0 := 0
-	_ = r.store.FinishPatchpilotHostRun(ctx, hr.ID, "success", &code0, pkgCount, rebootRequired, "")
+	// If we're about to auto-reboot, the reboot resolves the requirement, so
+	// record the host as no longer needing one.
+	stillNeedsReboot := rebootRequired && !autoRebooted
+	_ = r.store.FinishPatchpilotHostRun(ctx, hr.ID, "success", &code0, pkgCount, stillNeedsReboot, "")
 	_ = r.store.SetPatchpilotHostRunStatus(ctx, h.ID, "success", time.Now())
-	_ = r.store.SetPatchpilotHostSnapshot(ctx, h.ID, pkgCount, rebootRequired, time.Now())
+	_ = r.store.SetPatchpilotHostSnapshot(ctx, h.ID, pkgCount, stillNeedsReboot, time.Now())
 	r.hostEvent(run.IntegrationID, run.ID, hr.ID, h, "success", "")
+
+	// Issue the auto-reboot last — it drops the connection (deferred Close
+	// handles the teardown).
+	if autoRebooted {
+		_, _, _ = conn.Run(rctx, RebootCommand(paths, "sudo -n "))
+	}
 	return "success"
 }
 
@@ -267,7 +294,11 @@ func (r *Registry) Reboot(ctx context.Context, h *store.PatchpilotHost) error {
 	paths := r.resolvedPaths(ctx, conn, h.PackageManager)
 	// The reboot drops the connection; treat a transport error as success.
 	_, _, err = conn.Run(ctx, RebootCommand(paths, "sudo -n "))
-	if err != nil && strings.Contains(err.Error(), "EOF") {
+	if err == nil || strings.Contains(err.Error(), "EOF") {
+		// We rebooted it — the pending reboot is resolved, so clear the flag
+		// now instead of waiting for the next check.
+		_ = r.store.ClearPatchpilotHostReboot(context.Background(), h.ID)
+		r.publish(h.IntegrationID, "hosts-changed", map[string]any{"hostId": h.ID})
 		return nil
 	}
 	return err

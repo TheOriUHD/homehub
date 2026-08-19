@@ -164,6 +164,7 @@ export function useOnboardHost(instanceId: string) {
       password?: string;
       rootPassword?: string;
       notes?: string;
+      autoReboot?: boolean;
     }): Promise<PatchpilotHost> =>
       unwrap(await api.POST("/patchpilot/{id}/hosts/onboard", { params: { path: { id: instanceId } }, body })),
     onSuccess: () => {

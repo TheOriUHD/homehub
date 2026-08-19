@@ -2985,7 +2985,9 @@
       "steps": "Setup progress",
       "intro": "HomeHub sets up passwordless access over SSH, then manages updates from here. The login below is used once and never stored.",
       "manualKeyTitle": "Install the key manually instead",
-      "onboarded": "Host added"
+      "onboarded": "Host added",
+      "autoReboot": "Auto-reboot after updates",
+      "autoRebootHint": "If an update needs a reboot, reboot this host automatically once it's done."
     },
     "hostDetail": {
       "back": "All hosts",
