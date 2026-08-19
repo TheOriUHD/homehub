@@ -3,17 +3,16 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/TheOriUHD/homehub/internal/assistant"
-	"github.com/TheOriUHD/homehub/internal/calendar"
 	"github.com/TheOriUHD/homehub/internal/httpctx"
-	"github.com/TheOriUHD/homehub/internal/store"
 )
 
 // assistantRuntime resolves the configured provider + a Service for one turn,
@@ -150,6 +149,12 @@ func (s *Server) HandleAssistantApply(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"applied": applied, "message": msg, "summaries": summaries})
 }
 
+// applyAssistantAction executes one approved write by REPLAYING it through
+// SelfCall — the same in-process handler path the model's read tools use — so
+// every action inherits the REST handler's RBAC check and audit log instead of
+// re-implementing the write here. Any future action kind that maps to a
+// permission-gated operation is therefore gated automatically; it must NOT be
+// added as a direct store/service call.
 func (s *Server) applyAssistantAction(ctx context.Context, id *httpctx.Identity, a assistant.PendingAction) (string, error) {
 	switch a.Kind {
 	case "calendar.delete_event":
@@ -165,20 +170,15 @@ func (s *Server) applyAssistantAction(ctx context.Context, id *httpctx.Identity,
 		if ev, err := s.store.GetCalendarEvent(ctx, p.EventID); err == nil {
 			label = fmt.Sprintf("Deleted “%s”", ev.Title)
 		}
-		if s.calendar == nil {
-			return label, fmt.Errorf("calendar service unavailable")
-		}
-		scope := calendar.EditScope(p.Scope)
+		scope := p.Scope
 		if scope == "" {
-			scope = calendar.ScopeAll
+			scope = "all"
 		}
-		occ := time.Time{}
+		path := "/calendar/events/" + p.EventID.String() + "?scope=" + url.QueryEscape(scope)
 		if p.OccurrenceStart != "" {
-			if t, terr := time.Parse(time.RFC3339, p.OccurrenceStart); terr == nil {
-				occ = t
-			}
+			path += "&occurrenceStart=" + url.QueryEscape(p.OccurrenceStart)
 		}
-		return label, s.calendar.DeleteEvent(ctx, p.EventID, scope, occ)
+		return label, selfCallResult(s.SelfCall(ctx, id, http.MethodDelete, path, nil))
 
 	case "calendar.create_calendar":
 		var p struct {
@@ -191,20 +191,23 @@ func (s *Server) applyAssistantAction(ctx context.Context, id *httpctx.Identity,
 		if kind == "" {
 			kind = "local"
 		}
-		row := store.Calendar{Name: p.Name, Color: p.Color, Kind: kind, URL: p.URL, ReadOnly: kind != "local"}
+		reqBody := map[string]any{"name": p.Name, "kind": kind}
+		if p.Color != "" {
+			reqBody["color"] = p.Color
+		}
+		if p.URL != "" {
+			reqBody["url"] = p.URL
+		}
+		// Preserve the trash-calendar default reminder lead times the direct
+		// path used to set, since the REST body carries no default.
 		if kind == "trash" {
-			row.Settings = json.RawMessage(`{"leadHours":[72,24]}`)
+			reqBody["settings"] = map[string]any{"leadHours": []int{72, 24}}
 		}
-		created, err := s.store.CreateCalendar(ctx, row)
-		if err != nil {
-			return fmt.Sprintf("Create calendar “%s”", p.Name), err
+		label := fmt.Sprintf("Create calendar “%s”", p.Name)
+		if err := selfCallResult(s.SelfCall(ctx, id, http.MethodPost, "/calendars", reqBody)); err != nil {
+			return label, err
 		}
-		// Subscribed feeds pull their events straight away (errors land in the
-		// calendar's syncError, not here).
-		if (kind == "ics" || kind == "trash") && p.URL != "" && s.calendar != nil {
-			_ = s.calendar.Sync(ctx, created.ID)
-		}
-		return fmt.Sprintf("Created calendar “%s”", created.Name), nil
+		return fmt.Sprintf("Created calendar “%s”", p.Name), nil
 
 	case "signals.dismiss":
 		var p struct {
@@ -213,11 +216,33 @@ func (s *Server) applyAssistantAction(ctx context.Context, id *httpctx.Identity,
 		if err := json.Unmarshal(a.Params, &p); err != nil {
 			return "Dismiss signals", err
 		}
-		n, err := s.store.DismissSignals(ctx, p.Ids, id.User.ID)
-		if err == nil {
-			s.hub.Publish("signals", map[string]any{"event": "changed"})
+		code, body := s.SelfCall(ctx, id, http.MethodPost, "/signals/dismiss", map[string]any{"ids": p.Ids})
+		if err := selfCallResult(code, body); err != nil {
+			return "Dismiss signals", err
 		}
-		return fmt.Sprintf("Dismissed %d signal(s)", n), err
+		n := len(p.Ids)
+		var r struct {
+			Dismissed int `json:"dismissed"`
+		}
+		if json.Unmarshal(body, &r) == nil {
+			n = r.Dismissed
+		}
+		return fmt.Sprintf("Dismissed %d signal(s)", n), nil
 	}
 	return a.Summary, fmt.Errorf("unknown action %q", a.Kind)
+}
+
+// selfCallResult turns a SelfCall (status, body) into an error when the status
+// is >= 400, surfacing the handler's own error message.
+func selfCallResult(code int, body []byte) error {
+	if code < 400 {
+		return nil
+	}
+	var e struct {
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(body, &e) == nil && e.Message != "" {
+		return errors.New(e.Message)
+	}
+	return fmt.Errorf("request failed (%d)", code)
 }
