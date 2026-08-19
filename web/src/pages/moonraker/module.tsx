@@ -1138,7 +1138,7 @@ function CameraSection({ cameras, instanceId, canControl }: { cameras: Moonraker
   const [expanded, setExpanded] = useState<MoonrakerCamera | null>(null);
   return (
     <Section icon={Video} title={t("moonraker.sections.cameras")} count={cameras.length}>
-      <div className={cn("grid gap-3", cameras.length > 1 ? "sm:grid-cols-2" : "")}>
+      <div className="flex flex-wrap gap-3">
         {cameras.map((cam) => (
           <CameraTile key={cam.name} cam={cam} instanceId={instanceId} canControl={canControl} onExpand={() => setExpanded(cam)} />
         ))}
@@ -1243,7 +1243,10 @@ function CameraTile({
 
   return (
     <div
-      className="border-edge group relative mx-auto w-full overflow-hidden rounded-lg border bg-black"
+      className={cn(
+        "border-edge group relative overflow-hidden rounded-lg border bg-black",
+        expanded ? "mx-auto w-full" : "w-full sm:w-[320px]",
+      )}
       style={{ ...aspectStyle(cam.aspectRatio), maxHeight: expanded ? "78vh" : undefined }}
     >
       {src == null ? (
