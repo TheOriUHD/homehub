@@ -1,7 +1,9 @@
 package netscan
 
 import (
+	"context"
 	"net"
+	"sync"
 	"testing"
 )
 
@@ -38,5 +40,31 @@ func TestVendorFor(t *testing.T) {
 	}
 	if vendorFor("ff:ff:ff:00:00:00") != "" {
 		t.Error("unknown OUI should be empty")
+	}
+}
+
+func TestScanConcurrencyNoRace(t *testing.T) {
+	// Small loopback range with one likely-closed port — exercises the worker
+	// pool, per-host port goroutines, and concurrent emit under -race. Results
+	// don't matter here; we assert emit fires once per address without a race.
+	var mu sync.Mutex
+	seen := map[string]int{}
+	Scan(context.Background(), Options{
+		Start:       net.ParseIP("127.0.0.1"),
+		End:         net.ParseIP("127.0.0.4"),
+		Ports:       []int{1},
+		Concurrency: 4,
+	}, func(r HostResult) {
+		mu.Lock()
+		seen[r.IP]++
+		mu.Unlock()
+	})
+	if len(seen) != 4 {
+		t.Fatalf("expected 4 emits, got %d: %v", len(seen), seen)
+	}
+	for ip, n := range seen {
+		if n != 1 {
+			t.Fatalf("%s emitted %d times, want 1", ip, n)
+		}
 	}
 }
