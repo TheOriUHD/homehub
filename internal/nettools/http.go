@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"homehub/internal/netguard"
 )
 
 // HTTPRequest is a user-composed request for the HTTP tester.
@@ -81,6 +83,14 @@ func DoHTTP(ctx context.Context, in HTTPRequest) (*HTTPResponse, error) {
 
 	client := &http.Client{
 		Timeout: 12 * time.Second,
+		// SSRF guard: the dialer rejects loopback / link-local / cloud-metadata
+		// on the initial connect AND every redirect dial (closing DNS
+		// rebinding), while still allowing RFC1918 LAN + public targets.
+		Transport: &http.Transport{
+			DialContext:           netguard.Dialer(10 * time.Second).DialContext,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 10 * time.Second,
+		},
 		CheckRedirect: func(_ *http.Request, via []*http.Request) error {
 			if len(via) >= 5 {
 				return fmt.Errorf("too many redirects (>5)")

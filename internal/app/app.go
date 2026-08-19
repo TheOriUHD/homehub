@@ -70,6 +70,13 @@ func Run(ctx context.Context) error {
 	slog.SetDefault(logger)
 	logger.Info("starting HomeHub", "version", version.Version, "data_dir", cfg.DataDir)
 
+	// Only believe X-Forwarded-For / X-Real-Ip from configured reverse proxies;
+	// with none set (the default) the client IP is the direct socket peer.
+	api.SetTrustedProxies(cfg.TrustedProxies)
+	if len(cfg.TrustedProxies) > 0 {
+		logger.Info("trusting reverse-proxy headers", "networks", len(cfg.TrustedProxies))
+	}
+
 	if err := db.Migrate(ctx, cfg.DatabaseURL, logger); err != nil {
 		return err
 	}

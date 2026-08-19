@@ -12,6 +12,7 @@ import (
 
 	"homehub/internal/httpctx"
 	"homehub/internal/nettools"
+	"homehub/internal/rbac"
 	"homehub/internal/store"
 )
 
@@ -19,6 +20,23 @@ import (
 // connections on behalf of the signed-in user; each is auth-gated (identity
 // required) and bounded inside the nettools package. No RBAC resource —
 // consistent with the personal utilities area.
+
+// requireToolsControl authorizes the server-backed network utilities: the
+// caller must be signed in AND hold control on ResTools. This keeps read-only
+// Viewers from driving the server's outbound network (SSRF / LAN scanning),
+// while Owner and Operator — who hold control — are unaffected. Returns
+// ErrUnauthenticated / ErrForbidden, which the transport maps to 401 / 403.
+func (s *Server) requireToolsControl(ctx context.Context) error {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return ErrUnauthenticated
+	}
+	if !s.can(ctx, id, ResTools, rbac.LevelControl) {
+		s.deniedAudit(ctx, id, "tools", ResTools)
+		return ErrForbidden
+	}
+	return nil
+}
 
 // wellKnownResolvers maps a resolver id to its DNS server (host:port).
 var wellKnownResolvers = map[string]string{
@@ -29,8 +47,8 @@ var wellKnownResolvers = map[string]string{
 }
 
 func (s *Server) ToolSSL(ctx context.Context, req ToolSSLRequestObject) (ToolSSLResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
-		return nil, ErrUnauthenticated
+	if err := s.requireToolsControl(ctx); err != nil {
+		return nil, err
 	}
 	host := strings.TrimSpace(req.Body.Host)
 	host = strings.TrimPrefix(strings.TrimPrefix(host, "https://"), "http://")
@@ -86,8 +104,8 @@ func (s *Server) adguardHost(ctx context.Context) string {
 }
 
 func (s *Server) ToolDNS(ctx context.Context, req ToolDNSRequestObject) (ToolDNSResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
-		return nil, ErrUnauthenticated
+	if err := s.requireToolsControl(ctx); err != nil {
+		return nil, err
 	}
 	name := strings.TrimSpace(req.Body.Name)
 	if name == "" {
@@ -117,8 +135,8 @@ func (s *Server) ToolDNS(ctx context.Context, req ToolDNSRequestObject) (ToolDNS
 }
 
 func (s *Server) ToolReachability(ctx context.Context, req ToolReachabilityRequestObject) (ToolReachabilityResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
-		return nil, ErrUnauthenticated
+	if err := s.requireToolsControl(ctx); err != nil {
+		return nil, err
 	}
 	host := strings.TrimSpace(req.Body.Host)
 	if host == "" {
@@ -151,8 +169,8 @@ func (s *Server) ToolReachability(ctx context.Context, req ToolReachabilityReque
 }
 
 func (s *Server) ToolHTTP(ctx context.Context, req ToolHTTPRequestObject) (ToolHTTPResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
-		return nil, ErrUnauthenticated
+	if err := s.requireToolsControl(ctx); err != nil {
+		return nil, err
 	}
 	headers := map[string]string{}
 	if req.Body.Headers != nil {

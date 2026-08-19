@@ -50,6 +50,13 @@ const (
 	ResAudit        = "system/audit"
 	ResHealth       = "system/health"
 	ResIntegrations = "system/integrations"
+	// ResTools guards the server-backed network utilities (HTTP tester, DNS,
+	// reachability/port check, SSL check, IP scanner). It is deliberately a
+	// TOP-LEVEL resource, not under "system": the built-in Operator/Viewer
+	// roles carry a deny-view on "system", which would also lock Operators out.
+	// At LevelControl this admits Owner + Operator and excludes read-only
+	// Viewer — the intent, since these drive the server's outbound network.
+	ResTools = "tools"
 )
 
 type Server struct {
@@ -125,6 +132,11 @@ func (s *Server) visibleUnder(ctx context.Context, id *httpctx.Identity, prefix 
 // transport error handler maps it to a JSON 401.
 var ErrUnauthenticated = errors.New("unauthenticated")
 
+// ErrForbidden is returned from handlers when the caller is authenticated but
+// lacks the required grant; the transport error handler maps it to a JSON 403.
+// Used where the generated response type has no 403 variant.
+var ErrForbidden = errors.New("forbidden")
+
 func errBody(code, message string) Error {
 	return Error{Code: code, Message: message}
 }
@@ -141,20 +153,50 @@ func notFoundErr(what string) NotFoundJSONResponse {
 	return NotFoundJSONResponse(errBody("not_found", what+" not found"))
 }
 
-// ClientIP extracts the caller address, honoring reverse-proxy headers.
+// trustedProxies are the reverse-proxy networks whose forwarding headers we
+// believe. Set once at startup from config; empty means trust none.
+var trustedProxies []*net.IPNet
+
+// SetTrustedProxies configures which peer networks may set X-Forwarded-For /
+// X-Real-Ip. Called once during wiring.
+func SetTrustedProxies(nets []*net.IPNet) { trustedProxies = nets }
+
+// ClientIP extracts the caller address. Reverse-proxy headers
+// (X-Real-Ip / X-Forwarded-For) are honored ONLY when the direct socket peer
+// is a configured trusted proxy — otherwise a direct LAN caller could forge
+// its source IP, defeating the login rate-limiter and poisoning audit/session
+// records. With no trusted proxies configured (the default), the client IP is
+// always the real socket peer.
 func ClientIP(r *http.Request) string {
-	if ip := r.Header.Get("X-Real-Ip"); ip != "" {
-		return strings.TrimSpace(ip)
-	}
-	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-		first, _, _ := strings.Cut(fwd, ",")
-		return strings.TrimSpace(first)
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
+	}
+	if !peerIsTrustedProxy(host) {
+		return host
+	}
+	if ip := strings.TrimSpace(r.Header.Get("X-Real-Ip")); ip != "" {
+		return ip
+	}
+	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+		if first, _, _ := strings.Cut(fwd, ","); strings.TrimSpace(first) != "" {
+			return strings.TrimSpace(first)
+		}
 	}
 	return host
+}
+
+func peerIsTrustedProxy(host string) bool {
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	for _, n := range trustedProxies {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 // requestOrigin reconstructs the origin serving this request, for WebAuthn
