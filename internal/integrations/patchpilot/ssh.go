@@ -3,10 +3,12 @@ package patchpilot
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -15,6 +17,25 @@ import (
 // ptyStdinDelay is how long to wait before writing a password to a su/sudo
 // PTY — su reads the terminal, not a pipe, and misses input sent too early.
 const ptyStdinDelay = 400 * time.Millisecond
+
+// syncBuffer is a mutex-guarded bytes.Buffer, safe for the concurrent
+// stdout/stderr copier goroutines x/crypto/ssh runs.
+type syncBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (w *syncBuffer) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.b.Write(p)
+}
+
+func (w *syncBuffer) String() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.b.String()
+}
 
 // Credential is how we authenticate the FIRST connection to a host during
 // onboarding: an operator password (or key) for a login account.
@@ -147,9 +168,12 @@ func (c *SSHConn) Run(ctx context.Context, command string) (string, int, error) 
 		return "", -1, err
 	}
 	defer sess.Close()
-	var buf bytes.Buffer
-	sess.Stdout = &buf
-	sess.Stderr = &buf
+	// Stdout and Stderr are copied by SEPARATE concurrent goroutines in
+	// x/crypto/ssh, so a shared plain bytes.Buffer races (dropping output
+	// intermittently). Guard it with a mutex, as CombinedOutput does.
+	buf := &syncBuffer{}
+	sess.Stdout = buf
+	sess.Stderr = buf
 
 	done := make(chan error, 1)
 	if err := sess.Start(command); err != nil {
@@ -174,48 +198,18 @@ func (c *SSHConn) Run(ctx context.Context, command string) (string, int, error) 
 }
 
 // RunScript executes a shell script under /bin/sh regardless of the login
-// user's shell, by feeding the script to `/bin/sh` on stdin. This dodges
-// non-POSIX login shells (csh/tcsh/fish) and broken PATHs: /bin/sh is an
-// absolute interpreter present on every Linux, and it reads the program from
-// stdin so no quoting or PATH lookup of the script is involved.
+// user's shell, deterministically. The script is base64-encoded and run as
+// `echo <b64> | base64 -d | /bin/sh` — a single in-shell pipeline, so:
+//   - the login shell only ever sees plain words + pipes (works under
+//     sh/bash/csh/tcsh/fish alike — no sh-syntax for it to choke on),
+//   - the script reaches /bin/sh through the pipe with no stdin-write timing
+//     race (the flaky path when streaming to a PTY-less session), and
+//   - /bin/sh is an absolute interpreter present on every Linux.
+//
+// This is the same transport-agnostic trick Ansible uses to run modules.
 func (c *SSHConn) RunScript(ctx context.Context, script string) (string, int, error) {
-	sess, err := c.client.NewSession()
-	if err != nil {
-		return "", -1, err
-	}
-	defer sess.Close()
-	var buf bytes.Buffer
-	sess.Stdout = &buf
-	sess.Stderr = &buf
-	stdin, err := sess.StdinPipe()
-	if err != nil {
-		return "", -1, err
-	}
-	if err := sess.Start("/bin/sh"); err != nil {
-		return "", -1, err
-	}
-	go func() {
-		_, _ = io.WriteString(stdin, script)
-		_ = stdin.Close() // EOF ends the shell
-	}()
-
-	done := make(chan error, 1)
-	go func() { done <- sess.Wait() }()
-	select {
-	case <-ctx.Done():
-		_ = sess.Signal(ssh.SIGKILL)
-		return buf.String(), -1, ctx.Err()
-	case werr := <-done:
-		code := 0
-		if werr != nil {
-			if ee, ok := werr.(*ssh.ExitError); ok {
-				code = ee.ExitStatus()
-			} else {
-				return buf.String(), -1, werr
-			}
-		}
-		return buf.String(), code, nil
-	}
+	b64 := base64.StdEncoding.EncodeToString([]byte(script))
+	return c.Run(ctx, "echo "+b64+" | base64 -d | /bin/sh")
 }
 
 // Stream runs a command and delivers stdout+stderr to onChunk as it arrives,
@@ -299,9 +293,9 @@ func (c *SSHConn) runWithPasswordStdin(ctx context.Context, command string, pty 
 	}
 	defer sess.Close()
 
-	var out bytes.Buffer
-	sess.Stdout = &out
-	sess.Stderr = &out
+	out := &syncBuffer{}
+	sess.Stdout = out
+	sess.Stderr = out
 	stdin, err := sess.StdinPipe()
 	if err != nil {
 		return "", -1, err

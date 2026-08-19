@@ -4,6 +4,7 @@ import (
 	"context"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // detectionProbe is a single shell round-trip that emits ---SECTION---
@@ -67,9 +68,24 @@ func Probe(ctx context.Context, conn *SSHConn) (string, *HostFacts, error) {
 	return out, ParseHostFacts(out), nil
 }
 
-// Detect runs the probe over an onboarding connection and parses the facts.
+// Detect runs the probe over an onboarding connection and parses the facts,
+// retrying an empty/failed probe a couple of times (transient hiccup on a
+// busy host) so onboarding doesn't fail spuriously.
 func Detect(ctx context.Context, conn *SSHConn) (*HostFacts, error) {
-	_, facts, err := Probe(ctx, conn)
+	var facts *HostFacts
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(300 * time.Millisecond)
+		}
+		_, facts, err = Probe(ctx, conn)
+		if err != nil {
+			continue
+		}
+		if facts.PackageManager != "" || facts.OSPretty != "" {
+			return facts, nil
+		}
+	}
 	return facts, err
 }
 
