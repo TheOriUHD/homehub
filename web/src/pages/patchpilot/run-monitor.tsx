@@ -7,7 +7,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent } from "@/ui/dialog";
 import type { PatchpilotHostRun } from "@/lib/api";
-import { ppTopic, runStatusTone, usePatchpilotRunDetail } from "./shared";
+import { ppTopic, runStatusTone, useAbortRun, usePatchpilotRunDetail } from "./shared";
 
 /**
  * RunMonitor is the live "watch the run" surface: a big window with the run's
@@ -26,6 +26,8 @@ export function RunMonitor({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const abort = useAbortRun(instanceId);
+  const [confirmAbort, setConfirmAbort] = useState(false);
 
   // Poll while running; a terminal run needs no polling.
   const [running, setRunning] = useState(true);
@@ -152,11 +154,52 @@ export function RunMonitor({
           </div>
         </div>
 
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex items-center justify-end gap-2">
+          {run?.status === "running" && (
+            <Button
+              variant="danger-ghost"
+              className="mr-auto"
+              loading={abort.isPending}
+              onClick={() => setConfirmAbort(true)}
+            >
+              {t("patchpilot.monitor.abort")}
+            </Button>
+          )}
           <Button variant="secondary" onClick={onClose}>
             {t("common.close")}
           </Button>
         </div>
+
+        {confirmAbort && (
+          <Dialog open onOpenChange={(o) => !o && setConfirmAbort(false)}>
+            <DialogContent
+              title={t("patchpilot.monitor.abortTitle")}
+              description={t("patchpilot.monitor.abortBody")}
+              footer={
+                <>
+                  <Button variant="ghost" onClick={() => setConfirmAbort(false)}>
+                    {t("common.cancel")}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    loading={abort.isPending}
+                    onClick={() =>
+                      abort.mutate(runId, {
+                        onSuccess: () => {
+                          setConfirmAbort(false);
+                          void detail.refetch();
+                        },
+                        onError: () => setConfirmAbort(false),
+                      })
+                    }
+                  >
+                    {t("patchpilot.monitor.abort")}
+                  </Button>
+                </>
+              }
+            />
+          </Dialog>
+        )}
       </DialogContent>
     </Dialog>
   );

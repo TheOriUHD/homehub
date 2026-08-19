@@ -446,6 +446,30 @@ func (s *Server) PatchpilotRun(ctx context.Context, req PatchpilotRunRequestObje
 	return PatchpilotRun202JSONResponse(toAPIPatchpilotRun(run)), nil
 }
 
+func (s *Server) PatchpilotAbortRun(ctx context.Context, req PatchpilotAbortRunRequestObject) (PatchpilotAbortRunResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	fleetID, resource, err := s.ppFleet(ctx, id, req.Id)
+	if err != nil {
+		return PatchpilotAbortRun404JSONResponse{notFoundErr("fleet")}, nil
+	}
+	if !s.can(ctx, id, resource, rbac.LevelControl) {
+		s.deniedAudit(ctx, id, "patchpilot.abort", resource)
+		return PatchpilotAbortRun403JSONResponse{forbidden()}, nil
+	}
+	run, err := s.store.GetPatchpilotRun(ctx, uuid.UUID(req.RunId))
+	if err != nil || run.IntegrationID != fleetID {
+		return PatchpilotAbortRun404JSONResponse{notFoundErr("run")}, nil
+	}
+	if aerr := s.patchpilot.AbortRun(uuid.UUID(req.RunId)); aerr != nil {
+		return PatchpilotAbortRun404JSONResponse{notFoundErr("run")}, nil // not executing here
+	}
+	s.audit.Log(ctx, actorFor(id), "patchpilot.abort", resource, "success", map[string]any{"runId": run.ID})
+	return PatchpilotAbortRun202Response{}, nil
+}
+
 func (s *Server) PatchpilotRuns(ctx context.Context, req PatchpilotRunsRequestObject) (PatchpilotRunsResponseObject, error) {
 	id := httpctx.IdentityFrom(ctx)
 	if id == nil {

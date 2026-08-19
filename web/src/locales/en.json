@@ -3169,7 +3169,10 @@
       "viewCurrent": "View current run",
       "following": "Following",
       "autoFollow": "Auto-following the active host",
-      "waiting": "Waiting for output…"
+      "waiting": "Waiting for output…",
+      "abort": "Abort run",
+      "abortTitle": "Abort this run?",
+      "abortBody": "The host updating right now is stopped, and the hosts still queued won't be started. Any host already updated stays updated. This can't be undone."
     },
     "critical": {
       "badge": "Critical",

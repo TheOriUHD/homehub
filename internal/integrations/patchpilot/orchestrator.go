@@ -17,9 +17,6 @@ type ErrRunInProgress struct{}
 
 func (ErrRunInProgress) Error() string { return "a run is already in progress for this fleet" }
 
-// runContexts lets a running fleet run be cancelled.
-var _ = time.Now
-
 // StartRun admits and begins a run. Manual runs are rejected while another is
 // active; scheduled runs skip (recorded on the schedule) — a human asking
 // twice means twice; a cron firing mid-run means "you're already patching".
@@ -56,13 +53,46 @@ func (r *Registry) StartRun(ctx context.Context, integrationID uuid.UUID, trigge
 		return nil, err
 	}
 
-	go r.executeRun(context.Background(), run, hosts, suppressReboot)
+	// A dedicated cancellable context so an operator can abort the run; DB
+	// bookkeeping inside executeRun uses context.Background() so it still
+	// records the outcome after this ctx is cancelled.
+	runCtx, cancel := context.WithCancel(context.Background())
+	r.mu.Lock()
+	r.cancels[run.ID] = cancel
+	r.mu.Unlock()
+
+	go r.executeRun(runCtx, run, hosts, suppressReboot)
 	return run, nil
 }
+
+// AbortRun cancels an in-progress run: it kills the active host's command and
+// short-circuits the remaining hosts. Returns ErrNoActiveRun if nothing matches.
+func (r *Registry) AbortRun(runID uuid.UUID) error {
+	r.mu.Lock()
+	cancel := r.cancels[runID]
+	r.mu.Unlock()
+	if cancel == nil {
+		return ErrNoActiveRun{}
+	}
+	cancel()
+	return nil
+}
+
+// ErrNoActiveRun is returned when an abort targets a run that isn't executing
+// in this process (already finished, or a stale id).
+type ErrNoActiveRun struct{}
+
+func (ErrNoActiveRun) Error() string { return "no active run to abort" }
 
 func (r *Registry) clearRunning(integrationID uuid.UUID) {
 	r.mu.Lock()
 	delete(r.running, integrationID)
+	r.mu.Unlock()
+}
+
+func (r *Registry) forgetCancel(runID uuid.UUID) {
+	r.mu.Lock()
+	delete(r.cancels, runID)
 	r.mu.Unlock()
 }
 
@@ -116,13 +146,17 @@ func execGroup(h store.PatchpilotHost) int {
 // package managers fighting over a lock is worse than a slow run).
 func (r *Registry) executeRun(ctx context.Context, run *store.PatchpilotRun, hosts []store.PatchpilotHost, suppressReboot bool) {
 	defer r.clearRunning(run.IntegrationID)
+	defer r.forgetCancel(run.ID)
+	// DB/WS bookkeeping must survive an abort (which cancels ctx), so it uses a
+	// fresh background context; ctx drives only the cancellable host commands.
+	bg := context.Background()
 
 	// Pre-create a pending host-run per host so the run shows its full roster
 	// from the first tick — the progress denominator and the monitor's host
 	// rail are correct immediately, not growing as hosts start.
 	hostRuns := make([]*store.PatchpilotHostRun, len(hosts))
 	for i, h := range hosts {
-		hr, err := r.store.CreatePatchpilotHostRun(ctx, store.PatchpilotHostRun{RunID: run.ID, HostID: &hosts[i].ID, HostName: h.Name})
+		hr, err := r.store.CreatePatchpilotHostRun(bg, store.PatchpilotHostRun{RunID: run.ID, HostID: &hosts[i].ID, HostName: h.Name})
 		if err != nil {
 			r.logger.Error("create host run", "host", h.Name, "error", err)
 			continue
@@ -151,7 +185,13 @@ func (r *Registry) executeRun(ctx context.Context, run *store.PatchpilotRun, hos
 		status = "partial"
 	}
 	summary := fmt.Sprintf("%d succeeded, %d failed, %d skipped", success, failed, skipped)
-	_ = r.store.FinishPatchpilotRun(ctx, run.ID, status, summary)
+	// An operator abort cancels ctx mid-run — surface that plainly instead of a
+	// generic "failed", so the history reads honestly.
+	if ctx.Err() != nil {
+		status = "failed"
+		summary = fmt.Sprintf("aborted by operator — %d succeeded, %d before abort", success, failed+skipped)
+	}
+	_ = r.store.FinishPatchpilotRun(bg, run.ID, status, summary)
 	r.publish(run.IntegrationID, "run.event", map[string]any{
 		"runId": run.ID, "runStatus": status, "summary": summary,
 	})
@@ -162,12 +202,22 @@ func (r *Registry) executeHostRun(ctx context.Context, run *store.PatchpilotRun,
 	if hr == nil { // its row failed to create above
 		return "failed"
 	}
-	_ = r.store.StartPatchpilotHostRun(ctx, hr.ID)
+	// Host bookkeeping survives an abort; only the SSH work below rides ctx.
+	bg := context.Background()
+	// If the run was aborted before this host started, mark it skipped (not
+	// failed) — it was never attempted.
+	if ctx.Err() != nil {
+		_ = r.store.FinishPatchpilotHostRun(bg, hr.ID, "skipped", nil, 0, false, "run aborted")
+		_ = r.store.SetPatchpilotHostRunStatus(bg, h.ID, "skipped", time.Now())
+		r.hostEvent(run.IntegrationID, run.ID, hr.ID, h, "skipped", "run aborted")
+		return "skipped"
+	}
+	_ = r.store.StartPatchpilotHostRun(bg, hr.ID)
 	r.hostEvent(run.IntegrationID, run.ID, hr.ID, h, "running", "")
 
 	fail := func(summary string) string {
-		_ = r.store.FinishPatchpilotHostRun(ctx, hr.ID, "failed", nil, 0, false, summary)
-		_ = r.store.SetPatchpilotHostRunStatus(ctx, h.ID, "failed", time.Now())
+		_ = r.store.FinishPatchpilotHostRun(bg, hr.ID, "failed", nil, 0, false, summary)
+		_ = r.store.SetPatchpilotHostRunStatus(bg, h.ID, "failed", time.Now())
 		r.hostEvent(run.IntegrationID, run.ID, hr.ID, h, "failed", summary)
 		return "failed"
 	}
@@ -222,9 +272,9 @@ func (r *Registry) executeHostRun(ctx context.Context, run *store.PatchpilotRun,
 	// If we're about to auto-reboot, the reboot resolves the requirement, so
 	// record the host as no longer needing one.
 	stillNeedsReboot := rebootRequired && !autoRebooted
-	_ = r.store.FinishPatchpilotHostRun(ctx, hr.ID, "success", &code0, pkgCount, stillNeedsReboot, "")
-	_ = r.store.SetPatchpilotHostRunStatus(ctx, h.ID, "success", time.Now())
-	_ = r.store.SetPatchpilotHostSnapshot(ctx, h.ID, pkgCount, stillNeedsReboot, time.Now())
+	_ = r.store.FinishPatchpilotHostRun(bg, hr.ID, "success", &code0, pkgCount, stillNeedsReboot, "")
+	_ = r.store.SetPatchpilotHostRunStatus(bg, h.ID, "success", time.Now())
+	_ = r.store.SetPatchpilotHostSnapshot(bg, h.ID, pkgCount, stillNeedsReboot, time.Now())
 	r.hostEvent(run.IntegrationID, run.ID, hr.ID, h, "success", "")
 
 	// Issue the auto-reboot last — it drops the connection (deferred Close

@@ -2380,6 +2380,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patchpilot/{id}/runs/{runId}/abort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abort an in-progress run
+         * @description Cancels the active host's command and short-circuits the rest. Requires control on the fleet.
+         */
+        post: operations["patchpilotAbortRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patchpilot/{id}/schedules": {
         parameters: {
             query?: never;
@@ -10376,6 +10396,29 @@ export interface operations {
                     "application/json": components["schemas"]["PatchpilotRunDetail"];
                 };
             };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotAbortRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Abort requested */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };

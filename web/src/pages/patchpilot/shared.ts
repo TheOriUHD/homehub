@@ -227,6 +227,19 @@ export function useRunFleet(instanceId: string) {
   });
 }
 
+export function useAbortRun(instanceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (runId: string) =>
+      unwrap(
+        await api.POST("/patchpilot/{id}/runs/{runId}/abort", {
+          params: { path: { id: instanceId, runId } },
+        }),
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["patchpilot", instanceId, "runs"] }),
+  });
+}
+
 export function useSaveSchedule(instanceId: string) {
   const qc = useQueryClient();
   return useMutation({

@@ -37,8 +37,9 @@ type Registry struct {
 	// app wiring, same {event,data} envelope the manager uses).
 	Publish func(integrationID uuid.UUID, event string, data any)
 
-	mu      sync.Mutex
-	running map[uuid.UUID]bool // integrationID → a run is executing
+	mu       sync.Mutex
+	running  map[uuid.UUID]bool               // integrationID → a run is executing
+	cancels  map[uuid.UUID]context.CancelFunc // runID → cancel its execution
 }
 
 func NewRegistry(st *store.Store, v *vault.Vault, logger *slog.Logger) *Registry {
@@ -47,6 +48,7 @@ func NewRegistry(st *store.Store, v *vault.Vault, logger *slog.Logger) *Registry
 		vault:   v,
 		logger:  logger.With("component", "patchpilot"),
 		running: map[uuid.UUID]bool{},
+		cancels: map[uuid.UUID]context.CancelFunc{},
 	}
 }
 
