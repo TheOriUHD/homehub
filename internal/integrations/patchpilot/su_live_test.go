@@ -13,7 +13,7 @@ func TestLiveSuRootBootstrap(t *testing.T) {
 	liveGate(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	conn, err := ConnectPassword(ctx, "127.0.0.1", 2202, Credential{User: "nosudo", Password: "nosudo-pw"})
+	conn, err := ConnectPassword(ctx, "127.0.0.1", 2202, Credential{User: "nosudo", Password: "nosudo-pw"}, "")
 	if err != nil {
 		t.Skipf("nosudo user not set up: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestLiveSuRootBootstrap(t *testing.T) {
 		t.Fatalf("su bootstrap: %v", berr)
 	}
 	time.Sleep(500 * time.Millisecond)
-	keyConn, err := ConnectKey(ctx, "127.0.0.1", 2202, ManagedUser, kp.PrivatePEM)
+	keyConn, err := ConnectKey(ctx, "127.0.0.1", 2202, ManagedUser, kp.PrivatePEM, "")
 	if err != nil {
 		t.Fatalf("key reconnect: %v", err)
 	}

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+
+	"homehub/internal/sshpin"
 )
 
 // SSHConfig is the network's host credential: one login onto the machine
@@ -53,12 +55,13 @@ func RunSSH(ctx context.Context, cfg SSHConfig, command string) (string, error) 
 	if err != nil {
 		return "", fmt.Errorf("could not reach %s: %w", cfg.Host, err)
 	}
+	// Trust-on-first-use host-key pinning: first contact records the key, a
+	// later mismatch (rebuild or LAN MITM) is refused.
+	pin := sshpin.For(ctx, cfg.Host, cfg.Port)
 	clientConfig := &ssh.ClientConfig{
-		User: cfg.User,
-		Auth: auth,
-		// Homelab reality: host keys are unpinned, same policy as the
-		// terminal bridges. The credential only flows TO the host.
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), //nolint:gosec
+		User:            cfg.User,
+		Auth:            auth,
+		HostKeyCallback: pin.Verify,
 		Timeout:         8 * time.Second,
 	}
 	sshConn, chans, reqs, err := ssh.NewClientConn(tcp, cfg.Host, clientConfig)
@@ -66,6 +69,7 @@ func RunSSH(ctx context.Context, cfg SSHConfig, command string) (string, error) 
 		_ = tcp.Close()
 		return "", fmt.Errorf("SSH login failed: %w", err)
 	}
+	pin.Commit(ctx)
 	client := ssh.NewClient(sshConn, chans, reqs)
 	defer client.Close()
 

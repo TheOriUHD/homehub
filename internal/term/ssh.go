@@ -11,6 +11,8 @@ import (
 
 	"github.com/coder/websocket"
 	"golang.org/x/crypto/ssh"
+
+	"homehub/internal/sshpin"
 )
 
 // SSHTarget describes an SSH endpoint with its credential material.
@@ -39,17 +41,20 @@ func OpenSSH(target SSHTarget) OpenFunc {
 		}
 
 		addr := net.JoinHostPort(target.Host, fmt.Sprint(target.Port))
+		// Trust-on-first-use host-key pinning: the first connection records the
+		// guest's key; a later mismatch (rebuild or LAN MITM) is refused. A
+		// genuine reinstall clears the pin.
+		pin := sshpin.For(ctx, target.Host, target.Port)
 		client, err := ssh.Dial("tcp", addr, &ssh.ClientConfig{
-			User: target.Username,
-			Auth: []ssh.AuthMethod{auth},
-			// Guest host keys churn with every reinstall in a homelab;
-			// the credential is scoped per guest and stored encrypted.
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			User:            target.Username,
+			Auth:            []ssh.AuthMethod{auth},
+			HostKeyCallback: pin.Verify,
 			Timeout:         10 * time.Second,
 		})
 		if err != nil {
 			return fmt.Errorf("SSH connection to %s failed: %w", addr, err)
 		}
+		pin.Commit(ctx)
 		defer client.Close()
 
 		session, err := client.NewSession()

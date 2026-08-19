@@ -89,13 +89,27 @@ func (r *Registry) PublicKey(ctx context.Context, integrationID uuid.UUID) (stri
 	return kp.PublicKey, nil
 }
 
-// connectHost opens a key-authenticated session as the managed account.
+// connectHost opens a key-authenticated session as the managed account,
+// verifying the host key against the pinned fingerprint. Hosts onboarded
+// before pinning existed have an empty key; the first connection after upgrade
+// captures and pins it (trust-on-first-use).
 func (r *Registry) connectHost(ctx context.Context, h *store.PatchpilotHost) (*SSHConn, error) {
 	kp, err := r.KeyPairFor(ctx, h.IntegrationID)
 	if err != nil {
 		return nil, err
 	}
-	return ConnectKey(ctx, h.Hostname, h.SSHPort, h.SSHUser, kp.PrivatePEM)
+	conn, err := ConnectKey(ctx, h.Hostname, h.SSHPort, h.SSHUser, kp.PrivatePEM, h.HostKey)
+	if err != nil {
+		return nil, err
+	}
+	if h.HostKey == "" && conn.HostKey() != "" {
+		if perr := r.store.SetPatchpilotHostKey(ctx, h.ID, conn.HostKey()); perr != nil {
+			r.logger.Warn("patchpilot host-key pin failed", "host", h.Hostname, "err", perr)
+		} else {
+			h.HostKey = conn.HostKey()
+		}
+	}
+	return conn, nil
 }
 
 // resolvedPaths re-resolves absolute command paths for a host at run time —

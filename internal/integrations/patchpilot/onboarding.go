@@ -39,7 +39,7 @@ func (r *Registry) Detect(ctx context.Context, host string, port int, cred Crede
 		if attempt > 0 {
 			time.Sleep(400 * time.Millisecond)
 		}
-		c, err := ConnectPassword(ctx, host, port, cred)
+		c, err := ConnectPassword(ctx, host, port, cred, "")
 		if err != nil {
 			lastErr = err.Error()
 			continue // connection itself failed — retry
@@ -121,11 +121,14 @@ func (r *Registry) Onboard(ctx context.Context, integrationID uuid.UUID, in Comm
 		r.publish(integrationID, "bootstrap.step", s)
 	}
 
-	conn, err := ConnectPassword(ctx, in.Host, in.Port, in.Cred)
+	conn, err := ConnectPassword(ctx, in.Host, in.Port, in.Cred, "")
 	if err != nil {
 		return nil, bootErr("ssh_connection", "could not connect to the host", err.Error(), "")
 	}
 	defer conn.Close()
+	// Trust-on-first-use: the fingerprint seen on this first contact is pinned
+	// and every later connection is verified against it.
+	pinnedKey := conn.HostKey()
 
 	step(BootstrapStep{Step: "detect", Status: "running", Message: "Inspecting the host"})
 	facts, err := Detect(ctx, conn)
@@ -165,7 +168,7 @@ func (r *Registry) Onboard(ctx context.Context, integrationID uuid.UUID, in Comm
 	var keyConn *SSHConn
 	for i, delay := range []time.Duration{500, 1000, 1500, 2000, 3000} {
 		time.Sleep(delay * time.Millisecond)
-		keyConn, err = ConnectKey(ctx, in.Host, in.Port, ManagedUser, kp.PrivatePEM)
+		keyConn, err = ConnectKey(ctx, in.Host, in.Port, ManagedUser, kp.PrivatePEM, pinnedKey)
 		if err == nil {
 			break
 		}
@@ -187,6 +190,7 @@ func (r *Registry) Onboard(ctx context.Context, integrationID uuid.UUID, in Comm
 		SSHPort:        in.Port,
 		SSHUser:        ManagedUser,
 		HostType:       "standard",
+		HostKey:        pinnedKey,
 		PackageManager: facts.PackageManager,
 		OSPretty:       facts.OSPretty,
 		Arch:           facts.Arch,

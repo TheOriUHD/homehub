@@ -12,7 +12,7 @@ func TestLiveProbeNonPosixShell(t *testing.T) {
 	liveGate(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	conn, err := ConnectPassword(ctx, "127.0.0.1", 2201, Credential{User: "root", Password: "pp-test-root-pw"})
+	conn, err := ConnectPassword(ctx, "127.0.0.1", 2201, Credential{User: "root", Password: "pp-test-root-pw"}, "")
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}

@@ -50,6 +50,7 @@ import (
 	"homehub/internal/rbac"
 	"homehub/internal/settings"
 	"homehub/internal/signals"
+	"homehub/internal/sshpin"
 	"homehub/internal/store"
 	"homehub/internal/telegram"
 	"homehub/internal/term"
@@ -79,6 +80,9 @@ func Run(ctx context.Context) error {
 	defer pool.Close()
 
 	st := store.New(pool)
+	// Register the store as the trust-on-first-use host-key backend for the
+	// interactive SSH bridges (terminal / docker / minecraft).
+	sshpin.Configure(st)
 	v, err := vault.Open(pool, cfg.DataDir, cfg.MasterKey, logger)
 	if err != nil {
 		return err
