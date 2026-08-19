@@ -15,7 +15,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 
-type LandingType = "proxmox" | "homeassistant" | "minecraft" | "amp" | "tailscale" | "caddy" | "aperture" | "truenas" | "patchpilot";
+type LandingType = "proxmox" | "homeassistant" | "minecraft" | "amp" | "tailscale" | "caddy" | "aperture" | "moonraker" | "truenas" | "patchpilot";
 
 /** InstanceLink wraps a card in the typed route for its module. */
 function InstanceLink({ row, children }: { row: Integration; children: React.ReactNode }) {

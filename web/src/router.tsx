@@ -73,6 +73,7 @@ import { AmpModulePage } from "./pages/amp/module";
 import { TsModulePage } from "./pages/ts/module";
 import { CaddyModulePage } from "./pages/caddy/module";
 import { NvrModulePage } from "./pages/nvr/module";
+import { MoonrakerModulePage } from "./pages/moonraker/module";
 import { CaddySitesPage } from "./pages/caddy/sites";
 import { CaddyServedPage } from "./pages/caddy/served";
 import { TsDevicesPage } from "./pages/ts/devices";
@@ -353,6 +354,18 @@ const nvrModuleRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/nvr/$instanceId",
   component: NvrModulePage,
+});
+
+const moonrakerLandingRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/moonraker",
+  component: () => <SystemTypeLanding type="moonraker" />,
+});
+
+const moonrakerModuleRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/moonraker/$instanceId",
+  component: MoonrakerModulePage,
 });
 
 const caddyModuleRoute = createRoute({
@@ -753,6 +766,7 @@ const routeTree = rootRoute.addChildren([
     tsLandingRoute,
     caddyLandingRoute,
     nvrLandingRoute,
+    moonrakerLandingRoute,
     truenasLandingRoute,
     patchpilotLandingRoute,
     dockerHubRoute.addChildren([dockerAllContainersRoute, dockerHostsRoute]),
@@ -811,6 +825,7 @@ const routeTree = rootRoute.addChildren([
     tsModuleRoute.addChildren([tsDevicesRoute, tsKeysRoute, tsDnsRoute]),
     caddyModuleRoute.addChildren([caddySitesRoute, caddyServedRoute]),
     nvrModuleRoute,
+    moonrakerModuleRoute,
   ]),
 ]);
 
