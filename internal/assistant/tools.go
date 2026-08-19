@@ -123,10 +123,18 @@ func (tb *Toolbox) tools() []tool {
 		{
 			def: ToolDef{
 				Name:        "create_calendar_event",
-				Description: "Propose creating a calendar event. This does NOT create it immediately — it is queued and the user must confirm. Pass start (and end) as local date-times like \"2026-08-25 10:00\", or a date like \"2026-08-25\" for an all-day event. Tell the user what you're queuing; the confirmation happens in the UI.",
+				Description: "Create a calendar event immediately (adding an event is non-destructive, so it does NOT need confirmation). Pass start (and end) as local date-times like \"2026-08-25 10:00\", or a date like \"2026-08-25\" for an all-day event. Confirm to the user what you created afterwards.",
 				InputSchema: obj(`"title":{"type":"string"},"start":{"type":"string","description":"Local start, e.g. 2026-08-25 10:00 or 2026-08-25 for all-day"},"end":{"type":"string","description":"Local end (optional; defaults to +1h, or the same day for all-day)"},"allDay":{"type":"boolean"},"location":{"type":"string"},"notes":{"type":"string"},"url":{"type":"string"},"calendar":{"type":"string","description":"Target calendar name (optional; defaults to the first writable one)"},"repeat":{"type":"string","description":"none, daily, weekly, biweekly, monthly, or yearly"}`, "title", "start"),
 			},
-			run: tb.proposeCreateEvent,
+			run: tb.createEventDirect,
+		},
+		{
+			def: ToolDef{
+				Name:        "delete_calendar_event",
+				Description: "Propose deleting a calendar event (destructive — it is QUEUED and the user must confirm). eventId comes from list_calendar_events. For a repeating event set scope: 'this' (only the clicked occurrence), 'following' (this and all later ones) or 'all' (the whole series); pass occurrenceStart (from list_calendar_events) for this/following.",
+				InputSchema: obj(`"eventId":{"type":"string","description":"Event id from list_calendar_events"},"scope":{"type":"string","description":"this, following, or all (default all)"},"occurrenceStart":{"type":"string","description":"The occurrenceStart of the instance (for this/following)"}`, "eventId"),
+			},
+			run: tb.proposeDeleteEvent,
 		},
 		{
 			def: ToolDef{
@@ -464,16 +472,24 @@ func (tb *Toolbox) listCalendarEvents(ctx context.Context, _ Access, input json.
 	instances := calendar.Expand(rows, from, to)
 
 	type ev struct {
-		Title    string `json:"title"`
-		Calendar string `json:"calendar"`
-		Start    string `json:"start"`
-		End      string `json:"end"`
-		AllDay   bool   `json:"allDay,omitempty"`
-		Location string `json:"location,omitempty"`
+		EventID         string `json:"eventId"`
+		CalendarID      string `json:"calendarId"`
+		Title           string `json:"title"`
+		Calendar        string `json:"calendar"`
+		Start           string `json:"start"`
+		End             string `json:"end"`
+		AllDay          bool   `json:"allDay,omitempty"`
+		Location        string `json:"location,omitempty"`
+		Recurring       bool   `json:"recurring,omitempty"`
+		OccurrenceStart string `json:"occurrenceStart,omitempty"`
 	}
 	out := make([]ev, 0, len(instances))
 	for _, i := range instances {
-		e := ev{Title: i.Title, Calendar: name[i.CalendarID], Location: i.Location, AllDay: i.AllDay}
+		e := ev{
+			EventID: i.EventID.String(), CalendarID: i.CalendarID.String(),
+			Title: i.Title, Calendar: name[i.CalendarID], Location: i.Location, AllDay: i.AllDay,
+			Recurring: i.Recurring, OccurrenceStart: i.OccurrenceStart.UTC().Format(time.RFC3339),
+		}
 		if i.AllDay {
 			e.Start = i.Start.Local().Format("Mon 2006-01-02")
 			e.End = i.End.Local().Format("Mon 2006-01-02")
@@ -587,21 +603,7 @@ func repeatToRRule(repeat string) string {
 	}
 }
 
-// calendarCreateParams is the concrete payload the apply endpoint executes.
-type calendarCreateParams struct {
-	CalendarID   uuid.UUID `json:"calendarId"`
-	CalendarName string    `json:"calendarName"`
-	Title        string    `json:"title"`
-	StartsAt     time.Time `json:"startsAt"`
-	EndsAt       time.Time `json:"endsAt"`
-	AllDay       bool      `json:"allDay"`
-	Location     string    `json:"location,omitempty"`
-	Description  string    `json:"description,omitempty"`
-	URL          string    `json:"url,omitempty"`
-	RRule        string    `json:"rrule,omitempty"`
-}
-
-func (tb *Toolbox) proposeCreateEvent(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+func (tb *Toolbox) createEventDirect(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
 	var args struct {
 		Title, Start, End, Location, Notes, URL, Calendar, Repeat string
 		AllDay                                                    *bool
@@ -668,22 +670,72 @@ func (tb *Toolbox) proposeCreateEvent(ctx context.Context, _ Access, input json.
 		return nil, fmt.Errorf("there is no writable calendar yet — create a local calendar first")
 	}
 
-	params := calendarCreateParams{
-		CalendarID: target.ID, CalendarName: target.Name, Title: strings.TrimSpace(args.Title),
-		StartsAt: start, EndsAt: end, AllDay: allDay,
-		Location: strings.TrimSpace(args.Location), Description: strings.TrimSpace(args.Notes),
-		URL: strings.TrimSpace(args.URL), RRule: repeatToRRule(args.Repeat),
+	// Adding an event is non-destructive — create it directly (no confirm)
+	// through the same API the UI uses, under the caller's identity.
+	if tb.Call == nil {
+		return nil, fmt.Errorf("calendar is not reachable from the assistant here")
 	}
-	raw, _ := json.Marshal(params)
+	body := map[string]any{
+		"calendarId": target.ID.String(),
+		"event": map[string]any{
+			"title":       strings.TrimSpace(args.Title),
+			"startsAt":    start.Format(time.RFC3339),
+			"endsAt":      end.Format(time.RFC3339),
+			"allDay":      allDay,
+			"location":    strings.TrimSpace(args.Location),
+			"description": strings.TrimSpace(args.Notes),
+			"url":         strings.TrimSpace(args.URL),
+			"rrule":       repeatToRRule(args.Repeat),
+		},
+	}
+	status, resp := tb.Call(ctx, "POST", "/calendar/events", body)
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("could not create the event: %s", string(resp))
+	}
 	when := start.Format("Mon Jan 2, 15:04")
 	if allDay {
 		when = start.Format("Mon Jan 2") + " (all day)"
 	}
-	summary := fmt.Sprintf("Create “%s” on %s in %s", params.Title, when, target.Name)
-	if params.RRule != "" {
-		summary += " (repeating)"
+	return map[string]any{
+		"created":  true,
+		"title":    strings.TrimSpace(args.Title),
+		"calendar": target.Name,
+		"when":     when,
+	}, nil
+}
+
+func (tb *Toolbox) proposeDeleteEvent(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+	var args struct {
+		EventID, Scope, OccurrenceStart string
 	}
-	return &PendingAction{Kind: "calendar.create", Summary: summary, Params: raw}, nil
+	if err := json.Unmarshal(input, &args); err != nil {
+		return nil, err
+	}
+	id, err := uuid.Parse(strings.TrimSpace(args.EventID))
+	if err != nil {
+		return nil, fmt.Errorf("eventId must be an id from list_calendar_events")
+	}
+	ev, err := tb.Store.GetCalendarEvent(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("no such event — list_calendar_events shows what exists")
+	}
+	scope := strings.ToLower(strings.TrimSpace(args.Scope))
+	if scope == "" {
+		scope = "all"
+	}
+	summary := fmt.Sprintf("Delete “%s”", ev.Title)
+	if ev.RRule != "" || ev.RecurrenceID != nil {
+		switch scope {
+		case "this":
+			summary += " (this occurrence only)"
+		case "following":
+			summary += " (this and all following)"
+		default:
+			summary += " (the whole repeating series)"
+		}
+	}
+	raw, _ := json.Marshal(map[string]any{"eventId": id.String(), "scope": scope, "occurrenceStart": strings.TrimSpace(args.OccurrenceStart)})
+	return &PendingAction{Kind: "calendar.delete_event", Summary: summary, Params: raw}, nil
 }
 
 func (tb *Toolbox) proposeCreateCalendar(_ context.Context, _ Access, input json.RawMessage) (any, error) {
