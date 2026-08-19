@@ -238,8 +238,8 @@ export default function IpScanTool() {
   };
 
   return (
-    <div className="space-y-4">
-      <ToolCard title="Range">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <ToolCard title="Range" className="shrink-0">
         <div className="flex flex-wrap items-end gap-3">
           <label className="min-w-0 flex-1">
             <span className="text-fg-muted mb-1 block text-[12px]">From</span>
@@ -305,6 +305,7 @@ export default function IpScanTool() {
       {total > 0 && (
         <ToolCard
           title="Hosts"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
           right={
             <div className="flex items-center gap-2">
               <button
@@ -326,8 +327,8 @@ export default function IpScanTool() {
             </div>
           }
         >
-          <div className="border-edge overflow-hidden rounded-lg border">
-            <div className="text-fg-subtle bg-bg-subtle grid grid-cols-[24px_132px_1.2fr_1.2fr_1.4fr_64px] items-center gap-2 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide">
+          <div className="border-edge flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+            <div className="text-fg-subtle bg-bg-subtle grid shrink-0 grid-cols-[24px_132px_1.2fr_1.2fr_1.4fr_64px] items-center gap-2 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide">
               <span />
               <span>Address</span>
               <span>Hostname</span>
@@ -335,7 +336,7 @@ export default function IpScanTool() {
               <span>Open ports</span>
               <span className="text-right">RTT</span>
             </div>
-            <div className="divide-edge max-h-[calc(100dvh-24rem)] divide-y overflow-y-auto">
+            <div className="divide-edge min-h-0 flex-1 divide-y overflow-y-auto">
               {shown.map((r) => (
                 <HostRow key={r.ip} row={r} onCopy={async () => {
                   if (await copyText(r.ip)) toast("success", `Copied ${r.ip}`);

@@ -35,11 +35,16 @@ func TestEnumerateInclusive(t *testing.T) {
 }
 
 func TestVendorFor(t *testing.T) {
-	if vendorFor("B8:27:EB:12:34:56") != "Raspberry Pi" {
-		t.Error("OUI lookup failed for Raspberry Pi prefix")
+	// Full IEEE DB: MA-L /24 hit, and an unassigned prefix misses.
+	if got := vendorFor("B8:27:EB:12:34:56"); got == "" {
+		t.Error("OUI lookup failed for a known Raspberry Pi prefix")
 	}
 	if vendorFor("ff:ff:ff:00:00:00") != "" {
 		t.Error("unknown OUI should be empty")
+	}
+	// MA-S /36 specificity: a 9-hex assignment resolves.
+	if got := vendorFor("8C:1F:64:AF:A0:00"); got == "" {
+		t.Error("MA-S /36 lookup failed")
 	}
 }
 

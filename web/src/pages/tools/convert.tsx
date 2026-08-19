@@ -149,7 +149,7 @@ export function ToolsConvertPage() {
 
   return (
     <WorkbenchLayout>
-      <div className="space-y-6">
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-0.5">
       <div className="space-y-3">
         <div className="flex items-center gap-3">
           <span className="bg-accent-soft text-accent-soft-fg flex size-10 items-center justify-center rounded-xl">

@@ -38,7 +38,7 @@ export function ToolAppPage() {
 
   return (
     <WorkbenchLayout>
-      <div className="mb-5 flex items-start gap-3">
+      <div className="mb-5 flex shrink-0 items-start gap-3">
         <span className="bg-accent-soft text-accent-soft-fg flex size-11 shrink-0 items-center justify-center rounded-xl">
           <Icon className="size-5" />
         </span>
@@ -48,9 +48,18 @@ export function ToolAppPage() {
         </div>
       </div>
 
-      <Suspense fallback={<PageLoader className="py-16" />}>
-        <Body />
-      </Suspense>
+      {/* A fill tool (e.g. the IP scanner) owns its own inner scroll, so this
+          area must not scroll; every other tool scrolls here while the page
+          stays locked. Either way there is exactly one content scrollbar. */}
+      <div
+        className={
+          tool.fill ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "min-h-0 flex-1 overflow-y-auto"
+        }
+      >
+        <Suspense fallback={<PageLoader className="py-16" />}>
+          <Body />
+        </Suspense>
+      </div>
     </WorkbenchLayout>
   );
 }

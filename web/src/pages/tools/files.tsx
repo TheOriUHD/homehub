@@ -183,7 +183,7 @@ export function ToolsFilesPage() {
 
   return (
     <WorkbenchLayout>
-      <div className="space-y-4">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-0.5">
       <div className="flex flex-wrap items-center gap-3">
         <span className="bg-accent-soft text-accent-soft-fg flex size-10 items-center justify-center rounded-xl">
           <FolderOpen className="size-5" />
