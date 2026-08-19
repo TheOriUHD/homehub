@@ -27,6 +27,7 @@ import { ToolsEditorPage } from "./pages/tools/editor";
 import { ToolsFilesPage } from "./pages/tools/files";
 import { ToolsConvertPage } from "./pages/tools/convert";
 import { ToolsMdViewPage } from "./pages/tools/md-view";
+import { MdStandalonePage } from "./pages/tools/md-standalone";
 import { ToolAppPage } from "./pages/tools/tool-layout";
 import { NotFoundPage } from "./pages/not-found";
 import { SystemsPage } from "./pages/systems";
@@ -117,6 +118,14 @@ const changePasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/change-password",
   component: ChangePasswordPage,
+});
+
+// Standalone document page: one markdown file, no app chrome. Auth still
+// applies (the API 401s and the page bounces to /login).
+const mdStandaloneRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/md/$fileId",
+  component: MdStandalonePage,
 });
 
 // Everything below /app-shell requires an authenticated session; the shell
@@ -699,6 +708,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   inviteRoute,
   changePasswordRoute,
+  mdStandaloneRoute,
   shellRoute.addChildren([
     overviewRoute,
     assistantRoute,

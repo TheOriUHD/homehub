@@ -2904,7 +2904,20 @@
       "saveAsBody": "Name the file — the extension sets the syntax highlighting.",
       "modeText": "Text",
       "modeRich": "Markdown",
-      "fullPage": "Open as full-page document"
+      "fullPage": "Open as full-page document",
+      "menu": {
+        "file": "File",
+        "new": "New",
+        "open": "Open…",
+        "openRecent": "Open Recent",
+        "save": "Save",
+        "saveAs": "Save As…"
+      },
+      "picker": {
+        "title": "Open file",
+        "empty": "Nothing here yet."
+      },
+      "binaryRefused": "That file is binary — download it from the file manager instead."
     },
     "files": {
       "title": "Files",
@@ -2916,12 +2929,17 @@
       "binary": "{{name}} looks binary — the workspace stores text",
       "open": "Open in editor",
       "rename": "Rename",
-      "dropHint": "Drop text files anywhere on this list to upload them",
+      "dropHint": "Drop any files anywhere on this list to upload them",
       "empty": {
         "title": "No files yet",
         "body": "Upload files or create one in the editor."
       },
-      "view": "View document"
+      "view": "View document",
+      "newFolder": "New folder",
+      "folderName": "Folder name",
+      "root": "Workspace",
+      "binaryFile": "Binary file",
+      "deleteFolderBody": "The folder and everything inside it — files and subfolders — will be deleted. This cannot be undone."
     },
     "recent": "Recent files",
     "apps": "Built-in apps",

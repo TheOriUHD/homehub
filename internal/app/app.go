@@ -247,7 +247,7 @@ func Run(ctx context.Context) error {
 	convertSvc.SweepOnStartup(ctx)
 
 	apiServer := api.NewServer(st, authSvc, engine, auditSvc, settingsSvc, jobEngine, hub, v,
-		manager, metricsSvc, termMgr, backupSvc, mcRegistry, ppRegistry, convertSvc, companion.FS(), logger)
+		manager, metricsSvc, termMgr, backupSvc, mcRegistry, ppRegistry, convertSvc, companion.FS(), cfg.DataDir, logger)
 
 	// Telegram bridge: linked chats talk to the assistant. The bot reads its
 	// token from the vault and its switch from settings on every reload.

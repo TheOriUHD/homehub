@@ -5642,6 +5642,7 @@ paths:
               properties:
                 name: { type: string }
                 content: { type: string }
+                folder: { type: string }
       responses:
         "200":
           description: Created
@@ -5700,6 +5701,55 @@ paths:
     delete:
       operationId: deleteFile
       summary: Delete a workspace file
+      tags: [files]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /folders:
+    get:
+      operationId: listFolders
+      summary: The calling user's workspace folders
+      tags: [files]
+      responses:
+        "200":
+          description: Folders sorted by path
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WorkspaceFolder" }
+    post:
+      operationId: createFolder
+      summary: Create a workspace folder
+      tags: [files]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: { type: string, description: "Slash-joined path, e.g. \"photos\" or \"photos/2026\"" }
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkspaceFolder" }
+        "409":
+          description: That folder already exists
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /folders/{id}:
+    delete:
+      operationId: deleteFolder
+      summary: Delete a folder, its subfolders, and every file inside
       tags: [files]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -7598,14 +7648,25 @@ components:
 
     WorkspaceFile:
       type: object
-      required: [id, name, size, createdAt, updatedAt]
+      required: [id, name, folder, isBinary, mime, size, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        size: { type: integer, description: "Content length in bytes" }
-        content: { type: string, description: "Present on single-file reads and writes" }
+        folder: { type: string, description: "Slash-joined folder path; empty at the root" }
+        isBinary: { type: boolean, description: "Binary blobs download only; text files open in the editor" }
+        mime: { type: string }
+        size: { type: integer, format: int64, description: "Content length in bytes" }
+        content: { type: string, description: "Present on single-file reads and writes (text files only)" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    WorkspaceFolder:
+      type: object
+      required: [id, path, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        path: { type: string }
+        createdAt: { type: string, format: date-time }
 
     TelegramSettings:
       type: object

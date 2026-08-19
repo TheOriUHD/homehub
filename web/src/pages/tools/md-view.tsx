@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { AlignLeft, ArrowLeft, BookOpenText, Code2, SquarePen } from "lucide-react";
+import { AlignLeft, ArrowLeft, BookOpenText, Code2, ExternalLink, SquarePen } from "lucide-react";
 import { api, unwrap } from "@/lib/api";
 import { extractHeadings } from "@/components/markdown-doc";
 import { cn } from "@/lib/utils";
@@ -84,6 +84,11 @@ export function ToolsMdViewPage() {
             {t("tools.files.open")}
           </Button>
         </Link>
+        <a href={`/md/${fileId}`} target="_blank" rel="noreferrer" title={t("tools.editor.fullPage")}>
+          <Button size="sm" variant="ghost">
+            <ExternalLink className="size-3.5" />
+          </Button>
+        </a>
       </div>
 
       <div className="flex items-start gap-8">

@@ -3800,6 +3800,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The calling user's workspace folders */
+        get: operations["listFolders"];
+        put?: never;
+        /** Create a workspace folder */
+        post: operations["createFolder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/folders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a folder, its subfolders, and every file inside */
+        delete: operations["deleteFolder"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/convert/formats": {
         parameters: {
             query?: never;
@@ -5127,14 +5162,29 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
-            /** @description Content length in bytes */
+            /** @description Slash-joined folder path; empty at the root */
+            folder: string;
+            /** @description Binary blobs download only; text files open in the editor */
+            isBinary: boolean;
+            mime: string;
+            /**
+             * Format: int64
+             * @description Content length in bytes
+             */
             size: number;
-            /** @description Present on single-file reads and writes */
+            /** @description Present on single-file reads and writes (text files only) */
             content?: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        WorkspaceFolder: {
+            /** Format: uuid */
+            id: string;
+            path: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         TelegramSettings: {
             enabled: boolean;
@@ -12464,6 +12514,7 @@ export interface operations {
                 "application/json": {
                     name: string;
                     content?: string;
+                    folder?: string;
                 };
             };
         };
@@ -12553,6 +12604,84 @@ export interface operations {
         };
     };
     deleteFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listFolders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folders sorted by path */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceFolder"][];
+                };
+            };
+        };
+    };
+    createFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Slash-joined path, e.g. "photos" or "photos/2026" */
+                    path: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceFolder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description That folder already exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteFolder: {
         parameters: {
             query?: never;
             header?: never;
