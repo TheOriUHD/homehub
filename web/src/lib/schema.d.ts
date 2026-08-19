@@ -5664,7 +5664,7 @@ export interface components {
             /** Format: uuid */
             runId: string;
             /** Format: uuid */
-            hostId: string;
+            hostId?: string;
             hostName: string;
             status: string;
             exitCode?: number | null;

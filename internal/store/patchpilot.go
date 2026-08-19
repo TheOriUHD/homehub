@@ -291,7 +291,7 @@ func (s *Store) RecoverPatchpilotRuns(ctx context.Context) error {
 type PatchpilotHostRun struct {
 	ID               uuid.UUID  `db:"id"`
 	RunID            uuid.UUID  `db:"run_id"`
-	HostID           uuid.UUID  `db:"host_id"`
+	HostID           *uuid.UUID `db:"host_id"`
 	HostName         string     `db:"host_name"`
 	Status           string     `db:"status"`
 	ExitCode         *int       `db:"exit_code"`

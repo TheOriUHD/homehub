@@ -15,6 +15,7 @@ import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { useToast } from "@/ui/toast";
+import { Radar } from "lucide-react";
 import {
   managerLabel,
   ppTopic,
@@ -22,8 +23,10 @@ import {
   useDetectHost,
   useOnboardHost,
   usePatchpilotHosts,
+  usePatchpilotRuns,
   useRunFleet,
 } from "./shared";
+import { RunMonitor } from "./run-monitor";
 
 /**
  * PatchpilotHostsPage is the fleet's landing tab: a "run everything" and an
@@ -39,13 +42,23 @@ export function PatchpilotHostsPage() {
 
   const hosts = usePatchpilotHosts(instanceId);
   const runFleet = useRunFleet(instanceId);
+  const runs = usePatchpilotRuns(instanceId);
   const [adding, setAdding] = useState(false);
+  // The run currently shown in the monitor window (null = closed).
+  const [monitorRunId, setMonitorRunId] = useState<string | null>(null);
+
+  // A run in progress on this fleet — powers the "View current run" affordance
+  // so the monitor is reachable even after it's been closed.
+  const activeRun = (runs.data ?? []).find((r) => r.status === "running");
 
   const runAll = () => {
     runFleet.mutate(
       {},
       {
-        onSuccess: () => toast("success", t("patchpilot.hosts.runAllStarted")),
+        onSuccess: (run) => {
+          setMonitorRunId(run.id); // pop the live monitor open immediately
+          void runs.refetch();
+        },
         onError: (err) =>
           toast("error", isApiError(err) ? err.message : t("common.unknownError")),
       },
@@ -75,16 +88,23 @@ export function PatchpilotHostsPage() {
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-fg flex-1 text-[15px] font-semibold">{t("patchpilot.hosts.title")}</h2>
         <div className="flex items-center gap-1.5">
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={runFleet.isPending}
-            disabled={list.length === 0}
-            onClick={runAll}
-          >
-            <Play className="size-3.5" />
-            {t("patchpilot.hosts.runAll")}
-          </Button>
+          {activeRun ? (
+            <Button variant="secondary" size="sm" onClick={() => setMonitorRunId(activeRun.id)}>
+              <Radar className="size-3.5" />
+              {t("patchpilot.monitor.viewCurrent")}
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={runFleet.isPending}
+              disabled={list.length === 0}
+              onClick={runAll}
+            >
+              <Play className="size-3.5" />
+              {t("patchpilot.hosts.runAll")}
+            </Button>
+          )}
           {addButton}
         </div>
       </div>
@@ -130,6 +150,9 @@ export function PatchpilotHostsPage() {
       )}
 
       {adding && <AddHostDialog instanceId={instanceId} onClose={() => setAdding(false)} />}
+      {monitorRunId && (
+        <RunMonitor instanceId={instanceId} runId={monitorRunId} onClose={() => setMonitorRunId(null)} />
+      )}
     </div>
   );
 }

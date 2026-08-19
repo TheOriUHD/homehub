@@ -3095,6 +3095,14 @@
       "cancelled": "Cancelled",
       "pending": "Pending",
       "skipped": "Skipped"
+    },
+    "monitor": {
+      "title": "Update run",
+      "progress": "Progress",
+      "viewCurrent": "View current run",
+      "following": "Following",
+      "autoFollow": "Auto-following the active host",
+      "waiting": "Waiting for output…"
     }
   }
 }
