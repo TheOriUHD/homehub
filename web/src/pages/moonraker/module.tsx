@@ -3,12 +3,21 @@ import { useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowDownToLine,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowUpFromLine,
   ChevronDown,
   ExternalLink,
   Fan as FanIcon,
+  FlipHorizontal2,
+  FlipVertical2,
   Gauge,
   Home,
   Lightbulb,
+  Maximize2,
   Move3d,
   OctagonX,
   Pause,
@@ -16,13 +25,17 @@ import {
   Power,
   Printer,
   RefreshCw,
+  RotateCw,
   Search,
   Square,
   Terminal,
   Thermometer,
   ToggleLeft,
+  Video,
+  VideoOff,
 } from "lucide-react";
 import {
+  type MoonrakerCamera,
   type MoonrakerFan,
   type MoonrakerHeater,
   type MoonrakerLed,
@@ -39,6 +52,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card, CardBody } from "@/ui/card";
 import { ConfirmDialog } from "@/ui/confirm";
+import { Dialog, DialogContent } from "@/ui/dialog";
 import { Input } from "@/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { Slider } from "@/ui/slider";
@@ -54,7 +68,9 @@ import {
   useMoonrakerGcode,
   useMoonrakerPrint,
   useMoonrakerSetTemp,
+  useMoonrakerSetWebcam,
   useMoonrakerSnapshot,
+  webcamStreamUrl,
 } from "./shared";
 
 type Pt = { ts: number; value: number };
@@ -133,6 +149,10 @@ export function MoonrakerModulePage() {
         <PrintCard snap={snap} instanceId={instanceId} canControl={hasControl} />
       )}
 
+      {snap.cameras.length > 0 && (
+        <CameraSection cameras={snap.cameras} instanceId={instanceId} canControl={hasControl} />
+      )}
+
       {/* Temperatures — the hero. Heaters (controllable), then sensors, then
           temperature fans, all discovered dynamically. */}
       {(snap.heaters.length > 0 || snap.sensors.length > 0 || snap.tempFans.length > 0) && (
@@ -151,18 +171,24 @@ export function MoonrakerModulePage() {
         </Section>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {snap.toolhead && <MotionCard snap={snap} instanceId={instanceId} canControl={hasControl} />}
-        {snap.fans.length > 0 && (
-          <Section icon={FanIcon} title={t("moonraker.sections.fans")}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {snap.fans.map((f) => (
-                <FanCard key={f.object} fan={f} instanceId={instanceId} canControl={hasControl} />
-              ))}
-            </div>
-          </Section>
-        )}
-      </div>
+      {snap.toolhead && (
+        <Section icon={Move3d} title={t("moonraker.sections.control")}>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <MovementCard snap={snap} instanceId={instanceId} canControl={hasControl} />
+            <ExtruderCard snap={snap} instanceId={instanceId} canControl={hasControl} />
+          </div>
+        </Section>
+      )}
+
+      {snap.fans.length > 0 && (
+        <Section icon={FanIcon} title={t("moonraker.sections.fans")}>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {snap.fans.map((f) => (
+              <FanCard key={f.object} fan={f} instanceId={instanceId} canControl={hasControl} />
+            ))}
+          </div>
+        </Section>
+      )}
 
       {(snap.leds.length > 0 || snap.outputPins.length > 0) && (
         <Section icon={Lightbulb} title={t("moonraker.sections.lights")}>
@@ -609,61 +635,214 @@ function TempFanCard({ fan, points }: { fan: MoonrakerTempFan; points: Pt[] }) {
 
 // ---- motion -----------------------------------------------------------------
 
-function MotionCard({ snap, instanceId, canControl }: { snap: MoonrakerSnapshot; instanceId: string; canControl?: boolean }) {
+const JOG_STEPS = [0.1, 1, 10, 50] as const;
+
+function MovementCard({ snap, instanceId, canControl }: { snap: MoonrakerSnapshot; instanceId: string; canControl?: boolean }) {
   const { t } = useTranslation();
   const th = snap.toolhead!;
   const gcode = useMoonrakerGcode(instanceId);
   const toast = useToast();
+  const [step, setStep] = useState(10);
+  const printing = snap.print?.state === "printing";
   const run = (script: string) =>
     gcode.mutate(script, { onError: (e) => toast("error", t("moonraker.toast.failed"), String(e)) });
+  // A relative jog, bracketed so absolute mode is restored afterwards.
+  const jog = (axis: "X" | "Y" | "Z", sign: 1 | -1) => {
+    const feed = axis === "Z" ? 900 : 6000;
+    run(`G91\nG1 ${axis}${sign * step} F${feed}\nG90`);
+  };
   const homed = (axis: string) => th.homedAxes.toLowerCase().includes(axis);
   const axes = ["x", "y", "z"] as const;
+  const canJog = canControl && !printing;
+
+  const JogBtn = ({ axis, sign, icon: Icon, label }: { axis: "X" | "Y" | "Z"; sign: 1 | -1; icon: typeof ArrowUp; label: string }) => (
+    <button
+      type="button"
+      disabled={!canJog}
+      aria-label={label}
+      onClick={() => jog(axis, sign)}
+      className="border-edge hover:border-accent hover:bg-accent-soft/40 text-fg flex size-9 items-center justify-center rounded-md border transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      <Icon className="size-4" />
+    </button>
+  );
 
   return (
-    <Section icon={Move3d} title={t("moonraker.sections.motion")}>
-      <Card>
-        <CardBody className="space-y-3 p-3.5">
-          <div className="grid grid-cols-3 gap-2">
-            {axes.map((axis, i) => (
-              <div key={axis} className="border-edge rounded-lg border p-2 text-center">
-                <div className="text-fg-subtle text-[11px] font-semibold uppercase">{axis}</div>
-                <div className="text-fg text-[16px] font-semibold tabular-nums">
-                  {th.position[i] != null ? th.position[i].toFixed(1) : "—"}
-                </div>
-                <div className={cn("text-[10.5px]", homed(axis) ? "text-success" : "text-fg-subtle")}>
-                  {homed(axis) ? t("moonraker.motion.homed") : t("moonraker.motion.notHomed")}
-                </div>
+    <Card>
+      <CardBody className="space-y-3 p-3.5">
+        <div className="grid grid-cols-3 gap-2">
+          {axes.map((axis, i) => (
+            <div key={axis} className="border-edge rounded-lg border p-2 text-center">
+              <div className="text-fg-subtle text-[11px] font-semibold uppercase">{axis}</div>
+              <div className="text-fg text-[16px] font-semibold tabular-nums">
+                {th.position[i] != null ? th.position[i].toFixed(1) : "—"}
               </div>
-            ))}
-          </div>
-          <div className="text-fg-muted flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
-            <span className="inline-flex items-center gap-1">
-              <Gauge className="size-3.5" /> {t("moonraker.motion.speed")}: {Math.round((th.speedFactor ?? 1) * 100)}%
-            </span>
-            <span>{t("moonraker.motion.flow")}: {Math.round((th.extrudeFactor ?? 1) * 100)}%</span>
-            {th.fanSpeed != null && <span>{t("moonraker.motion.partFan")}: {Math.round(th.fanSpeed * 100)}%</span>}
-          </div>
-          {canControl && (
+              <div className={cn("text-[10.5px]", homed(axis) ? "text-success" : "text-fg-subtle")}>
+                {homed(axis) ? t("moonraker.motion.homed") : t("moonraker.motion.notHomed")}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {canControl && (
+          <>
+            {/* Jog pad: XY cross + Z column, gated by a step size. */}
+            <div className="flex items-start justify-center gap-5">
+              <div className="grid grid-cols-3 grid-rows-3 gap-1">
+                <span />
+                <JogBtn axis="Y" sign={1} icon={ArrowUp} label={t("moonraker.jog.yPlus")} />
+                <span />
+                <JogBtn axis="X" sign={-1} icon={ArrowLeft} label={t("moonraker.jog.xMinus")} />
+                <button
+                  type="button"
+                  disabled={!canJog}
+                  aria-label={t("moonraker.motion.homeAll")}
+                  onClick={() => run("G28")}
+                  className="border-edge hover:border-accent hover:bg-accent-soft/40 text-fg-muted flex size-9 items-center justify-center rounded-md border transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Home className="size-4" />
+                </button>
+                <JogBtn axis="X" sign={1} icon={ArrowRight} label={t("moonraker.jog.xPlus")} />
+                <span />
+                <JogBtn axis="Y" sign={-1} icon={ArrowDown} label={t("moonraker.jog.yMinus")} />
+                <span />
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-fg-subtle text-[11px] font-semibold">Z</span>
+                <JogBtn axis="Z" sign={1} icon={ArrowUp} label={t("moonraker.jog.zPlus")} />
+                <JogBtn axis="Z" sign={-1} icon={ArrowDown} label={t("moonraker.jog.zMinus")} />
+              </div>
+            </div>
+
+            {/* Step size */}
+            <div className="flex items-center justify-center gap-1.5">
+              {JOG_STEPS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStep(s)}
+                  className={cn(
+                    "rounded-md border px-2.5 py-1 text-[12px] font-medium tabular-nums transition-colors",
+                    step === s ? "border-accent bg-accent-soft text-accent-soft-fg" : "border-edge text-fg-muted hover:border-accent",
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+              <span className="text-fg-subtle ml-0.5 text-[11px]">mm</span>
+            </div>
+            {printing && <p className="text-fg-subtle text-center text-[11px]">{t("moonraker.jog.lockedPrinting")}</p>}
+
+            {/* Speed & flow factors — safe to nudge mid-print. */}
+            <FactorSlider label={t("moonraker.motion.speed")} value={Math.round((th.speedFactor ?? 1) * 100)} onCommit={(v) => run(`M220 S${v}`)} disabled={!canControl} />
+            <FactorSlider label={t("moonraker.motion.flow")} value={Math.round((th.extrudeFactor ?? 1) * 100)} onCommit={(v) => run(`M221 S${v}`)} disabled={!canControl} />
+
             <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" className="h-8" onClick={() => run("G28")}>
-                <Home className="size-3.5" />
-                {t("moonraker.motion.homeAll")}
-              </Button>
-              <Button variant="ghost" className="h-8" onClick={() => run("G28 X Y")}>
+              <Button variant="ghost" className="h-7 text-[12px]" disabled={!canJog} onClick={() => run("G28 X Y")}>
                 {t("moonraker.motion.homeXY")}
               </Button>
-              <Button variant="ghost" className="h-8" onClick={() => run("G28 Z")}>
+              <Button variant="ghost" className="h-7 text-[12px]" disabled={!canJog} onClick={() => run("G28 Z")}>
                 {t("moonraker.motion.homeZ")}
               </Button>
-              <Button variant="ghost" className="h-8" onClick={() => run("M84")}>
+              <Button variant="ghost" className="h-7 text-[12px]" disabled={!canControl || printing} onClick={() => run("M84")}>
                 <Power className="size-3.5" />
                 {t("moonraker.motion.motorsOff")}
               </Button>
             </div>
+          </>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/** A 50–200% factor slider (speed M220 / flow M221) with a live readout. */
+function FactorSlider({ label, value, onCommit, disabled }: { label: string; value: number; onCommit: (v: number) => void; disabled?: boolean }) {
+  const [draft, setDraft] = useState<number | null>(null);
+  const shown = draft ?? value;
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-fg-muted inline-flex items-center gap-1 text-[12px]">
+          <Gauge className="size-3.5" /> {label}
+        </span>
+        <span className="text-fg text-[12.5px] font-semibold tabular-nums">{shown}%</span>
+      </div>
+      <Slider
+        value={shown}
+        min={50}
+        max={200}
+        step={5}
+        disabled={disabled}
+        aria-label={label}
+        onValueChange={setDraft}
+        onValueCommit={(v) => {
+          setDraft(null);
+          onCommit(v);
+        }}
+      />
+    </div>
+  );
+}
+
+function ExtruderCard({ snap, instanceId, canControl }: { snap: MoonrakerSnapshot; instanceId: string; canControl?: boolean }) {
+  const { t } = useTranslation();
+  const gcode = useMoonrakerGcode(instanceId);
+  const toast = useToast();
+  const [amount, setAmount] = useState(10);
+  const extruder = snap.heaters.find((h) => h.kind === "extruder");
+  const printing = snap.print?.state === "printing";
+  const tooCold = !extruder || extruder.temp < 170;
+  const canExtrude = canControl && !tooCold && !printing;
+  const run = (e: number) =>
+    gcode.mutate(`M83\nG1 E${e} F300`, { onError: (err) => toast("error", t("moonraker.toast.failed"), String(err)) });
+
+  return (
+    <Card>
+      <CardBody className="space-y-3 p-3.5">
+        <div className="flex items-center justify-between">
+          <span className="text-fg text-[13px] font-semibold">{t("moonraker.extruder.title")}</span>
+          {extruder && (
+            <span className="text-fg-muted text-[12px] tabular-nums">
+              {extruder.name}: {extruder.temp.toFixed(0)}°
+              {extruder.target > 0 ? ` → ${extruder.target.toFixed(0)}°` : ""}
+            </span>
           )}
-        </CardBody>
-      </Card>
-    </Section>
+        </div>
+
+        <div className="flex items-center justify-center gap-1.5">
+          {[1, 5, 10, 50].map((a) => (
+            <button
+              key={a}
+              type="button"
+              onClick={() => setAmount(a)}
+              className={cn(
+                "rounded-md border px-2.5 py-1 text-[12px] font-medium tabular-nums transition-colors",
+                amount === a ? "border-accent bg-accent-soft text-accent-soft-fg" : "border-edge text-fg-muted hover:border-accent",
+              )}
+            >
+              {a}
+            </button>
+          ))}
+          <span className="text-fg-subtle ml-0.5 text-[11px]">mm</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" disabled={!canExtrude} onClick={() => run(-amount)}>
+            <ArrowUpFromLine className="size-4" />
+            {t("moonraker.extruder.retract")}
+          </Button>
+          <Button variant="secondary" disabled={!canExtrude} onClick={() => run(amount)}>
+            <ArrowDownToLine className="size-4" />
+            {t("moonraker.extruder.extrude")}
+          </Button>
+        </div>
+        {canControl && tooCold && !printing && (
+          <p className="text-warning text-center text-[11px]">{t("moonraker.extruder.cold")}</p>
+        )}
+        {printing && <p className="text-fg-subtle text-center text-[11px]">{t("moonraker.jog.lockedPrinting")}</p>}
+      </CardBody>
+    </Card>
   );
 }
 
@@ -941,6 +1120,169 @@ function Console({ instanceId, canControl }: { instanceId: string; canControl?: 
         </div>
       )}
     </Card>
+  );
+}
+
+// ---- cameras ----------------------------------------------------------------
+
+function CameraSection({ cameras, instanceId, canControl }: { cameras: MoonrakerCamera[]; instanceId: string; canControl?: boolean }) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState<MoonrakerCamera | null>(null);
+  return (
+    <Section icon={Video} title={t("moonraker.sections.cameras")} count={cameras.length}>
+      <div className={cn("grid gap-3", cameras.length > 1 ? "sm:grid-cols-2" : "")}>
+        {cameras.map((cam) => (
+          <CameraTile key={cam.name} cam={cam} instanceId={instanceId} canControl={canControl} onExpand={() => setExpanded(cam)} />
+        ))}
+      </div>
+      {expanded && (
+        <Dialog open onOpenChange={(o) => !o && setExpanded(null)}>
+          <DialogContent wide className="max-w-[min(94vw,1400px)]" title={expanded.name}>
+            <div className="w-full">
+              <CameraTile cam={expanded} instanceId={instanceId} canControl={canControl} expanded />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </Section>
+  );
+}
+
+function aspectStyle(ratio: string): React.CSSProperties {
+  const m = ratio.match(/^(\d+)\s*:\s*(\d+)$/);
+  if (m && Number(m[1]) > 0 && Number(m[2]) > 0) return { aspectRatio: `${m[1]} / ${m[2]}` };
+  return { aspectRatio: "16 / 9" };
+}
+
+function CameraTile({
+  cam,
+  instanceId,
+  canControl,
+  onExpand,
+  expanded,
+}: {
+  cam: MoonrakerCamera;
+  instanceId: string;
+  canControl?: boolean;
+  onExpand?: () => void;
+  expanded?: boolean;
+}) {
+  const { t } = useTranslation();
+  const setWebcam = useMoonrakerSetWebcam(instanceId);
+  const toast = useToast();
+  // Optimistic local flags so a toggle feels instant before the snapshot poll.
+  const [flipH, setFlipH] = useState(cam.flipHorizontal);
+  const [flipV, setFlipV] = useState(cam.flipVertical);
+  const [rotation, setRotation] = useState(cam.rotation);
+  const [nonce, setNonce] = useState(0);
+  const [errored, setErrored] = useState(false);
+  useEffect(() => {
+    setFlipH(cam.flipHorizontal);
+    setFlipV(cam.flipVertical);
+    setRotation(cam.rotation);
+  }, [cam.flipHorizontal, cam.flipVertical, cam.rotation]);
+
+  const save = (patch: { flipHorizontal?: boolean; flipVertical?: boolean; rotation?: 0 | 90 | 180 | 270 }) =>
+    setWebcam.mutate(
+      { name: cam.name, ...patch },
+      { onError: (e) => toast("error", t("moonraker.toast.failed"), String(e)) },
+    );
+  const toggleH = () => {
+    const v = !flipH;
+    setFlipH(v);
+    save({ flipHorizontal: v });
+  };
+  const toggleV = () => {
+    const v = !flipV;
+    setFlipV(v);
+    save({ flipVertical: v });
+  };
+  const rotate = () => {
+    const v = (((rotation + 90) % 360) as 0 | 90 | 180 | 270);
+    setRotation(v);
+    save({ rotation: v });
+  };
+
+  const transform = `rotate(${rotation}deg) scaleX(${flipH ? -1 : 1}) scaleY(${flipV ? -1 : 1})`;
+  const streamSrc = `${webcamStreamUrl(instanceId, cam.name)}&_=${nonce}`;
+
+  return (
+    <div
+      className="border-edge group relative mx-auto w-full overflow-hidden rounded-lg border bg-black"
+      style={{ ...aspectStyle(cam.aspectRatio), maxHeight: expanded ? "78vh" : undefined }}
+    >
+      {errored ? (
+        <button
+          type="button"
+          onClick={() => {
+            setErrored(false);
+            setNonce((n) => n + 1);
+          }}
+          className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center"
+        >
+          <VideoOff className="size-6 text-white/60" />
+          <span className="text-[12.5px] text-white/70">{t("moonraker.camera.offline")}</span>
+          <span className="text-[11px] text-white/45">{t("moonraker.camera.retry")}</span>
+        </button>
+      ) : (
+        <img
+          src={streamSrc}
+          alt={cam.name}
+          onError={() => setErrored(true)}
+          className="absolute inset-0 size-full object-contain"
+          style={{ transform }}
+        />
+      )}
+
+      {/* Top toolbar — flip both directions independently, rotate, expand. */}
+      <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        {canControl && (
+          <>
+            <CamBtn active={flipH} label={t("moonraker.camera.flipH")} onClick={toggleH}>
+              <FlipHorizontal2 className="size-3.5" />
+            </CamBtn>
+            <CamBtn active={flipV} label={t("moonraker.camera.flipV")} onClick={toggleV}>
+              <FlipVertical2 className="size-3.5" />
+            </CamBtn>
+            <CamBtn active={rotation !== 0} label={t("moonraker.camera.rotate")} onClick={rotate}>
+              <RotateCw className="size-3.5" />
+            </CamBtn>
+          </>
+        )}
+        {onExpand && (
+          <CamBtn label={t("moonraker.camera.expand")} onClick={onExpand}>
+            <Maximize2 className="size-3.5" />
+          </CamBtn>
+        )}
+      </div>
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 pt-6 pb-2">
+        <span className="truncate text-[12.5px] font-medium text-white">{cam.name}</span>
+        {(flipH || flipV || rotation !== 0) && (
+          <span className="text-[10.5px] text-white/55">
+            {[flipH && "H", flipV && "V", rotation !== 0 && `${rotation}°`].filter(Boolean).join(" · ")}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CamBtn({ active, label, onClick, children }: { active?: boolean; label: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "flex size-7 items-center justify-center rounded-md border backdrop-blur transition-colors",
+        active ? "border-accent bg-accent/80 text-white" : "border-white/20 bg-black/50 text-white/85 hover:bg-black/70",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

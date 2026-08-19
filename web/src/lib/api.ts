@@ -110,6 +110,7 @@ export type MoonrakerFan = ApiSchemas["MoonrakerFan"];
 export type MoonrakerLed = ApiSchemas["MoonrakerLed"];
 export type MoonrakerOutputPin = ApiSchemas["MoonrakerOutputPin"];
 export type MoonrakerMacro = ApiSchemas["MoonrakerMacro"];
+export type MoonrakerCamera = ApiSchemas["MoonrakerCamera"];
 export type MoonrakerPrintJob = ApiSchemas["MoonrakerPrintJob"];
 export type MoonrakerToolhead = ApiSchemas["MoonrakerToolhead"];
 export type PatchpilotHost = ApiSchemas["PatchpilotHost"];

@@ -3363,7 +3363,9 @@
       "motion": "Motion",
       "lights": "Lights & outputs",
       "macros": "Macros",
-      "console": "G-code console"
+      "console": "G-code console",
+      "control": "Control",
+      "cameras": "Cameras"
     },
     "temp": {
       "off": "Off",
@@ -3409,6 +3411,29 @@
       "macroRan": "Ran {{name}}",
       "failed": "Action failed"
     },
-    "open": "Open Moonraker"
+    "open": "Open Moonraker",
+    "jog": {
+      "yPlus": "Move Y forward",
+      "yMinus": "Move Y back",
+      "xPlus": "Move X right",
+      "xMinus": "Move X left",
+      "zPlus": "Move Z up",
+      "zMinus": "Move Z down",
+      "lockedPrinting": "Movement is locked while printing"
+    },
+    "extruder": {
+      "title": "Extruder",
+      "retract": "Retract",
+      "extrude": "Extrude",
+      "cold": "Heat the hotend above 170 °C to extrude"
+    },
+    "camera": {
+      "offline": "Camera offline",
+      "retry": "Tap to retry",
+      "flipH": "Flip horizontal",
+      "flipV": "Flip vertical",
+      "rotate": "Rotate 90°",
+      "expand": "Expand"
+    }
   }
 }

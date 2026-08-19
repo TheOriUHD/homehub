@@ -3,8 +3,12 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"net/http"
 	"strings"
+	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"homehub/internal/httpctx"
@@ -176,4 +180,138 @@ func (s *Server) MoonrakerFirmwareRestart(ctx context.Context, req MoonrakerFirm
 	}
 	s.audit.Log(ctx, actorFor(httpctx.IdentityFrom(ctx)), "moonraker.firmware_restart", resource, "success", nil)
 	return MoonrakerFirmwareRestart204Response{}, nil
+}
+
+func (s *Server) MoonrakerSetWebcam(ctx context.Context, req MoonrakerSetWebcamRequestObject) (MoonrakerSetWebcamResponseObject, error) {
+	conn, resource, err := s.moonrakerControl(ctx, req.Id)
+	if err != nil {
+		if err == ErrUnauthenticated {
+			return nil, err
+		}
+		if err == store.ErrNotFound {
+			return MoonrakerSetWebcam404JSONResponse{notFoundErr("instance")}, nil
+		}
+		return MoonrakerSetWebcam502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+	}
+	if req.Body == nil || strings.TrimSpace(req.Body.Name) == "" {
+		return MoonrakerSetWebcam400JSONResponse{BadRequestJSONResponse(errBody("bad_input", "a camera name is required"))}, nil
+	}
+	var rotation *int
+	if req.Body.Rotation != nil {
+		r := int(*req.Body.Rotation)
+		rotation = &r
+	}
+	if werr := conn.SetWebcam(ctx, req.Body.Name, req.Body.FlipHorizontal, req.Body.FlipVertical, rotation); werr != nil {
+		return MoonrakerSetWebcam502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", werr.Error()))}, nil
+	}
+	s.audit.Log(ctx, actorFor(httpctx.IdentityFrom(ctx)), "moonraker.webcam.set", resource, "success",
+		map[string]any{"name": req.Body.Name})
+	return MoonrakerSetWebcam204Response{}, nil
+}
+
+// ---- webcam proxy (raw streaming routes) ------------------------------------
+//
+// The browser can't load the printer's plain-HTTP MJPEG stream directly from
+// HomeHub's HTTPS origin (mixed content) or from off-LAN, so the backend
+// fetches it and pipes it through. These are registered as raw routes (not via
+// the generated API) because they stream binary bodies of unknown length.
+
+// HandleMoonrakerWebcamStream proxies a camera's live MJPEG stream:
+// GET /api/moonraker/{id}/webcam/stream?name=<camera>
+func (s *Server) HandleMoonrakerWebcamStream(w http.ResponseWriter, r *http.Request) {
+	s.webcamProxy(w, r, false)
+}
+
+// HandleMoonrakerWebcamSnapshot proxies a single still frame:
+// GET /api/moonraker/{id}/webcam/snapshot?name=<camera>
+func (s *Server) HandleMoonrakerWebcamSnapshot(w http.ResponseWriter, r *http.Request) {
+	s.webcamProxy(w, r, true)
+}
+
+func (s *Server) webcamProxy(w http.ResponseWriter, r *http.Request, snapshot bool) {
+	ctx := r.Context()
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		http.Error(w, "sign in first", http.StatusUnauthorized)
+		return
+	}
+	instID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	conn, _, err := s.moonrakerConn(ctx, id, instID) // enforces instance view
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		http.Error(w, "camera name required", http.StatusBadRequest)
+		return
+	}
+
+	var target string
+	var ok bool
+	if snapshot {
+		target, ok = conn.WebcamSnapshotURL(ctx, name)
+	} else {
+		target, ok = conn.WebcamStreamURL(ctx, name)
+	}
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	// A still frame gets a bounded timeout; a live stream is long-lived and
+	// ends when the client disconnects (r.Context cancels the upstream fetch).
+	fetchCtx := ctx
+	if snapshot {
+		var cancel context.CancelFunc
+		fetchCtx, cancel = context.WithTimeout(ctx, 15*time.Second)
+		defer cancel()
+	}
+	preq, err := http.NewRequestWithContext(fetchCtx, http.MethodGet, target, nil)
+	if err != nil {
+		http.Error(w, "bad camera url", http.StatusBadGateway)
+		return
+	}
+	// The webcam is served by the machine's own web server, not Moonraker, so
+	// no API key is forwarded.
+	resp, err := webcamClient.Do(preq)
+	if err != nil {
+		http.Error(w, "camera unreachable", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+	// Never let a proxied frame be cached; the stream must stay live.
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(resp.StatusCode)
+	copyFlush(w, resp.Body)
+}
+
+// webcamClient has no overall timeout so MJPEG streams stay open; per-request
+// context deadlines bound the snapshot path and client disconnects end streams.
+var webcamClient = &http.Client{Timeout: 0}
+
+// copyFlush streams src to w, flushing after every chunk so MJPEG frames reach
+// the browser as they arrive instead of buffering.
+func copyFlush(w http.ResponseWriter, src io.Reader) {
+	rc := http.NewResponseController(w)
+	buf := make([]byte, 32*1024)
+	for {
+		n, rerr := src.Read(buf)
+		if n > 0 {
+			if _, werr := w.Write(buf[:n]); werr != nil {
+				return
+			}
+			_ = rc.Flush()
+		}
+		if rerr != nil {
+			return
+		}
+	}
 }

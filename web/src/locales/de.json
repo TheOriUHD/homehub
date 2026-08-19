@@ -3363,7 +3363,9 @@
       "motion": "Bewegung",
       "lights": "Licht & Ausgänge",
       "macros": "Makros",
-      "console": "G-Code-Konsole"
+      "console": "G-Code-Konsole",
+      "control": "Steuerung",
+      "cameras": "Kameras"
     },
     "temp": {
       "off": "Aus",
@@ -3409,6 +3411,29 @@
       "macroRan": "{{name}} ausgeführt",
       "failed": "Aktion fehlgeschlagen"
     },
-    "open": "Moonraker öffnen"
+    "open": "Moonraker öffnen",
+    "jog": {
+      "yPlus": "Y vorwärts",
+      "yMinus": "Y zurück",
+      "xPlus": "X rechts",
+      "xMinus": "X links",
+      "zPlus": "Z hoch",
+      "zMinus": "Z runter",
+      "lockedPrinting": "Bewegung während des Drucks gesperrt"
+    },
+    "extruder": {
+      "title": "Extruder",
+      "retract": "Zurückziehen",
+      "extrude": "Extrudieren",
+      "cold": "Hotend über 170 °C erhitzen, um zu extrudieren"
+    },
+    "camera": {
+      "offline": "Kamera offline",
+      "retry": "Zum erneut Versuchen tippen",
+      "flipH": "Horizontal spiegeln",
+      "flipV": "Vertikal spiegeln",
+      "rotate": "90° drehen",
+      "expand": "Vergrößern"
+    }
   }
 }
