@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
   Boxes,
   CheckCircle2,
+  ChevronRight,
   MoreVertical,
   Pencil,
   Plug,
@@ -27,7 +28,7 @@ import {
 import { cn, formatRelative } from "@/lib/utils";
 import { Card } from "@/ui/card";
 import { Button } from "@/ui/button";
-import { StatusDot } from "@/ui/badge";
+import { Badge, StatusDot } from "@/ui/badge";
 import { ConfirmDialog } from "@/ui/confirm";
 import {
   Dropdown,
@@ -44,8 +45,10 @@ import { AddSystemWizard, EditSystemDialog } from "./editor";
 /**
  * The Systems page owns viewing, adding, editing, and removing every system
  * HomeHub is connected to. It's a compact status board: a health summary up
- * top, then dense per-type tiles with anything unhealthy pulled to the front.
- * Per-system actions live in each tile's menu so the overview stays scannable.
+ * top, then collapsible per-type groups — a healthy group stays a single row
+ * (with at-a-glance status dots) and only expands to its dense tiles when it
+ * has an issue or the operator opens it, so the page never becomes a long
+ * scroll. Per-system actions live in each tile's menu so it stays scannable.
  * Visibility is server-filtered; mutations are gated on system/integrations.
  */
 export function SystemsPage() {
@@ -64,6 +67,9 @@ export function SystemsPage() {
   const [editing, setEditing] = useState<Integration | null>(null);
   const [deleting, setDeleting] = useState<Integration | null>(null);
   const [testResults, setTestResults] = useState<Record<string, TestConnectionResult>>({});
+  // Per-type collapse override; unset = default (open only when the group has an
+  // issue) so a healthy fleet collapses to one row per type instead of scrolling.
+  const [openOverride, setOpenOverride] = useState<Record<string, boolean>>({});
 
   const remove = useMutation({
     mutationFn: async (id: string) =>
@@ -163,36 +169,71 @@ export function SystemsPage() {
             <Stat label={t("systems.summary.disabled")} value={disabledCount} dot="bg-fg-subtle" />
           </div>
 
-          {typesPresent.map((type) => {
-            const TypeIcon = systemTypeIcon(type);
-            const group = rows
-              .filter((row) => row.type === type)
-              .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
-            return (
-              <section key={type} className="space-y-2">
-                <h2 className="text-fg flex items-center gap-2 text-[14px] font-semibold">
-                  <TypeIcon className="text-fg-subtle size-4" />
-                  {systemTypeLabel(t, type)}
-                  <span className="text-fg-subtle text-[12.5px] font-normal">{group.length}</span>
-                </h2>
-                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {group.map((row) => (
-                    <SystemTile
-                      key={row.id}
-                      row={row}
-                      canConfigure={canConfigure}
-                      canDelete={canDelete}
-                      testResult={testResults[row.id]}
-                      onTest={() => test.mutate(row.id)}
-                      onEdit={() => setEditing(row)}
-                      onDelete={() => setDeleting(row)}
-                      onToggle={() => toggle.mutate(row)}
-                    />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
+          <div className="space-y-1.5">
+            {typesPresent.map((type) => {
+              const TypeIcon = systemTypeIcon(type);
+              const group = rows
+                .filter((row) => row.type === type)
+                .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+              const groupIssues = group.filter((r) => r.enabled && r.status !== "connected").length;
+              const groupDisabled = group.filter((r) => !r.enabled).length;
+              const open = openOverride[type] ?? groupIssues > 0;
+              return (
+                <section key={type} className="border-edge overflow-hidden rounded-lg border">
+                  <button
+                    type="button"
+                    onClick={() => setOpenOverride((o) => ({ ...o, [type]: !open }))}
+                    className="hover:bg-bg-subtle flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors"
+                  >
+                    <ChevronRight className={cn("text-fg-subtle size-4 shrink-0 transition-transform", open && "rotate-90")} />
+                    <TypeIcon className="text-fg-subtle size-4 shrink-0" />
+                    <span className="text-fg text-[13.5px] font-semibold">{systemTypeLabel(t, type)}</span>
+                    <span className="text-fg-subtle text-[12.5px]">{group.length}</span>
+                    <div className="ml-auto flex items-center gap-2.5">
+                      {groupIssues > 0 && (
+                        <Badge tone="danger">
+                          {groupIssues} {t("systems.summary.issues")}
+                        </Badge>
+                      )}
+                      {groupDisabled > 0 && (
+                        <span className="text-fg-subtle text-[12px]">
+                          {groupDisabled} {t("systems.summary.disabled")}
+                        </span>
+                      )}
+                      {/* health-at-a-glance dots (collapsed rows still show state) */}
+                      <div className="hidden items-center gap-1 sm:flex">
+                        {group.slice(0, 10).map((r) => (
+                          <StatusDot
+                            key={r.id}
+                            tone={r.enabled ? statusTone[r.status] : "neutral"}
+                            pulse={r.status === "connecting" || r.status === "unreachable"}
+                          />
+                        ))}
+                        {group.length > 10 && <span className="text-fg-subtle text-[11px]">+{group.length - 10}</span>}
+                      </div>
+                    </div>
+                  </button>
+                  {open && (
+                    <div className="border-edge grid gap-2.5 border-t p-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {group.map((row) => (
+                        <SystemTile
+                          key={row.id}
+                          row={row}
+                          canConfigure={canConfigure}
+                          canDelete={canDelete}
+                          testResult={testResults[row.id]}
+                          onTest={() => test.mutate(row.id)}
+                          onEdit={() => setEditing(row)}
+                          onDelete={() => setDeleting(row)}
+                          onToggle={() => toggle.mutate(row)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
         </>
       )}
 
