@@ -3449,7 +3449,8 @@
       "change": "Änderung",
       "actual": "Aktuell",
       "target": "Ziel",
-      "collecting": "Sammle Temperaturdaten…"
+      "collecting": "Sammle Temperaturdaten…",
+      "tempAxis": "Temperatur °C"
     }
   }
 }
