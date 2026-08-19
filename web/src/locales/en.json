@@ -3355,7 +3355,8 @@
       "cancelConfirm": {
         "title": "Cancel this print?",
         "body": "The print will be stopped and cannot be resumed."
-      }
+      },
+      "idle": "No active print"
     },
     "sections": {
       "temperatures": "Temperatures",
@@ -3365,7 +3366,11 @@
       "macros": "Macros",
       "console": "G-code console",
       "control": "Control",
-      "cameras": "Cameras"
+      "cameras": "Cameras",
+      "status": "Status",
+      "thermals": "Thermals",
+      "tool": "Tool",
+      "fansOutputs": "Fans & Outputs"
     },
     "temp": {
       "off": "Off",
@@ -3425,7 +3430,9 @@
       "title": "Extruder",
       "retract": "Retract",
       "extrude": "Extrude",
-      "cold": "Heat the hotend above 170 °C to extrude"
+      "cold": "Heat the hotend above 170 °C to extrude",
+      "length": "Extrude length",
+      "speed": "Extrude speed (mm/s)"
     },
     "camera": {
       "offline": "Camera offline",
@@ -3435,6 +3442,14 @@
       "rotate": "Rotate 90°",
       "expand": "Expand",
       "unsupported": "Live view not supported for this camera type"
+    },
+    "thermals": {
+      "name": "Name",
+      "power": "Power",
+      "change": "Change",
+      "actual": "Actual",
+      "target": "Target",
+      "collecting": "Collecting temperature data…"
     }
   }
 }

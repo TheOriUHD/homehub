@@ -3355,7 +3355,8 @@
       "cancelConfirm": {
         "title": "Diesen Druck abbrechen?",
         "body": "Der Druck wird gestoppt und kann nicht fortgesetzt werden."
-      }
+      },
+      "idle": "Kein aktiver Druck"
     },
     "sections": {
       "temperatures": "Temperaturen",
@@ -3365,7 +3366,11 @@
       "macros": "Makros",
       "console": "G-Code-Konsole",
       "control": "Steuerung",
-      "cameras": "Kameras"
+      "cameras": "Kameras",
+      "status": "Status",
+      "thermals": "Temperaturen",
+      "tool": "Werkzeug",
+      "fansOutputs": "Lüfter & Ausgänge"
     },
     "temp": {
       "off": "Aus",
@@ -3425,7 +3430,9 @@
       "title": "Extruder",
       "retract": "Zurückziehen",
       "extrude": "Extrudieren",
-      "cold": "Hotend über 170 °C erhitzen, um zu extrudieren"
+      "cold": "Hotend über 170 °C erhitzen, um zu extrudieren",
+      "length": "Extrudierlänge",
+      "speed": "Extrudiertempo (mm/s)"
     },
     "camera": {
       "offline": "Kamera offline",
@@ -3435,6 +3442,14 @@
       "rotate": "90° drehen",
       "expand": "Vergrößern",
       "unsupported": "Live-Ansicht für diesen Kameratyp nicht unterstützt"
+    },
+    "thermals": {
+      "name": "Name",
+      "power": "Leistung",
+      "change": "Änderung",
+      "actual": "Aktuell",
+      "target": "Ziel",
+      "collecting": "Sammle Temperaturdaten…"
     }
   }
 }
