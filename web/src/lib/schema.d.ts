@@ -5601,6 +5601,7 @@ export interface components {
             password?: string;
             rootPassword?: string;
             notes?: string;
+            autoReboot?: boolean;
         };
         PatchpilotDetectResult: {
             reachable: boolean;

@@ -13,6 +13,7 @@ import { Field } from "@/ui/field";
 import { Input } from "@/ui/input";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
+import { Switch } from "@/ui/switch";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { useToast } from "@/ui/toast";
 import { Radar } from "lucide-react";
@@ -225,6 +226,7 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
   const [password, setPassword] = useState("");
   const [rootPassword, setRootPassword] = useState("");
   const [name, setName] = useState("");
+  const [autoReboot, setAutoReboot] = useState(true); // on by default
   const [result, setResult] = useState<PatchpilotDetectResult | null>(null);
   const [steps, setSteps] = useState<BootstrapStep[]>([]);
 
@@ -274,7 +276,7 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
   const runOnboard = () => {
     setSteps([]);
     onboard.mutate(
-      { ...credentials(), name: name.trim() },
+      { ...credentials(), name: name.trim(), autoReboot },
       {
         onSuccess: () => {
           toast("success", t("patchpilot.addHost.onboarded", { name: name.trim() }));
@@ -417,6 +419,16 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
                 />
               )}
             </Field>
+          )}
+
+          {ok && (
+            <div className="border-edge flex items-start gap-3 rounded-lg border px-3.5 py-2.5">
+              <div className="min-w-0 flex-1">
+                <p className="text-fg text-[13px] font-medium">{t("patchpilot.addHost.autoReboot")}</p>
+                <p className="text-fg-subtle text-[12px]">{t("patchpilot.addHost.autoRebootHint")}</p>
+              </div>
+              <Switch checked={autoReboot} onCheckedChange={setAutoReboot} />
+            </div>
           )}
 
           {steps.length > 0 && (

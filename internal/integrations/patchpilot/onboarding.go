@@ -110,6 +110,7 @@ type CommitInput struct {
 	RootPassword string
 	Name         string
 	Notes        string
+	AutoReboot   bool
 }
 
 // Onboard runs the full bootstrap for one host and persists it, streaming
@@ -191,6 +192,7 @@ func (r *Registry) Onboard(ctx context.Context, integrationID uuid.UUID, in Comm
 		Arch:           facts.Arch,
 		IsProxmox:      facts.IsProxmox,
 		Enabled:        true,
+		AutoReboot:     in.AutoReboot,
 		Notes:          in.Notes,
 	})
 	if err != nil {

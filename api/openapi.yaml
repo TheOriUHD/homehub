@@ -8233,6 +8233,7 @@ components:
         password: { type: string }
         rootPassword: { type: string }
         notes: { type: string }
+        autoReboot: { type: boolean }
     PatchpilotDetectResult:
       type: object
       required: [reachable, message]

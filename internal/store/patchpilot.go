@@ -76,6 +76,14 @@ func (s *Store) SetPatchpilotHostSnapshot(ctx context.Context, id uuid.UUID, pen
 	return err
 }
 
+// ClearPatchpilotHostReboot marks a host as no longer needing a reboot —
+// called right after we reboot it, so the "reboot required" flag drops
+// immediately instead of lingering until the next check.
+func (s *Store) ClearPatchpilotHostReboot(ctx context.Context, id uuid.UUID) error {
+	_, err := s.pool.Exec(ctx, `update patchpilot_hosts set reboot_required = false, updated_at = now() where id = $1`, id)
+	return err
+}
+
 func (s *Store) SetPatchpilotHostRunStatus(ctx context.Context, id uuid.UUID, status string, at time.Time) error {
 	_, err := s.pool.Exec(ctx, `
 		update patchpilot_hosts set last_run_status = $2, last_run_at = $3, updated_at = now()

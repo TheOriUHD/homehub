@@ -222,6 +222,7 @@ func (s *Server) PatchpilotOnboard(ctx context.Context, req PatchpilotOnboardReq
 		RootPassword: deref(b.RootPassword),
 		Name:         b.Name,
 		Notes:        deref(b.Notes),
+		AutoReboot:   derefBool(b.AutoReboot, true),
 	}
 	host, err := s.patchpilot.Onboard(ctx, fleetID, in, func(patchpilot.BootstrapStep) {})
 	if err != nil {
