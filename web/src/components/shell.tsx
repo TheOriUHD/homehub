@@ -409,7 +409,14 @@ export function AppShell() {
           <NotificationsBell />
         </header>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">
+        <main
+          className={cn(
+            "mx-auto w-full flex-1 px-4 py-6 sm:px-6",
+            // The workhorse apps get the whole viewport; everything else
+            // keeps the comfortable reading column.
+            /^\/tools\/(editor|files|convert)(\/|$)/.test(pathname) ? "max-w-none" : "max-w-6xl",
+          )}
+        >
           <Outlet />
           <AssistantWidget />
         </main>
