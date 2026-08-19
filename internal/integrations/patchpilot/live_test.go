@@ -39,11 +39,10 @@ func TestLiveBootstrapRootHost(t *testing.T) {
 	if facts.UID != 0 {
 		t.Fatalf("expected root uid, got %d", facts.UID)
 	}
-	mode, blocker := ChooseEscalation(facts, true, false)
+	mode, blocker := ResolveEscalation(ctx, conn, facts, "pp-test-root-pw", "")
 	if blocker != "" || mode != EscDirectRoot {
 		t.Fatalf("escalation: mode=%s blocker=%s", mode, blocker)
 	}
-	conn.escalate = mode
 
 	kp, err := GenerateKeyPair()
 	if err != nil {
@@ -95,17 +94,13 @@ func TestLiveBootstrapSudoUserHost(t *testing.T) {
 	if err != nil {
 		t.Fatalf("detect: %v", err)
 	}
-	mode, blocker := ChooseEscalation(facts, true, false)
+	mode, blocker := ResolveEscalation(ctx, conn, facts, "pp-test-user-pw", "")
 	if blocker != "" {
 		t.Fatalf("blocker: %s", blocker)
 	}
-	// phil is a sudo-group user with a password → sudo-password (unless the
-	// container cached a NOPASSWD ticket, in which case sudo-nopasswd).
 	if mode != EscSudoPassword && mode != EscSudoNoPasswd {
 		t.Fatalf("unexpected escalation %s", mode)
 	}
-	conn.escalate = mode
-	conn.password = "pp-test-user-pw"
 
 	kp, err := GenerateKeyPair()
 	if err != nil {

@@ -30,6 +30,7 @@ type DetectResult struct {
 // single click is reliable — a genuinely empty/non-Linux host stays empty
 // across all attempts and is reported honestly.
 func (r *Registry) Detect(ctx context.Context, host string, port int, cred Credential, rootPassword string) (*DetectResult, error) {
+	var conn *SSHConn
 	var facts *HostFacts
 	var raw, lastErr string
 	reachable := false
@@ -38,24 +39,29 @@ func (r *Registry) Detect(ctx context.Context, host string, port int, cred Crede
 		if attempt > 0 {
 			time.Sleep(400 * time.Millisecond)
 		}
-		conn, err := ConnectPassword(ctx, host, port, cred)
+		c, err := ConnectPassword(ctx, host, port, cred)
 		if err != nil {
 			lastErr = err.Error()
 			continue // connection itself failed — retry
 		}
 		reachable = true
-		out, f, perr := Probe(ctx, conn)
-		conn.Close()
+		out, f, perr := Probe(ctx, c)
 		if perr != nil {
+			c.Close()
 			lastErr = perr.Error()
 			continue
 		}
 		raw, facts = out, f
-		// A useful probe has at least an OS or a package manager. Empty means
-		// a transient hiccup or a genuinely bare host — retry to be sure.
+		// A useful probe has at least an OS or a package manager. Keep the
+		// connection open to verify elevation; retry on an empty result.
 		if f.PackageManager != "" || f.OSPretty != "" {
+			conn = c
 			break
 		}
+		c.Close()
+	}
+	if conn != nil {
+		defer conn.Close()
 	}
 
 	if !reachable {
@@ -64,9 +70,9 @@ func (r *Registry) Detect(ctx context.Context, host string, port int, cred Crede
 	if facts == nil {
 		return &DetectResult{Reachable: true, Message: "connected, but the detection probe failed: " + lastErr}, nil
 	}
-	// Still nothing after retries: log exactly what the host sent so an odd
-	// shell / PATH / banner can be diagnosed.
 	if facts.PackageManager == "" && facts.OSPretty == "" {
+		// Log exactly what the host sent so an odd shell / PATH / banner is
+		// diagnosable.
 		r.logger.Warn("patchpilot detection empty", "host", host,
 			"rawLen", len(raw), "raw", truncate(raw, 1200))
 	}
@@ -83,7 +89,8 @@ func (r *Registry) Detect(ctx context.Context, host string, port int, cred Crede
 		res.Message = refusal
 		return res, nil
 	}
-	mode, blocker := ChooseEscalation(facts, cred.Password != "", rootPassword != "")
+	// Verify elevation actually works (sudo installed ≠ this user can sudo).
+	mode, blocker := ResolveEscalation(ctx, conn, facts, cred.Password, rootPassword)
 	if blocker != "" {
 		res.Blocker = blocker
 		res.NeedsPassword = true
@@ -127,14 +134,13 @@ func (r *Registry) Onboard(ctx context.Context, integrationID uuid.UUID, in Comm
 	if refusal := StandardRefusal(facts); refusal != "" {
 		return nil, bootErr("unknown", refusal, "use the matching native integration instead", "")
 	}
-	mode, blocker := ChooseEscalation(facts, in.Cred.Password != "", in.RootPassword != "")
+	// ResolveEscalation verifies elevation works and leaves conn configured
+	// with the mode/password that succeeded (sudo→su fallback included).
+	mode, blocker := ResolveEscalation(ctx, conn, facts, in.Cred.Password, in.RootPassword)
 	if blocker != "" {
-		return nil, bootErr("permission_denied", blocker, "supply a password with sudo rights, or root's password", "")
+		return nil, bootErr("permission_denied", blocker, "supply a login with sudo rights, or root's password", "")
 	}
-	conn.escalate = mode
-	if mode == EscSuRoot {
-		conn.password = in.RootPassword
-	}
+	_ = mode
 	step(BootstrapStep{Step: "detect", Status: "ok", Message: facts.OSPretty + " · " + ManagerDisplayName(facts.PackageManager)})
 
 	kp, err := r.KeyPairFor(ctx, integrationID)
