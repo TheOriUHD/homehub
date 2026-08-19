@@ -24,6 +24,7 @@ import {
 import { api, isApiError, unwrap } from "@/lib/api";
 import { fileLanguage, formatBytes, timeAgo } from "@/lib/file-lang";
 import { cn } from "@/lib/utils";
+import { toolsBackTarget } from "./workbench";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
 import { Dialog, DialogContent } from "@/ui/dialog";
@@ -183,7 +184,7 @@ export function ToolsFilesPage() {
 
   return (
     <div className="space-y-4">
-      <Link to="/tools" className="text-fg-subtle hover:text-fg inline-flex items-center gap-1.5 text-[13px]">
+      <Link to={toolsBackTarget()} className="text-fg-subtle hover:text-fg inline-flex items-center gap-1.5 text-[13px]">
         <ArrowLeft className="size-3.5" /> {t("tools.backToUtilities")}
       </Link>
       <div className="flex flex-wrap items-center gap-3">

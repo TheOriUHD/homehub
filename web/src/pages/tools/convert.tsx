@@ -34,6 +34,7 @@ import {
   type ConvertOutput,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { toolsBackTarget } from "./workbench";
 import { formatBytes } from "@/lib/file-lang";
 import { useLiveInvalidate } from "@/lib/live";
 import { Button } from "@/ui/button";
@@ -151,7 +152,7 @@ export function ToolsConvertPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <Link to="/tools" className="text-fg-subtle hover:text-fg inline-flex items-center gap-1.5 text-[13px]">
+        <Link to={toolsBackTarget()} className="text-fg-subtle hover:text-fg inline-flex items-center gap-1.5 text-[13px]">
           <ArrowLeft className="size-3.5" /> Utilities
         </Link>
         <div className="flex items-center gap-3">

@@ -2951,6 +2951,9 @@
       "rendered": "Rendered",
       "plain": "Plain text",
       "contents": "Contents"
+    },
+    "workbench": {
+      "allUtilities": "All utilities"
     }
   },
   "patchpilot": {

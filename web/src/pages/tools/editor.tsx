@@ -26,6 +26,7 @@ import {
 import { api, isApiError, unwrap } from "@/lib/api";
 import { fileLanguage, formatBytes, timeAgo } from "@/lib/file-lang";
 import { cn } from "@/lib/utils";
+import { toolsBackTarget } from "./workbench";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
 import { Dialog, DialogContent } from "@/ui/dialog";
@@ -307,7 +308,7 @@ export function ToolsEditorPage() {
     <div className="flex h-[calc(100dvh-6.5rem)] min-h-0 flex-col space-y-3">
       <div className="flex items-center gap-3">
         <Link
-          to="/tools"
+          to={toolsBackTarget()}
           className="text-fg-subtle hover:text-fg hover:bg-surface-hover -ml-1 flex size-8 shrink-0 items-center justify-center rounded-lg"
           title={t("tools.backToUtilities")}
         >

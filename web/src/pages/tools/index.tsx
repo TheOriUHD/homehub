@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
@@ -6,6 +7,7 @@ import { api, unwrap } from "@/lib/api";
 import { fileLanguage, formatBytes, timeAgo } from "@/lib/file-lang";
 import { Card } from "@/ui/card";
 import { CATEGORY_LABEL, CATEGORY_ORDER, TOOLS } from "./registry";
+import { clearWorkbench } from "./workbench";
 
 /**
  * The utilities hub: the built-in apps (editor, files, converter) plus every
@@ -13,6 +15,10 @@ import { CATEGORY_LABEL, CATEGORY_ORDER, TOOLS } from "./registry";
  * workspace's most recent files for one-click re-entry.
  */
 export function ToolsPage() {
+  // Landing on the grid ends workbench mode — big apps opened from here go
+  // back to the grid, not the sidebar.
+  useEffect(clearWorkbench, []);
+
   const { t } = useTranslation();
   const files = useQuery({
     queryKey: ["files"],
