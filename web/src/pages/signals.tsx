@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
+  ArrowDownUp,
   ArrowRight,
   Check,
   CheckCheck,
   ChevronDown,
+  Layers,
   Radio,
   X,
 } from "lucide-react";
@@ -41,6 +43,8 @@ export const sevTone: Record<Severity, { dot: string; text: string; ring: string
   recovered: { dot: "bg-success", text: "text-success-soft-fg", ring: "border-success/40", label: "recovered" },
 };
 
+type SignalGroup = { key: string; label: string; dot: string; worst?: number; signals: Signal[] };
+
 export function useSignals(limit = 200) {
   const qc = useQueryClient();
   const q = useQuery({
@@ -64,6 +68,8 @@ export function SignalsPage() {
   const qc = useQueryClient();
   const signals = useSignals(500);
   const [filter, setFilter] = useState<Severity | "all">("all");
+  const [groupBy, setGroupBy] = useState<"severity" | "system">("severity");
+  const [sortBy, setSortBy] = useState<"recent" | "severity">("recent");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   // Pending dismissal awaiting confirmation (bulk or single with severity
@@ -110,6 +116,39 @@ export function SignalsPage() {
 
   const allVisibleSelected = visible.length > 0 && visible.every((s) => selected.has(s.id));
 
+  // Organize the visible signals into sections — grouped by severity or by
+  // the system that raised them — with a chosen sort inside each section.
+  const groups = useMemo<SignalGroup[]>(() => {
+    const sevRank = (s: Signal) => SEV_ORDER.indexOf((s.severity as Severity) ?? "info");
+    const sortSignals = (arr: Signal[]) =>
+      [...arr].sort((a, b) => {
+        const byTime = +new Date(b.lastSeen) - +new Date(a.lastSeen);
+        return sortBy === "severity" ? sevRank(a) - sevRank(b) || byTime : byTime;
+      });
+
+    if (groupBy === "severity") {
+      return SEV_ORDER.map((sev) => {
+        const sigs = sortSignals(visible.filter((s) => s.severity === sev));
+        return { key: sev, label: t(`signals.sev.${sev}`), dot: sevTone[sev].dot, signals: sigs };
+      }).filter((g) => g.signals.length > 0);
+    }
+
+    const bySystem = new Map<string, Signal[]>();
+    for (const s of visible) {
+      const label = s.sourceName || s.sourceType || t("signals.system");
+      const arr = bySystem.get(label);
+      if (arr) arr.push(s);
+      else bySystem.set(label, [s]);
+    }
+    return [...bySystem.entries()]
+      .map(([label, sigs]) => {
+        const sorted = sortSignals(sigs);
+        const worst = Math.min(...sorted.map(sevRank));
+        return { key: label, label, dot: sevTone[SEV_ORDER[worst]].dot, worst, signals: sorted };
+      })
+      .sort((a, b) => (a.worst ?? 3) - (b.worst ?? 3) || b.signals.length - a.signals.length);
+  }, [visible, groupBy, sortBy, t]);
+
   // Signals are hidden for this account (per-user or by role) — send them home.
   if (me?.signalsHidden) return <Navigate to="/" replace />;
   if (signals.isLoading) return <PageLoader />;
@@ -152,6 +191,32 @@ export function SignalsPage() {
             dotClass={sevTone[sev].dot}
           />
         ))}
+      </div>
+
+      {/* organize: group + sort */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <div className="flex items-center gap-2">
+          <Layers className="text-fg-subtle size-3.5" />
+          <Segmented
+            value={groupBy}
+            onChange={setGroupBy}
+            options={[
+              { value: "severity", label: t("signals.bySeverity") },
+              { value: "system", label: t("signals.bySystem") },
+            ]}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <ArrowDownUp className="text-fg-subtle size-3.5" />
+          <Segmented
+            value={sortBy}
+            onChange={setSortBy}
+            options={[
+              { value: "recent", label: t("signals.sortRecent") },
+              { value: "severity", label: t("signals.sortSeverity") },
+            ]}
+          />
+        </div>
         <span className="flex-1" />
         {visible.length > 0 && (
           <button
@@ -175,28 +240,57 @@ export function SignalsPage() {
           />
         </Card>
       ) : (
-        <Card className="overflow-hidden p-0">
-          <div className="divide-edge divide-y">
-            {visible.map((s) => (
-              <SignalRow
-                key={s.id}
-                signal={s}
-                selected={selected.has(s.id)}
-                expanded={expanded.has(s.id)}
-                onSelect={() => toggleSelect(s.id)}
-                onExpand={() =>
-                  setExpanded((e) => {
-                    const next = new Set(e);
-                    if (next.has(s.id)) next.delete(s.id);
-                    else next.add(s.id);
-                    return next;
-                  })
-                }
-                onDismiss={() => requestDismiss([s.id])}
-              />
-            ))}
-          </div>
-        </Card>
+        <div className="space-y-4">
+          {groups.map((g) => {
+            const ids = g.signals.map((s) => s.id);
+            const allSel = ids.every((id) => selected.has(id));
+            return (
+              <section key={g.key}>
+                <div className="mb-1.5 flex items-center gap-2 px-1">
+                  <span className={cn("size-2 shrink-0 rounded-full", g.dot)} />
+                  <h2 className="text-fg text-[13px] font-semibold">{g.label}</h2>
+                  <span className="text-fg-subtle text-[12px]">{g.signals.length}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelected((prev) => {
+                        const next = new Set(prev);
+                        if (allSel) ids.forEach((id) => next.delete(id));
+                        else ids.forEach((id) => next.add(id));
+                        return next;
+                      })
+                    }
+                    className="text-fg-subtle hover:text-fg ml-1.5 text-[11.5px]"
+                  >
+                    {allSel ? t("signals.selectNone") : t("signals.selectGroup")}
+                  </button>
+                </div>
+                <Card className="overflow-hidden p-0">
+                  <div className="divide-edge divide-y">
+                    {g.signals.map((s) => (
+                      <SignalRow
+                        key={s.id}
+                        signal={s}
+                        selected={selected.has(s.id)}
+                        expanded={expanded.has(s.id)}
+                        onSelect={() => toggleSelect(s.id)}
+                        onExpand={() =>
+                          setExpanded((e) => {
+                            const next = new Set(e);
+                            if (next.has(s.id)) next.delete(s.id);
+                            else next.add(s.id);
+                            return next;
+                          })
+                        }
+                        onDismiss={() => requestDismiss([s.id])}
+                      />
+                    ))}
+                  </div>
+                </Card>
+              </section>
+            );
+          })}
+        </div>
       )}
 
       <ConfirmDialog
@@ -208,6 +302,34 @@ export function SignalsPage() {
         loading={dismiss.isPending}
         onConfirm={() => confirming && dismiss.mutate(confirming)}
       />
+    </div>
+  );
+}
+
+function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div className="border-edge bg-bg-subtle inline-flex rounded-lg border p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={cn(
+            "rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors",
+            value === o.value ? "bg-bg text-fg shadow-sm" : "text-fg-subtle hover:text-fg",
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }

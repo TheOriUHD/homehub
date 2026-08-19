@@ -701,7 +701,14 @@
         "title": "No {{type}} connected",
         "body": "Connect one under Systems and it shows up here."
       }
-    }
+    },
+    "summary": {
+      "total": "total",
+      "healthy": "healthy",
+      "issues": "issues",
+      "disabled": "disabled"
+    },
+    "disabledLabel": "Disabled"
   },
   "pve": {
     "tabs": {
@@ -3189,7 +3196,13 @@
     "resolvedNote": "resolved itself",
     "openAll": "Open all signals",
     "confirmTitle": "Dismiss {{count}} signal(s)?",
-    "confirmBody": "At least one of these is a warning or worse. Dismissing removes it from the list — make sure it has been handled or noted."
+    "confirmBody": "At least one of these is a warning or worse. Dismissing removes it from the list — make sure it has been handled or noted.",
+    "bySeverity": "By severity",
+    "bySystem": "By system",
+    "sortRecent": "Recent",
+    "sortSeverity": "Severity",
+    "selectGroup": "Select group",
+    "system": "System"
   },
   "calendar": {
     "today": "Today",

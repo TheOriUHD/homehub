@@ -656,24 +656,58 @@ func (c *tailscaleCollector) Collect(ctx context.Context) ([]Observation, error)
 				continue
 			}
 			left := time.Until(dev.Expires.Time)
+			key := "ts:" + inst.ID.String() + ":keyexpiry:" + dev.ID
+			detail := map[string]any{"device": dev.Name, "expires": dev.Expires.Time, "lastSeen": dev.LastSeen.Time}
+
+			// A device that both dropped off long ago AND has an expired key is
+			// dormant, not urgent — it already left the tailnet weeks/months ago
+			// and nothing depending on it broke. Surface it as a low-severity
+			// cleanup nudge, not a critical alarm.
+			seenAgo := time.Duration(0)
+			dormant := false
+			if !dev.LastSeen.IsZero() {
+				seenAgo = time.Since(dev.LastSeen.Time)
+				dormant = seenAgo >= dormantAfter
+			}
+			if dormant {
+				if left > 0 {
+					continue // dormant but key still valid — nothing to say yet
+				}
+				out = append(out, Observation{
+					Key:      key,
+					Severity: SevInfo,
+					Title:    fmt.Sprintf("%s is dormant on Tailscale", dev.Name),
+					Body: fmt.Sprintf("Last connected %s ago and its key has since expired, so it's no longer on the tailnet. "+
+						"Remove it in the Tailscale admin console, or re-authenticate it if you still use it.", humanAgo(seenAgo)),
+					Detail:     detail,
+					SourceType: "tailscale", SourceID: srcID(inst.ID), SourceName: inst.Name,
+					AutoResolve:  true,
+					ResolveTitle: fmt.Sprintf("%s is back on Tailscale", dev.Name),
+				})
+				continue
+			}
+
+			// Still-active device: the genuinely actionable window.
 			if left > 7*24*time.Hour {
 				continue
 			}
 			sev := SevWarning
-			if left < 48*time.Hour {
-				sev = SevCritical
-			}
 			title := fmt.Sprintf("%s's key expires in %s", dev.Name, humanDuration(left))
-			if left <= 0 {
+			body := "Re-authenticate the device (or disable key expiry) to keep it on the tailnet."
+			switch {
+			case left <= 0:
+				// Recently active but just expired — re-auth to bring it back.
 				title = fmt.Sprintf("%s's key has expired", dev.Name)
+			case left < 48*time.Hour:
+				// Still connected, about to drop — the most time-sensitive case.
 				sev = SevCritical
 			}
 			out = append(out, Observation{
-				Key:        "ts:" + inst.ID.String() + ":keyexpiry:" + dev.ID,
+				Key:        key,
 				Severity:   sev,
 				Title:      title,
-				Body:       "Re-authenticate the device or disable key expiry, or it will drop off the tailnet.",
-				Detail:     map[string]any{"device": dev.Name, "expires": dev.Expires.Time, "lastSeen": dev.LastSeen.Time},
+				Body:       body,
+				Detail:     detail,
 				SourceType: "tailscale", SourceID: srcID(inst.ID), SourceName: inst.Name,
 				AutoResolve:  true,
 				ResolveTitle: fmt.Sprintf("%s's key was renewed", dev.Name),
@@ -694,6 +728,24 @@ func humanDuration(d time.Duration) string {
 		return fmt.Sprintf("%d hours", int(d.Hours()))
 	}
 	return fmt.Sprintf("%d minutes", int(d.Minutes()))
+}
+
+// dormantAfter is how long a Tailscale device can go unseen before an expired
+// key is treated as "dormant" (a low-severity cleanup nudge) rather than an
+// urgent warning — it already left the tailnet, so it isn't breaking anything.
+const dormantAfter = 14 * 24 * time.Hour
+
+// humanAgo renders an elapsed duration coarsely ("3 days", "2 months").
+func humanAgo(d time.Duration) string {
+	days := int(d.Hours() / 24)
+	switch {
+	case days >= 60:
+		return fmt.Sprintf("%d months", days/30)
+	case days >= 1:
+		return fmt.Sprintf("%d days", days)
+	default:
+		return "less than a day"
+	}
 }
 
 // ---- Aperture (NVR) ---------------------------------------------------------

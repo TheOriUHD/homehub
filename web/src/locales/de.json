@@ -701,7 +701,14 @@
         "title": "Kein {{type}} verbunden",
         "body": "Verbinde eins unter Systeme, dann erscheint es hier."
       }
-    }
+    },
+    "summary": {
+      "total": "gesamt",
+      "healthy": "gesund",
+      "issues": "Probleme",
+      "disabled": "deaktiviert"
+    },
+    "disabledLabel": "Deaktiviert"
   },
   "pve": {
     "tabs": {
@@ -3189,7 +3196,13 @@
     "resolvedNote": "hat sich von selbst behoben",
     "openAll": "Alle Signale öffnen",
     "confirmTitle": "{{count}} Signal(e) verwerfen?",
-    "confirmBody": "Mindestens eines davon ist eine Warnung oder schlimmer. Verwerfen entfernt es aus der Liste — stelle sicher, dass es behandelt oder notiert ist."
+    "confirmBody": "Mindestens eines davon ist eine Warnung oder schlimmer. Verwerfen entfernt es aus der Liste — stelle sicher, dass es behandelt oder notiert ist.",
+    "bySeverity": "Nach Schwere",
+    "bySystem": "Nach System",
+    "sortRecent": "Neueste",
+    "sortSeverity": "Schwere",
+    "selectGroup": "Gruppe wählen",
+    "system": "System"
   },
   "calendar": {
     "today": "Heute",
