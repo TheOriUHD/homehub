@@ -114,19 +114,6 @@ type applyActionsBody struct {
 	Actions []assistant.PendingAction `json:"actions"`
 }
 
-// wire shape the assistant marshals for a calendar.create action.
-type calCreateParams struct {
-	CalendarID  uuid.UUID `json:"calendarId"`
-	Title       string    `json:"title"`
-	StartsAt    time.Time `json:"startsAt"`
-	EndsAt      time.Time `json:"endsAt"`
-	AllDay      bool      `json:"allDay"`
-	Location    string    `json:"location"`
-	Description string    `json:"description"`
-	URL         string    `json:"url"`
-	RRule       string    `json:"rrule"`
-}
-
 // HandleAssistantApply executes the write actions the user approved. Each
 // runs deterministically under the caller's identity — the model does not
 // get a second pass at them. A summary is stored as an assistant message so
@@ -163,20 +150,33 @@ func (s *Server) HandleAssistantApply(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) applyAssistantAction(ctx context.Context, id *httpctx.Identity, a assistant.PendingAction) (string, error) {
 	switch a.Kind {
-	case "calendar.create":
-		var p calCreateParams
-		if err := json.Unmarshal(a.Params, &p); err != nil {
-			return "Create calendar event", err
+	case "calendar.delete_event":
+		var p struct {
+			EventID         uuid.UUID `json:"eventId"`
+			Scope           string    `json:"scope"`
+			OccurrenceStart string    `json:"occurrenceStart"`
 		}
-		label := fmt.Sprintf("Created “%s”", p.Title)
+		if err := json.Unmarshal(a.Params, &p); err != nil {
+			return "Delete event", err
+		}
+		label := "Deleted the event"
+		if ev, err := s.store.GetCalendarEvent(ctx, p.EventID); err == nil {
+			label = fmt.Sprintf("Deleted “%s”", ev.Title)
+		}
 		if s.calendar == nil {
 			return label, fmt.Errorf("calendar service unavailable")
 		}
-		_, err := s.calendar.CreateEvent(ctx, p.CalendarID, calendar.EventInput{
-			Title: p.Title, Location: p.Location, Description: p.Description, URL: p.URL,
-			StartsAt: p.StartsAt, EndsAt: p.EndsAt, AllDay: p.AllDay, RRule: p.RRule,
-		})
-		return label, err
+		scope := calendar.EditScope(p.Scope)
+		if scope == "" {
+			scope = calendar.ScopeAll
+		}
+		occ := time.Time{}
+		if p.OccurrenceStart != "" {
+			if t, terr := time.Parse(time.RFC3339, p.OccurrenceStart); terr == nil {
+				occ = t
+			}
+		}
+		return label, s.calendar.DeleteEvent(ctx, p.EventID, scope, occ)
 
 	case "calendar.create_calendar":
 		var p struct {
