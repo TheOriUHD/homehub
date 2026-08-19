@@ -115,31 +115,43 @@ const aptAcquire = " -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acqui
 // primary mirror served every other index in seconds. Ubuntu updates then fail
 // wholesale while Debian (different security host) is fine.
 //
-// The workaround: when the host's Ubuntu sources point -security at
-// security.ubuntu.com AND a quick probe confirms it's unreachable, rebuild the
-// source list in a temp dir with that host rewritten to the host's OWN primary
-// archive mirror — which carries the identical <codename>-security suite — and
-// export $PP_SRCOPT so apt uses it for THIS run only (via Dir::Etc overrides).
-// Nothing on the host is modified; the temp dir is removed on exit. Hosts that
-// don't reference security.ubuntu.com (Debian, Proxmox, ARM/ports, apt-cacher,
-// or a mirror that already replaced it) and healthy Ubuntu hosts fall straight
-// through with $PP_SRCOPT empty, so their behaviour is unchanged.
+// The workaround engages ONLY when every one of these holds, so it can never
+// make a working host worse — it fails closed to the host's existing behaviour:
+//  1. the sources actually point -security at security.ubuntu.com;
+//  2. a probe tool (curl/wget) is present — without one we can't verify, so we
+//     leave the host untouched rather than guess;
+//  3. security.ubuntu.com is confirmed UNREACHABLE for this host (a big index
+//     fetched in a short window — a crawl or blackhole fails it, a healthy host
+//     passes it and is left untouched);
+//  4. a replacement mirror from the host's OWN sources is confirmed to actually
+//     serve <codename>-security (we probe each candidate, so a partner/commented/
+//     third-party "/ubuntu" URL that lacks the pocket is skipped, not chosen);
+//  5. the temp source tree was actually built (mktemp succeeded).
+//
+// Only then is $PP_SRCOPT set, redirecting -security to that mirror for THIS apt
+// invocation via Dir::Etc overrides. Nothing on the host is modified; the temp
+// dir is removed on exit. The codename comes from UBUNTU_CODENAME first so Ubuntu
+// derivatives (Mint/Pop!_OS) resolve the real base suite. Debian, Proxmox,
+// ARM/ports and healthy hosts fall straight through with $PP_SRCOPT empty.
 const aptSecurityMirror = `PP_SRCOPT=''; PP_TMP=''
 trap '[ -n "$PP_TMP" ] && rm -rf "$PP_TMP"' EXIT
 if grep -rqsE 'https?://security\.ubuntu\.com/ubuntu' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null; then
-  PP_PRIMARY=$(grep -rhosE 'https?://[A-Za-z0-9._:-]+/ubuntu' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | grep -v '://security\.ubuntu\.com/' | head -n1)
-  PP_CN=$(. /etc/os-release 2>/dev/null; echo "${VERSION_CODENAME:-}")
-  if [ -n "$PP_PRIMARY" ] && [ -n "$PP_CN" ]; then
-    PP_OK=1
-    if command -v curl >/dev/null 2>&1; then curl -4 -sfL --max-time 10 -o /dev/null "http://security.ubuntu.com/ubuntu/dists/${PP_CN}-security/main/binary-amd64/Packages.gz" || PP_OK=0
-    elif command -v wget >/dev/null 2>&1; then wget -q -T 10 -t 1 -O /dev/null "http://security.ubuntu.com/ubuntu/dists/${PP_CN}-security/main/binary-amd64/Packages.gz" || PP_OK=0
-    else PP_OK=0; fi
-    if [ "$PP_OK" = 0 ]; then
-      PP_TMP=$(mktemp -d) && mkdir -p "$PP_TMP/parts" && : > "$PP_TMP/list"
-      [ -f /etc/apt/sources.list ] && sed -E "s#https?://security\.ubuntu\.com/ubuntu#$PP_PRIMARY#g" /etc/apt/sources.list > "$PP_TMP/list"
-      for f in /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do [ -e "$f" ] || continue; sed -E "s#https?://security\.ubuntu\.com/ubuntu#$PP_PRIMARY#g" "$f" > "$PP_TMP/parts/$(basename "$f")"; done
-      PP_SRCOPT="-o Dir::Etc::sourcelist=$PP_TMP/list -o Dir::Etc::sourceparts=$PP_TMP/parts"
-      echo "patchpilot: security.ubuntu.com is unreachable on this host; routing ${PP_CN}-security via $PP_PRIMARY for this run"
+  PP_CN=$(. /etc/os-release 2>/dev/null; echo "${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}")
+  PP_TOOL=''; if command -v curl >/dev/null 2>&1; then PP_TOOL=curl; elif command -v wget >/dev/null 2>&1; then PP_TOOL=wget; fi
+  if [ -n "$PP_CN" ] && [ -n "$PP_TOOL" ]; then
+    pp_fetch() { if [ "$PP_TOOL" = curl ]; then curl -4 -sfL --max-time 8 -o /dev/null "$1"; else wget -q -T 8 -t 1 -O /dev/null "$1"; fi; }
+    if ! pp_fetch "http://security.ubuntu.com/ubuntu/dists/${PP_CN}-security/main/binary-amd64/Packages.gz"; then
+      PP_PRIMARY=''
+      for c in $(grep -rhosE 'https?://[A-Za-z0-9._:-]+/ubuntu' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | grep -v '://security\.ubuntu\.com/' | sort -u); do
+        if pp_fetch "$c/dists/${PP_CN}-security/InRelease"; then PP_PRIMARY="$c"; break; fi
+      done
+      if [ -n "$PP_PRIMARY" ] && PP_TMP=$(mktemp -d); then
+        mkdir -p "$PP_TMP/parts"; : > "$PP_TMP/list"
+        [ -f /etc/apt/sources.list ] && sed -E "s#https?://security\.ubuntu\.com/ubuntu#$PP_PRIMARY#g" /etc/apt/sources.list > "$PP_TMP/list"
+        for f in /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do [ -e "$f" ] || continue; sed -E "s#https?://security\.ubuntu\.com/ubuntu#$PP_PRIMARY#g" "$f" > "$PP_TMP/parts/$(basename "$f")"; done
+        PP_SRCOPT="-o Dir::Etc::sourcelist=$PP_TMP/list -o Dir::Etc::sourceparts=$PP_TMP/parts"
+        echo "patchpilot: security.ubuntu.com is unreachable on this host; routing ${PP_CN}-security via $PP_PRIMARY for this run"
+      fi
     fi
   fi
 fi
