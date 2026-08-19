@@ -327,10 +327,11 @@ export default function IpScanTool() {
           }
         >
           <div className="border-edge overflow-hidden rounded-lg border">
-            <div className="text-fg-subtle bg-bg-subtle grid grid-cols-[24px_140px_1fr_1fr_70px] items-center gap-2 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide">
+            <div className="text-fg-subtle bg-bg-subtle grid grid-cols-[24px_132px_1.2fr_1.2fr_1.4fr_64px] items-center gap-2 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide">
               <span />
               <span>Address</span>
-              <span>Host / MAC</span>
+              <span>Hostname</span>
+              <span>MAC</span>
               <span>Open ports</span>
               <span className="text-right">RTT</span>
             </div>
@@ -356,7 +357,7 @@ function HostRow({ row, onCopy }: { row: Row; onCopy: () => void }) {
   return (
     <div
       className={cn(
-        "group hover:bg-bg-subtle/60 grid grid-cols-[24px_140px_1fr_1fr_70px] items-center gap-2 px-3 py-1.5 text-[12.5px]",
+        "group hover:bg-bg-subtle/60 grid grid-cols-[24px_132px_1.2fr_1.2fr_1.4fr_64px] items-center gap-2 px-3 py-1.5 text-[12.5px]",
         dim && "opacity-55",
       )}
     >
@@ -372,16 +373,19 @@ function HostRow({ row, onCopy }: { row: Row; onCopy: () => void }) {
           <Copy className="size-3" />
         </button>
       </div>
+      {/* Hostname */}
+      <span className="text-fg min-w-0 truncate">
+        {row.hostname || (row.status === "pending" ? "" : <span className="text-fg-subtle">—</span>)}
+      </span>
+      {/* MAC + vendor */}
       <div className="min-w-0">
-        {row.hostname && <span className="text-fg block truncate">{row.hostname}</span>}
-        {row.mac && (
-          <span className="text-fg-subtle block truncate font-mono text-[11px]">
-            {row.mac}
-            {row.vendor && <span className="text-fg-muted"> · {row.vendor}</span>}
-          </span>
-        )}
-        {!row.hostname && !row.mac && row.status !== "pending" && (
-          <span className="text-fg-subtle">{row.status === "dead" ? "—" : ""}</span>
+        {row.mac ? (
+          <>
+            <span className="text-fg-muted block truncate font-mono text-[11.5px]">{row.mac}</span>
+            {row.vendor && <span className="text-fg-subtle block truncate text-[11px]">{row.vendor}</span>}
+          </>
+        ) : (
+          row.status !== "pending" && <span className="text-fg-subtle">—</span>
         )}
       </div>
       <div className="flex flex-wrap gap-1">
