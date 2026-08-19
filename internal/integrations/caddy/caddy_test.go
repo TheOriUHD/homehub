@@ -30,7 +30,7 @@ func newTestConn(t *testing.T) (*Conn, *caddysim.Sim) {
 	return &Conn{
 		inst:   integration.Instance{ID: uuid.New(), Type: TypeID, Name: "sim"},
 		client: c,
-		deps:   integration.Deps{Publish: func(string, any) {}},
+		deps:   integration.Deps{Publish: func(string, any) {}, PublishScoped: func(string, string, any) {}},
 	}, sim
 }
 

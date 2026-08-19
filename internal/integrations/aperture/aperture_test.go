@@ -22,7 +22,7 @@ func newTestConn(t *testing.T) (*Conn, *aperturesim.Sim) {
 	if err != nil {
 		t.Fatalf("newClient: %v", err)
 	}
-	return newConn(integration.Instance{ID: uuid.New(), Type: TypeID, Name: "sim"}, c, integration.Deps{Publish: func(string, any) {}}), sim
+	return newConn(integration.Instance{ID: uuid.New(), Type: TypeID, Name: "sim"}, c, integration.Deps{Publish: func(string, any) {}, PublishScoped: func(string, string, any) {}}), sim
 }
 
 func TestTestVerdicts(t *testing.T) {

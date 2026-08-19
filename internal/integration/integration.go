@@ -69,6 +69,12 @@ type Deps struct {
 	// Publish emits an event on the instance's WS topic
 	// ("integration:<type>/<id>"); payloads must be JSON-marshalable.
 	Publish func(event string, data any)
+	// PublishScoped emits a per-child event on the instance topic but delivers
+	// it only to clients with view on `resource` — the specific sub-resource
+	// (e.g. "amp/<panel>/instance/<id>") the event concerns. Use for live
+	// console/status/player data so a sibling-only grant can't receive another
+	// child's stream. Payloads must be JSON-marshalable.
+	PublishScoped func(event string, resource string, data any)
 }
 
 // Connection is a live, supervised link to the upstream system.

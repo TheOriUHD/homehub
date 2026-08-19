@@ -196,7 +196,7 @@ func (s *Server) TruenasShares(ctx context.Context, req TruenasSharesRequestObje
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	conn, _, err := s.truenasConn(ctx, id, req.Id)
+	conn, resource, err := s.truenasConn(ctx, id, req.Id)
 	if err != nil {
 		if err == store.ErrNotFound {
 			return TruenasShares404JSONResponse{notFoundErr("instance")}, nil
@@ -207,8 +207,16 @@ func (s *Server) TruenasShares(ctx context.Context, req TruenasSharesRequestObje
 	if serr != nil {
 		return TruenasShares502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", serr.Error()))}, nil
 	}
+	// A share's path ("/mnt/<pool>/…") reveals the pool it lives under; return
+	// only shares whose pool the caller can view — the same per-pool scoping
+	// datasets and snapshots already apply — so a single-pool viewer can't
+	// enumerate share names/paths of pools they have no grant on. Instance-level
+	// viewers pass every pool via the ancestor grant.
 	out := []TruenasShare{}
 	for _, sh := range shares {
+		if !s.canSeePool(ctx, id, resource, sharePool(sh.Path)) {
+			continue
+		}
 		share := TruenasShare{Type: TruenasShareType(sh.Type), Name: sh.Name, Enabled: sh.Enabled}
 		share.Path = strPtr(sh.Path)
 		share.Comment = strPtr(sh.Comment)
@@ -259,12 +267,19 @@ func (s *Server) TruenasAlerts(ctx context.Context, req TruenasAlertsRequestObje
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	conn, _, err := s.truenasConn(ctx, id, req.Id)
+	conn, resource, err := s.truenasConn(ctx, id, req.Id)
 	if err != nil {
 		if err == store.ErrNotFound {
 			return TruenasAlerts404JSONResponse{notFoundErr("instance")}, nil
 		}
 		return TruenasAlerts502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+	}
+	// Alert messages routinely name pools/datasets/disks across the whole box
+	// and carry no structured pool field to filter on, so the alert center
+	// requires instance-level view. A pool-scoped member simply sees no alerts
+	// rather than leaking sibling pools' names via alert text.
+	if !s.can(ctx, id, resource, rbac.LevelView) {
+		return TruenasAlerts200JSONResponse([]TruenasAlert{}), nil
 	}
 	alerts, aerr := conn.Alerts(ctx)
 	if aerr != nil {
@@ -302,6 +317,33 @@ func rootPool(datasetName string) string {
 		}
 	}
 	return datasetName
+}
+
+// sharePool extracts the pool a share lives under from its mount path
+// ("/mnt/<pool>/<dataset…>"). Returns "" when the path has no recognizable
+// pool segment; such shares are shown only to instance-level viewers.
+func sharePool(path string) string {
+	const mnt = "/mnt/"
+	if len(path) <= len(mnt) || path[:len(mnt)] != mnt {
+		return ""
+	}
+	rest := path[len(mnt):]
+	for i := 0; i < len(rest); i++ {
+		if rest[i] == '/' {
+			return rest[:i]
+		}
+	}
+	return rest
+}
+
+// canSeePool reports whether the caller may view a given pool under a TrueNAS
+// instance. An empty pool (unparseable path) falls back to instance-level view,
+// so pool-scoped grants fail closed while instance viewers still see it.
+func (s *Server) canSeePool(ctx context.Context, id *httpctx.Identity, resource, pool string) bool {
+	if pool == "" {
+		return s.can(ctx, id, resource, rbac.LevelView)
+	}
+	return s.can(ctx, id, resource+"/pool/"+pool, rbac.LevelView)
 }
 
 func (s *Server) TruenasStats(ctx context.Context, req TruenasStatsRequestObject) (TruenasStatsResponseObject, error) {

@@ -27,7 +27,7 @@ func newTestConn(t *testing.T) *Conn {
 	return &Conn{
 		inst:   integration.Instance{ID: uuid.New(), Type: TypeID, Name: "sim"},
 		client: c,
-		deps:   integration.Deps{Publish: func(string, any) {}},
+		deps:   integration.Deps{Publish: func(string, any) {}, PublishScoped: func(string, string, any) {}},
 	}
 }
 

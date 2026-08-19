@@ -100,6 +100,9 @@ func Run(ctx context.Context) error {
 
 	hub := ws.NewHub(logger, func(ctx context.Context, userID uuid.UUID, viewAsRole *uuid.UUID, topic string) bool {
 		return authorizeTopic(ctx, engine, userID, viewAsRole, topic)
+	}, func(ctx context.Context, userID uuid.UUID, viewAsRole *uuid.UUID, resource string) bool {
+		ok, err := engine.Can(ctx, rbac.Principal{UserID: userID, ViewAsRole: viewAsRole}, resource, rbac.LevelView)
+		return err == nil && ok
 	})
 
 	metricsSvc := metrics.New(st, settingsSvc.MetricsRetention, logger)
@@ -139,8 +142,10 @@ func Run(ctx context.Context) error {
 	manager.Register(caddy.Driver{})
 	manager.Register(aperture.Driver{})
 	mcRegistry := minecraft.NewRegistry(st, v, logger)
-	mcRegistry.Publish = func(instanceID uuid.UUID, event string, data any) {
-		hub.Publish("integration:"+minecraft.TypeID+"/"+instanceID.String(),
+	mcRegistry.Publish = func(instanceID uuid.UUID, resource string, event string, data any) {
+		// Coarse subscribe topic (the network), but delivered only to clients
+		// with view on the specific server — no sibling-server console leak.
+		hub.PublishScoped("integration:"+minecraft.TypeID+"/"+instanceID.String(), resource,
 			map[string]any{"event": event, "data": data})
 	}
 	// Companion connects/disconnects nudge the supervisor so the status
