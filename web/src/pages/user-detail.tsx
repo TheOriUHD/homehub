@@ -109,6 +109,13 @@ export function UserDetailPage() {
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
+  const toggleSignals = useMutation({
+    mutationFn: async (hide: boolean) =>
+      unwrap(await api.PATCH("/users/{id}", { params: { path: { id: userId } }, body: { hideSignals: hide } })),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["users"] }),
+    onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
+  });
+
   const [resetMode, setResetMode] = useState<"invite" | "temp_password" | null>(null);
   const [revokeOnReset, setRevokeOnReset] = useState(true);
   const [resetResult, setResetResult] = useState<CreateUserResult | null>(null);
@@ -222,6 +229,21 @@ export function UserDetailPage() {
               ))}
             </CardBody>
           </Card>
+
+          {canConfigure && (
+            <Card>
+              <CardHeader title={t("users.detail.signals")} description={t("users.detail.signalsHint")} />
+              <CardBody>
+                <Checkbox
+                  disabled={toggleSignals.isPending}
+                  checked={u.hideSignals}
+                  onCheckedChange={(checked) => toggleSignals.mutate(checked === true)}
+                  label={t("users.detail.hideSignals")}
+                  hint={t("users.detail.hideSignalsHint")}
+                />
+              </CardBody>
+            </Card>
+          )}
 
           {canConfigure && (
             <Card>

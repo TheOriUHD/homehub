@@ -106,7 +106,7 @@ func Run(ctx context.Context) error {
 	registerMaintenance(jobEngine, st, logger)
 
 	hub := ws.NewHub(logger, func(ctx context.Context, userID uuid.UUID, viewAsRole *uuid.UUID, topic string) bool {
-		return authorizeTopic(ctx, engine, userID, viewAsRole, topic)
+		return authorizeTopic(ctx, engine, st, userID, viewAsRole, topic)
 	}, func(ctx context.Context, userID uuid.UUID, viewAsRole *uuid.UUID, resource string) bool {
 		ok, err := engine.Can(ctx, rbac.Principal{UserID: userID, ViewAsRole: viewAsRole}, resource, rbac.LevelView)
 		return err == nil && ok
@@ -352,7 +352,7 @@ func Run(ctx context.Context) error {
 
 // authorizeTopic maps WebSocket topics onto permission checks. Unknown
 // topics are denied.
-func authorizeTopic(ctx context.Context, engine *rbac.Engine, userID uuid.UUID, viewAsRole *uuid.UUID, topic string) bool {
+func authorizeTopic(ctx context.Context, engine *rbac.Engine, st *store.Store, userID uuid.UUID, viewAsRole *uuid.UUID, topic string) bool {
 	principal := rbac.Principal{UserID: userID, ViewAsRole: viewAsRole}
 	switch {
 	case topic == "notifications":
@@ -363,8 +363,10 @@ func authorizeTopic(ctx context.Context, engine *rbac.Engine, userID uuid.UUID, 
 		return true
 	case topic == "signals":
 		// The global signal stream — one homelab, one truth; identity is the
-		// authorization.
-		return true
+		// authorization, UNLESS the signals surface is hidden for this user
+		// (per-user or all-their-roles), in which case they get no live pushes.
+		hidden, err := st.SignalsHiddenForUser(ctx, userID)
+		return err == nil && !hidden
 	case topic == "health":
 		ok, err := engine.Can(ctx, principal, api.ResHealth, rbac.LevelView)
 		return err == nil && ok

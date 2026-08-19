@@ -4309,6 +4309,8 @@ export interface components {
             /** @enum {string} */
             status: "active" | "disabled";
             mustChangePassword: boolean;
+            /** @description Per-user override that hides the signals surface for this account. */
+            hideSignals: boolean;
             totpEnabled: boolean;
             passkeyCount: number;
             roleIds: string[];
@@ -4351,6 +4353,8 @@ export interface components {
             name: string;
             description: string;
             isSystem: boolean;
+            /** @description When true, members of this role do not see the signals surface (settable on built-in roles too). */
+            hideSignals: boolean;
             memberCount: number;
             grants: components["schemas"]["Grant"][];
             /** Format: date-time */
@@ -4362,6 +4366,8 @@ export interface components {
             user: components["schemas"]["User"];
             /** @description Effective grants for UI presentation. The server re-checks every request regardless. */
             grants: components["schemas"]["Grant"][];
+            /** @description Effective signals visibility for this account (own override, or every role hides them). When true the client hides the signals bell, panel, and page. */
+            signalsHidden: boolean;
             /** Format: uuid */
             viewAsRoleId?: string | null;
         };
@@ -6990,6 +6996,8 @@ export interface operations {
                     email?: string | null;
                     /** @enum {string} */
                     status?: "active" | "disabled";
+                    /** @description Per-user override to hide the signals surface. */
+                    hideSignals?: boolean;
                     roleIds?: string[];
                     overrides?: components["schemas"]["GrantInput"][];
                 };
@@ -7126,6 +7134,7 @@ export interface operations {
                 "application/json": {
                     name: string;
                     description?: string;
+                    hideSignals?: boolean;
                     grants?: components["schemas"]["GrantInput"][];
                 };
             };
@@ -7206,6 +7215,8 @@ export interface operations {
                 "application/json": {
                     name?: string;
                     description?: string;
+                    /** @description May be changed even on built-in roles; other fields cannot. */
+                    hideSignals?: boolean;
                     grants?: components["schemas"]["GrantInput"][];
                 };
             };

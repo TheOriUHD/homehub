@@ -132,7 +132,9 @@ export function AppShell() {
     // could enable it.
     ...(assistantVisible ? [{ to: "/assistant", label: t("nav.assistant"), icon: Sparkles }] : []),
     { to: "/health", label: t("nav.health"), icon: Activity, requires: RES.health },
-    { to: "/signals", label: t("nav.signals"), icon: Radio },
+    // Signals are a shared stream, but an admin can hide the surface for a role
+    // or a specific user; hidden accounts don't get the nav entry.
+    ...(me?.signalsHidden ? [] : [{ to: "/signals", label: t("nav.signals"), icon: Radio }]),
     { to: "/calendar", label: t("nav.calendar"), icon: CalendarDays },
     { to: "/tools", label: t("nav.tools"), icon: Wrench },
     // History and Alerts are visible to everyone — their contents are already

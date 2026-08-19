@@ -15,6 +15,7 @@ type User struct {
 	Email              *string    `db:"email"`
 	PasswordHash       *string    `db:"password_hash"`
 	MustChangePassword bool       `db:"must_change_password"`
+	HideSignals        bool       `db:"hide_signals"`
 	Status             string     `db:"status"`
 	FailedLoginCount   int        `db:"failed_login_count"`
 	LockedUntil        *time.Time `db:"locked_until"`
@@ -25,7 +26,7 @@ type User struct {
 }
 
 const userCols = `id, username, display_name, email, password_hash, must_change_password,
-	status, failed_login_count, locked_until, password_changed_at, last_login_at,
+	hide_signals, status, failed_login_count, locked_until, password_changed_at, last_login_at,
 	created_at, updated_at`
 
 func (s *Store) CountUsers(ctx context.Context) (int, error) {
@@ -73,6 +74,29 @@ func (s *Store) SetUserUsername(ctx context.Context, id uuid.UUID, username stri
 func (s *Store) SetUserStatus(ctx context.Context, id uuid.UUID, status string) error {
 	_, err := s.pool.Exec(ctx, `update users set status = $2, updated_at = now() where id = $1`, id, status)
 	return err
+}
+
+// SetUserHideSignals toggles the per-user signals-visibility override.
+func (s *Store) SetUserHideSignals(ctx context.Context, id uuid.UUID, hide bool) error {
+	_, err := s.pool.Exec(ctx, `update users set hide_signals = $2, updated_at = now() where id = $1`, id, hide)
+	return err
+}
+
+// SignalsHiddenForUser reports whether the signals surface should be hidden for
+// a user: true when their own override is set, OR when they hold at least one
+// role and EVERY role they hold hides signals (a single non-hiding role — e.g.
+// Operator — keeps signals visible, matching how grants are most-permissive).
+func (s *Store) SignalsHiddenForUser(ctx context.Context, userID uuid.UUID) (bool, error) {
+	var hidden bool
+	err := s.pool.QueryRow(ctx, `
+		select u.hide_signals
+		   or (exists (select 1 from user_roles ur where ur.user_id = u.id)
+		       and not exists (
+		           select 1 from user_roles ur
+		           join roles r on r.id = ur.role_id
+		           where ur.user_id = u.id and r.hide_signals = false))
+		from users u where u.id = $1`, userID).Scan(&hidden)
+	return hidden, err
 }
 
 // SetUserPassword stores a new hash, clears lockout state, and stamps

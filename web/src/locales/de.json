@@ -295,7 +295,11 @@
       "disable": "Konto deaktivieren",
       "enable": "Konto aktivieren",
       "cannotDeleteSelf": "Du kannst dein eigenes Konto nicht löschen.",
-      "usernameHint": "Der Anmeldename. Eine Änderung greift bei der nächsten Anmeldung des Benutzers."
+      "usernameHint": "Der Anmeldename. Eine Änderung greift bei der nächsten Anmeldung des Benutzers.",
+      "signals": "Signale",
+      "signalsHint": "Legt fest, ob dieser Benutzer den Signalstream sieht.",
+      "hideSignals": "Signalstream für diesen Benutzer ausblenden",
+      "hideSignalsHint": "Blendet die Signal-Glocke, das Übersichts-Panel und die Seite für dieses Konto aus – unabhängig von der Rolle."
     }
   },
   "roles": {
@@ -344,7 +348,8 @@
     "empty": {
       "title": "Noch keine eigenen Rollen",
       "body": "Erstelle eine Rolle, um Leuten genau den Zugriff zu geben, den sie brauchen — bis hinunter zu einem einzelnen Server oder Dienst."
-    }
+    },
+    "hideSignals": "Signale ausblenden"
   },
   "viewAs": {
     "banner": "Vorschau als {{role}} — du siehst, was diese Rolle sieht.",

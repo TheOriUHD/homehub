@@ -18,6 +18,7 @@ import { SkeletonRows } from "@/ui/skeleton";
 import { GrantEditor } from "@/components/grant-editor";
 import { useToast } from "@/ui/toast";
 import { Tooltip } from "@/ui/tooltip";
+import { Switch } from "@/ui/switch";
 
 export function RolesPage() {
   const { t } = useTranslation();
@@ -43,6 +44,13 @@ export function RolesPage() {
       setDeleting(null);
       void queryClient.invalidateQueries({ queryKey: ["roles"] });
     },
+    onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
+  });
+
+  const toggleSignals = useMutation({
+    mutationFn: async (v: { id: string; hide: boolean }) =>
+      unwrap(await api.PATCH("/roles/{id}", { params: { path: { id: v.id } }, body: { hideSignals: v.hide } })),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["roles"] }),
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
@@ -132,6 +140,17 @@ export function RolesPage() {
                   ))}
                   {role.grants.length > 4 && <Badge tone="neutral">+{role.grants.length - 4}</Badge>}
                 </div>
+              )}
+              {canConfigure && (
+                <label className="border-border/60 mt-3 flex items-center justify-between gap-2 border-t pt-3">
+                  <span className="text-fg-muted text-[13px]">{t("roles.hideSignals")}</span>
+                  <Switch
+                    checked={role.hideSignals}
+                    disabled={toggleSignals.isPending}
+                    onCheckedChange={(v) => toggleSignals.mutate({ id: role.id, hide: v })}
+                    aria-label={t("roles.hideSignals")}
+                  />
+                </label>
               )}
             </Card>
           ))}

@@ -811,7 +811,12 @@ func (tb *Toolbox) proposeDismissSignals(ctx context.Context, _ Access, input js
 	return &PendingAction{Kind: "signals.dismiss", Summary: summary, Params: raw}, nil
 }
 
-func (tb *Toolbox) listSignals(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+func (tb *Toolbox) listSignals(ctx context.Context, access Access, input json.RawMessage) (any, error) {
+	// The signals surface can be hidden for this account (per-user or by role);
+	// the assistant respects it — it must not read out what the UI hides.
+	if hidden, err := tb.Store.SignalsHiddenForUser(ctx, access.UserID); err == nil && hidden {
+		return map[string]any{"signals": []any{}, "note": "The signals stream is not available for your account."}, nil
+	}
 	var args struct {
 		Severity string `json:"severity"`
 		Limit    int    `json:"limit"`

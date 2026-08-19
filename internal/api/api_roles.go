@@ -67,6 +67,12 @@ func (s *Server) CreateRole(ctx context.Context, req CreateRoleRequestObject) (C
 		}
 		return nil, err
 	}
+	if req.Body.HideSignals != nil && *req.Body.HideSignals {
+		if err := s.store.SetRoleHideSignals(ctx, role.ID, true); err != nil {
+			return nil, err
+		}
+		role.HideSignals = true
+	}
 	s.audit.Log(ctx, actorFor(id), "role.create", ResRoles, "success",
 		map[string]any{"role": role.Name, "grants": len(specs)})
 
@@ -111,8 +117,25 @@ func (s *Server) UpdateRole(ctx context.Context, req UpdateRoleRequestObject) (U
 		}
 		return nil, err
 	}
+	// hideSignals is a display preference, not a grant/identity change, so it is
+	// editable on ANY role, built-in ones included (hiding signals from e.g. the
+	// Viewer role is a common need). Everything else stays locked on system roles.
+	if req.Body.HideSignals != nil {
+		if err := s.store.SetRoleHideSignals(ctx, role.ID, *req.Body.HideSignals); err != nil {
+			return nil, err
+		}
+		s.audit.Log(ctx, actorFor(id), "role.update", ResRoles, "success",
+			map[string]any{"role": role.Name, "hideSignals": *req.Body.HideSignals})
+	}
 	if role.IsSystem {
-		return UpdateRole409JSONResponse{ConflictJSONResponse(errBody("system_role", "built-in roles cannot be edited — create a custom role instead"))}, nil
+		if req.Body.Name != nil || req.Body.Description != nil || req.Body.Grants != nil {
+			return UpdateRole409JSONResponse{ConflictJSONResponse(errBody("system_role", "built-in roles cannot be edited (except hiding signals) — create a custom role instead"))}, nil
+		}
+		fresh, grants, count, err := s.loadRole(ctx, role.ID)
+		if err != nil {
+			return nil, err
+		}
+		return UpdateRole200JSONResponse(toAPIRole(*fresh, grants, count)), nil
 	}
 
 	name := role.Name
@@ -206,6 +229,7 @@ func toAPIRole(r store.Role, grants []store.Grant, memberCount int) Role {
 		Name:        r.Name,
 		Description: r.Description,
 		IsSystem:    r.IsSystem,
+		HideSignals: r.HideSignals,
 		MemberCount: memberCount,
 		Grants:      toAPIGrants(grants),
 		CreatedAt:   r.CreatedAt,
