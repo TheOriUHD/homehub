@@ -3433,7 +3433,8 @@
       "flipH": "Horizontal spiegeln",
       "flipV": "Vertikal spiegeln",
       "rotate": "90° drehen",
-      "expand": "Vergrößern"
+      "expand": "Vergrößern",
+      "unsupported": "Live-Ansicht für diesen Kameratyp nicht unterstützt"
     }
   }
 }
