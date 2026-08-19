@@ -164,19 +164,9 @@ func scanHost(ctx context.Context, ip string, ports []int) HostResult {
 
 	res.Alive = ping.Alive || len(res.OpenPorts) > 0 || res.MAC != ""
 	if res.Alive {
-		res.Hostname = reverseDNS(ctx, ip)
+		res.Hostname = resolveHostname(ctx, ip)
 	}
 	return res
-}
-
-func reverseDNS(ctx context.Context, ip string) string {
-	rctx, cancel := context.WithTimeout(ctx, 800*time.Millisecond)
-	defer cancel()
-	names, err := net.DefaultResolver.LookupAddr(rctx, ip)
-	if err != nil || len(names) == 0 {
-		return ""
-	}
-	return strings.TrimSuffix(names[0], ".")
 }
 
 // arpLookup reads the kernel ARP table (Linux) for a resolved MAC. Returns
