@@ -147,7 +147,7 @@ func (r *Registry) executeRun(ctx context.Context, run *store.PatchpilotRun, hos
 
 // executeHostRun runs one host's slice and returns its terminal status.
 func (r *Registry) executeHostRun(ctx context.Context, run *store.PatchpilotRun, h store.PatchpilotHost, suppressReboot bool) string {
-	hr, err := r.store.CreatePatchpilotHostRun(ctx, store.PatchpilotHostRun{RunID: run.ID, HostID: h.ID, HostName: h.Name})
+	hr, err := r.store.CreatePatchpilotHostRun(ctx, store.PatchpilotHostRun{RunID: run.ID, HostID: &h.ID, HostName: h.Name})
 	if err != nil {
 		return "failed"
 	}

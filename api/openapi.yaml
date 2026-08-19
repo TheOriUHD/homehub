@@ -8293,7 +8293,7 @@ components:
         summary: { type: string }
     PatchpilotHostRun:
       type: object
-      required: [id, runId, hostId, hostName, status, packagesUpgraded, rebootRequired]
+      required: [id, runId, hostName, status, packagesUpgraded, rebootRequired]
       properties:
         id: { type: string, format: uuid }
         runId: { type: string, format: uuid }
