@@ -23,6 +23,7 @@ import (
 	"homehub/internal/audit"
 	"homehub/internal/auth"
 	"homehub/internal/backup"
+	"homehub/internal/calendar"
 	"homehub/internal/config"
 	"homehub/internal/convert"
 	"homehub/internal/db"
@@ -260,6 +261,15 @@ func Run(ctx context.Context) error {
 	apiServer := api.NewServer(st, authSvc, engine, auditSvc, settingsSvc, jobEngine, hub, v,
 		manager, metricsSvc, termMgr, backupSvc, mcRegistry, ppRegistry, convertSvc, companion.FS(), cfg.DataDir, logger)
 
+	// Calendar: local + CalDAV + ICS/trash feeds; upstreams re-sync on a
+	// 15-minute cadence.
+	calendarSvc := calendar.NewService(st, v, logger)
+	apiServer.SetCalendar(calendarSvc)
+	jobEngine.Register("calendar.sync", func(ctx context.Context, _ json.RawMessage) error {
+		calendarSvc.SyncAll(ctx)
+		return nil
+	})
+
 	// Telegram bridge: linked chats talk to the assistant. The bot reads its
 	// token from the vault and its switch from settings on every reload.
 	tgBot := &telegram.Bot{
@@ -477,5 +487,12 @@ func ensureMaintenanceSchedule(ctx context.Context, st *store.Store) error {
 	if err != nil {
 		return err
 	}
-	return st.EnsureSchedule(ctx, "Signals sweep", "signals.sweep", map[string]any{}, "* * * * *", next)
+	if err := st.EnsureSchedule(ctx, "Signals sweep", "signals.sweep", map[string]any{}, "* * * * *", next); err != nil {
+		return err
+	}
+	next, err = jobs.NextRun("*/15 * * * *", time.Now())
+	if err != nil {
+		return err
+	}
+	return st.EnsureSchedule(ctx, "Calendar sync", "calendar.sync", map[string]any{}, "*/15 * * * *", next)
 }

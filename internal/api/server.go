@@ -20,6 +20,7 @@ import (
 	"homehub/internal/audit"
 	"homehub/internal/auth"
 	backuppkg "homehub/internal/backup"
+	"homehub/internal/calendar"
 	"homehub/internal/convert"
 	"homehub/internal/httpctx"
 	"homehub/internal/integration"
@@ -68,6 +69,7 @@ type Server struct {
 	mc           *minecraft.Registry
 	patchpilot   *patchpilot.Registry
 	convert      *convert.Service
+	calendar     *calendar.Service
 	companion    fs.FS
 	dataDir      string
 	logger       *slog.Logger

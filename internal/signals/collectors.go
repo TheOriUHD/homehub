@@ -38,6 +38,7 @@ func RegisterBuiltins(s *Service, d Deps) {
 	s.Register(&dockerCollector{d})
 	s.Register(&tailscaleCollector{d})
 	s.Register(&apertureCollector{d})
+	s.Register(&trashCollector{d})
 }
 
 // instances lists enabled integrations of one type.
