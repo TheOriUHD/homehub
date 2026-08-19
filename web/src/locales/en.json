@@ -3181,8 +3181,13 @@
       "runConfirm": "Run anyway",
       "runWait": "Confirm in {{s}}s",
       "scheduleTitle": "Schedule includes a critical host",
-      "scheduleWarn": "This schedule targets a host marked critical / the hypervisor. Scheduled runs won't change — this just confirms you meant to include it:",
-      "scheduleConfirm": "Save schedule"
+      "scheduleWarn": "Scheduled runs are unchanged — this only confirms you meant to include a critical host in this schedule.",
+      "scheduleConfirm": "Save schedule",
+      "label": "Critical / hypervisor host",
+      "label_other": "Critical / hypervisor hosts",
+      "skip": "Skip critical",
+      "skipNote": "{{count}} other host will still be updated.",
+      "skipNote_other": "{{count}} other hosts will still be updated."
     }
   },
   "signals": {

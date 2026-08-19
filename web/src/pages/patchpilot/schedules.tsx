@@ -20,6 +20,7 @@ import {
   useDeleteSchedule,
   usePatchpilotHosts,
   usePatchpilotSchedules,
+  useRunFleet,
   useRunSchedule,
   useSaveSchedule,
 } from "./shared";
@@ -116,6 +117,7 @@ function ScheduleCard({
   const toast = useToast();
   const save = useSaveSchedule(instanceId);
   const run = useRunSchedule(instanceId);
+  const runFleet = useRunFleet(instanceId);
   const remove = useDeleteSchedule(instanceId);
   const hosts = usePatchpilotHosts(instanceId);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -123,11 +125,12 @@ function ScheduleCard({
 
   const cronHuman = humanizeCron(schedule.cronExpr);
 
-  // Critical hosts this schedule targets — a "run now" including one is gated
-  // behind the timed confirmation (the schedule itself runs unchanged).
-  const criticalTargets = (hosts.data ?? []).filter(
-    (h) => h.critical && schedule.hostIds.includes(h.id),
-  );
+  // The schedule's hosts, split by criticality. A "run now" that includes a
+  // critical host is gated behind the timed confirm (the schedule itself runs
+  // unchanged); "Skip critical" runs just the non-critical hosts.
+  const scheduleHosts = (hosts.data ?? []).filter((h) => schedule.hostIds.includes(h.id));
+  const criticalTargets = scheduleHosts.filter((h) => h.critical);
+  const nonCriticalTargets = scheduleHosts.filter((h) => !h.critical);
 
   const toggleEnabled = (enabled: boolean) => {
     save.mutate(
@@ -153,6 +156,24 @@ function ScheduleCard({
     });
   };
   const runNow = () => (criticalTargets.length > 0 ? setRunConfirm(true) : doRunNow());
+
+  // Skip critical: run the schedule's non-critical hosts now, via a manual run.
+  const doRunSkip = () => {
+    setRunConfirm(false);
+    runFleet.mutate(
+      { hostIds: nonCriticalTargets.map((h) => h.id) },
+      {
+        onSuccess: () => toast("success", t("patchpilot.schedules.runStarted", { name: schedule.name })),
+        onError: (err) => {
+          if (isApiError(err) && err.status === 409) {
+            toast("warning", t("patchpilot.schedules.runBusy"));
+            return;
+          }
+          toast("error", isApiError(err) ? err.message : t("common.unknownError"));
+        },
+      },
+    );
+  };
 
   const doDelete = () => {
     remove.mutate(schedule.id, {
@@ -249,9 +270,11 @@ function ScheduleCard({
       <CriticalRunConfirm
         open={runConfirm}
         onOpenChange={setRunConfirm}
-        hostNames={criticalTargets.map((h) => h.name)}
-        loading={run.isPending}
+        criticalNames={criticalTargets.map((h) => h.name)}
+        skipCount={nonCriticalTargets.length}
+        loading={run.isPending || runFleet.isPending}
         onConfirm={doRunNow}
+        onSkipCritical={nonCriticalTargets.length > 0 ? doRunSkip : undefined}
       />
     </Card>
   );

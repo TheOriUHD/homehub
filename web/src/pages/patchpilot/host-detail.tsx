@@ -355,7 +355,7 @@ export function PatchpilotHostDetailPage() {
       <CriticalRunConfirm
         open={runConfirm}
         onOpenChange={setRunConfirm}
-        hostNames={[host.name]}
+        criticalNames={[host.name]}
         loading={busy === "run"}
         onConfirm={() => {
           setRunConfirm(false);
