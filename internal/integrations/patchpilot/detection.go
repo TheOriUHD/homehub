@@ -165,25 +165,43 @@ func firstLine(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// ChooseEscalation picks the escalation mode from the facts and whether a
-// root password was supplied. Priority per §7.2: direct-root, sudo-nopasswd,
-// su-root (only with a root password), sudo-password.
-func ChooseEscalation(f *HostFacts, haveLoginPassword, haveRootPassword bool) (EscalationMode, string) {
-	switch {
-	case f.UID == 0:
+// ResolveEscalation picks an escalation mode AND proves it works by running a
+// trivial command as root over the given connection — so we never greenlight
+// an account that merely has sudo installed but isn't actually a sudoer.
+// Falls back sudo→su when a root password is supplied. On success the
+// connection is left configured with the working mode/password. On failure it
+// returns a human blocker explaining exactly what's needed.
+func ResolveEscalation(ctx context.Context, conn *SSHConn, f *HostFacts, loginPassword, rootPassword string) (EscalationMode, string) {
+	try := func(mode EscalationMode, pw string) bool {
+		conn.escalate = mode
+		conn.password = pw
+		out, code, err := conn.RunEscalated(ctx, "echo PP_ELEV_OK")
+		return err == nil && code == 0 && strings.Contains(out, "PP_ELEV_OK")
+	}
+
+	if f.UID == 0 && try(EscDirectRoot, "") {
 		return EscDirectRoot, ""
-	case f.SudoNoPasswd:
-		return EscSudoNoPasswd, ""
-	case f.HasSudo && haveLoginPassword:
-		return EscSudoPassword, ""
-	case f.HasSu && haveRootPassword:
+	}
+	if f.HasSudo {
+		if f.SudoNoPasswd && try(EscSudoNoPasswd, "") {
+			return EscSudoNoPasswd, ""
+		}
+		if loginPassword != "" && try(EscSudoPassword, loginPassword) {
+			return EscSudoPassword, ""
+		}
+	}
+	if f.HasSu && rootPassword != "" && try(EscSuRoot, rootPassword) {
 		return EscSuRoot, ""
 	}
-	// Nothing usable — describe the gap.
-	if !f.HasSudo && !f.HasSu {
-		return "", "neither sudo nor su is available and you are not root"
+
+	// Nothing worked — explain what to do, steering to the root-password field.
+	if f.UID != 0 && rootPassword == "" && f.HasSu {
+		return "", "this account can't elevate to root — enter root's password above, or use a login that has sudo access"
 	}
-	return "", "sudo needs a password (or root's password for su) to elevate this account"
+	if !f.HasSudo && !f.HasSu {
+		return "", "no way to become root on this host (no sudo, no su) — onboard as root instead"
+	}
+	return "", "could not elevate to root with the credentials given — check that this account has sudo, or that root's password is correct"
 }
 
 // StandardRefusal returns a message when the host is really an API-managed
