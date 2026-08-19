@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -295,7 +296,20 @@ func (s *Server) webcamProxy(w http.ResponseWriter, r *http.Request, snapshot bo
 
 // webcamClient has no overall timeout so MJPEG streams stay open; per-request
 // context deadlines bound the snapshot path and client disconnects end streams.
-var webcamClient = &http.Client{Timeout: 0}
+// CheckRedirect blocks cross-host redirects so a printer webcam that 3xx's
+// elsewhere can't be used to pivot the proxy off the printer's host (SSRF).
+var webcamClient = &http.Client{
+	Timeout: 0,
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 5 {
+			return errors.New("too many redirects")
+		}
+		if len(via) > 0 && !strings.EqualFold(req.URL.Hostname(), via[0].URL.Hostname()) {
+			return errors.New("cross-host redirect blocked")
+		}
+		return nil
+	},
+}
 
 // copyFlush streams src to w, flushing after every chunk so MJPEG frames reach
 // the browser as they arrive instead of buffering.

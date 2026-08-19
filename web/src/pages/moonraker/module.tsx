@@ -70,6 +70,7 @@ import {
   useMoonrakerSetTemp,
   useMoonrakerSetWebcam,
   useMoonrakerSnapshot,
+  webcamSnapshotUrl,
   webcamStreamUrl,
 } from "./shared";
 
@@ -791,11 +792,18 @@ function ExtruderCard({ snap, instanceId, canControl }: { snap: MoonrakerSnapsho
   const toast = useToast();
   const [amount, setAmount] = useState(10);
   const extruder = snap.heaters.find((h) => h.kind === "extruder");
-  const printing = snap.print?.state === "printing";
+  // Extruding is for idle filament loading — block it during a print, paused
+  // included (a manual purge mid-job corrupts the slicer's E tracking).
+  const busy = snap.print?.state === "printing" || snap.print?.state === "paused";
   const tooCold = !extruder || extruder.temp < 170;
-  const canExtrude = canControl && !tooCold && !printing;
+  const canExtrude = canControl && !tooCold && !busy;
+  // SAVE/RESTORE brackets the relative-E (M83) move so the interpreter's
+  // extrusion mode is left exactly as it was — a latched M83 would otherwise
+  // turn a later absolute-E print's moves into runaway over-extrusion.
   const run = (e: number) =>
-    gcode.mutate(`M83\nG1 E${e} F300`, { onError: (err) => toast("error", t("moonraker.toast.failed"), String(err)) });
+    gcode.mutate(`SAVE_GCODE_STATE NAME=hh_extrude\nM83\nG1 E${e} F300\nRESTORE_GCODE_STATE NAME=hh_extrude`, {
+      onError: (err) => toast("error", t("moonraker.toast.failed"), String(err)),
+    });
 
   return (
     <Card>
@@ -837,10 +845,10 @@ function ExtruderCard({ snap, instanceId, canControl }: { snap: MoonrakerSnapsho
             {t("moonraker.extruder.extrude")}
           </Button>
         </div>
-        {canControl && tooCold && !printing && (
+        {canControl && tooCold && !busy && (
           <p className="text-warning text-center text-[11px]">{t("moonraker.extruder.cold")}</p>
         )}
-        {printing && <p className="text-fg-subtle text-center text-[11px]">{t("moonraker.jog.lockedPrinting")}</p>}
+        {busy && <p className="text-fg-subtle text-center text-[11px]">{t("moonraker.jog.lockedPrinting")}</p>}
       </CardBody>
     </Card>
   );
@@ -1182,36 +1190,69 @@ function CameraTile({
     setRotation(cam.rotation);
   }, [cam.flipHorizontal, cam.flipVertical, cam.rotation]);
 
-  const save = (patch: { flipHorizontal?: boolean; flipVertical?: boolean; rotation?: 0 | 90 | 180 | 270 }) =>
+  // Persist, reverting the optimistic flag if the write fails (e.g. a camera
+  // Moonraker sources from a config file, or an upstream error) so the toolbar
+  // never claims a flip that didn't stick.
+  const save = (
+    patch: { flipHorizontal?: boolean; flipVertical?: boolean; rotation?: 0 | 90 | 180 | 270 },
+    revert: () => void,
+  ) =>
     setWebcam.mutate(
       { name: cam.name, ...patch },
-      { onError: (e) => toast("error", t("moonraker.toast.failed"), String(e)) },
+      {
+        onError: (e) => {
+          revert();
+          toast("error", t("moonraker.toast.failed"), String(e));
+        },
+      },
     );
   const toggleH = () => {
+    const prev = flipH;
     const v = !flipH;
     setFlipH(v);
-    save({ flipHorizontal: v });
+    save({ flipHorizontal: v }, () => setFlipH(prev));
   };
   const toggleV = () => {
+    const prev = flipV;
     const v = !flipV;
     setFlipV(v);
-    save({ flipVertical: v });
+    save({ flipVertical: v }, () => setFlipV(prev));
   };
   const rotate = () => {
+    const prev = rotation;
     const v = (((rotation + 90) % 360) as 0 | 90 | 180 | 270);
     setRotation(v);
-    save({ rotation: v });
+    save({ rotation: v }, () => setRotation(prev));
   };
 
   const transform = `rotate(${rotation}deg) scaleX(${flipH ? -1 : 1}) scaleY(${flipV ? -1 : 1})`;
-  const streamSrc = `${webcamStreamUrl(instanceId, cam.name)}&_=${nonce}`;
+  // MJPEG services stream into an <img> directly; WebRTC/HLS ones don't, so
+  // fall back to polling the still-image endpoint (universal) for those.
+  const streamable = !/webrtc|hls|rtsp/i.test(cam.service ?? "");
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (streamable || !cam.snapshot) return;
+    const id = window.setInterval(() => setTick((x) => x + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [streamable, cam.snapshot]);
+  const src = streamable
+    ? `${webcamStreamUrl(instanceId, cam.name)}&_=${nonce}`
+    : cam.snapshot
+      ? `${webcamSnapshotUrl(instanceId, cam.name)}&_=${tick}`
+      : null;
 
   return (
     <div
       className="border-edge group relative mx-auto w-full overflow-hidden rounded-lg border bg-black"
       style={{ ...aspectStyle(cam.aspectRatio), maxHeight: expanded ? "78vh" : undefined }}
     >
-      {errored ? (
+      {src == null ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
+          <VideoOff className="size-6 text-white/60" />
+          <span className="text-[12.5px] text-white/70">{t("moonraker.camera.unsupported")}</span>
+          <span className="text-[11px] text-white/45">{cam.service}</span>
+        </div>
+      ) : streamable && errored ? (
         <button
           type="button"
           onClick={() => {
@@ -1226,9 +1267,9 @@ function CameraTile({
         </button>
       ) : (
         <img
-          src={streamSrc}
+          src={src}
           alt={cam.name}
-          onError={() => setErrored(true)}
+          onError={() => streamable && setErrored(true)}
           className="absolute inset-0 size-full object-contain"
           style={{ transform }}
         />

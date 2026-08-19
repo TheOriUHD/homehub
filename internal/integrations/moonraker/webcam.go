@@ -152,34 +152,53 @@ func (c *Conn) resolveNamed(ctx context.Context, name string, pick func(webcamWi
 }
 
 // resolveWebcamURL turns Moonraker's stored URL (usually a host-relative path
-// like "/webcam/?action=stream") into an absolute URL. Relative paths resolve
-// against the printer host on its DEFAULT web port — the webcam is served by
-// the machine's reverse proxy (nginx) on 80/443, not on Moonraker's own port
-// (7125) — while an already-absolute URL (a direct streamer port) is used
-// verbatim.
+// like "/webcam/?action=stream") into an absolute URL the backend proxy will
+// fetch. Relative paths resolve against the printer host on its DEFAULT web
+// port — the webcam is served by the machine's reverse proxy (nginx) on 80/443,
+// not Moonraker's own port (7125).
+//
+// SSRF guard: the resolved target is pinned to the printer's OWN host (any
+// port, http/https only). The webcam registry is frequently editable without
+// authentication on the LAN, so an absolute stream_url pointing anywhere else
+// — a cloud metadata IP, another internal host — is refused rather than
+// fetched from the server's network vantage point. A camera on a different
+// port of the printer host (a direct ustreamer/camera-streamer port) is fine.
 func (c *Conn) resolveWebcamURL(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return ""
 	}
-	if strings.Contains(raw, "://") {
-		return raw
-	}
-	u, err := url.Parse(c.client.base)
+	base, err := url.Parse(c.client.base)
 	if err != nil {
 		return ""
+	}
+	printerHost := base.Hostname()
+	if strings.Contains(raw, "://") {
+		u, err := url.Parse(raw)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+			return ""
+		}
+		if !strings.EqualFold(u.Hostname(), printerHost) {
+			return "" // refuse to proxy a host other than the printer's own
+		}
+		return raw
 	}
 	if !strings.HasPrefix(raw, "/") {
 		raw = "/" + raw
 	}
 	// Drop Moonraker's port; the webcam lives behind the host's web server.
-	return u.Scheme + "://" + u.Hostname() + raw
+	return base.Scheme + "://" + printerHost + raw
 }
 
 // SetWebcam persists per-camera display settings (flip H/V, rotation) through
 // Moonraker via a read-modify-write, so the change sticks and is shared with
 // the printer's other UIs. Nil fields are left unchanged.
 func (c *Conn) SetWebcam(ctx context.Context, name string, flipH, flipV *bool, rotation *int) error {
+	// Serialize the read-modify-write so two quick toggles (flip H then flip V)
+	// can't both read the same base object and clobber each other's field.
+	c.webcamWriteMu.Lock()
+	defer c.webcamWriteMu.Unlock()
+
 	// Read the current item so we repost a complete, valid object.
 	var item map[string]any
 	{

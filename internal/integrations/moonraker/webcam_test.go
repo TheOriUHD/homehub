@@ -14,9 +14,13 @@ func TestResolveWebcamURL(t *testing.T) {
 		{"http://printer.local:7125", "webcam/?action=stream", "http://printer.local/webcam/?action=stream"},
 		{"http://printer.local", "/webcam/?action=stream", "http://printer.local/webcam/?action=stream"},
 		{"https://printer.example.com:7125", "/webcam/?action=snapshot", "https://printer.example.com/webcam/?action=snapshot"},
-		// Absolute URL (a direct streamer port) is used verbatim.
+		// Absolute URL on the printer's OWN host (a direct streamer port) is kept.
 		{"http://printer.local:7125", "http://printer.local:8080/?action=stream", "http://printer.local:8080/?action=stream"},
-		{"http://printer.local", "https://cam.example.com/stream", "https://cam.example.com/stream"},
+		// SSRF guard: an absolute URL to a DIFFERENT host is refused.
+		{"http://printer.local", "https://cam.example.com/stream", ""},
+		{"http://printer.local:7125", "http://169.254.169.254/latest/meta-data/", ""},
+		// Non-http scheme refused.
+		{"http://printer.local:7125", "file:///etc/passwd", ""},
 		// Empty stays empty.
 		{"http://printer.local:7125", "", ""},
 	}

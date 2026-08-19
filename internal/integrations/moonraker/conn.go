@@ -232,6 +232,8 @@ type Conn struct {
 	webcamsCache []webcamWire         // cached /server/webcams/list
 	webcamsAt    time.Time            // webcam cache timestamp
 
+	webcamWriteMu sync.Mutex // serializes webcam read-modify-write updates
+
 	cancel context.CancelFunc // stops the WS loop
 }
 
