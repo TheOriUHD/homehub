@@ -89,7 +89,9 @@ func allNeededCommands(mgr string) []string {
 // and returns the name→path map.
 func resolvePaths(ctx context.Context, conn *SSHConn, mgr string) (map[string]string, error) {
 	cmds := strings.Join(allNeededCommands(mgr), " ")
-	out, _, err := conn.Run(ctx, fmt.Sprintf(commandPathResolutionScript, cmds))
+	// Under /bin/sh (not the login shell), so a non-POSIX login shell can't
+	// break the resolution script.
+	out, _, err := conn.RunScript(ctx, fmt.Sprintf(commandPathResolutionScript, cmds))
 	if err != nil {
 		return nil, err
 	}

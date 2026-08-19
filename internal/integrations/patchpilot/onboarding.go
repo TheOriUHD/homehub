@@ -33,9 +33,15 @@ func (r *Registry) Detect(ctx context.Context, host string, port int, cred Crede
 	}
 	defer conn.Close()
 
-	facts, err := Detect(ctx, conn)
+	raw, facts, err := Probe(ctx, conn)
 	if err != nil {
 		return &DetectResult{Reachable: true, Message: "connected, but the detection probe failed: " + err.Error()}, nil
+	}
+	// When the probe yields nothing useful, log exactly what the host sent so
+	// an odd shell / PATH / banner can be diagnosed.
+	if facts.PackageManager == "" && facts.OSPretty == "" {
+		r.logger.Warn("patchpilot detection empty", "host", host,
+			"rawLen", len(raw), "raw", truncate(raw, 1200))
 	}
 	res := &DetectResult{
 		Reachable:      true,
@@ -179,4 +185,11 @@ func (r *Registry) RepairSudoers(ctx context.Context, h *store.PatchpilotHost) e
 		return bootErr("sudoers_write_failed", "could not repair the sudoers rule", out, out)
 	}
 	return nil
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }
