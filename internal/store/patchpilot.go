@@ -17,6 +17,7 @@ type PatchpilotHost struct {
 	SSHPort        int        `db:"ssh_port"`
 	SSHUser        string     `db:"ssh_user"`
 	HostType       string     `db:"host_type"`
+	HostKey        string     `db:"host_key"`
 	PackageManager string     `db:"package_manager"`
 	OSPretty       string     `db:"os_pretty"`
 	Arch           string     `db:"arch"`
@@ -33,7 +34,7 @@ type PatchpilotHost struct {
 	UpdatedAt      time.Time  `db:"updated_at"`
 }
 
-const ppHostCols = `id, integration_id, name, hostname, ssh_port, ssh_user, host_type,
+const ppHostCols = `id, integration_id, name, hostname, ssh_port, ssh_user, host_type, host_key,
 	package_manager, os_pretty, arch, is_proxmox, enabled, auto_reboot, notes,
 	updates_pending, reboot_required, last_checked_at, last_run_status, last_run_at, created_at, updated_at`
 
@@ -50,12 +51,21 @@ func (s *Store) GetPatchpilotHost(ctx context.Context, id uuid.UUID) (*Patchpilo
 func (s *Store) CreatePatchpilotHost(ctx context.Context, h PatchpilotHost) (*PatchpilotHost, error) {
 	return scanOne[PatchpilotHost](s.pool.Query(ctx, `
 		insert into patchpilot_hosts
-			(integration_id, name, hostname, ssh_port, ssh_user, host_type, package_manager,
+			(integration_id, name, hostname, ssh_port, ssh_user, host_type, host_key, package_manager,
 			 os_pretty, arch, is_proxmox, enabled, auto_reboot, notes)
-		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 		returning `+ppHostCols,
-		h.IntegrationID, h.Name, h.Hostname, h.SSHPort, h.SSHUser, h.HostType, h.PackageManager,
+		h.IntegrationID, h.Name, h.Hostname, h.SSHPort, h.SSHUser, h.HostType, h.HostKey, h.PackageManager,
 		h.OSPretty, h.Arch, h.IsProxmox, h.Enabled, h.AutoReboot, h.Notes))
+}
+
+// SetPatchpilotHostKey pins (or re-pins) a host's SSH host-key fingerprint.
+// Used to trust-on-first-use: the first successful connection records the key,
+// and every later connection is verified against it.
+func (s *Store) SetPatchpilotHostKey(ctx context.Context, id uuid.UUID, hostKey string) error {
+	_, err := s.pool.Exec(ctx,
+		`update patchpilot_hosts set host_key = $2, updated_at = now() where id = $1`, id, hostKey)
+	return err
 }
 
 // UpdatePatchpilotHost writes the operator-mutable fields.

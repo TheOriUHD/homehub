@@ -14,7 +14,7 @@ func TestLiveNonSudoerBlocked(t *testing.T) {
 	liveGate(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	conn, err := ConnectPassword(ctx, "127.0.0.1", 2202, Credential{User: "nosudo", Password: "nosudo-pw"})
+	conn, err := ConnectPassword(ctx, "127.0.0.1", 2202, Credential{User: "nosudo", Password: "nosudo-pw"}, "")
 	if err != nil {
 		t.Skipf("nosudo user not set up: %v", err)
 	}

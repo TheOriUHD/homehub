@@ -13,7 +13,7 @@ func TestLiveProbeReliability(t *testing.T) {
 	empties, errs := 0, 0
 	for i := 0; i < 40; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		conn, err := ConnectPassword(ctx, "127.0.0.1", 2201, Credential{User: "root", Password: "pp-test-root-pw"})
+		conn, err := ConnectPassword(ctx, "127.0.0.1", 2201, Credential{User: "root", Password: "pp-test-root-pw"}, "")
 		if err != nil {
 			errs++
 			cancel()

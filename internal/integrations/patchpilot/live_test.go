@@ -23,7 +23,7 @@ func TestLiveBootstrapRootHost(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	conn, err := ConnectPassword(ctx, "127.0.0.1", 2201, Credential{User: "root", Password: "pp-test-root-pw"})
+	conn, err := ConnectPassword(ctx, "127.0.0.1", 2201, Credential{User: "root", Password: "pp-test-root-pw"}, "")
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestLiveBootstrapRootHost(t *testing.T) {
 
 	// Reconnect as the managed account with the key and prove NOPASSWD sudo.
 	time.Sleep(500 * time.Millisecond)
-	keyConn, err := ConnectKey(ctx, "127.0.0.1", 2201, ManagedUser, kp.PrivatePEM)
+	keyConn, err := ConnectKey(ctx, "127.0.0.1", 2201, ManagedUser, kp.PrivatePEM, "")
 	if err != nil {
 		t.Fatalf("key reconnect: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestLiveBootstrapSudoUserHost(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	conn, err := ConnectPassword(ctx, "127.0.0.1", 2202, Credential{User: "phil", Password: "pp-test-user-pw"})
+	conn, err := ConnectPassword(ctx, "127.0.0.1", 2202, Credential{User: "phil", Password: "pp-test-user-pw"}, "")
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestLiveBootstrapSudoUserHost(t *testing.T) {
 	}
 
 	time.Sleep(500 * time.Millisecond)
-	keyConn, err := ConnectKey(ctx, "127.0.0.1", 2202, ManagedUser, kp.PrivatePEM)
+	keyConn, err := ConnectKey(ctx, "127.0.0.1", 2202, ManagedUser, kp.PrivatePEM, "")
 	if err != nil {
 		t.Fatalf("key reconnect: %v", err)
 	}

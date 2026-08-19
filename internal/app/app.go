@@ -50,6 +50,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/rbac"
 	"github.com/TheOriUHD/homehub/internal/settings"
 	"github.com/TheOriUHD/homehub/internal/signals"
+	"github.com/TheOriUHD/homehub/internal/sshpin"
 	"github.com/TheOriUHD/homehub/internal/store"
 	"github.com/TheOriUHD/homehub/internal/telegram"
 	"github.com/TheOriUHD/homehub/internal/term"
@@ -79,6 +80,9 @@ func Run(ctx context.Context) error {
 	defer pool.Close()
 
 	st := store.New(pool)
+	// Register the store as the trust-on-first-use host-key backend for the
+	// interactive SSH bridges (terminal / docker / minecraft).
+	sshpin.Configure(st)
 	v, err := vault.Open(pool, cfg.DataDir, cfg.MasterKey, logger)
 	if err != nil {
 		return err

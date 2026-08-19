@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
 	"golang.org/x/crypto/ssh"
+
+	"github.com/TheOriUHD/homehub/internal/sshpin"
 )
 
 // sshDialer opens connections to a remote Docker daemon by running
@@ -39,16 +42,21 @@ func (d *sshDialer) DialContext(ctx context.Context, _, _ string) (net.Conn, err
 	if err != nil {
 		return nil, err
 	}
+	// Trust-on-first-use host-key pinning for the remote Docker daemon.
+	host, portStr, _ := net.SplitHostPort(d.addr)
+	port, _ := strconv.Atoi(portStr)
+	pin := sshpin.For(ctx, host, port)
 	sshConn, chans, reqs, err := ssh.NewClientConn(raw, d.addr, &ssh.ClientConfig{
 		User:            d.username,
 		Auth:            []ssh.AuthMethod{auth},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: pin.Verify,
 		Timeout:         10 * time.Second,
 	})
 	if err != nil {
 		raw.Close()
 		return nil, err
 	}
+	pin.Commit(ctx)
 	client := ssh.NewClient(sshConn, chans, reqs)
 
 	session, err := client.NewSession()

@@ -51,6 +51,7 @@ type SSHConn struct {
 	escalate EscalationMode
 	password string // for sudo -S / su, when the mode needs it
 	sourceIP string // local address used to reach the host (for from= pinning)
+	hostKey  string // SHA256 fingerprint of the host key we connected to
 }
 
 // EscalationMode is how a command is elevated to root. Chosen per §7.2.
@@ -63,10 +64,13 @@ const (
 	EscSuRoot       EscalationMode = "su-root"
 )
 
-// dial opens a TCP+SSH connection with the given auth, ignoring host keys
-// (LAN policy, matching HomeHub's other SSH bridges) and recording the local
-// source IP for later authorized_keys pinning.
-func dial(ctx context.Context, host string, port int, user string, auth []ssh.AuthMethod) (*ssh.Client, string, error) {
+// dial opens a TCP+SSH connection with the given auth and enforces
+// trust-on-first-use host-key pinning: it records the presented host key's
+// SHA256 fingerprint and, when expectedKey is non-empty, refuses to connect if
+// the key differs (a rebuilt host or a LAN man-in-the-middle). The observed
+// fingerprint is returned so onboarding can pin it on the first connection.
+// The local source IP is also recorded for later authorized_keys from= pinning.
+func dial(ctx context.Context, host string, port int, user string, auth []ssh.AuthMethod, expectedKey string) (*ssh.Client, string, string, error) {
 	if port == 0 {
 		port = 22
 	}
@@ -74,24 +78,36 @@ func dial(ctx context.Context, host string, port int, user string, auth []ssh.Au
 	d := net.Dialer{Timeout: 10 * time.Second}
 	tcp, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
-		return nil, "", fmt.Errorf("could not reach %s: %w", addr, err)
+		return nil, "", "", fmt.Errorf("could not reach %s: %w", addr, err)
 	}
 	sourceIP := ""
 	if la, ok := tcp.LocalAddr().(*net.TCPAddr); ok {
 		sourceIP = la.IP.String()
 	}
+	observed := ""
 	cfg := &ssh.ClientConfig{
-		User:            user,
-		Auth:            auth,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         10 * time.Second,
+		User: user,
+		Auth: auth,
+		HostKeyCallback: func(_ string, _ net.Addr, key ssh.PublicKey) error {
+			observed = ssh.FingerprintSHA256(key)
+			if expectedKey != "" && observed != expectedKey {
+				return fmt.Errorf("host key mismatch")
+			}
+			return nil
+		},
+		Timeout: 10 * time.Second,
 	}
 	sc, chans, reqs, err := ssh.NewClientConn(tcp, addr, cfg)
 	if err != nil {
 		_ = tcp.Close()
-		return nil, "", classifyDial(err)
+		if expectedKey != "" && observed != "" && observed != expectedKey {
+			return nil, sourceIP, observed, fmt.Errorf(
+				"host key changed — refusing to connect (pinned %s, now %s); if this host was rebuilt, remove and re-add it",
+				expectedKey, observed)
+		}
+		return nil, sourceIP, observed, classifyDial(err)
 	}
-	return ssh.NewClient(sc, chans, reqs), sourceIP, nil
+	return ssh.NewClient(sc, chans, reqs), sourceIP, observed, nil
 }
 
 func classifyDial(err error) error {
@@ -110,7 +126,9 @@ func classifyDial(err error) error {
 }
 
 // ConnectPassword opens a login session for onboarding with a password.
-func ConnectPassword(ctx context.Context, host string, port int, cred Credential) (*SSHConn, error) {
+// expectedKey pins the host key when known (empty on the very first contact,
+// where the key is captured for pinning instead).
+func ConnectPassword(ctx context.Context, host string, port int, cred Credential, expectedKey string) (*SSHConn, error) {
 	var auth []ssh.AuthMethod
 	if k := strings.TrimSpace(cred.Key); k != "" {
 		signer, err := ssh.ParsePrivateKey([]byte(k))
@@ -129,26 +147,28 @@ func ConnectPassword(ctx context.Context, host string, port int, cred Credential
 			return ans, nil
 		}))
 	}
-	client, sourceIP, err := dial(ctx, host, port, cred.User, auth)
+	client, sourceIP, hostKey, err := dial(ctx, host, port, cred.User, auth, expectedKey)
 	if err != nil {
 		return nil, err
 	}
-	return &SSHConn{client: client, password: cred.Password, sourceIP: sourceIP}, nil
+	return &SSHConn{client: client, password: cred.Password, sourceIP: sourceIP, hostKey: hostKey}, nil
 }
 
 // ConnectKey opens a session as the managed `patchpilot` account using the
-// orchestrator private key — the transport every run uses.
-func ConnectKey(ctx context.Context, host string, port int, user, privateKeyPEM string) (*SSHConn, error) {
+// orchestrator private key — the transport every run uses. expectedKey pins
+// the host key: on a stored host it is the pinned fingerprint, so a swapped
+// host is rejected before any command runs.
+func ConnectKey(ctx context.Context, host string, port int, user, privateKeyPEM, expectedKey string) (*SSHConn, error) {
 	signer, err := ssh.ParsePrivateKey([]byte(privateKeyPEM))
 	if err != nil {
 		return nil, fmt.Errorf("orchestrator key unparseable: %w", err)
 	}
-	client, sourceIP, err := dial(ctx, host, port, user, []ssh.AuthMethod{ssh.PublicKeys(signer)})
+	client, sourceIP, hostKey, err := dial(ctx, host, port, user, []ssh.AuthMethod{ssh.PublicKeys(signer)}, expectedKey)
 	if err != nil {
 		return nil, err
 	}
 	// Runs always escalate through the installed NOPASSWD sudoers.
-	return &SSHConn{client: client, escalate: EscSudoNoPasswd, sourceIP: sourceIP}, nil
+	return &SSHConn{client: client, escalate: EscSudoNoPasswd, sourceIP: sourceIP, hostKey: hostKey}, nil
 }
 
 func (c *SSHConn) Close() {
@@ -158,6 +178,9 @@ func (c *SSHConn) Close() {
 }
 
 func (c *SSHConn) SourceIP() string { return c.sourceIP }
+
+// HostKey is the SHA256 fingerprint of the host key this session connected to.
+func (c *SSHConn) HostKey() string { return c.hostKey }
 
 // Run executes one command and returns combined stdout+stderr plus the exit
 // code. A non-zero exit is returned as (output, code, nil) — the caller
