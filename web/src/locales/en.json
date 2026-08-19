@@ -31,7 +31,8 @@
     "enabled": "Enabled",
     "disabled": "Disabled",
     "you": "you",
-    "remove": "Remove"
+    "remove": "Remove",
+    "set": "Set"
   },
   "theme": {
     "toggle": "Toggle theme",
@@ -500,7 +501,8 @@
       "nameHintAmp": "How this panel appears in HomeHub, e.g. “Game node”",
       "nameHintTailscale": "How this tailnet appears in HomeHub, e.g. “Home tailnet”",
       "nameHintCaddy": "How this proxy appears in HomeHub, e.g. “Edge proxy”",
-      "nameHintAperture": "How this NVR appears in HomeHub, e.g. “Cameras”"
+      "nameHintAperture": "How this NVR appears in HomeHub, e.g. “Cameras”",
+      "nameHintMoonraker": "How this printer appears in HomeHub, e.g. “Voron 2.4”"
     },
     "pve": {
       "host": "Host",
@@ -642,6 +644,12 @@
       "sshSecretHint": "Password or key — one is enough. Stored encrypted, never shown again.",
       "sshKey": "SSH private key",
       "sshKeyHint": "PEM/OpenSSH format. Preferred over a password."
+    },
+    "moonraker": {
+      "baseUrl": "Moonraker address",
+      "baseUrlHint": "The printer's Moonraker URL, e.g. http://printer.local:7125 (or your Fluidd/Mainsail address)",
+      "apiKey": "API key (optional)",
+      "apiKeyHint": "Only if Moonraker requires authentication — most trusted-LAN setups need none. Moonraker → API Key."
     }
   },
   "systems": {
@@ -675,7 +683,8 @@
         "game": "Game servers",
         "data": "Databases",
         "home": "Home & vision",
-        "other": "Other"
+        "other": "Other",
+        "maker": "3D printing"
       }
     },
     "types": {
@@ -692,7 +701,8 @@
       "tailscale": "Tailscale",
       "caddy": "Caddy",
       "aperture": "Aperture",
-      "patchpilot": "PatchPilot"
+      "patchpilot": "PatchPilot",
+      "moonraker": "Moonraker"
     },
     "landing": {
       "pickInstance": "Choose an instance",
@@ -3306,5 +3316,99 @@
       "deleteTitle": "Delete {{name}}?",
       "deleteBody": "The calendar and every event in it disappear from HomeHub. Synced upstreams are not touched."
     }
+  },
+  "moonraker": {
+    "subtitle": "Klipper 3D printer",
+    "subtitleVersion": "Klipper {{version}}",
+    "live": "Live",
+    "polling": "Polling",
+    "estop": "Emergency stop",
+    "estopConfirm": {
+      "title": "Emergency stop?",
+      "body": "This halts the printer immediately and shuts Klipper down. Any print in progress is lost and you'll need a firmware restart to continue."
+    },
+    "firmwareRestart": "Firmware restart",
+    "klippy": {
+      "ready": "Ready",
+      "startup": "Starting up",
+      "shutdown": "Shutdown",
+      "error": "Error",
+      "disconnected": "Disconnected"
+    },
+    "printState": {
+      "standby": "Standby",
+      "printing": "Printing",
+      "paused": "Paused",
+      "complete": "Complete",
+      "cancelled": "Cancelled",
+      "error": "Error"
+    },
+    "print": {
+      "layer": "Layer {{current}} / {{total}}",
+      "untitled": "Untitled",
+      "elapsed": "Elapsed",
+      "remaining": "Remaining",
+      "filament": "Filament",
+      "pause": "Pause",
+      "resume": "Resume",
+      "cancel": "Cancel",
+      "cancelConfirm": {
+        "title": "Cancel this print?",
+        "body": "The print will be stopped and cannot be resumed."
+      }
+    },
+    "sections": {
+      "temperatures": "Temperatures",
+      "fans": "Fans",
+      "motion": "Motion",
+      "lights": "Lights & outputs",
+      "macros": "Macros",
+      "console": "G-code console"
+    },
+    "temp": {
+      "off": "Off",
+      "setTarget": "Set {{name}} target",
+      "power": "{{pct}}% power"
+    },
+    "tempFan": "Temp fan",
+    "motion": {
+      "homed": "homed",
+      "notHomed": "not homed",
+      "speed": "Speed",
+      "flow": "Flow",
+      "partFan": "Part fan",
+      "homeAll": "Home all",
+      "homeXY": "Home XY",
+      "homeZ": "Home Z",
+      "motorsOff": "Motors off"
+    },
+    "led": {
+      "pixels": "{{n}} pixels",
+      "single": "Single color",
+      "pick": "Pick color for {{name}}"
+    },
+    "pin": {
+      "on": "On",
+      "off": "Off",
+      "turnOn": "Turn on",
+      "turnOff": "Turn off"
+    },
+    "macros": {
+      "search": "Filter macros",
+      "noMatch": "No macros match your filter."
+    },
+    "console": {
+      "empty": "No output yet. Send a command or watch responses stream in.",
+      "placeholder": "Enter G-code, e.g. G28",
+      "send": "Send"
+    },
+    "otherObjects": "Other objects",
+    "toast": {
+      "estop": "Emergency stop sent",
+      "firmwareRestart": "Firmware restart requested",
+      "macroRan": "Ran {{name}}",
+      "failed": "Action failed"
+    },
+    "open": "Open Moonraker"
   }
 }

@@ -31,7 +31,8 @@
     "enabled": "Aktiviert",
     "disabled": "Deaktiviert",
     "you": "du",
-    "remove": "Entfernen"
+    "remove": "Entfernen",
+    "set": "Setzen"
   },
   "theme": {
     "toggle": "Design umschalten",
@@ -500,7 +501,8 @@
       "nameHintAmp": "So erscheint dieses Panel in HomeHub, z. B. „Game-Node“",
       "nameHintTailscale": "So erscheint dieses Tailnet in HomeHub, z. B. „Heim-Tailnet“",
       "nameHintCaddy": "So erscheint dieser Proxy in HomeHub, z. B. „Edge-Proxy“",
-      "nameHintAperture": "So erscheint dieser NVR in HomeHub, z. B. „Kameras“"
+      "nameHintAperture": "So erscheint dieser NVR in HomeHub, z. B. „Kameras“",
+      "nameHintMoonraker": "Wie dieser Drucker in HomeHub erscheint, z. B. „Voron 2.4“"
     },
     "pve": {
       "host": "Host",
@@ -642,6 +644,12 @@
       "sshSecretHint": "Passwort oder Schlüssel — eins reicht. Verschlüsselt gespeichert, wird nie wieder angezeigt.",
       "sshKey": "Privater SSH-Schlüssel",
       "sshKeyHint": "PEM/OpenSSH-Format. Einem Passwort vorzuziehen."
+    },
+    "moonraker": {
+      "baseUrl": "Moonraker-Adresse",
+      "baseUrlHint": "Die Moonraker-URL des Druckers, z. B. http://printer.local:7125 (oder deine Fluidd/Mainsail-Adresse)",
+      "apiKey": "API-Schlüssel (optional)",
+      "apiKeyHint": "Nur falls Moonraker Authentifizierung verlangt — die meisten LAN-Setups brauchen keine. Moonraker → API Key."
     }
   },
   "systems": {
@@ -675,7 +683,8 @@
         "game": "Gameserver",
         "data": "Datenbanken",
         "home": "Zuhause & Kameras",
-        "other": "Sonstiges"
+        "other": "Sonstiges",
+        "maker": "3D-Druck"
       }
     },
     "types": {
@@ -692,7 +701,8 @@
       "tailscale": "Tailscale",
       "caddy": "Caddy",
       "aperture": "Aperture",
-      "patchpilot": "PatchPilot"
+      "patchpilot": "PatchPilot",
+      "moonraker": "Moonraker"
     },
     "landing": {
       "pickInstance": "Instanz wählen",
@@ -3306,5 +3316,99 @@
       "deleteTitle": "{{name}} löschen?",
       "deleteBody": "Der Kalender und alle seine Termine verschwinden aus HomeHub. Synchronisierte Quellen bleiben unberührt."
     }
+  },
+  "moonraker": {
+    "subtitle": "Klipper 3D-Drucker",
+    "subtitleVersion": "Klipper {{version}}",
+    "live": "Live",
+    "polling": "Abfrage",
+    "estop": "Not-Aus",
+    "estopConfirm": {
+      "title": "Not-Aus?",
+      "body": "Der Drucker wird sofort gestoppt und Klipper heruntergefahren. Ein laufender Druck geht verloren und du brauchst einen Firmware-Neustart, um fortzufahren."
+    },
+    "firmwareRestart": "Firmware-Neustart",
+    "klippy": {
+      "ready": "Bereit",
+      "startup": "Startet",
+      "shutdown": "Heruntergefahren",
+      "error": "Fehler",
+      "disconnected": "Getrennt"
+    },
+    "printState": {
+      "standby": "Bereitschaft",
+      "printing": "Druckt",
+      "paused": "Pausiert",
+      "complete": "Fertig",
+      "cancelled": "Abgebrochen",
+      "error": "Fehler"
+    },
+    "print": {
+      "layer": "Schicht {{current}} / {{total}}",
+      "untitled": "Ohne Titel",
+      "elapsed": "Vergangen",
+      "remaining": "Verbleibend",
+      "filament": "Filament",
+      "pause": "Pause",
+      "resume": "Fortsetzen",
+      "cancel": "Abbrechen",
+      "cancelConfirm": {
+        "title": "Diesen Druck abbrechen?",
+        "body": "Der Druck wird gestoppt und kann nicht fortgesetzt werden."
+      }
+    },
+    "sections": {
+      "temperatures": "Temperaturen",
+      "fans": "Lüfter",
+      "motion": "Bewegung",
+      "lights": "Licht & Ausgänge",
+      "macros": "Makros",
+      "console": "G-Code-Konsole"
+    },
+    "temp": {
+      "off": "Aus",
+      "setTarget": "Zieltemperatur für {{name}}",
+      "power": "{{pct}} % Leistung"
+    },
+    "tempFan": "Temp-Lüfter",
+    "motion": {
+      "homed": "referenziert",
+      "notHomed": "nicht referenziert",
+      "speed": "Tempo",
+      "flow": "Fluss",
+      "partFan": "Bauteillüfter",
+      "homeAll": "Alle referenzieren",
+      "homeXY": "XY referenzieren",
+      "homeZ": "Z referenzieren",
+      "motorsOff": "Motoren aus"
+    },
+    "led": {
+      "pixels": "{{n}} Pixel",
+      "single": "Einzelfarbe",
+      "pick": "Farbe für {{name}} wählen"
+    },
+    "pin": {
+      "on": "An",
+      "off": "Aus",
+      "turnOn": "Einschalten",
+      "turnOff": "Ausschalten"
+    },
+    "macros": {
+      "search": "Makros filtern",
+      "noMatch": "Keine Makros passen zum Filter."
+    },
+    "console": {
+      "empty": "Noch keine Ausgabe. Sende einen Befehl oder beobachte die Antworten.",
+      "placeholder": "G-Code eingeben, z. B. G28",
+      "send": "Senden"
+    },
+    "otherObjects": "Weitere Objekte",
+    "toast": {
+      "estop": "Not-Aus gesendet",
+      "firmwareRestart": "Firmware-Neustart angefordert",
+      "macroRan": "{{name}} ausgeführt",
+      "failed": "Aktion fehlgeschlagen"
+    },
+    "open": "Moonraker öffnen"
   }
 }

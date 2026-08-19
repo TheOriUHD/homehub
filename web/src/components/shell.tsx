@@ -15,6 +15,7 @@ import {
   Gamepad2,
   HardDrive,
   Cctv,
+  Printer,
   Network,
   Waypoints,
   Home,
@@ -169,6 +170,7 @@ export function AppShell() {
   const tsRows = rows.filter((row) => row.type === "tailscale");
   const caddyRows = rows.filter((row) => row.type === "caddy");
   const nvrRows = rows.filter((row) => row.type === "aperture");
+  const moonrakerRows = rows.filter((row) => row.type === "moonraker");
   const truenasRows = rows.filter((row) => row.type === "truenas");
   const ppRows = rows.filter((row) => row.type === "patchpilot");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
@@ -263,6 +265,15 @@ export function AppShell() {
           icon: Cctv,
           status: worstStatus(nvrRows),
           prefix: "/nvr",
+        }]
+      : []),
+    ...(moonrakerRows.length > 0
+      ? [{
+          to: moonrakerRows.length === 1 ? `/moonraker/${moonrakerRows[0].id}` : "/moonraker",
+          label: t("systems.types.moonraker"),
+          icon: Printer,
+          status: worstStatus(moonrakerRows),
+          prefix: "/moonraker",
         }]
       : []),
     ...(truenasRows.length > 0

@@ -352,6 +352,21 @@ function apertureComplete(form: ApertureFormState, isNew: boolean): boolean {
   return Boolean(form.name.trim() && form.baseUrl.trim() && (form.apiKey.trim() || !isNew));
 }
 
+// Moonraker: an address plus an OPTIONAL API key (trusted-client LAN setups
+// need none), so completion never requires the key.
+type MoonrakerFormState = { name: string; baseUrl: string; apiKey: string };
+const emptyMoonrakerForm: MoonrakerFormState = { name: "", baseUrl: "", apiKey: "" };
+
+function moonrakerPayload(form: MoonrakerFormState): FormPayload {
+  const secrets: Record<string, string> = {};
+  if (form.apiKey) secrets.apiKey = form.apiKey;
+  return { config: { baseUrl: form.baseUrl.trim() }, secrets };
+}
+
+function moonrakerComplete(form: MoonrakerFormState): boolean {
+  return Boolean(form.name.trim() && form.baseUrl.trim());
+}
+
 function caddyPayload(form: CaddyFormState): FormPayload {
   return { config: { baseUrl: form.baseUrl }, secrets: {} };
 }
@@ -423,6 +438,7 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
   const [tailscaleForm, setTailscaleForm] = useState<TailscaleFormState>(emptyTailscaleForm);
   const [caddyForm, setCaddyForm] = useState<CaddyFormState>(emptyCaddyForm);
   const [apertureForm, setApertureForm] = useState<ApertureFormState>(emptyApertureForm);
+  const [moonrakerForm, setMoonrakerForm] = useState<MoonrakerFormState>(emptyMoonrakerForm);
   const [patchpilotForm, setPatchpilotForm] = useState<PatchpilotFormState>(emptyPatchpilotForm);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
@@ -457,6 +473,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return patchpilotPayload();
       case "aperture":
         return aperturePayload(apertureForm);
+      case "moonraker":
+        return moonrakerPayload(moonrakerForm);
       case "minecraft":
         return mcPayload(mcForm);
       default:
@@ -491,6 +509,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return patchpilotForm.name;
       case "aperture":
         return apertureForm.name;
+      case "moonraker":
+        return moonrakerForm.name;
       case "minecraft":
         return mcForm.name;
       default:
@@ -568,6 +588,9 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         case "aperture":
           void navigate({ to: "/nvr/$instanceId", params: { instanceId: created.id } });
           break;
+        case "moonraker":
+          void navigate({ to: "/moonraker/$instanceId", params: { instanceId: created.id } });
+          break;
         case "minecraft":
           // Straight to the pairing instructions and downloads.
           void navigate({ to: "/mc/$instanceId/setup", params: { instanceId: created.id } });
@@ -619,6 +642,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return patchpilotComplete(patchpilotForm);
       case "aperture":
         return apertureComplete(apertureForm, true);
+      case "moonraker":
+        return moonrakerComplete(moonrakerForm);
       case "minecraft":
         return mcComplete(mcForm);
       default:
@@ -656,6 +681,8 @@ export function AddSystemWizard({ onClose }: { onClose: () => void }) {
         return <PatchpilotForm form={patchpilotForm} setForm={setPatchpilotForm} />;
       case "aperture":
         return <ApertureForm form={apertureForm} setForm={setApertureForm} isNew testResult={testResult} onFormChange={clearTest} />;
+      case "moonraker":
+        return <MoonrakerForm form={moonrakerForm} setForm={setMoonrakerForm} isNew testResult={testResult} onFormChange={clearTest} />;
       case "minecraft":
         return <McForm form={mcForm} setForm={setMcForm} />;
       default:
@@ -806,6 +833,11 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
     name: row.name,
     baseUrl: String(cfg.baseUrl ?? ""),
   });
+  const [moonrakerForm, setMoonrakerForm] = useState<MoonrakerFormState>({
+    ...emptyMoonrakerForm,
+    name: row.name,
+    baseUrl: String(cfg.baseUrl ?? ""),
+  });
   const [patchpilotForm, setPatchpilotForm] = useState<PatchpilotFormState>({ name: row.name });
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
@@ -835,6 +867,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return patchpilotPayload();
       case "aperture":
         return aperturePayload(apertureForm);
+      case "moonraker":
+        return moonrakerPayload(moonrakerForm);
       case "minecraft":
         return mcPayload(mcForm);
       default:
@@ -867,6 +901,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return patchpilotForm.name;
       case "aperture":
         return apertureForm.name;
+      case "moonraker":
+        return moonrakerForm.name;
       case "minecraft":
         return mcForm.name;
       default:
@@ -918,6 +954,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return patchpilotComplete(patchpilotForm);
       case "aperture":
         return apertureComplete(apertureForm, false);
+      case "moonraker":
+        return moonrakerComplete(moonrakerForm);
       case "minecraft":
         return mcComplete(mcForm);
       default:
@@ -969,6 +1007,8 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
               return <PatchpilotForm form={patchpilotForm} setForm={setPatchpilotForm} />;
             case "aperture":
               return <ApertureForm form={apertureForm} setForm={setApertureForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
+            case "moonraker":
+              return <MoonrakerForm form={moonrakerForm} setForm={setMoonrakerForm} isNew={false} testResult={testResult} onFormChange={clearTest} />;
             case "minecraft":
               return <McForm form={mcForm} setForm={setMcForm} />;
             case "proxmox":
@@ -1504,6 +1544,47 @@ function ApertureForm({
   );
 }
 
+function MoonrakerForm({
+  form,
+  setForm,
+  isNew,
+  testResult,
+  onFormChange,
+}: {
+  form: MoonrakerFormState;
+  setForm: (fn: (prev: MoonrakerFormState) => MoonrakerFormState) => void;
+  isNew: boolean;
+  testResult: TestConnectionResult | null;
+  onFormChange: () => void;
+}) {
+  const { t } = useTranslation();
+  const update = (patch: Partial<MoonrakerFormState>) => {
+    onFormChange();
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("integrations.form.name")} hint={t("integrations.form.nameHintMoonraker")}>
+          {(p) => <Input {...p} autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} />}
+        </Field>
+        <Field label={t("integrations.moonraker.baseUrl")} hint={t("integrations.moonraker.baseUrlHint")}>
+          {(p) => <Input {...p} placeholder="http://printer.local:7125" value={form.baseUrl} onChange={(e) => update({ baseUrl: e.target.value })} />}
+        </Field>
+      </div>
+      <Field
+        label={t("integrations.moonraker.apiKey")}
+        hint={isNew ? t("integrations.moonraker.apiKeyHint") : t("integrations.form.secretKeep")}
+      >
+        {(p) => (
+          <PasswordInput {...p} className="font-mono text-[13px]" value={form.apiKey} onChange={(e) => update({ apiKey: e.target.value })} />
+        )}
+      </Field>
+      <TestResultNote result={testResult} />
+    </div>
+  );
+}
+
 function PatchpilotForm({
   form,
   setForm,
@@ -1815,6 +1896,7 @@ const TYPE_CATEGORIES: { key: string; ids: string[] }[] = [
   { key: "game", ids: ["minecraft", "amp"] },
   { key: "data", ids: ["mysql", "mongodb"] },
   { key: "home", ids: ["homeassistant", "aperture"] },
+  { key: "maker", ids: ["moonraker"] },
 ];
 
 function TypePicker({ types, onPick }: { types: IntegrationType[]; onPick: (t: IntegrationType) => void }) {
