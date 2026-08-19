@@ -3800,6 +3800,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/netscan/interfaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The server's local IPv4 networks and a suggested scan range */
+        get: operations["netscanInterfaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/calendars": {
         parameters: {
             query?: never;
@@ -5325,6 +5342,18 @@ export interface components {
             path: string;
             /** Format: date-time */
             createdAt: string;
+        };
+        NetscanInterface: {
+            /** @description Interface name */
+            label: string;
+            /** @description The interface's network, e.g. 192.168.20.42/24 */
+            cidr: string;
+            /** @description Suggested scan start */
+            start: string;
+            /** @description Suggested scan end */
+            end: string;
+            /** @description Best guess for the user's LAN */
+            primary: boolean;
         };
         Calendar: {
             /** Format: uuid */
@@ -12843,6 +12872,26 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    netscanInterfaces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Local networks, the likely LAN first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetscanInterface"][];
+                };
+            };
         };
     };
     listCalendars: {
