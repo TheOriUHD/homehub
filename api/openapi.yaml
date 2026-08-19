@@ -5708,6 +5708,20 @@ paths:
         "204": { description: Deleted }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /netscan/interfaces:
+    get:
+      operationId: netscanInterfaces
+      summary: The server's local IPv4 networks and a suggested scan range
+      tags: [netscan]
+      responses:
+        "200":
+          description: Local networks, the likely LAN first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/NetscanInterface" }
+
   /calendars:
     get:
       operationId: listCalendars
@@ -7904,6 +7918,16 @@ components:
         id: { type: string, format: uuid }
         path: { type: string }
         createdAt: { type: string, format: date-time }
+
+    NetscanInterface:
+      type: object
+      required: [label, cidr, start, end, primary]
+      properties:
+        label: { type: string, description: "Interface name" }
+        cidr: { type: string, description: "The interface's network, e.g. 192.168.10.42/24" }
+        start: { type: string, description: "Suggested scan start" }
+        end: { type: string, description: "Suggested scan end" }
+        primary: { type: boolean, description: "Best guess for the user's LAN" }
 
     Calendar:
       type: object

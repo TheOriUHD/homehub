@@ -19,6 +19,7 @@ import {
   Palette,
   QrCode,
   Regex,
+  ScanSearch,
   type LucideIcon,
 } from "lucide-react";
 
@@ -89,6 +90,14 @@ export const TOOLS: ToolDef[] = [
     title: "Port check & ping",
     desc: "Test a host's reachability — TCP port and ICMP ping.",
     Component: lazy(() => import("./apps/reachability")),
+  },
+  {
+    id: "ipscan",
+    category: "network",
+    icon: ScanSearch,
+    title: "IP scanner",
+    desc: "Sweep your subnet — alive hosts, hostnames, MAC/vendor and open ports.",
+    Component: lazy(() => import("./apps/ipscan")),
   },
   {
     id: "wol",

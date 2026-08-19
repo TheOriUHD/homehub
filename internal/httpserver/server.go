@@ -69,6 +69,8 @@ func Handler(deps Deps) http.Handler {
 		// Registered directly (not via the generated API) so bodies stream.
 		apiRouter.Post("/files/upload", deps.API.HandleFileUpload)
 		apiRouter.Get("/files/{id}/download", deps.API.HandleFileDownload)
+		// IP scanner: streams NDJSON results as hosts complete.
+		apiRouter.Post("/netscan", deps.API.HandleNetscan)
 		// Companion agents authenticate with pairing codes/tokens, not sessions.
 		apiRouter.Get("/mc/agent", func(w http.ResponseWriter, r *http.Request) {
 			deps.MC.HandleAgent(w, r, api.ClientIP(r))
