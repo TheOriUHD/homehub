@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
+  ArrowLeft,
   Download,
   FileCode2,
   FolderOpen,
@@ -122,6 +123,9 @@ export function ToolsFilesPage() {
 
   return (
     <div className="space-y-4">
+      <Link to="/tools" className="text-fg-subtle hover:text-fg inline-flex items-center gap-1.5 text-[13px]">
+        <ArrowLeft className="size-3.5" /> {t("tools.backToUtilities")}
+      </Link>
       <div className="flex flex-wrap items-center gap-3">
         <span className="bg-accent-soft text-accent-soft-fg flex size-10 items-center justify-center rounded-xl">
           <FolderOpen className="size-5" />
