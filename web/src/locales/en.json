@@ -2855,7 +2855,10 @@
       "enterCode": "Send /link to {{bot}}, then enter the code it gives you here:",
       "linkedAs": "Linked {{label}}",
       "yourBot": "your bot"
-    }
+    },
+    "working": "Working…",
+    "confirmTitle": "Confirm these changes?",
+    "approve": "Approve"
   },
   "tools": {
     "title": "Utilities",
