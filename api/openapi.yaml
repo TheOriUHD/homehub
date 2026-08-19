@@ -5708,6 +5708,196 @@ paths:
         "204": { description: Deleted }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /calendars:
+    get:
+      operationId: listCalendars
+      summary: Every calendar (local, CalDAV, ICS feeds, trash schedules)
+      tags: [calendar]
+      responses:
+        "200":
+          description: Calendars
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Calendar" }
+    post:
+      operationId: createCalendar
+      summary: Add a calendar
+      tags: [calendar]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, kind]
+              properties:
+                name: { type: string }
+                color: { type: string }
+                kind: { type: string, enum: [local, caldav, ics, trash] }
+                url: { type: string, description: "CalDAV collection URL or ICS feed URL" }
+                username: { type: string }
+                password: { type: string, description: "Stored in the vault; never returned" }
+                icsContent: { type: string, description: "Inline ICS for file imports (ics/trash kinds)" }
+                settings: { description: "Kind-specific settings (trash reminders…)" }
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Calendar" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /calendars/discover:
+    post:
+      operationId: discoverCalendars
+      summary: Probe a CalDAV account and list its calendars
+      tags: [calendar]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string }
+                username: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: Discovered collections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [path, name]
+                  properties:
+                    path: { type: string }
+                    name: { type: string }
+                    description: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /calendars/{id}:
+    put:
+      operationId: updateCalendar
+      summary: Rename/recolor a calendar or adjust its settings
+      tags: [calendar]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, color]
+              properties:
+                name: { type: string }
+                color: { type: string }
+                settings: { description: "Kind-specific settings" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Calendar" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: deleteCalendar
+      summary: Remove a calendar and its events
+      tags: [calendar]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /calendars/{id}/sync:
+    post:
+      operationId: syncCalendar
+      summary: Refresh a calendar from its upstream now
+      tags: [calendar]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Synced
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Calendar" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /calendar/events:
+    get:
+      operationId: listCalendarEvents
+      summary: Concrete event instances within a window (recurrence expanded)
+      tags: [calendar]
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Instances sorted by start
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CalendarInstance" }
+    post:
+      operationId: createCalendarEvent
+      summary: Create an event
+      tags: [calendar]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [calendarId, event]
+              properties:
+                calendarId: { type: string, format: uuid }
+                event: { $ref: "#/components/schemas/CalendarEventInput" }
+      responses:
+        "200":
+          description: Created (the master row)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CalendarInstance" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /calendar/events/{id}:
+    put:
+      operationId: updateCalendarEvent
+      summary: Edit an event (scope decides how far the edit reaches)
+      tags: [calendar]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event]
+              properties:
+                scope: { type: string, enum: [all, this, following] }
+                occurrenceStart: { type: string, format: date-time, description: "Which instance was edited (this/following scopes)" }
+                event: { $ref: "#/components/schemas/CalendarEventInput" }
+      responses:
+        "204": { description: Updated }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: deleteCalendarEvent
+      summary: Delete an event (scope decides how far)
+      tags: [calendar]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: scope, in: query, schema: { type: string, enum: [all, this, following] } }
+        - { name: occurrenceStart, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /signals:
     get:
       operationId: listSignals
@@ -7714,6 +7904,50 @@ components:
         id: { type: string, format: uuid }
         path: { type: string }
         createdAt: { type: string, format: date-time }
+
+    Calendar:
+      type: object
+      required: [id, name, color, kind, url, readOnly, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        color: { type: string }
+        kind: { type: string, enum: [local, caldav, ics, trash] }
+        url: { type: string }
+        readOnly: { type: boolean }
+        lastSyncedAt: { type: string, format: date-time }
+        syncError: { type: string }
+        settings: { description: "Kind-specific settings" }
+        createdAt: { type: string, format: date-time }
+    CalendarEventInput:
+      type: object
+      required: [title, startsAt, endsAt]
+      properties:
+        title: { type: string }
+        location: { type: string }
+        description: { type: string }
+        url: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        allDay: { type: boolean }
+        rrule: { type: string, description: "Recurrence rule without the RRULE: prefix" }
+    CalendarInstance:
+      type: object
+      required: [eventId, calendarId, uid, title, start, end, allDay, recurring, occurrenceStart]
+      properties:
+        eventId: { type: string, format: uuid }
+        calendarId: { type: string, format: uuid }
+        uid: { type: string }
+        title: { type: string }
+        location: { type: string }
+        description: { type: string }
+        url: { type: string }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        allDay: { type: boolean }
+        recurring: { type: boolean }
+        occurrenceStart: { type: string, format: date-time }
+        rrule: { type: string, description: "Master's rule (only on expanded instances)" }
 
     Signal:
       type: object

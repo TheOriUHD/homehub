@@ -20,6 +20,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/audit"
 	"github.com/TheOriUHD/homehub/internal/auth"
 	backuppkg "github.com/TheOriUHD/homehub/internal/backup"
+	"github.com/TheOriUHD/homehub/internal/calendar"
 	"github.com/TheOriUHD/homehub/internal/convert"
 	"github.com/TheOriUHD/homehub/internal/httpctx"
 	"github.com/TheOriUHD/homehub/internal/integration"
@@ -68,6 +69,7 @@ type Server struct {
 	mc           *minecraft.Registry
 	patchpilot   *patchpilot.Registry
 	convert      *convert.Service
+	calendar     *calendar.Service
 	companion    fs.FS
 	dataDir      string
 	logger       *slog.Logger

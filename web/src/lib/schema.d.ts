@@ -3800,6 +3800,112 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/calendars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every calendar (local, CalDAV, ICS feeds, trash schedules) */
+        get: operations["listCalendars"];
+        put?: never;
+        /** Add a calendar */
+        post: operations["createCalendar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/calendars/discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Probe a CalDAV account and list its calendars */
+        post: operations["discoverCalendars"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/calendars/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Rename/recolor a calendar or adjust its settings */
+        put: operations["updateCalendar"];
+        post?: never;
+        /** Remove a calendar and its events */
+        delete: operations["deleteCalendar"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/calendars/{id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refresh a calendar from its upstream now */
+        post: operations["syncCalendar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/calendar/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Concrete event instances within a window (recurrence expanded) */
+        get: operations["listCalendarEvents"];
+        put?: never;
+        /** Create an event */
+        post: operations["createCalendarEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/calendar/events/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit an event (scope decides how far the edit reaches) */
+        put: operations["updateCalendarEvent"];
+        post?: never;
+        /** Delete an event (scope decides how far) */
+        delete: operations["deleteCalendarEvent"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/signals": {
         parameters: {
             query?: never;
@@ -5219,6 +5325,57 @@ export interface components {
             path: string;
             /** Format: date-time */
             createdAt: string;
+        };
+        Calendar: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            color: string;
+            /** @enum {string} */
+            kind: "local" | "caldav" | "ics" | "trash";
+            url: string;
+            readOnly: boolean;
+            /** Format: date-time */
+            lastSyncedAt?: string;
+            syncError?: string;
+            /** @description Kind-specific settings */
+            settings?: unknown;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CalendarEventInput: {
+            title: string;
+            location?: string;
+            description?: string;
+            url?: string;
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+            allDay?: boolean;
+            /** @description Recurrence rule without the RRULE: prefix */
+            rrule?: string;
+        };
+        CalendarInstance: {
+            /** Format: uuid */
+            eventId: string;
+            /** Format: uuid */
+            calendarId: string;
+            uid: string;
+            title: string;
+            location?: string;
+            description?: string;
+            url?: string;
+            /** Format: date-time */
+            start: string;
+            /** Format: date-time */
+            end: string;
+            allDay: boolean;
+            recurring: boolean;
+            /** Format: date-time */
+            occurrenceStart: string;
+            /** @description Master's rule (only on expanded instances) */
+            rrule?: string;
         };
         Signal: {
             /** Format: int64 */
@@ -12670,6 +12827,285 @@ export interface operations {
     deleteFile: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listCalendars: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Calendars */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Calendar"][];
+                };
+            };
+        };
+    };
+    createCalendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    color?: string;
+                    /** @enum {string} */
+                    kind: "local" | "caldav" | "ics" | "trash";
+                    /** @description CalDAV collection URL or ICS feed URL */
+                    url?: string;
+                    username?: string;
+                    /** @description Stored in the vault; never returned */
+                    password?: string;
+                    /** @description Inline ICS for file imports (ics/trash kinds) */
+                    icsContent?: string;
+                    /** @description Kind-specific settings (trash reminders…) */
+                    settings?: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Calendar"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    discoverCalendars: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    url: string;
+                    username?: string;
+                    password?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Discovered collections */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        path: string;
+                        name: string;
+                        description?: string;
+                    }[];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    updateCalendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    color: string;
+                    /** @description Kind-specific settings */
+                    settings?: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Calendar"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteCalendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    syncCalendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Synced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Calendar"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listCalendarEvents: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instances sorted by start */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarInstance"][];
+                };
+            };
+        };
+    };
+    createCalendarEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    calendarId: string;
+                    event: components["schemas"]["CalendarEventInput"];
+                };
+            };
+        };
+        responses: {
+            /** @description Created (the master row) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarInstance"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    updateCalendarEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    scope?: "all" | "this" | "following";
+                    /**
+                     * Format: date-time
+                     * @description Which instance was edited (this/following scopes)
+                     */
+                    occurrenceStart?: string;
+                    event: components["schemas"]["CalendarEventInput"];
+                };
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteCalendarEvent: {
+        parameters: {
+            query?: {
+                scope?: "all" | "this" | "following";
+                occurrenceStart?: string;
+            };
             header?: never;
             path: {
                 id: string;
