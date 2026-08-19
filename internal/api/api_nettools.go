@@ -271,9 +271,16 @@ func (s *Server) WolWake(ctx context.Context, req WolWakeRequestObject) (WolWake
 		}
 		mac = normalizeMAC(*req.Body.Mac)
 		if req.Body.Broadcast != nil && strings.TrimSpace(*req.Body.Broadcast) != "" {
-			broadcast = strings.TrimSpace(*req.Body.Broadcast)
+			b := strings.TrimSpace(*req.Body.Broadcast)
+			// Same validation the saved-target path (CreateWolTarget) applies:
+			// require a literal IP so an inline target can't turn WoL into a
+			// server-side DNS lookup + UDP datagram to an arbitrary host.
+			if net.ParseIP(b) == nil {
+				return WolWake400JSONResponse{BadRequestJSONResponse(errBody("bad_broadcast", "the broadcast address is not a valid IP"))}, nil
+			}
+			broadcast = b
 		}
-		if req.Body.Port != nil && *req.Body.Port > 0 {
+		if req.Body.Port != nil && *req.Body.Port > 0 && *req.Body.Port < 65536 {
 			port = *req.Body.Port
 		}
 	}
