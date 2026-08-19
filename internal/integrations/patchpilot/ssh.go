@@ -208,8 +208,7 @@ func (c *SSHConn) Run(ctx context.Context, command string) (string, int, error) 
 //
 // This is the same transport-agnostic trick Ansible uses to run modules.
 func (c *SSHConn) RunScript(ctx context.Context, script string) (string, int, error) {
-	b64 := base64.StdEncoding.EncodeToString([]byte(script))
-	return c.Run(ctx, "echo "+b64+" | base64 -d | /bin/sh")
+	return c.Run(ctx, b64Pipe(script))
 }
 
 // Stream runs a command and delivers stdout+stderr to onChunk as it arrives,
@@ -277,11 +276,22 @@ func (c *SSHConn) RunEscalated(ctx context.Context, command string) (string, int
 	case EscSudoNoPasswd:
 		return c.RunScript(ctx, "sudo -n /bin/sh -c "+shellSingleQuote(command))
 	case EscSudoPassword:
-		return c.runWithPasswordStdin(ctx, "sudo -S -p '' sh -c "+shellSingleQuote(command), false)
+		// The password goes to sudo on stdin, so we can't feed the script on
+		// stdin too — instead sudo runs /bin/sh with a base64 pipe, keeping
+		// the whole thing shell-agnostic (the login shell only sees plain
+		// words + a single-quoted arg). sudo reads one stdin line for the
+		// password; the inner /bin/sh reads the script from the pipe.
+		return c.runWithPasswordStdin(ctx, "sudo -S -p '' /bin/sh -c "+shellSingleQuote(b64Pipe(command)), false)
 	case EscSuRoot:
-		return c.runWithPasswordStdin(ctx, "su -c "+shellSingleQuote(command), true)
+		return c.runWithPasswordStdin(ctx, "su -c "+shellSingleQuote(b64Pipe(command)), true)
 	}
 	return "", -1, fmt.Errorf("no escalation strategy selected")
+}
+
+// b64Pipe wraps a shell script so it runs under /bin/sh regardless of the
+// surrounding shell: `echo <base64> | base64 -d | /bin/sh`.
+func b64Pipe(script string) string {
+	return "echo " + base64.StdEncoding.EncodeToString([]byte(script)) + " | base64 -d | /bin/sh"
 }
 
 // runWithPasswordStdin feeds the stored password to sudo -S (pipe) or su
