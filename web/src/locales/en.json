@@ -2919,7 +2919,8 @@
       }
     },
     "recent": "Recent files",
-    "apps": "Built-in apps"
+    "apps": "Built-in apps",
+    "backToUtilities": "Utilities"
   },
   "patchpilot": {
     "subtitle": "Agentless updates across your Linux fleet",

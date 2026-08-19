@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearch } from "@tanstack/react-router";
+import { Link, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
+  ArrowLeft,
   Download,
   FileCode2,
   FilePlus2,
@@ -215,6 +216,13 @@ export function ToolsEditorPage() {
   return (
     <div className="flex h-[calc(100dvh-6.5rem)] min-h-0 flex-col space-y-4">
       <div className="flex items-center gap-3">
+        <Link
+          to="/tools"
+          className="text-fg-subtle hover:text-fg hover:bg-surface-hover -ml-1 flex size-8 shrink-0 items-center justify-center rounded-lg"
+          title={t("tools.backToUtilities")}
+        >
+          <ArrowLeft className="size-4" />
+        </Link>
         <span className="bg-accent-soft text-accent-soft-fg flex size-10 items-center justify-center rounded-xl">
           <FileCode2 className="size-5" />
         </span>
