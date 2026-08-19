@@ -15,6 +15,7 @@ import (
 	"github.com/emersion/go-webdav/caldav"
 	"github.com/google/uuid"
 
+	"github.com/TheOriUHD/homehub/internal/netguard"
 	"github.com/TheOriUHD/homehub/internal/store"
 	"github.com/TheOriUHD/homehub/internal/vault"
 )
@@ -46,7 +47,14 @@ func NewService(st *store.Store, v *vault.Vault, logger *slog.Logger) *Service {
 		store:  st,
 		vault:  v,
 		logger: logger.With("component", "calendar"),
-		client: &http.Client{Timeout: 30 * time.Second},
+		// SSRF guard on the unattended feed/CalDAV fetcher: an authenticated
+		// user can register a subscription URL that a background job re-pulls,
+		// so the dialer blocks loopback / link-local / metadata on every dial
+		// and redirect (RFC1918 LAN calendar servers stay reachable).
+		client: &http.Client{
+			Timeout:   30 * time.Second,
+			Transport: &http.Transport{DialContext: netguard.Dialer(15 * time.Second).DialContext},
+		},
 	}
 }
 
@@ -157,7 +165,13 @@ func (s *Service) syncFeed(ctx context.Context, cal *store.Calendar) error {
 	}
 	res, err := s.client.Do(req)
 	if err != nil {
-		return err
+		// Genericize transport-level failures: the raw error (connection
+		// refused vs. timeout vs. blocked vs. no-such-host) is stored in the
+		// calendar's syncError and shown to any signed-in user, which would
+		// otherwise be an internal-port-probe oracle for a planted feed URL.
+		// The specifics are logged server-side for the calendar's own owner.
+		s.logger.Warn("calendar feed fetch failed", "calendar", cal.ID, "error", err)
+		return fmt.Errorf("could not reach the feed URL")
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {

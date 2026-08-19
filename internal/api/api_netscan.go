@@ -8,6 +8,7 @@ import (
 
 	"github.com/TheOriUHD/homehub/internal/httpctx"
 	"github.com/TheOriUHD/homehub/internal/netscan"
+	"github.com/TheOriUHD/homehub/internal/rbac"
 )
 
 // IP scanner: sweep a LAN range from the HomeHub server and report per host
@@ -16,8 +17,8 @@ import (
 // interfaces list is a plain typed endpoint.
 
 func (s *Server) NetscanInterfaces(ctx context.Context, _ NetscanInterfacesRequestObject) (NetscanInterfacesResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
-		return nil, ErrUnauthenticated
+	if err := s.requireToolsControl(ctx); err != nil {
+		return nil, err
 	}
 	nets := netscan.LocalNetworks()
 	out := make(NetscanInterfaces200JSONResponse, 0, len(nets))
@@ -37,10 +38,32 @@ func (s *Server) NetscanInterfaces(ctx context.Context, _ NetscanInterfacesReque
 // {start, end, ports?}. Each line is one JSON object — a "meta" with the
 // total, then one "host" per address as it completes, then "done". The
 // client's disconnect cancels the request context, which stops the scan.
+// netscanSem bounds concurrently running scans across all users. A full-range
+// scan peaks at ~1.5k goroutines plus that many in-flight sockets; without a
+// cap a user firing many concurrent POSTs could exhaust the host's FDs and
+// starve the service. Excess requests get 429; normal single-scan use never
+// touches the limit.
+var netscanSem = make(chan struct{}, 3)
+
 func (s *Server) HandleNetscan(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if httpctx.IdentityFrom(ctx) == nil {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
 		http.Error(w, `{"type":"error","message":"sign in first"}`, http.StatusUnauthorized)
+		return
+	}
+	// The IP scanner drives the server to sweep/probe arbitrary LAN ranges, so
+	// it is a control-level utility, not an all-users tool (see ResTools).
+	if !s.can(ctx, id, ResTools, rbac.LevelControl) {
+		s.deniedAudit(ctx, id, "netscan", ResTools)
+		http.Error(w, `{"type":"error","message":"you do not have permission for this"}`, http.StatusForbidden)
+		return
+	}
+	select {
+	case netscanSem <- struct{}{}:
+		defer func() { <-netscanSem }()
+	default:
+		http.Error(w, `{"type":"error","message":"too many scans in progress — try again in a moment"}`, http.StatusTooManyRequests)
 		return
 	}
 	var body struct {

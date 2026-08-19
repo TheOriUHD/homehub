@@ -336,6 +336,10 @@ func responseErrorHandler(logger *slog.Logger) func(http.ResponseWriter, *http.R
 			writeJSONError(w, http.StatusUnauthorized, "unauthorized", "sign in to continue")
 			return
 		}
+		if errors.Is(err, api.ErrForbidden) {
+			writeJSONError(w, http.StatusForbidden, "forbidden", "you do not have permission for this")
+			return
+		}
 		logger.Error("request failed", "method", r.Method, "path", r.URL.Path, "error", err)
 		writeJSONError(w, http.StatusInternalServerError, "internal", "something went wrong — check the server logs")
 	}
