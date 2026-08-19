@@ -3169,7 +3169,10 @@
       "viewCurrent": "Aktuellen Lauf ansehen",
       "following": "Folgt",
       "autoFollow": "Folgt automatisch dem aktiven Host",
-      "waiting": "Warte auf Ausgabe…"
+      "waiting": "Warte auf Ausgabe…",
+      "abort": "Lauf abbrechen",
+      "abortTitle": "Diesen Lauf abbrechen?",
+      "abortBody": "Der Host, der gerade aktualisiert wird, wird gestoppt, und die noch wartenden Hosts werden nicht gestartet. Bereits aktualisierte Hosts bleiben aktualisiert. Das kann nicht rückgängig gemacht werden."
     },
     "critical": {
       "badge": "Kritisch",
