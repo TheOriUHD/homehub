@@ -173,6 +173,51 @@ func (c *SSHConn) Run(ctx context.Context, command string) (string, int, error) 
 	}
 }
 
+// RunScript executes a shell script under /bin/sh regardless of the login
+// user's shell, by feeding the script to `/bin/sh` on stdin. This dodges
+// non-POSIX login shells (csh/tcsh/fish) and broken PATHs: /bin/sh is an
+// absolute interpreter present on every Linux, and it reads the program from
+// stdin so no quoting or PATH lookup of the script is involved.
+func (c *SSHConn) RunScript(ctx context.Context, script string) (string, int, error) {
+	sess, err := c.client.NewSession()
+	if err != nil {
+		return "", -1, err
+	}
+	defer sess.Close()
+	var buf bytes.Buffer
+	sess.Stdout = &buf
+	sess.Stderr = &buf
+	stdin, err := sess.StdinPipe()
+	if err != nil {
+		return "", -1, err
+	}
+	if err := sess.Start("/bin/sh"); err != nil {
+		return "", -1, err
+	}
+	go func() {
+		_, _ = io.WriteString(stdin, script)
+		_ = stdin.Close() // EOF ends the shell
+	}()
+
+	done := make(chan error, 1)
+	go func() { done <- sess.Wait() }()
+	select {
+	case <-ctx.Done():
+		_ = sess.Signal(ssh.SIGKILL)
+		return buf.String(), -1, ctx.Err()
+	case werr := <-done:
+		code := 0
+		if werr != nil {
+			if ee, ok := werr.(*ssh.ExitError); ok {
+				code = ee.ExitStatus()
+			} else {
+				return buf.String(), -1, werr
+			}
+		}
+		return buf.String(), code, nil
+	}
+}
+
 // Stream runs a command and delivers stdout+stderr to onChunk as it arrives,
 // with stateful ANSI stripping. Returns the exit code.
 func (c *SSHConn) Stream(ctx context.Context, command string, onChunk func(string)) (int, error) {
@@ -232,9 +277,11 @@ func (c *SSHConn) Stream(ctx context.Context, command string, onChunk func(strin
 func (c *SSHConn) RunEscalated(ctx context.Context, command string) (string, int, error) {
 	switch c.escalate {
 	case EscDirectRoot:
-		return c.Run(ctx, command)
+		// Run under /bin/sh over stdin — the login user's shell may not be
+		// POSIX, and the command is already an sh script.
+		return c.RunScript(ctx, command)
 	case EscSudoNoPasswd:
-		return c.Run(ctx, "sudo -n sh -c "+shellSingleQuote(command))
+		return c.RunScript(ctx, "sudo -n /bin/sh -c "+shellSingleQuote(command))
 	case EscSudoPassword:
 		return c.runWithPasswordStdin(ctx, "sudo -S -p '' sh -c "+shellSingleQuote(command), false)
 	case EscSuRoot:

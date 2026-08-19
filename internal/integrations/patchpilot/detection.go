@@ -54,13 +54,23 @@ type HostFacts struct {
 
 var prettyRe = regexp.MustCompile(`PRETTY_NAME="?([^"\n]+)"?`)
 
+// Probe runs the detection probe and returns BOTH the raw output and the
+// parsed facts — the raw output is invaluable when a host reports something
+// unexpected (odd shell, restricted PATH, login banner).
+func Probe(ctx context.Context, conn *SSHConn) (string, *HostFacts, error) {
+	// Run under /bin/sh over stdin so a non-POSIX login shell (csh/tcsh/fish)
+	// can't mangle the sh-syntax probe.
+	out, _, err := conn.RunScript(ctx, detectionProbe)
+	if err != nil {
+		return "", nil, err
+	}
+	return out, ParseHostFacts(out), nil
+}
+
 // Detect runs the probe over an onboarding connection and parses the facts.
 func Detect(ctx context.Context, conn *SSHConn) (*HostFacts, error) {
-	out, _, err := conn.Run(ctx, detectionProbe)
-	if err != nil {
-		return nil, err
-	}
-	return ParseHostFacts(out), nil
+	_, facts, err := Probe(ctx, conn)
+	return facts, err
 }
 
 // ParseHostFacts splits the delimited probe output into structured facts.
