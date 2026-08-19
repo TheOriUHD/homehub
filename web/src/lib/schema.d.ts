@@ -2157,6 +2157,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/moonraker/{id}/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Full live printer state (dynamically discovered)
+         * @description The complete dashboard snapshot — Klippy state, print job, motion, and every heater, sensor, fan, LED, output pin and macro the printer exposes. The set is discovered from Klipper, so it varies per machine.
+         */
+        get: operations["moonrakerSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/moonraker/{id}/gcode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a G-code script (macro, homing, fan/LED command, console)
+         * @description The universal control surface — the dashboard composes macro, fan, LED and homing commands here. Requires control on the instance.
+         */
+        post: operations["moonrakerGcode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/moonraker/{id}/temperature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set a heater's target temperature */
+        post: operations["moonrakerSetTemperature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/moonraker/{id}/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause, resume, or cancel the active print */
+        post: operations["moonrakerPrintAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/moonraker/{id}/estop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Emergency stop (halts the printer immediately) */
+        post: operations["moonrakerEstop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/moonraker/{id}/firmware-restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restart Klipper firmware (recover from a shutdown/error) */
+        post: operations["moonrakerFirmwareRestart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patchpilot/{id}/hosts": {
         parameters: {
             query?: never;
@@ -5888,6 +5996,122 @@ export interface components {
             /** Format: int64 */
             totalMemoryBytes: number;
             interfaces: components["schemas"]["TruenasInterfaceTraffic"][];
+        };
+        MoonrakerSnapshot: {
+            klippy: components["schemas"]["MoonrakerKlippy"];
+            printer: components["schemas"]["MoonrakerPrinterMeta"];
+            print?: components["schemas"]["MoonrakerPrintJob"] | null;
+            toolhead?: components["schemas"]["MoonrakerToolhead"] | null;
+            heaters: components["schemas"]["MoonrakerHeater"][];
+            sensors: components["schemas"]["MoonrakerSensor"][];
+            tempFans: components["schemas"]["MoonrakerTempFan"][];
+            fans: components["schemas"]["MoonrakerFan"][];
+            leds: components["schemas"]["MoonrakerLed"][];
+            outputPins: components["schemas"]["MoonrakerOutputPin"][];
+            macros: components["schemas"]["MoonrakerMacro"][];
+            /** @description Object names the printer exposes that have no dedicated control yet */
+            extra: string[];
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description True when a live WebSocket subscription is feeding this state */
+            live: boolean;
+        };
+        MoonrakerKlippy: {
+            /** @description ready | startup | shutdown | error | disconnected */
+            state: string;
+            message: string;
+        };
+        MoonrakerPrinterMeta: {
+            hostname: string;
+            klipperVersion: string;
+            moonrakerVersion: string;
+            cpuInfo: string;
+        };
+        MoonrakerPrintJob: {
+            /** @description standby | printing | paused | complete | cancelled | error */
+            state: string;
+            filename: string;
+            /** @description 0..1 */
+            progress: number;
+            message: string;
+            /** @description seconds actually printing */
+            printDuration: number;
+            /** @description seconds wall-clock */
+            totalDuration: number;
+            /** @description mm */
+            filamentUsed: number;
+            currentLayer: number;
+            totalLayer: number;
+        };
+        MoonrakerToolhead: {
+            /** @description [x, y, z, e] */
+            position: number[];
+            /** @description homed axes, e.g. "xyz" */
+            homedAxes: string;
+            /** @description 1.0 = 100% */
+            speedFactor: number;
+            /** @description 1.0 = 100% */
+            extrudeFactor: number;
+            /** @description part-cooling fan 0..1, if present */
+            fanSpeed?: number;
+            maxVelocity: number;
+            /** @description current requested speed mm/s */
+            speed: number;
+        };
+        MoonrakerHeater: {
+            /** @description full Klipper object name (control target) */
+            object: string;
+            name: string;
+            /** @description extruder | bed | generic */
+            kind: string;
+            temp: number;
+            target: number;
+            /** @description 0..1 duty */
+            power: number;
+        };
+        MoonrakerSensor: {
+            object: string;
+            name: string;
+            temp: number;
+            minTemp?: number;
+            maxTemp?: number;
+        };
+        MoonrakerTempFan: {
+            object: string;
+            name: string;
+            temp: number;
+            target: number;
+            /** @description 0..1 */
+            speed: number;
+        };
+        MoonrakerFan: {
+            object: string;
+            name: string;
+            /** @description part | generic | heater | controller */
+            kind: string;
+            /** @description 0..1 */
+            speed: number;
+            rpm?: number;
+            controllable: boolean;
+        };
+        MoonrakerLed: {
+            object: string;
+            name: string;
+            kind: string;
+            /** @description [r, g, b, w] 0..1 (first pixel) */
+            color: number[];
+            pixels: number;
+        };
+        MoonrakerOutputPin: {
+            object: string;
+            name: string;
+            value: number;
+            pwm: boolean;
+        };
+        MoonrakerMacro: {
+            object: string;
+            name: string;
+            description?: string;
         };
         PatchpilotHost: {
             /** Format: uuid */
@@ -10010,6 +10234,166 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TruenasStats"];
                 };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    moonrakerSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoonrakerSnapshot"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    moonrakerGcode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description A G-code line, e.g. "G28", "M106 S128", or a macro name */
+                    script: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    moonrakerSetTemperature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The Klipper heater object, e.g. "extruder", "heater_bed", "heater_generic chamber" */
+                    heater: string;
+                    /** @description Target °C; 0 turns the heater off */
+                    target: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    moonrakerPrintAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    action: "pause" | "resume" | "cancel";
+                };
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    moonrakerEstop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Halted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    moonrakerFirmwareRestart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restarting */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             404: components["responses"]["NotFound"];
             502: components["responses"]["UpstreamError"];

@@ -39,6 +39,7 @@ import (
 	"homehub/internal/integrations/homeassistant"
 	"homehub/internal/integrations/minecraft"
 	"homehub/internal/integrations/mongodb"
+	"homehub/internal/integrations/moonraker"
 	"homehub/internal/integrations/patchpilot"
 	"homehub/internal/integrations/pihole"
 	"homehub/internal/integrations/proxmox"
@@ -148,6 +149,7 @@ func Run(ctx context.Context) error {
 	manager.Register(tailscale.Driver{})
 	manager.Register(caddy.Driver{})
 	manager.Register(aperture.Driver{})
+	manager.Register(moonraker.Driver{})
 	mcRegistry := minecraft.NewRegistry(st, v, logger)
 	mcRegistry.Publish = func(instanceID uuid.UUID, resource string, event string, data any) {
 		// Coarse subscribe topic (the network), but delivered only to clients
