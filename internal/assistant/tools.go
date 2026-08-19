@@ -4,13 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
 
+	"github.com/TheOriUHD/homehub/internal/calendar"
 	"github.com/TheOriUHD/homehub/internal/metrics"
+	"github.com/TheOriUHD/homehub/internal/netscan"
 	"github.com/TheOriUHD/homehub/internal/store"
 )
 
@@ -90,6 +95,30 @@ func (tb *Toolbox) tools() []tool {
 				InputSchema: obj(`"severity":{"type":"string","description":"Filter: info, warning, critical, or recovered"},"limit":{"type":"integer","description":"Max entries, default 25, max 100"}`),
 			},
 			run: tb.listSignals,
+		},
+		{
+			def: ToolDef{
+				Name:        "list_calendars",
+				Description: "The calendars configured in HomeHub: local calendars, synced CalDAV accounts, ICS feeds, and trash-collection (Müllabfuhr) schedules — with their kind and color.",
+				InputSchema: obj(``),
+			},
+			run: tb.listCalendars,
+		},
+		{
+			def: ToolDef{
+				Name:        "list_calendar_events",
+				Description: "Upcoming calendar events across every calendar, recurrence expanded — title, calendar, start/end (local time), all-day flag and location. Use this for questions about the schedule, what's coming up, or the next trash pickup.",
+				InputSchema: obj(`"days":{"type":"integer","description":"How many days ahead to look, default 14, max 365"}`),
+			},
+			run: tb.listCalendarEvents,
+		},
+		{
+			def: ToolDef{
+				Name:        "scan_network",
+				Description: "Run HomeHub's IP scanner over a range of the local network and return the hosts that are alive — IP, hostname, MAC, vendor, open ports and ping time. Actively probes the LAN (takes a few seconds). With no range it scans the server's own subnet (.1–.254).",
+				InputSchema: obj(`"start":{"type":"string","description":"First IPv4 address, e.g. 192.168.10.1 (optional)"},"end":{"type":"string","description":"Last IPv4 address, e.g. 192.168.10.254 (optional)"},"ports":{"type":"array","items":{"type":"integer"},"description":"Ports to probe (optional; defaults to a common-ports set)"}`),
+			},
+			run: tb.scanNetwork,
 		},
 		{
 			def: ToolDef{
@@ -352,6 +381,141 @@ func (tb *Toolbox) queryMetric(ctx context.Context, access Access, input json.Ra
 		"last":   last.Avg,
 		"lastAt": last.TS.UTC().Format(time.RFC3339),
 	}, nil
+}
+
+func (tb *Toolbox) listCalendars(ctx context.Context, _ Access, _ json.RawMessage) (any, error) {
+	cals, err := tb.Store.ListCalendars(ctx)
+	if err != nil {
+		return nil, err
+	}
+	type cal struct {
+		Name     string `json:"name"`
+		Kind     string `json:"kind"`
+		Color    string `json:"color"`
+		ReadOnly bool   `json:"readOnly"`
+	}
+	out := make([]cal, 0, len(cals))
+	for _, c := range cals {
+		out = append(out, cal{Name: c.Name, Kind: c.Kind, Color: c.Color, ReadOnly: c.ReadOnly})
+	}
+	return out, nil
+}
+
+func (tb *Toolbox) listCalendarEvents(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+	var args struct {
+		Days int `json:"days"`
+	}
+	_ = json.Unmarshal(input, &args)
+	if args.Days <= 0 {
+		args.Days = 14
+	}
+	if args.Days > 365 {
+		args.Days = 365
+	}
+	from := time.Now()
+	to := from.AddDate(0, 0, args.Days)
+
+	cals, err := tb.Store.ListCalendars(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(cals) == 0 {
+		return map[string]any{"windowDays": args.Days, "events": []any{}}, nil
+	}
+	ids := make([]uuid.UUID, 0, len(cals))
+	name := map[uuid.UUID]string{}
+	for _, c := range cals {
+		ids = append(ids, c.ID)
+		name[c.ID] = c.Name
+	}
+	rows, err := tb.Store.ListCalendarEventsInRange(ctx, ids, from, to)
+	if err != nil {
+		return nil, err
+	}
+	instances := calendar.Expand(rows, from, to)
+
+	type ev struct {
+		Title    string `json:"title"`
+		Calendar string `json:"calendar"`
+		Start    string `json:"start"`
+		End      string `json:"end"`
+		AllDay   bool   `json:"allDay,omitempty"`
+		Location string `json:"location,omitempty"`
+	}
+	out := make([]ev, 0, len(instances))
+	for _, i := range instances {
+		e := ev{Title: i.Title, Calendar: name[i.CalendarID], Location: i.Location, AllDay: i.AllDay}
+		if i.AllDay {
+			e.Start = i.Start.Local().Format("Mon 2006-01-02")
+			e.End = i.End.Local().Format("Mon 2006-01-02")
+		} else {
+			e.Start = i.Start.Local().Format("Mon 2006-01-02 15:04")
+			e.End = i.End.Local().Format("Mon 2006-01-02 15:04")
+		}
+		out = append(out, e)
+		if len(out) >= 150 {
+			break
+		}
+	}
+	return map[string]any{"windowDays": args.Days, "events": out}, nil
+}
+
+func (tb *Toolbox) scanNetwork(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+	var args struct {
+		Start string `json:"start"`
+		End   string `json:"end"`
+		Ports []int  `json:"ports"`
+	}
+	_ = json.Unmarshal(input, &args)
+
+	var start, end net.IP
+	if args.Start != "" && args.End != "" {
+		start, end = netscan.ParseIP4(args.Start), netscan.ParseIP4(args.End)
+	} else {
+		nets := netscan.LocalNetworks()
+		if len(nets) == 0 {
+			return nil, fmt.Errorf("could not detect a local subnet to scan")
+		}
+		start, end = netscan.ParseIP4(nets[0].Start), netscan.ParseIP4(nets[0].End)
+	}
+	if start == nil || end == nil {
+		return nil, fmt.Errorf("start and end must be IPv4 addresses")
+	}
+	n := netscan.EnumerateCount(start, end)
+	if n == 0 || n > 512 {
+		return nil, fmt.Errorf("range must cover 1..512 addresses")
+	}
+
+	sctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+
+	type host struct {
+		IP        string  `json:"ip"`
+		Hostname  string  `json:"hostname,omitempty"`
+		MAC       string  `json:"mac,omitempty"`
+		Vendor    string  `json:"vendor,omitempty"`
+		OpenPorts []int   `json:"openPorts"`
+		RttMs     float64 `json:"rttMs,omitempty"`
+	}
+	var mu sync.Mutex
+	var alive []host
+	netscan.Scan(sctx, netscan.Options{Start: start, End: end, Ports: args.Ports}, func(r netscan.HostResult) {
+		if !r.Alive {
+			return
+		}
+		mu.Lock()
+		alive = append(alive, host{IP: r.IP, Hostname: r.Hostname, MAC: r.MAC, Vendor: r.Vendor, OpenPorts: r.OpenPorts, RttMs: r.RttMs})
+		mu.Unlock()
+	})
+	ipVal := func(s string) uint32 {
+		v4 := net.ParseIP(s).To4()
+		if v4 == nil {
+			return 0
+		}
+		return uint32(v4[0])<<24 | uint32(v4[1])<<16 | uint32(v4[2])<<8 | uint32(v4[3])
+	}
+	sort.Slice(alive, func(i, j int) bool { return ipVal(alive[i].IP) < ipVal(alive[j].IP) })
+	return map[string]any{"scanned": n, "aliveCount": len(alive), "hosts": alive}, nil
 }
 
 func (tb *Toolbox) listSignals(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
