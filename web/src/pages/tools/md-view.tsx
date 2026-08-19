@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { AlignLeft, ArrowLeft, BookOpenText, Code2, ExternalLink, SquarePen } from "lucide-react";
+import { ArrowLeft, BookOpenText, Code2, ExternalLink, SquarePen } from "lucide-react";
 import { api, unwrap } from "@/lib/api";
 import { extractHeadings } from "@/components/markdown-doc";
+import { TocNav, useScrollSpy } from "@/components/md-toc";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { PageLoader } from "@/ui/misc";
@@ -24,7 +25,6 @@ export function ToolsMdViewPage() {
   const { t } = useTranslation();
   const { fileId } = useParams({ from: "/shell/tools/md/$fileId" });
   const [plain, setPlain] = useState(false);
-  const [activeHeading, setActiveHeading] = useState<string | null>(null);
 
   const file = useQuery({
     queryKey: ["files", fileId],
@@ -35,24 +35,7 @@ export function ToolsMdViewPage() {
   const isMd = file.data ? isMdName(file.data.name) : true;
   const rendered = isMd && !plain;
   const toc = useMemo(() => (rendered ? extractHeadings(content).filter((h) => h.level <= 3) : []), [rendered, content]);
-
-  // Scrollspy: highlight the TOC entry of the topmost visible heading.
-  useEffect(() => {
-    if (!rendered || toc.length === 0) return;
-    const els = toc
-      .map((h) => document.getElementById(h.id))
-      .filter((el): el is HTMLElement => el !== null);
-    if (els.length === 0) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const hit = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (hit) setActiveHeading(hit.target.id);
-      },
-      { rootMargin: "-10% 0px -70% 0px" },
-    );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, [rendered, toc, content]);
+  const activeHeading = useScrollSpy(toc);
 
   if (file.isLoading) return <PageLoader className="py-20" />;
   if (file.isError || !file.data) {
@@ -107,30 +90,12 @@ export function ToolsMdViewPage() {
 
         {/* table of contents */}
         {rendered && toc.length > 1 && (
-          <nav className="sticky top-20 hidden w-56 shrink-0 xl:block">
-            <p className="text-fg-subtle mb-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide uppercase">
-              <AlignLeft className="size-3.5" />
-              {t("tools.mdView.contents")}
-            </p>
-            <div className="space-y-0.5">
-              {toc.map((h) => (
-                <a
-                  key={h.id}
-                  href={`#${h.id}`}
-                  className={cn(
-                    "block truncate rounded px-2 py-1 text-[12.5px] transition-colors",
-                    h.level === 2 && "pl-4",
-                    h.level === 3 && "pl-6",
-                    activeHeading === h.id
-                      ? "bg-accent-soft text-accent-soft-fg"
-                      : "text-fg-muted hover:text-fg hover:bg-bg-subtle",
-                  )}
-                >
-                  {h.text}
-                </a>
-              ))}
-            </div>
-          </nav>
+          <TocNav
+            toc={toc}
+            active={activeHeading}
+            title={t("tools.mdView.contents")}
+            className="sticky top-20 hidden w-56 shrink-0 xl:block"
+          />
         )}
       </div>
     </div>

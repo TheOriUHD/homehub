@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -55,10 +55,18 @@ function textOf(node: React.ReactNode): string {
   return "";
 }
 
-export function MarkdownDoc({ content, className }: { content: string; className?: string }) {
-  // Duplicate headings get -1/-2 suffixes exactly like extractHeadings, so the
-  // TOC ids and the rendered ids always agree.
-  const slugCounts = useMemo(() => new Map<string, number>(), [content]);
+export const MarkdownDoc = memo(function MarkdownDoc({
+  content,
+  className,
+}: {
+  content: string;
+  className?: string;
+}) {
+  // Duplicate headings get -1/-2 suffixes exactly like extractHeadings, so
+  // the TOC ids and the rendered ids always agree. The counter map MUST be
+  // fresh per render pass — a memoized map would carry counts into the next
+  // render and every heading would silently drift to -1/-2/-3 ids.
+  const slugCounts = new Map<string, number>();
 
   const heading = (Tag: "h1" | "h2" | "h3" | "h4") =>
     function Heading({ children }: { children?: React.ReactNode }) {
@@ -68,7 +76,16 @@ export function MarkdownDoc({ content, className }: { content: string; className
       if (n > 0) id = `${id}-${n}`;
       return (
         <Tag id={id} className="group scroll-mt-20">
-          <a href={`#${id}`} className="no-underline">
+          <a
+            href={`#${id}`}
+            className="no-underline"
+            onClick={(e) => {
+              // The SPA router swallows native anchor scrolling — do it by hand.
+              e.preventDefault();
+              document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+              history.replaceState(history.state, "", `#${id}`);
+            }}
+          >
             {children}
           </a>
         </Tag>
@@ -86,7 +103,22 @@ export function MarkdownDoc({ content, className }: { content: string; className
           h3: heading("h3"),
           h4: heading("h4"),
           a: ({ href, children }) => (
-            <a href={href} target={href?.startsWith("#") ? undefined : "_blank"} rel="noreferrer">
+            <a
+              href={href}
+              target={href?.startsWith("#") ? undefined : "_blank"}
+              rel="noreferrer"
+              onClick={
+                href?.startsWith("#")
+                  ? (e) => {
+                      e.preventDefault();
+                      document
+                        .getElementById(decodeURIComponent(href.slice(1)))
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      history.replaceState(history.state, "", href);
+                    }
+                  : undefined
+              }
+            >
               {children}
             </a>
           ),
@@ -99,6 +131,6 @@ export function MarkdownDoc({ content, className }: { content: string; className
       </ReactMarkdown>
     </div>
   );
-}
+});
 
 export default MarkdownDoc;

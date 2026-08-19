@@ -1,17 +1,18 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { AlignLeft, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { api, isApiError, unwrap } from "@/lib/api";
 import { extractHeadings } from "@/components/markdown-doc";
-import { cn } from "@/lib/utils";
+import { TocNav, useScrollSpy } from "@/components/md-toc";
 import { PageLoader } from "@/ui/misc";
 
 const MarkdownDoc = lazy(() => import("@/components/markdown-doc"));
 
-// The page's own theme, independent of the app's setting. It drives the root
-// data-theme attribute while this page is mounted (restored on leave), so the
-// design tokens flip exactly like the app's own dark mode.
+// The page's own theme, independent of the app's setting — dark by default.
+// It drives the root data-theme attribute while this page is mounted
+// (restored on leave), so the design tokens flip exactly like the app's own
+// dark mode.
 const THEME_KEY = "hh-mdpage-theme";
 
 /**
@@ -23,8 +24,7 @@ const THEME_KEY = "hh-mdpage-theme";
 export function MdStandalonePage() {
   const { fileId } = useParams({ from: "/md/$fileId" });
   const navigate = useNavigate();
-  const [dark, setDark] = useState(() => localStorage.getItem(THEME_KEY) === "dark");
-  const [activeHeading, setActiveHeading] = useState<string | null>(null);
+  const [dark, setDark] = useState(() => localStorage.getItem(THEME_KEY) !== "light");
 
   // Own the root theme attribute while mounted; put the app's choice back on
   // unmount.
@@ -54,23 +54,7 @@ export function MdStandalonePage() {
 
   const content = file.data?.content ?? "";
   const toc = useMemo(() => extractHeadings(content).filter((h) => h.level <= 3), [content]);
-
-  useEffect(() => {
-    if (toc.length === 0) return;
-    const els = toc.map((h) => document.getElementById(h.id)).filter((el): el is HTMLElement => el !== null);
-    if (els.length === 0) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const hit = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (hit) setActiveHeading(hit.target.id);
-      },
-      { rootMargin: "-10% 0px -70% 0px" },
-    );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, [toc, content]);
+  const activeHeading = useScrollSpy(toc);
 
   return (
     <div className="bg-bg min-h-dvh">
@@ -96,30 +80,12 @@ export function MdStandalonePage() {
             </Suspense>
           </article>
           {toc.length > 1 && (
-            <nav className="sticky top-10 hidden w-56 shrink-0 lg:block">
-              <p className="text-fg-subtle mb-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide uppercase">
-                <AlignLeft className="size-3.5" />
-                Contents
-              </p>
-              <div className="space-y-0.5">
-                {toc.map((h) => (
-                  <a
-                    key={h.id}
-                    href={`#${h.id}`}
-                    className={cn(
-                      "block truncate rounded px-2 py-1 text-[12.5px] transition-colors",
-                      h.level === 2 && "pl-4",
-                      h.level === 3 && "pl-6",
-                      activeHeading === h.id
-                        ? "bg-accent-soft text-accent-soft-fg"
-                        : "text-fg-muted hover:text-fg hover:bg-bg-subtle",
-                    )}
-                  >
-                    {h.text}
-                  </a>
-                ))}
-              </div>
-            </nav>
+            <TocNav
+              toc={toc}
+              active={activeHeading}
+              title="Contents"
+              className="sticky top-10 hidden w-56 shrink-0 lg:block"
+            />
           )}
         </div>
       )}
