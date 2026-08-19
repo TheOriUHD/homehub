@@ -62,31 +62,41 @@ func (c *trashCollector) Collect(ctx context.Context) ([]Observation, error) {
 			if now.After(pickupOver) {
 				continue // fully in the past — signal auto-resolves
 			}
+			// One signal per pickup that escalates through its stages: the
+			// title updates from "in 3 days" to "tomorrow" instead of a
+			// second row appearing.
+			due := false
+			stage := 0
 			for _, lead := range settings.LeadHours {
-				remindAt := inst.Start.Add(-time.Duration(lead) * time.Hour)
-				if now.Before(remindAt) {
-					continue // this stage isn't due yet
+				if !now.Before(inst.Start.Add(-time.Duration(lead) * time.Hour)) {
+					due = true
+					if stage == 0 || lead < stage {
+						stage = lead
+					}
 				}
-				day := inst.Start.Format("Mon, Jan 2")
-				title := fmt.Sprintf("%s — pickup %s", inst.Title, humanLead(int(time.Until(inst.Start).Hours())+1))
-				if time.Until(inst.Start) <= 0 {
-					title = fmt.Sprintf("%s — pickup is today", inst.Title)
-				}
-				calID := cal.ID
-				out = append(out, Observation{
-					Key:      fmt.Sprintf("trash:%s:%s:%d:%d", cal.ID, inst.UID, inst.OccurrenceStart.Unix(), lead),
-					Severity: SevInfo,
-					Title:    title,
-					Body:     fmt.Sprintf("%s on %s. Put the bin out.", inst.Title, day),
-					Detail: map[string]any{
-						"type": inst.Title, "pickup": inst.Start, "calendar": cal.Name, "stageHours": lead,
-					},
-					SourceType: "calendar", SourceID: &calID, SourceName: cal.Name,
-					AutoResolve:  true,
-					ResolveTitle: fmt.Sprintf("%s was picked up", inst.Title),
-					ResolveBody:  fmt.Sprintf("The %s pickup on %s is done.", inst.Title, day),
-				})
 			}
+			if !due {
+				continue
+			}
+			day := inst.Start.Format("Mon, Jan 2")
+			title := fmt.Sprintf("%s — pickup %s", inst.Title, humanLead(int(time.Until(inst.Start).Hours())+1))
+			if time.Until(inst.Start) <= 0 {
+				title = fmt.Sprintf("%s — pickup is today", inst.Title)
+			}
+			calID := cal.ID
+			out = append(out, Observation{
+				Key:      fmt.Sprintf("trash:%s:%s:%d", cal.ID, inst.UID, inst.OccurrenceStart.Unix()),
+				Severity: SevInfo,
+				Title:    title,
+				Body:     fmt.Sprintf("%s on %s. Put the bin out.", inst.Title, day),
+				Detail: map[string]any{
+					"type": inst.Title, "pickup": inst.Start, "calendar": cal.Name, "stageHours": stage,
+				},
+				SourceType: "calendar", SourceID: &calID, SourceName: cal.Name,
+				AutoResolve:  true,
+				ResolveTitle: fmt.Sprintf("%s was picked up", inst.Title),
+				ResolveBody:  fmt.Sprintf("The %s pickup on %s is done.", inst.Title, day),
+			})
 		}
 	}
 	return out, nil

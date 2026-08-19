@@ -56,7 +56,8 @@
     "menu": "Menu",
     "assistant": "Assistant",
     "tools": "Utilities",
-    "signals": "Signals"
+    "signals": "Signals",
+    "calendar": "Calendar"
   },
   "palette": {
     "placeholder": "Jump to a page or action…",
@@ -3174,5 +3175,87 @@
     "openAll": "Open all signals",
     "confirmTitle": "Dismiss {{count}} signal(s)?",
     "confirmBody": "At least one of these is a warning or worse. Dismissing removes it from the list — make sure it has been handled or noted."
+  },
+  "calendar": {
+    "today": "Today",
+    "prev": "Previous",
+    "next": "Next",
+    "newEvent": "New event",
+    "more": "+{{count}} more",
+    "view": {
+      "month": "Month",
+      "week": "Week"
+    },
+    "kinds": {
+      "local": "Local",
+      "caldav": "CalDAV",
+      "ics": "ICS feed",
+      "trash": "Trash pickup"
+    },
+    "repeat": {
+      "none": "Never",
+      "daily": "Every day",
+      "weekly": "Every week",
+      "biweekly": "Every 2 weeks",
+      "monthly": "Every month",
+      "yearly": "Every year",
+      "custom": "Custom…"
+    },
+    "editor": {
+      "newTitle": "New event",
+      "editTitle": "Edit event",
+      "titlePlaceholder": "Title",
+      "calendar": "Calendar",
+      "allDay": "All-day",
+      "starts": "Starts",
+      "ends": "Ends",
+      "repeat": "Repeat",
+      "location": "Location",
+      "url": "URL",
+      "notes": "Notes",
+      "readOnly": "This calendar is read-only — its events come from a subscribed feed."
+    },
+    "scope": {
+      "saveTitle": "Save recurring event",
+      "deleteTitle": "Delete recurring event",
+      "body": "This is a repeating event. How far should the change reach?",
+      "this": "Only this event",
+      "thisHint": "Other occurrences stay untouched.",
+      "following": "This and all following",
+      "followingHint": "The series splits at this point.",
+      "all": "All events",
+      "allHint": "Every occurrence, past and future."
+    },
+    "manage": {
+      "title": "Calendars",
+      "add": "Add calendar",
+      "addTitle": "Add a calendar",
+      "empty": "No calendars yet — add a local one, connect CalDAV, or subscribe to a feed.",
+      "name": "Name",
+      "color": "Color",
+      "nameCaldavHint": "Leave empty to use the server's calendar name.",
+      "caldavUrl": "CalDAV address",
+      "caldavUrlHint": "The account or collection URL — Nextcloud, iCloud, Radicale, Baikal…",
+      "username": "Username",
+      "password": "Password",
+      "discover": "Find calendars",
+      "pickCollection": "Pick a calendar",
+      "noCollections": "No calendars found behind that address.",
+      "icsUrl": "Feed URL",
+      "trashUrl": "Schedule URL (ICS)",
+      "icsUrlHint": "…or upload an .ics file instead.",
+      "uploadIcs": "Upload .ics file",
+      "reminders": "Reminders",
+      "remindersHint": "When to remind you ahead of each pickup — pick several stages.",
+      "daysBefore": "{{count}} day(s) before",
+      "hoursBefore": "{{count}} h before",
+      "syncNow": "Sync now",
+      "synced": "{{name}} synced",
+      "added": "{{name}} added",
+      "addedWithError": "Added, but the first sync failed: {{error}}",
+      "editTitle": "Edit {{name}}",
+      "deleteTitle": "Delete {{name}}?",
+      "deleteBody": "The calendar and every event in it disappear from HomeHub. Synced upstreams are not touched."
+    }
   }
 }

@@ -117,6 +117,9 @@ func (s *Store) GetCalendarEventByUID(ctx context.Context, calendarID uuid.UUID,
 }
 
 func (s *Store) CreateCalendarEvent(ctx context.Context, e CalendarEvent) (*CalendarEvent, error) {
+	if e.Exdates == nil {
+		e.Exdates = []time.Time{}
+	}
 	return scanOne[CalendarEvent](s.pool.Query(ctx, `
 		insert into calendar_events (calendar_id, uid, recurrence_id, etag, href, title,
 			location, description, url, starts_at, ends_at, all_day, rrule, exdates)
@@ -127,6 +130,9 @@ func (s *Store) CreateCalendarEvent(ctx context.Context, e CalendarEvent) (*Cale
 }
 
 func (s *Store) UpdateCalendarEvent(ctx context.Context, e CalendarEvent) (*CalendarEvent, error) {
+	if e.Exdates == nil {
+		e.Exdates = []time.Time{}
+	}
 	return scanOne[CalendarEvent](s.pool.Query(ctx, `
 		update calendar_events set title=$2, location=$3, description=$4, url=$5,
 			starts_at=$6, ends_at=$7, all_day=$8, rrule=$9, exdates=$10, etag=$11, updated_at=now()
@@ -159,6 +165,9 @@ func (s *Store) ReplaceCalendarEvents(ctx context.Context, calendarID uuid.UUID,
 		return err
 	}
 	for _, e := range events {
+		if e.Exdates == nil {
+			e.Exdates = []time.Time{}
+		}
 		if _, err := tx.Exec(ctx, `
 			insert into calendar_events (calendar_id, uid, recurrence_id, etag, href, title,
 				location, description, url, starts_at, ends_at, all_day, rrule, exdates)

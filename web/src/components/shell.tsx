@@ -36,6 +36,7 @@ import {
   Wrench,
   ServerCog,
   Radio,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -121,6 +122,7 @@ export function AppShell() {
     ...(assistantVisible ? [{ to: "/assistant", label: t("nav.assistant"), icon: Sparkles }] : []),
     { to: "/health", label: t("nav.health"), icon: Activity, requires: RES.health },
     { to: "/signals", label: t("nav.signals"), icon: Radio },
+    { to: "/calendar", label: t("nav.calendar"), icon: CalendarDays },
     { to: "/tools", label: t("nav.tools"), icon: Wrench },
     // History and Alerts are visible to everyone — their contents are already
     // permission-filtered server-side.
@@ -418,7 +420,7 @@ export function AppShell() {
             "mx-auto w-full flex-1 px-4 py-6 sm:px-6",
             // The workhorse apps get the whole viewport; everything else
             // keeps the comfortable reading column.
-            /^\/tools\/(editor|files|convert)(\/|$)/.test(pathname) ? "max-w-none" : "max-w-6xl",
+            /^\/(calendar$|tools\/(editor|files|convert)(\/|$))/.test(pathname) ? "max-w-none" : "max-w-6xl",
           )}
         >
           <Outlet />

@@ -28,6 +28,7 @@ import { ToolsFilesPage } from "./pages/tools/files";
 import { ToolsConvertPage } from "./pages/tools/convert";
 import { ToolsMdViewPage } from "./pages/tools/md-view";
 import { SignalsPage } from "./pages/signals";
+import { CalendarPage } from "./pages/calendar";
 import { MdStandalonePage } from "./pages/tools/md-standalone";
 import { ToolAppPage } from "./pages/tools/tool-layout";
 import { NotFoundPage } from "./pages/not-found";
@@ -186,6 +187,12 @@ const assistantRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/assistant",
   component: AssistantPage,
+});
+
+const calendarRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/calendar",
+  component: CalendarPage,
 });
 
 const signalsRoute = createRoute({
@@ -727,6 +734,7 @@ const routeTree = rootRoute.addChildren([
     toolsMdViewRoute,
     toolAppRoute,
     signalsRoute,
+    calendarRoute,
     historyRoute,
     alertsRoute,
     backupsRoute,
