@@ -25,20 +25,47 @@ type DetectResult struct {
 }
 
 // Detect probes a host with a login credential and reports what onboarding
-// would do, without changing anything.
+// would do, without changing anything. It retries transient failures (a
+// dropped SSH channel, or a probe that comes back empty on a busy host) so a
+// single click is reliable — a genuinely empty/non-Linux host stays empty
+// across all attempts and is reported honestly.
 func (r *Registry) Detect(ctx context.Context, host string, port int, cred Credential, rootPassword string) (*DetectResult, error) {
-	conn, err := ConnectPassword(ctx, host, port, cred)
-	if err != nil {
-		return &DetectResult{Reachable: false, Message: err.Error()}, nil
-	}
-	defer conn.Close()
+	var facts *HostFacts
+	var raw, lastErr string
+	reachable := false
 
-	raw, facts, err := Probe(ctx, conn)
-	if err != nil {
-		return &DetectResult{Reachable: true, Message: "connected, but the detection probe failed: " + err.Error()}, nil
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(400 * time.Millisecond)
+		}
+		conn, err := ConnectPassword(ctx, host, port, cred)
+		if err != nil {
+			lastErr = err.Error()
+			continue // connection itself failed — retry
+		}
+		reachable = true
+		out, f, perr := Probe(ctx, conn)
+		conn.Close()
+		if perr != nil {
+			lastErr = perr.Error()
+			continue
+		}
+		raw, facts = out, f
+		// A useful probe has at least an OS or a package manager. Empty means
+		// a transient hiccup or a genuinely bare host — retry to be sure.
+		if f.PackageManager != "" || f.OSPretty != "" {
+			break
+		}
 	}
-	// When the probe yields nothing useful, log exactly what the host sent so
-	// an odd shell / PATH / banner can be diagnosed.
+
+	if !reachable {
+		return &DetectResult{Reachable: false, Message: lastErr}, nil
+	}
+	if facts == nil {
+		return &DetectResult{Reachable: true, Message: "connected, but the detection probe failed: " + lastErr}, nil
+	}
+	// Still nothing after retries: log exactly what the host sent so an odd
+	// shell / PATH / banner can be diagnosed.
 	if facts.PackageManager == "" && facts.OSPretty == "" {
 		r.logger.Warn("patchpilot detection empty", "host", host,
 			"rawLen", len(raw), "raw", truncate(raw, 1200))
