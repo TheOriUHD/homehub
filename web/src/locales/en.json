@@ -3044,7 +3044,11 @@
         "hour": "Hour",
         "dayOfMonthHint": "1–28 (capped so a monthly run never skips February)",
         "namePlaceholder": "Weekly patch",
-        "noHosts": "Select at least one host."
+        "noHosts": "Select at least one host.",
+        "monthlyMode": "On",
+        "monthlyModeDom": "Day of month",
+        "monthlyModeWeekday": "A weekday",
+        "occurrence": "Which"
       },
       "freq": {
         "daily": "Daily",
@@ -3061,7 +3065,14 @@
       "enabledLabel": "Enabled",
       "noReboot": "Never reboots",
       "runBusy": "A run is already in progress",
-      "runStarted": "Run started"
+      "runStarted": "Run started",
+      "occurrence": {
+        "1": "First",
+        "2": "Second",
+        "3": "Third",
+        "4": "Fourth",
+        "L": "Last"
+      }
     },
     "runs": {
       "title": "Runs",

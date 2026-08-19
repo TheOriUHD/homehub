@@ -245,6 +245,13 @@ type Frequency = "hourly" | "daily" | "weekly" | "monthly";
 
 const FREQUENCIES: Frequency[] = ["hourly", "daily", "weekly", "monthly"];
 
+// A monthly schedule picks either a fixed calendar day ("dom") or a weekday
+// occurrence ("weekday"), e.g. the first Saturday of the month.
+type MonthlyMode = "dom" | "weekday";
+
+// Occurrence values for the weekday mode: 1st–4th, plus "L" for the last one.
+const OCCURRENCES = ["1", "2", "3", "4", "L"] as const;
+
 function ScheduleEditor({
   instanceId,
   schedule,
@@ -268,6 +275,8 @@ function ScheduleEditor({
   const [hour, setHour] = useState(seed.hour);
   const [dow, setDow] = useState(seed.dow);
   const [dom, setDom] = useState(seed.dom);
+  const [monthlyMode, setMonthlyMode] = useState<MonthlyMode>(seed.monthlyMode);
+  const [nth, setNth] = useState(seed.nth);
   const [hostIds, setHostIds] = useState<string[]>(schedule?.hostIds ?? []);
   const [suppressReboot, setSuppressReboot] = useState(schedule?.suppressReboot ?? false);
 
@@ -277,7 +286,7 @@ function ScheduleEditor({
     return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(Date.UTC(2024, 0, 7 + i))));
   }, [i18n.language]);
 
-  const cronExpr = buildCron(frequency, { minute, hour, dow, dom });
+  const cronExpr = buildCron(frequency, { minute, hour, dow, dom, monthlyMode, nth });
   const cronHuman = humanizeCron(cronExpr);
 
   const hostList = hosts.data ?? [];
@@ -376,20 +385,73 @@ function ScheduleEditor({
             )}
 
             {frequency === "monthly" && (
-              <Field label={t("patchpilot.schedules.form.dayOfMonth")} hint={t("patchpilot.schedules.form.dayOfMonthHint")}>
-                {(p) => (
-                  <Input
-                    {...p}
-                    type="number"
-                    min={1}
-                    max={28}
-                    value={dom}
-                    onChange={(e) => setDom(clampField(e.target.value, 1, 28, 1))}
-                  />
+              <Field label={t("patchpilot.schedules.form.monthlyMode")}>
+                {() => (
+                  <Select value={monthlyMode} onValueChange={(v) => setMonthlyMode(v as MonthlyMode)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dom">{t("patchpilot.schedules.form.monthlyModeDom")}</SelectItem>
+                      <SelectItem value="weekday">{t("patchpilot.schedules.form.monthlyModeWeekday")}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 )}
               </Field>
             )}
           </div>
+
+          {frequency === "monthly" && monthlyMode === "dom" && (
+            <Field label={t("patchpilot.schedules.form.dayOfMonth")} hint={t("patchpilot.schedules.form.dayOfMonthHint")}>
+              {(p) => (
+                <Input
+                  {...p}
+                  type="number"
+                  min={1}
+                  max={28}
+                  value={dom}
+                  onChange={(e) => setDom(clampField(e.target.value, 1, 28, 1))}
+                />
+              )}
+            </Field>
+          )}
+
+          {frequency === "monthly" && monthlyMode === "weekday" && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t("patchpilot.schedules.form.occurrence")}>
+                {() => (
+                  <Select value={nth} onValueChange={setNth}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OCCURRENCES.map((n) => (
+                        <SelectItem key={n} value={n}>
+                          {t(`patchpilot.schedules.occurrence.${n}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </Field>
+              <Field label={t("patchpilot.schedules.form.dayOfWeek")}>
+                {() => (
+                  <Select value={dow} onValueChange={setDow}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {weekdayLabels.map((label, i) => (
+                        <SelectItem key={i} value={String(i)}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </Field>
+            </div>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("patchpilot.schedules.form.minute")}>
@@ -506,7 +568,7 @@ function humanizeCron(expr: string): string {
 
 function buildCron(
   frequency: Frequency,
-  parts: { minute: string; hour: string; dow: string; dom: string },
+  parts: { minute: string; hour: string; dow: string; dom: string; monthlyMode: MonthlyMode; nth: string },
 ): string {
   const m = parts.minute || "0";
   const h = parts.hour || "0";
@@ -518,13 +580,34 @@ function buildCron(
     case "weekly":
       return `${m} ${h} * * ${parts.dow || "0"}`;
     case "monthly":
+      if (parts.monthlyMode === "weekday") {
+        const d = parts.dow || "0";
+        // "6L" = last <weekday>, "6#1".."6#4" = first..fourth <weekday>.
+        return parts.nth === "L" ? `${m} ${h} * * ${d}L` : `${m} ${h} * * ${d}#${parts.nth || "1"}`;
+      }
       return `${m} ${h} ${parts.dom || "1"} * *`;
   }
 }
 
-type CronSeed = { frequency: Frequency; minute: string; hour: string; dow: string; dom: string };
+type CronSeed = {
+  frequency: Frequency;
+  minute: string;
+  hour: string;
+  dow: string;
+  dom: string;
+  monthlyMode: MonthlyMode;
+  nth: string;
+};
 
-const DEFAULT_SEED: CronSeed = { frequency: "daily", minute: "0", hour: "3", dow: "0", dom: "1" };
+const DEFAULT_SEED: CronSeed = {
+  frequency: "daily",
+  minute: "0",
+  hour: "3",
+  dow: "0",
+  dom: "1",
+  monthlyMode: "dom",
+  nth: "1",
+};
 
 /** Parse a 5-field cron back into the structured editor inputs. */
 function parseCron(expr: string | undefined): CronSeed {
@@ -537,17 +620,26 @@ function parseCron(expr: string | undefined): CronSeed {
   // Anything with lists/ranges/steps in month is beyond the builder's shape.
   if (mon !== "*") return DEFAULT_SEED;
 
+  // Monthly nth-weekday extension: "6#1".."6#4" (first..fourth) or "6L" (last).
+  const nthMatch = /^([0-6])#([1-4])$/.exec(dow);
+  const lastMatch = /^([0-6])L$/.exec(dow);
+  if (isNum(min) && isNum(hr) && dom === "*" && (nthMatch || lastMatch)) {
+    const wd = nthMatch ? nthMatch[1] : lastMatch![1];
+    const nth = nthMatch ? nthMatch[2] : "L";
+    return { ...DEFAULT_SEED, frequency: "monthly", minute: min, hour: hr, dow: wd, monthlyMode: "weekday", nth };
+  }
+
   if (isNum(min) && hr === "*" && dom === "*" && dow === "*") {
-    return { frequency: "hourly", minute: min, hour: "0", dow: "0", dom: "1" };
+    return { ...DEFAULT_SEED, frequency: "hourly", minute: min, hour: "0" };
   }
   if (isNum(min) && isNum(hr) && dow !== "*" && isNum(dow)) {
-    return { frequency: "weekly", minute: min, hour: hr, dow, dom: "1" };
+    return { ...DEFAULT_SEED, frequency: "weekly", minute: min, hour: hr, dow };
   }
   if (isNum(min) && isNum(hr) && dom !== "*" && isNum(dom)) {
-    return { frequency: "monthly", minute: min, hour: hr, dow: "0", dom };
+    return { ...DEFAULT_SEED, frequency: "monthly", minute: min, hour: hr, dom };
   }
   if (isNum(min) && isNum(hr) && dom === "*" && dow === "*") {
-    return { frequency: "daily", minute: min, hour: hr, dow: "0", dom: "1" };
+    return { ...DEFAULT_SEED, frequency: "daily", minute: min, hour: hr };
   }
   return DEFAULT_SEED;
 }

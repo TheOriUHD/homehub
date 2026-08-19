@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/robfig/cron/v3"
 
 	"homehub/internal/store"
 )
@@ -302,14 +301,4 @@ func (r *Registry) Reboot(ctx context.Context, h *store.PatchpilotHost) error {
 		return nil
 	}
 	return err
-}
-
-// NextRun validates a standard 5-field cron expression and returns the next
-// fire time after now.
-func NextRun(expr string) (time.Time, error) {
-	sched, err := cron.ParseStandard(expr)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("invalid cron expression: %w", err)
-	}
-	return sched.Next(time.Now()), nil
 }
