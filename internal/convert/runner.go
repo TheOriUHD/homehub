@@ -168,24 +168,33 @@ func ffmpegOutputArgs(to string, crf int) []string {
 
 func ffmpegArgs(fromCat Category, to, in, out string, crf int) []string {
 	base := []string{"-nostdin", "-hide_banner", "-loglevel", "error", "-y"}
+	// pw restricts ffmpeg to local file/pipe protocols for the untrusted input,
+	// so a crafted media file (HLS/concat referencing http://, etc.) can't turn
+	// a conversion into a server-side network fetch. It is an INPUT option, so
+	// it must sit immediately before each user `-i` (ffmpeg resets input opts).
+	pw := []string{"-protocol_whitelist", "file,pipe"}
 	// Audio → mp4: a black video track carrying the audio, for players/sites
 	// that only accept video.
 	if fromCat == CategoryAudio && to == "mp4" {
-		return append(base,
-			"-f", "lavfi", "-i", "color=c=black:s=1280x720:r=30",
+		a := append(base, "-f", "lavfi", "-i", "color=c=black:s=1280x720:r=30")
+		a = append(a, pw...)
+		return append(a,
 			"-i", in, "-map", "0:v", "-map", "1:a", "-shortest",
 			"-c:v", "libx264", "-tune", "stillimage", "-crf", "28", "-pix_fmt", "yuv420p",
 			"-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", out)
 	}
 	// Poster frame from a video: seek before the input, take one frame.
 	if fromCat == CategoryVideo && (to == "jpg" || to == "png") {
-		a := append(base, "-ss", "1", "-i", in, "-frames:v", "1")
+		a := append(base, "-ss", "1")
+		a = append(a, pw...)
+		a = append(a, "-i", in, "-frames:v", "1")
 		if to == "jpg" {
 			a = append(a, "-q:v", "3")
 		}
 		return append(a, out)
 	}
-	a := append(base, "-i", in)
+	a := append(base, pw...)
+	a = append(a, "-i", in)
 	a = append(a, ffmpegOutputArgs(to, crf)...)
 	return append(a, out)
 }
@@ -479,6 +488,13 @@ type Runner struct {
 	nicePath      string
 	ionicePath    string
 	setprivPath   string
+	unsharePath   string
+	// netns runs each tool in a fresh (network-less) namespace via `unshare
+	// --net`, so no converter can make ANY outbound connection regardless of
+	// input tricks — defense-in-depth for the SSRF surface. Enabled only when a
+	// startup probe confirms the kernel/capabilities allow it, so hosts that
+	// can't (unprivileged containers) simply fall back to the UID-drop sandbox.
+	netns bool
 
 	mu    sync.Mutex
 	tools map[string]string
@@ -510,6 +526,24 @@ func NewRunner(wantDrop bool, logger *slog.Logger) *Runner {
 			// the exact risk the sandbox exists to prevent.
 			r.sandboxBroken = true
 			logger.Error("setpriv not found: refusing external-tool conversions (install util-linux); table conversions still work")
+		}
+	}
+	// Network-namespace isolation is best-effort: enable it only if `unshare
+	// --net` actually works here (root + CAP_SYS_ADMIN, not blocked by the
+	// container runtime). Otherwise the UID-drop + ffmpeg protocol whitelist
+	// remain the sandbox.
+	if r.drop {
+		if p, err := exec.LookPath("unshare"); err == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			probe := exec.CommandContext(ctx, p, "--net", "true")
+			if probe.Run() == nil {
+				r.unsharePath = p
+				r.netns = true
+				logger.Info("convert sandbox: network isolation enabled (unshare --net)")
+			} else {
+				logger.Info("convert sandbox: network isolation unavailable; relying on UID drop + ffmpeg protocol whitelist")
+			}
+			cancel()
 		}
 	}
 	return r
@@ -564,6 +598,11 @@ func (r *Runner) run(ctx context.Context, spec procSpec, workDir string) error {
 	// setpriv then drops to nobody and execs the tool with the cwd already set.
 	// Absolute binary paths, relative file args, and never a shell.
 	var argv []string
+	if r.netns {
+		// Outermost: create the network-less namespace as root, before the
+		// nice/ionice/setpriv chain execs within it.
+		argv = append(argv, r.unsharePath, "--net")
+	}
 	if r.nicePath != "" {
 		argv = append(argv, r.nicePath, "-n", "10")
 	}
