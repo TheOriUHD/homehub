@@ -4,7 +4,10 @@ import { Link, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
+  BookOpenText,
+  Code2,
   Download,
+  ExternalLink,
   FileCode2,
   FilePlus2,
   Loader2,
@@ -34,6 +37,11 @@ import type { CodeEditorHandle } from "@/components/code-editor";
 // CodeMirror and its language packs are heavy — split into their own chunk,
 // loaded the first time the editor page mounts (same pattern as the consoles).
 const CodeEditor = lazy(() => import("@/components/code-editor").then((m) => ({ default: m.CodeEditor })));
+// Milkdown (WYSIWYG markdown) is heavier still — only .md files in rich mode
+// ever load it.
+const MilkdownEditor = lazy(() => import("@/components/milkdown-editor"));
+
+const isMdName = (name: string) => /\.(md|markdown)$/i.test(name.trim());
 
 /**
  * The utilities text editor. THE BUFFER OWNS THE TRUTH: a file's content is
@@ -84,11 +92,16 @@ export function ToolsEditorPage() {
   const [saveAs, setSaveAs] = useState<{ id: string; closeAfter: boolean } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState<string | null>(null);
+  // Per-buffer editing mode for .md files: source (CodeMirror) or rich
+  // (rendered markdown, edited in place).
+  const [richMode, setRichMode] = useState<Record<string, boolean>>({});
   const editorRef = useRef<CodeEditorHandle>(null);
   const draftSeq = useRef(0);
   const initRef = useRef(false);
 
   const active = activeId ? bufs[activeId] : undefined;
+  const activeIsMd = !!active && isMdName(active.name);
+  const activeRich = activeIsMd && !!activeId && !!richMode[activeId];
 
   // Open a fresh scratch buffer — like any editor: "untitled", no extension,
   // named for real on first save.
@@ -415,47 +428,94 @@ export function ToolsEditorPage() {
                 <span className="bg-bg-subtle text-fg-muted rounded-md px-1.5 py-0.5 text-[11px]">
                   {fileLanguage(active.name)}
                 </span>
-                <span className="bg-edge mx-1 h-4 w-px" />
-                <ToolButton label={t("tools.editor.undo")} onClick={() => editorRef.current?.undo()}>
-                  <Undo2 className="size-3.5" />
-                </ToolButton>
-                <ToolButton label={t("tools.editor.redo")} onClick={() => editorRef.current?.redo()}>
-                  <Redo2 className="size-3.5" />
-                </ToolButton>
-                <ToolButton label={t("tools.editor.find")} onClick={() => editorRef.current?.find()}>
-                  <Search className="size-3.5" />
-                </ToolButton>
-                <ToolButton
-                  label={t("tools.editor.wrapToggle")}
-                  active={wrap}
-                  onClick={() => {
-                    const next = !wrap;
-                    setWrap(next);
-                    editorRef.current?.setWrap(next);
-                  }}
-                >
-                  <WrapText className="size-3.5" />
-                </ToolButton>
-                <ToolButton
-                  label={t("tools.editor.fontSmaller")}
-                  onClick={() => {
-                    const next = Math.max(10, fontSize - 1.5);
-                    setFontSize(next);
-                    editorRef.current?.setFontSize(next);
-                  }}
-                >
-                  <ZoomOut className="size-3.5" />
-                </ToolButton>
-                <ToolButton
-                  label={t("tools.editor.fontBigger")}
-                  onClick={() => {
-                    const next = Math.min(22, fontSize + 1.5);
-                    setFontSize(next);
-                    editorRef.current?.setFontSize(next);
-                  }}
-                >
-                  <ZoomIn className="size-3.5" />
-                </ToolButton>
+                {activeIsMd && (
+                  <>
+                    <span className="bg-edge mx-1 h-4 w-px" />
+                    <div className="border-edge flex overflow-hidden rounded-lg border">
+                      <button
+                        type="button"
+                        onClick={() => activeId && setRichMode((m) => ({ ...m, [activeId]: false }))}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 text-[11.5px] transition-colors",
+                          !activeRich
+                            ? "bg-accent-soft text-accent-soft-fg font-medium"
+                            : "text-fg-muted hover:text-fg hover:bg-bg-subtle",
+                        )}
+                      >
+                        <Code2 className="size-3" />
+                        {t("tools.editor.modeText")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => activeId && setRichMode((m) => ({ ...m, [activeId]: true }))}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 text-[11.5px] transition-colors",
+                          activeRich
+                            ? "bg-accent-soft text-accent-soft-fg font-medium"
+                            : "text-fg-muted hover:text-fg hover:bg-bg-subtle",
+                        )}
+                      >
+                        <BookOpenText className="size-3" />
+                        {t("tools.editor.modeRich")}
+                      </button>
+                    </div>
+                    {!active.draft && activeId && (
+                      <Link
+                        to="/tools/md/$fileId"
+                        params={{ fileId: activeId }}
+                        title={t("tools.editor.fullPage")}
+                        className="text-fg-subtle hover:bg-bg-subtle hover:text-fg rounded-md p-1.5 transition-colors"
+                      >
+                        <ExternalLink className="size-3.5" />
+                      </Link>
+                    )}
+                  </>
+                )}
+                {!activeRich && (
+                  <>
+                    <span className="bg-edge mx-1 h-4 w-px" />
+                    <ToolButton label={t("tools.editor.undo")} onClick={() => editorRef.current?.undo()}>
+                      <Undo2 className="size-3.5" />
+                    </ToolButton>
+                    <ToolButton label={t("tools.editor.redo")} onClick={() => editorRef.current?.redo()}>
+                      <Redo2 className="size-3.5" />
+                    </ToolButton>
+                    <ToolButton label={t("tools.editor.find")} onClick={() => editorRef.current?.find()}>
+                      <Search className="size-3.5" />
+                    </ToolButton>
+                    <ToolButton
+                      label={t("tools.editor.wrapToggle")}
+                      active={wrap}
+                      onClick={() => {
+                        const next = !wrap;
+                        setWrap(next);
+                        editorRef.current?.setWrap(next);
+                      }}
+                    >
+                      <WrapText className="size-3.5" />
+                    </ToolButton>
+                    <ToolButton
+                      label={t("tools.editor.fontSmaller")}
+                      onClick={() => {
+                        const next = Math.max(10, fontSize - 1.5);
+                        setFontSize(next);
+                        editorRef.current?.setFontSize(next);
+                      }}
+                    >
+                      <ZoomOut className="size-3.5" />
+                    </ToolButton>
+                    <ToolButton
+                      label={t("tools.editor.fontBigger")}
+                      onClick={() => {
+                        const next = Math.min(22, fontSize + 1.5);
+                        setFontSize(next);
+                        editorRef.current?.setFontSize(next);
+                      }}
+                    >
+                      <ZoomIn className="size-3.5" />
+                    </ToolButton>
+                  </>
+                )}
                 <span className="flex-1" />
                 <Button
                   size="sm"
@@ -476,27 +536,49 @@ export function ToolsEditorPage() {
                 </Button>
               </div>
 
-              <div className="min-h-0 flex-1">
+              <div
+                className="min-h-0 flex-1"
+                onKeyDownCapture={(e) => {
+                  // Milkdown owns the keymap in rich mode — intercept Ctrl+S
+                  // before it reaches the document.
+                  if (activeRich && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+                    e.preventDefault();
+                    if (activeId) saveBuffer(activeId);
+                  }
+                }}
+              >
                 <Suspense fallback={<PageLoader className="py-10" />}>
-                  <CodeEditor
-                    key={activeId}
-                    ref={editorRef}
-                    fileName={active.name}
-                    initialValue={active.content}
-                    onChange={(next) => patchActive({ content: next })}
-                    onSave={() => {
-                      if (activeId) saveBuffer(activeId);
-                    }}
-                    onCursor={(line, col, selected) => setCursor({ line, col, selected })}
-                    autoFocus
-                  />
+                  {activeRich ? (
+                    <MilkdownEditor
+                      key={`${activeId}:rich`}
+                      initialValue={active.content}
+                      onChange={(md) => patchActive({ content: md })}
+                    />
+                  ) : (
+                    <CodeEditor
+                      key={activeId}
+                      ref={editorRef}
+                      fileName={active.name}
+                      initialValue={active.content}
+                      onChange={(next) => patchActive({ content: next })}
+                      onSave={() => {
+                        if (activeId) saveBuffer(activeId);
+                      }}
+                      onCursor={(line, col, selected) => setCursor({ line, col, selected })}
+                      autoFocus
+                    />
+                  )}
                 </Suspense>
               </div>
 
               {/* status bar */}
               <div className="border-edge text-fg-subtle flex items-center gap-3 border-t px-3 py-1.5 text-[11.5px] tabular-nums">
-                <span>{t("tools.editor.cursor", { line: cursor.line, col: cursor.col })}</span>
-                {cursor.selected > 0 && <span>{t("tools.editor.selected", { count: cursor.selected })}</span>}
+                {!activeRich && (
+                  <span>{t("tools.editor.cursor", { line: cursor.line, col: cursor.col })}</span>
+                )}
+                {!activeRich && cursor.selected > 0 && (
+                  <span>{t("tools.editor.selected", { count: cursor.selected })}</span>
+                )}
                 <span>{t("tools.editor.chars", { count: active.content.length })}</span>
                 <span className="flex-1" />
                 {activeDirty ? (
