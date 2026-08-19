@@ -46,6 +46,12 @@ github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 h1:PRxIJD8XjimM5aT
 github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936/go.mod h1:ttYvX5qlB+mlV1okblJqcSMtR4c52UKxDiX9GRBS8+Q=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
+github.com/emersion/go-ical v0.0.0-20240127095438-fc1c9d8fb2b6/go.mod h1:BEksegNspIkjCQfmzWgsgbu6KdeJ/4LwUZs7DMBzjzw=
+github.com/emersion/go-ical v0.0.0-20250609112844-439c63cef608 h1:5XWaET4YAcppq3l1/Yh2ay5VmQjUdq6qhJuucdGbmOY=
+github.com/emersion/go-ical v0.0.0-20250609112844-439c63cef608/go.mod h1:BEksegNspIkjCQfmzWgsgbu6KdeJ/4LwUZs7DMBzjzw=
+github.com/emersion/go-vcard v0.0.0-20230815062825-8fda7d206ec9/go.mod h1:HMJKR5wlh/ziNp+sHEDV2ltblO4JD2+IdDOWtGcQBTM=
+github.com/emersion/go-webdav v0.7.0 h1:cp6aBWXBf8Sjzguka9VJarr4XTkGc2IHxXI1Gq3TKpA=
+github.com/emersion/go-webdav v0.7.0/go.mod h1:mI8iBx3RAODwX7PJJ7qzsKAKs/vY429YfS2/9wKnDbQ=
 github.com/felixge/httpsnoop v1.1.0 h1:3YtUj32ZZkqZtt3sZZsClsymw/QDuVfpNhoA31zeORc=
 github.com/felixge/httpsnoop v1.1.0/go.mod h1:Zqxgdd+1Rkcz8euOqdr7lqgCRJztwr5hp9vDSi5UZCE=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
@@ -237,6 +243,8 @@ github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
+github.com/teambition/rrule-go v1.8.2 h1:lIjpjvWTj9fFUZCmuoVDrKVOtdiyzbzc93qTmRVe/J8=
+github.com/teambition/rrule-go v1.8.2/go.mod h1:Ieq5AbrKGciP1V//Wq8ktsTXwSwJHDD5mD/wLBGl3p4=
 github.com/tiendc/go-deepcopy v1.7.2 h1:Ut2yYR7W9tWjTQitganoIue4UGxZwCcJy3orjrrIj44=
 github.com/tiendc/go-deepcopy v1.7.2/go.mod h1:4bKjNC2r7boYOkD2IOuZpYjmlDdzjbpTRyCx+goBCJQ=
 github.com/tinylib/msgp v1.6.4 h1:mOwYbyYDLPj35mkA2BjjYejgJk9BuHxDdvRnb6v2ZcQ=

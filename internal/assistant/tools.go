@@ -85,6 +85,14 @@ func (tb *Toolbox) tools() []tool {
 		},
 		{
 			def: ToolDef{
+				Name:        "list_signals",
+				Description: "The global signal stream: everything HomeHub's monitors currently flag across every system — failures, warnings, notable info, and conditions that recovered on their own. Includes deep detail (log excerpts, entity lists). This is THE place to check what is going on.",
+				InputSchema: obj(`"severity":{"type":"string","description":"Filter: info, warning, critical, or recovered"},"limit":{"type":"integer","description":"Max entries, default 25, max 100"}`),
+			},
+			run: tb.listSignals,
+		},
+		{
+			def: ToolDef{
 				Name:        "my_notifications",
 				Description: "The user's most recent HomeHub notifications (inbox).",
 				InputSchema: obj(`"limit":{"type":"integer","description":"Max entries, default 10, max 20"}`),
@@ -344,6 +352,58 @@ func (tb *Toolbox) queryMetric(ctx context.Context, access Access, input json.Ra
 		"last":   last.Avg,
 		"lastAt": last.TS.UTC().Format(time.RFC3339),
 	}, nil
+}
+
+func (tb *Toolbox) listSignals(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+	var args struct {
+		Severity string `json:"severity"`
+		Limit    int    `json:"limit"`
+	}
+	_ = json.Unmarshal(input, &args)
+	if args.Limit <= 0 {
+		args.Limit = 25
+	}
+	if args.Limit > 100 {
+		args.Limit = 100
+	}
+	rows, err := tb.Store.ListSignals(ctx, 500)
+	if err != nil {
+		return nil, err
+	}
+	type sig struct {
+		Severity string `json:"severity"`
+		Source   string `json:"source"`
+		Title    string `json:"title"`
+		Body     string `json:"body,omitempty"`
+		Count    int    `json:"count,omitempty"`
+		Since    string `json:"since"`
+		LastSeen string `json:"lastSeen"`
+		Detail   any    `json:"detail,omitempty"`
+	}
+	out := make([]sig, 0, args.Limit)
+	for _, row := range rows {
+		if args.Severity != "" && row.Severity != args.Severity {
+			continue
+		}
+		var detail any
+		if len(row.Detail) > 0 {
+			_ = json.Unmarshal(row.Detail, &detail)
+		}
+		out = append(out, sig{
+			Severity: row.Severity,
+			Source:   row.SourceName,
+			Title:    row.Title,
+			Body:     row.Body,
+			Count:    row.Count,
+			Since:    row.FirstSeen.UTC().Format(time.RFC3339),
+			LastSeen: row.LastSeen.UTC().Format(time.RFC3339),
+			Detail:   detail,
+		})
+		if len(out) >= args.Limit {
+			break
+		}
+	}
+	return map[string]any{"signals": out, "totalLive": len(rows)}, nil
 }
 
 func (tb *Toolbox) myNotifications(ctx context.Context, access Access, input json.RawMessage) (any, error) {
