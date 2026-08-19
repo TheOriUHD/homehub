@@ -333,20 +333,30 @@ func (c *Conn) Snapshot(ctx context.Context) (*Snapshot, error) {
 	}
 	c.mu.Unlock()
 
+	// serverInfo also proves reachability — if it fails the printer is down and
+	// the dashboard should show an error, not an empty board.
+	srv, srvErr := c.client.serverInfo(ctx)
+	info, _ := c.client.printerInfo(ctx)
+
 	if state == nil {
 		// No fresh live data — do a one-shot REST query and seed the cache.
 		fetched, err := c.client.queryStatus(ctx, names)
 		if err != nil {
-			return nil, err
+			if srvErr != nil {
+				return nil, err // genuinely unreachable
+			}
+			// Reachable but Klippy can't be queried (shutdown / error / startup):
+			// return an empty board so the Klippy banner and state still render,
+			// and don't poison the live cache with the empty result.
+			state = map[string]objFields{}
+		} else {
+			state = fetched
+			c.mu.Lock()
+			c.state, c.stateAt = cloneState(fetched), time.Now()
+			c.mu.Unlock()
 		}
-		state = fetched
-		c.mu.Lock()
-		c.state, c.stateAt = cloneState(fetched), time.Now()
-		c.mu.Unlock()
 	}
 
-	srv, _ := c.client.serverInfo(ctx)
-	info, _ := c.client.printerInfo(ctx)
 	snap := buildSnapshot(objects, state, macros)
 	snap.Live = live
 	if srv != nil {
@@ -396,11 +406,18 @@ func (c *Conn) RunGcode(ctx context.Context, script string) error {
 
 // SetHeaterTarget sets a heater's target temperature via SET_HEATER_TEMPERATURE,
 // which works uniformly for extruders, the bed and heater_generic devices.
+// The gcode addresses a heater by its Klipper config name — the object name
+// without its type prefix ("heater_generic chamber" → "chamber"), while
+// "extruder" and "heater_bed" (no prefix) pass through unchanged.
 func (c *Conn) SetHeaterTarget(ctx context.Context, object string, target float64) error {
 	if target < 0 {
 		target = 0
 	}
-	return c.RunGcode(ctx, fmt.Sprintf("SET_HEATER_TEMPERATURE HEATER=%s TARGET=%.0f", object, target))
+	name := object
+	if i := strings.IndexByte(object, ' '); i >= 0 {
+		name = object[i+1:]
+	}
+	return c.RunGcode(ctx, fmt.Sprintf("SET_HEATER_TEMPERATURE HEATER=%s TARGET=%.0f", name, target))
 }
 
 // PrintAction runs pause/resume/cancel on the active print.
