@@ -281,7 +281,11 @@ func (c *SSHConn) RunEscalated(ctx context.Context, command string) (string, int
 		// the whole thing shell-agnostic (the login shell only sees plain
 		// words + a single-quoted arg). sudo reads one stdin line for the
 		// password; the inner /bin/sh reads the script from the pipe.
-		return c.runWithPasswordStdin(ctx, "sudo -S -p '' /bin/sh -c "+shellSingleQuote(b64Pipe(command)), false)
+		// Use a PTY: some hosts require a terminal for sudo (requiretty), and
+		// a PTY also satisfies sudo's password prompt cleanly. -S is dropped
+		// so sudo prompts on the tty; the password is written after a short
+		// delay (same as su).
+		return c.runWithPasswordStdin(ctx, "sudo -p '' /bin/sh -c "+shellSingleQuote(b64Pipe(command)), true)
 	case EscSuRoot:
 		return c.runWithPasswordStdin(ctx, "su -c "+shellSingleQuote(b64Pipe(command)), true)
 	}

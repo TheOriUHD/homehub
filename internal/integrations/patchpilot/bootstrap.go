@@ -159,13 +159,27 @@ func BootstrapStandard(ctx context.Context, conn *SSHConn, facts *HostFacts, pub
 	//    usually can't read the 0440 /etc/sudoers). We refuse to edit
 	//    /etc/sudoers itself — only ever drop a file into /etc/sudoers.d.
 	step("sudoers-check", "Checking the sudoers include directory")
-	if _, code, _ := conn.RunEscalated(ctx, "test -f /etc/sudoers"); code != 0 {
-		return nil, bootErr("sudoers_missing", "/etc/sudoers is missing on this host",
-			"this host's sudo is not configured normally; fix it by hand first", "")
-	}
-	if _, code, _ := conn.RunEscalated(ctx, "grep -qE '^[@#]includedir[[:space:]]+/etc/sudoers.d' /etc/sudoers"); code != 0 {
+	// One escalated probe classifies the sudoers subsystem. The OK/MISSING/
+	// NOINCLUDE markers let us tell "sudo itself failed" (neither marker —
+	// e.g. a bad password or requiretty) apart from a genuinely absent file.
+	sudoersProbe := `if [ -f /etc/sudoers ]; then ` +
+		`if grep -qE '^[@#]includedir[[:space:]]+/etc/sudoers.d' /etc/sudoers; then echo PP_OK; else echo PP_NOINCLUDE; fi; ` +
+		`else echo PP_MISSING; fi`
+	sout, _, serr := conn.RunEscalated(ctx, sudoersProbe)
+	switch {
+	case strings.Contains(sout, "PP_OK"):
+		// good
+	case strings.Contains(sout, "PP_NOINCLUDE"):
 		return nil, bootErr("sudoers_include_missing", "/etc/sudoers does not include /etc/sudoers.d",
-			"add the line '@includedir /etc/sudoers.d' to /etc/sudoers (via visudo) and retry", "")
+			"add the line '@includedir /etc/sudoers.d' to /etc/sudoers (via visudo) and retry", sout)
+	case strings.Contains(sout, "PP_MISSING"):
+		return nil, bootErr("sudoers_missing", "/etc/sudoers is missing on this host",
+			"this host's sudo is not configured normally; fix it by hand first", sout)
+	default:
+		// Neither marker printed → the escalation itself failed. Surface the
+		// real reason (sudo error) instead of guessing "missing".
+		return nil, bootErr("permission_denied", "could not run a command as root to verify sudo",
+			strings.TrimSpace(cleanErr(serr)+" "+truncateOut(sout)), sout)
 	}
 	ok("sudoers-check", "sudoers.d include is present")
 
@@ -270,4 +284,12 @@ func cleanErr(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+func truncateOut(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) > 240 {
+		return s[:240] + "…"
+	}
+	return s
 }
