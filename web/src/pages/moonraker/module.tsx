@@ -471,7 +471,7 @@ function ThermalsCard({ rows, history, instanceId, canControl }: { rows: TempRow
 
   const setTarget = (row: TempRow, v: number) => {
     if (row.kind === "tempfan") {
-      gcode.mutate(`SET_TEMPERATURE_FAN_TARGET temperature_fan=${configName(row.object)} target=${v}`, {
+      gcode.mutate(`SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=${configName(row.object)} TARGET=${v}`, {
         onError: (e) => toast("error", t("moonraker.toast.failed"), String(e)),
       });
     } else {
