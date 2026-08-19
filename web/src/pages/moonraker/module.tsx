@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ExternalLink,
   Fan as FanIcon,
+  Flame,
   FlipHorizontal2,
   FlipVertical2,
   Home,
@@ -508,7 +509,11 @@ function ThermalsCard({ rows, history, instanceId, canControl }: { rows: TempRow
                 <tr key={row.key} className="border-edge/60 border-t">
                   <td className="py-1.5 pr-2">
                     <span className="flex items-center gap-2">
-                      <span className="size-2 shrink-0 rounded-full" style={{ background: row.color }} />
+                      {row.kind === "sensor" || row.kind === "tempfan" ? (
+                        <Thermometer className="size-3.5 shrink-0" style={{ color: row.color }} />
+                      ) : (
+                        <Flame className="size-3.5 shrink-0" style={{ color: row.color }} />
+                      )}
                       <span className="text-fg truncate" title={row.name}>{row.name}</span>
                     </span>
                   </td>
@@ -563,57 +568,96 @@ function TargetInput({ value, canControl, onSet }: { value: number; canControl?:
   );
 }
 
+const GRAPH_WINDOW_MS = 10 * 60_000; // 10 minutes, like Fluidd's default
+
 function TemperatureGraph({ rows, history }: { rows: TempRow[]; history: HistoryRef }) {
   const { t } = useTranslation();
-  const W = 600;
-  const H = 190;
-  const series = rows
-    .map((r) => ({ color: r.color, points: history.current.get(r.key) ?? [] }))
-    .filter((s) => s.points.length > 1);
-  if (series.length === 0) {
-    return <p className="text-fg-subtle mt-3 text-center text-[12px]">{t("moonraker.thermals.collecting")}</p>;
-  }
-  let tMin = Infinity;
-  let tMax = -Infinity;
-  let vMax = 60;
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(560);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => setW(Math.max(320, Math.round(entries[0].contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const series = rows.map((r) => ({ color: r.color, points: history.current.get(r.key) ?? [] })).filter((s) => s.points.length > 0);
+
+  // Latest timestamp anchors a fixed-width window so the x-axis never "zooms
+  // in" to a few seconds of freshly-collected data.
+  let tMax = 0;
+  let maxV = 0;
   for (const s of series) {
     for (const p of s.points) {
-      if (p.ts < tMin) tMin = p.ts;
       if (p.ts > tMax) tMax = p.ts;
-      if (p.value > vMax) vMax = p.value;
+      if (p.value > maxV) maxV = p.value;
     }
   }
-  vMax = Math.ceil(vMax / 20) * 20; // round up to a tidy gridline
-  const span = Math.max(1, tMax - tMin);
-  const x = (ts: number) => ((ts - tMin) / span) * W;
-  const y = (v: number) => H - (v / vMax) * H;
-  const gridlines = [0, 0.25, 0.5, 0.75, 1];
+  const enough = series.some((s) => s.points.length > 1);
+
+  const H = 200;
+  const ML = 34;
+  const MR = 10;
+  const MT = 10;
+  const MB = 22;
+  const plotW = Math.max(1, w - ML - MR);
+  const plotH = H - MT - MB;
+  const tEnd = tMax || Date.now();
+  const tStart = tEnd - GRAPH_WINDOW_MS;
+  const vMax = Math.max(40, Math.ceil((maxV + 8) / 20) * 20);
+  const x = (ts: number) => ML + Math.min(plotW, Math.max(0, ((ts - tStart) / GRAPH_WINDOW_MS) * plotW));
+  const y = (v: number) => MT + plotH - (Math.min(vMax, Math.max(0, v)) / vMax) * plotH;
+
+  const yTicks: number[] = [];
+  for (let v = 0; v <= vMax; v += 20) yTicks.push(v);
+  const xTicks = Array.from({ length: 6 }, (_, i) => {
+    const ts = tStart + (i / 5) * GRAPH_WINDOW_MS;
+    return { x: ML + (i / 5) * plotW, label: fmtClock(ts) };
+  });
 
   return (
-    <div className="mt-3">
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-44 w-full">
-        {gridlines.map((g) => (
-          <line key={g} x1={0} x2={W} y1={g * H} y2={g * H} stroke="var(--color-edge)" strokeWidth={1} opacity={0.5} />
-        ))}
-        {series.map((s, i) => (
-          <polyline
-            key={i}
-            fill="none"
-            stroke={s.color}
-            strokeWidth={1.6}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-            points={s.points.map((p) => `${x(p.ts).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ")}
-          />
-        ))}
-      </svg>
-      <div className="text-fg-subtle mt-0.5 flex justify-between text-[10px] tabular-nums">
-        <span>0°</span>
-        <span>{vMax}°</span>
-      </div>
+    <div ref={ref} className="mt-3">
+      <div className="text-fg-subtle mb-0.5 text-[10.5px]">{t("moonraker.thermals.tempAxis")}</div>
+      {!enough ? (
+        <div className="text-fg-subtle flex items-center justify-center text-[12px]" style={{ height: H }}>
+          {t("moonraker.thermals.collecting")}
+        </div>
+      ) : (
+        <svg width={w} height={H} className="block">
+          {yTicks.map((v) => (
+            <g key={v}>
+              <line x1={ML} x2={w - MR} y1={y(v)} y2={y(v)} stroke="var(--color-edge)" strokeWidth={1} opacity={0.5} />
+              <text x={ML - 6} y={y(v) + 3} textAnchor="end" fontSize={10} fill="var(--color-fg-subtle)">
+                {v}
+              </text>
+            </g>
+          ))}
+          {xTicks.map((tk, i) => (
+            <text key={i} x={tk.x} y={H - 6} textAnchor={i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"} fontSize={10} fill="var(--color-fg-subtle)">
+              {tk.label}
+            </text>
+          ))}
+          {series.map((s, i) => (
+            <polyline
+              key={i}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={1.5}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              points={s.points.filter((p) => p.ts >= tStart).map((p) => `${x(p.ts).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ")}
+            />
+          ))}
+        </svg>
+      )}
     </div>
   );
+}
+
+function fmtClock(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 // ---- tool (jog + extrude + factors) ----------------------------------------

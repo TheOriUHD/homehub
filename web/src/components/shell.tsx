@@ -450,7 +450,7 @@ export function AppShell() {
             "mx-auto w-full flex-1 px-4 py-6 sm:px-6",
             // The workhorse apps get the whole viewport; everything else
             // keeps the comfortable reading column.
-            /^\/(calendar$|tools\/.)/.test(pathname) ? "max-w-none" : "max-w-6xl",
+            /^\/(calendar$|tools\/.|moonraker\/)/.test(pathname) ? "max-w-none" : "max-w-6xl",
           )}
         >
           <Outlet />
