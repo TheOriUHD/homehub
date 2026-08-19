@@ -149,7 +149,7 @@ export function ToolsConvertPage() {
   const overCap = picked.length > 50 || totalBytes > 2 * 1024 ** 3;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="space-y-6">
       <div className="space-y-3">
         <Link to="/tools" className="text-fg-subtle hover:text-fg inline-flex items-center gap-1.5 text-[13px]">
           <ArrowLeft className="size-3.5" /> Utilities
