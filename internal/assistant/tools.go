@@ -138,6 +138,14 @@ func (tb *Toolbox) tools() []tool {
 		},
 		{
 			def: ToolDef{
+				Name:        "create_calendar",
+				Description: "Propose creating a new calendar. This does NOT create it immediately — it is queued and the user must confirm. kind is 'local' (default; a plain editable calendar), 'ics' (a read-only subscribed feed — needs a url), or 'trash' (a Müllabfuhr pickup schedule — needs a url). CalDAV accounts must be added in the UI because they need a password.",
+				InputSchema: obj(`"name":{"type":"string"},"color":{"type":"string","description":"Hex color like #4f46e5 (optional)"},"kind":{"type":"string","description":"local, ics, or trash — default local"},"url":{"type":"string","description":"Feed URL (required for ics and trash)"}`, "name"),
+			},
+			run: tb.proposeCreateCalendar,
+		},
+		{
+			def: ToolDef{
 				Name:        "my_notifications",
 				Description: "The user's most recent HomeHub notifications (inbox).",
 				InputSchema: obj(`"limit":{"type":"integer","description":"Max entries, default 10, max 20"}`),
@@ -676,6 +684,49 @@ func (tb *Toolbox) proposeCreateEvent(ctx context.Context, _ Access, input json.
 		summary += " (repeating)"
 	}
 	return &PendingAction{Kind: "calendar.create", Summary: summary, Params: raw}, nil
+}
+
+func (tb *Toolbox) proposeCreateCalendar(_ context.Context, _ Access, input json.RawMessage) (any, error) {
+	var args struct {
+		Name, Color, Kind, URL string
+	}
+	if err := json.Unmarshal(input, &args); err != nil {
+		return nil, err
+	}
+	name := strings.TrimSpace(args.Name)
+	if name == "" {
+		return nil, fmt.Errorf("a calendar name is required")
+	}
+	kind := strings.ToLower(strings.TrimSpace(args.Kind))
+	if kind == "" {
+		kind = "local"
+	}
+	url := strings.TrimSpace(args.URL)
+	var summary string
+	switch kind {
+	case "local":
+		summary = fmt.Sprintf("Create a local calendar “%s”", name)
+	case "ics":
+		if url == "" {
+			return nil, fmt.Errorf("an ICS calendar needs a feed url")
+		}
+		summary = fmt.Sprintf("Subscribe to ICS calendar “%s”", name)
+	case "trash":
+		if url == "" {
+			return nil, fmt.Errorf("a trash-pickup calendar needs its schedule url")
+		}
+		summary = fmt.Sprintf("Add trash-pickup calendar “%s”", name)
+	case "caldav":
+		return nil, fmt.Errorf("CalDAV calendars must be added in the UI — they need a password I can't handle")
+	default:
+		return nil, fmt.Errorf("unknown calendar kind %q (use local, ics, or trash)", kind)
+	}
+	color := strings.TrimSpace(args.Color)
+	if color == "" {
+		color = "#4f46e5"
+	}
+	raw, _ := json.Marshal(map[string]any{"name": name, "color": color, "kind": kind, "url": url})
+	return &PendingAction{Kind: "calendar.create_calendar", Summary: summary, Params: raw}, nil
 }
 
 func (tb *Toolbox) proposeDismissSignals(ctx context.Context, _ Access, input json.RawMessage) (any, error) {

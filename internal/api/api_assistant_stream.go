@@ -13,6 +13,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/assistant"
 	"github.com/TheOriUHD/homehub/internal/calendar"
 	"github.com/TheOriUHD/homehub/internal/httpctx"
+	"github.com/TheOriUHD/homehub/internal/store"
 )
 
 // assistantRuntime resolves the configured provider + a Service for one turn,
@@ -176,6 +177,32 @@ func (s *Server) applyAssistantAction(ctx context.Context, id *httpctx.Identity,
 			StartsAt: p.StartsAt, EndsAt: p.EndsAt, AllDay: p.AllDay, RRule: p.RRule,
 		})
 		return label, err
+
+	case "calendar.create_calendar":
+		var p struct {
+			Name, Color, Kind, URL string
+		}
+		if err := json.Unmarshal(a.Params, &p); err != nil {
+			return "Create calendar", err
+		}
+		kind := p.Kind
+		if kind == "" {
+			kind = "local"
+		}
+		row := store.Calendar{Name: p.Name, Color: p.Color, Kind: kind, URL: p.URL, ReadOnly: kind != "local"}
+		if kind == "trash" {
+			row.Settings = json.RawMessage(`{"leadHours":[72,24]}`)
+		}
+		created, err := s.store.CreateCalendar(ctx, row)
+		if err != nil {
+			return fmt.Sprintf("Create calendar “%s”", p.Name), err
+		}
+		// Subscribed feeds pull their events straight away (errors land in the
+		// calendar's syncError, not here).
+		if (kind == "ics" || kind == "trash") && p.URL != "" && s.calendar != nil {
+			_ = s.calendar.Sync(ctx, created.ID)
+		}
+		return fmt.Sprintf("Created calendar “%s”", created.Name), nil
 
 	case "signals.dismiss":
 		var p struct {
