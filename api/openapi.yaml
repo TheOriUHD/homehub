@@ -3414,6 +3414,138 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /moonraker/{id}/snapshot:
+    get:
+      operationId: moonrakerSnapshot
+      summary: Full live printer state (dynamically discovered)
+      description: >-
+        The complete dashboard snapshot — Klippy state, print job, motion, and
+        every heater, sensor, fan, LED, output pin and macro the printer
+        exposes. The set is discovered from Klipper, so it varies per machine.
+      tags: [moonraker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MoonrakerSnapshot" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /moonraker/{id}/gcode:
+    post:
+      operationId: moonrakerGcode
+      summary: Run a G-code script (macro, homing, fan/LED command, console)
+      description: The universal control surface — the dashboard composes macro, fan, LED and homing commands here. Requires control on the instance.
+      tags: [moonraker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [script]
+              properties:
+                script: { type: string, description: "A G-code line, e.g. \"G28\", \"M106 S128\", or a macro name" }
+      responses:
+        "204":
+          description: Accepted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /moonraker/{id}/temperature:
+    post:
+      operationId: moonrakerSetTemperature
+      summary: Set a heater's target temperature
+      tags: [moonraker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [heater, target]
+              properties:
+                heater: { type: string, description: "The Klipper heater object, e.g. \"extruder\", \"heater_bed\", \"heater_generic chamber\"" }
+                target: { type: number, description: "Target °C; 0 turns the heater off" }
+      responses:
+        "204":
+          description: Accepted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /moonraker/{id}/print:
+    post:
+      operationId: moonrakerPrintAction
+      summary: Pause, resume, or cancel the active print
+      tags: [moonraker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [pause, resume, cancel] }
+      responses:
+        "204":
+          description: Accepted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /moonraker/{id}/estop:
+    post:
+      operationId: moonrakerEstop
+      summary: Emergency stop (halts the printer immediately)
+      tags: [moonraker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Halted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /moonraker/{id}/firmware-restart:
+    post:
+      operationId: moonrakerFirmwareRestart
+      summary: Restart Klipper firmware (recover from a shutdown/error)
+      tags: [moonraker]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Restarting
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /patchpilot/{id}/hosts:
     get:
       operationId: patchpilotHosts
@@ -8613,6 +8745,169 @@ components:
         interfaces:
           type: array
           items: { $ref: "#/components/schemas/TruenasInterfaceTraffic" }
+
+    MoonrakerSnapshot:
+      type: object
+      required: [klippy, printer, heaters, sensors, tempFans, fans, leds, outputPins, macros, extra, updatedAt, live]
+      properties:
+        klippy: { $ref: "#/components/schemas/MoonrakerKlippy" }
+        printer: { $ref: "#/components/schemas/MoonrakerPrinterMeta" }
+        print:
+          allOf: [{ $ref: "#/components/schemas/MoonrakerPrintJob" }]
+          nullable: true
+        toolhead:
+          allOf: [{ $ref: "#/components/schemas/MoonrakerToolhead" }]
+          nullable: true
+        heaters:
+          type: array
+          items: { $ref: "#/components/schemas/MoonrakerHeater" }
+        sensors:
+          type: array
+          items: { $ref: "#/components/schemas/MoonrakerSensor" }
+        tempFans:
+          type: array
+          items: { $ref: "#/components/schemas/MoonrakerTempFan" }
+        fans:
+          type: array
+          items: { $ref: "#/components/schemas/MoonrakerFan" }
+        leds:
+          type: array
+          items: { $ref: "#/components/schemas/MoonrakerLed" }
+        outputPins:
+          type: array
+          items: { $ref: "#/components/schemas/MoonrakerOutputPin" }
+        macros:
+          type: array
+          items: { $ref: "#/components/schemas/MoonrakerMacro" }
+        extra:
+          type: array
+          description: Object names the printer exposes that have no dedicated control yet
+          items: { type: string }
+        updatedAt: { type: string, format: date-time }
+        live:
+          type: boolean
+          description: True when a live WebSocket subscription is feeding this state
+
+    MoonrakerKlippy:
+      type: object
+      required: [state, message]
+      properties:
+        state:
+          type: string
+          description: ready | startup | shutdown | error | disconnected
+        message: { type: string }
+
+    MoonrakerPrinterMeta:
+      type: object
+      required: [hostname, klipperVersion, moonrakerVersion, cpuInfo]
+      properties:
+        hostname: { type: string }
+        klipperVersion: { type: string }
+        moonrakerVersion: { type: string }
+        cpuInfo: { type: string }
+
+    MoonrakerPrintJob:
+      type: object
+      required: [state, filename, progress, message, printDuration, totalDuration, filamentUsed, currentLayer, totalLayer]
+      properties:
+        state:
+          type: string
+          description: standby | printing | paused | complete | cancelled | error
+        filename: { type: string }
+        progress: { type: number, description: "0..1" }
+        message: { type: string }
+        printDuration: { type: number, description: "seconds actually printing" }
+        totalDuration: { type: number, description: "seconds wall-clock" }
+        filamentUsed: { type: number, description: "mm" }
+        currentLayer: { type: integer }
+        totalLayer: { type: integer }
+
+    MoonrakerToolhead:
+      type: object
+      required: [position, homedAxes, speedFactor, extrudeFactor, maxVelocity, speed]
+      properties:
+        position:
+          type: array
+          items: { type: number }
+          description: "[x, y, z, e]"
+        homedAxes: { type: string, description: "homed axes, e.g. \"xyz\"" }
+        speedFactor: { type: number, description: "1.0 = 100%" }
+        extrudeFactor: { type: number, description: "1.0 = 100%" }
+        fanSpeed: { type: number, description: "part-cooling fan 0..1, if present" }
+        maxVelocity: { type: number }
+        speed: { type: number, description: "current requested speed mm/s" }
+
+    MoonrakerHeater:
+      type: object
+      required: [object, name, kind, temp, target, power]
+      properties:
+        object: { type: string, description: "full Klipper object name (control target)" }
+        name: { type: string }
+        kind: { type: string, description: "extruder | bed | generic" }
+        temp: { type: number }
+        target: { type: number }
+        power: { type: number, description: "0..1 duty" }
+
+    MoonrakerSensor:
+      type: object
+      required: [object, name, temp]
+      properties:
+        object: { type: string }
+        name: { type: string }
+        temp: { type: number }
+        minTemp: { type: number }
+        maxTemp: { type: number }
+
+    MoonrakerTempFan:
+      type: object
+      required: [object, name, temp, target, speed]
+      properties:
+        object: { type: string }
+        name: { type: string }
+        temp: { type: number }
+        target: { type: number }
+        speed: { type: number, description: "0..1" }
+
+    MoonrakerFan:
+      type: object
+      required: [object, name, kind, speed, controllable]
+      properties:
+        object: { type: string }
+        name: { type: string }
+        kind: { type: string, description: "part | generic | heater | controller" }
+        speed: { type: number, description: "0..1" }
+        rpm: { type: number }
+        controllable: { type: boolean }
+
+    MoonrakerLed:
+      type: object
+      required: [object, name, kind, color, pixels]
+      properties:
+        object: { type: string }
+        name: { type: string }
+        kind: { type: string }
+        color:
+          type: array
+          items: { type: number }
+          description: "[r, g, b, w] 0..1 (first pixel)"
+        pixels: { type: integer }
+
+    MoonrakerOutputPin:
+      type: object
+      required: [object, name, value, pwm]
+      properties:
+        object: { type: string }
+        name: { type: string }
+        value: { type: number }
+        pwm: { type: boolean }
+
+    MoonrakerMacro:
+      type: object
+      required: [object, name]
+      properties:
+        object: { type: string }
+        name: { type: string }
+        description: { type: string }
 
     PatchpilotHost:
       type: object
