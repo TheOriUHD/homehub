@@ -23,6 +23,7 @@ import {
   useRunSchedule,
   useSaveSchedule,
 } from "./shared";
+import { CriticalRunConfirm, CriticalScheduleConfirm } from "./critical";
 
 /**
  * PatchpilotSchedulesPage lists the fleet's recurring patch windows and hosts
@@ -116,9 +117,17 @@ function ScheduleCard({
   const save = useSaveSchedule(instanceId);
   const run = useRunSchedule(instanceId);
   const remove = useDeleteSchedule(instanceId);
+  const hosts = usePatchpilotHosts(instanceId);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [runConfirm, setRunConfirm] = useState(false);
 
   const cronHuman = humanizeCron(schedule.cronExpr);
+
+  // Critical hosts this schedule targets — a "run now" including one is gated
+  // behind the timed confirmation (the schedule itself runs unchanged).
+  const criticalTargets = (hosts.data ?? []).filter(
+    (h) => h.critical && schedule.hostIds.includes(h.id),
+  );
 
   const toggleEnabled = (enabled: boolean) => {
     save.mutate(
@@ -130,7 +139,8 @@ function ScheduleCard({
     );
   };
 
-  const runNow = () => {
+  const doRunNow = () => {
+    setRunConfirm(false);
     run.mutate(schedule.id, {
       onSuccess: () => toast("success", t("patchpilot.schedules.runStarted", { name: schedule.name })),
       onError: (err) => {
@@ -142,6 +152,7 @@ function ScheduleCard({
       },
     });
   };
+  const runNow = () => (criticalTargets.length > 0 ? setRunConfirm(true) : doRunNow());
 
   const doDelete = () => {
     remove.mutate(schedule.id, {
@@ -235,6 +246,13 @@ function ScheduleCard({
           </DialogContent>
         </Dialog>
       )}
+      <CriticalRunConfirm
+        open={runConfirm}
+        onOpenChange={setRunConfirm}
+        hostNames={criticalTargets.map((h) => h.name)}
+        loading={run.isPending}
+        onConfirm={doRunNow}
+      />
     </Card>
   );
 }
@@ -279,6 +297,7 @@ function ScheduleEditor({
   const [nth, setNth] = useState(seed.nth);
   const [hostIds, setHostIds] = useState<string[]>(schedule?.hostIds ?? []);
   const [suppressReboot, setSuppressReboot] = useState(schedule?.suppressReboot ?? false);
+  const [confirmSave, setConfirmSave] = useState(false);
 
   // Locale-aware weekday labels; 2024-01-07 (UTC) is a Sunday → index 0.
   const weekdayLabels = useMemo(() => {
@@ -296,7 +315,11 @@ function ScheduleEditor({
     setHostIds((prev) => (prev.includes(id) ? prev.filter((h) => h !== id) : [...prev, id]));
   };
 
-  const submit = () => {
+  // Hosts marked critical that this schedule would target — saving with any of
+  // them prompts a one-time acknowledgement (scheduled runs are unchanged).
+  const criticalSelected = hostList.filter((h) => h.critical && hostIds.includes(h.id));
+
+  const doSave = () => {
     save.mutate(
       {
         id: schedule?.id,
@@ -310,6 +333,7 @@ function ScheduleEditor({
       },
       {
         onSuccess: () => {
+          setConfirmSave(false);
           toast("success", isEdit ? t("patchpilot.schedules.saved") : t("patchpilot.schedules.created"));
           onClose();
         },
@@ -317,6 +341,7 @@ function ScheduleEditor({
       },
     );
   };
+  const submit = () => (criticalSelected.length > 0 ? setConfirmSave(true) : doSave());
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -524,6 +549,13 @@ function ScheduleEditor({
           </label>
         </div>
       </DialogContent>
+      <CriticalScheduleConfirm
+        open={confirmSave}
+        onOpenChange={setConfirmSave}
+        hostNames={criticalSelected.map((h) => h.name)}
+        loading={save.isPending}
+        onConfirm={doSave}
+      />
     </Dialog>
   );
 }

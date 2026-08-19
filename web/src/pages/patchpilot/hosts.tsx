@@ -28,6 +28,7 @@ import {
   useRunFleet,
 } from "./shared";
 import { RunMonitor } from "./run-monitor";
+import { CriticalRunConfirm } from "./critical";
 
 /**
  * PatchpilotHostsPage is the fleet's landing tab: a "run everything" and an
@@ -45,6 +46,7 @@ export function PatchpilotHostsPage() {
   const runFleet = useRunFleet(instanceId);
   const runs = usePatchpilotRuns(instanceId);
   const [adding, setAdding] = useState(false);
+  const [confirmRunAll, setConfirmRunAll] = useState(false);
   // The run currently shown in the monitor window (null = closed).
   const [monitorRunId, setMonitorRunId] = useState<string | null>(null);
 
@@ -52,7 +54,7 @@ export function PatchpilotHostsPage() {
   // so the monitor is reachable even after it's been closed.
   const activeRun = (runs.data ?? []).find((r) => r.status === "running");
 
-  const runAll = () => {
+  const doRunAll = () => {
     runFleet.mutate(
       {},
       {
@@ -65,6 +67,9 @@ export function PatchpilotHostsPage() {
       },
     );
   };
+  // Run-all touches every host; if any is critical, gate it behind the timer.
+  const criticalHosts = (hosts.data ?? []).filter((h) => h.critical);
+  const runAll = () => (criticalHosts.length > 0 ? setConfirmRunAll(true) : doRunAll());
 
   if (hosts.isLoading) return <PageLoader />;
   if (hosts.isError) {
@@ -154,6 +159,16 @@ export function PatchpilotHostsPage() {
       {monitorRunId && (
         <RunMonitor instanceId={instanceId} runId={monitorRunId} onClose={() => setMonitorRunId(null)} />
       )}
+      <CriticalRunConfirm
+        open={confirmRunAll}
+        onOpenChange={setConfirmRunAll}
+        hostNames={criticalHosts.map((h) => h.name)}
+        loading={runFleet.isPending}
+        onConfirm={() => {
+          setConfirmRunAll(false);
+          doRunAll();
+        }}
+      />
     </div>
   );
 }
@@ -166,7 +181,10 @@ function HostRow({ host, onOpen }: { host: PatchpilotHost; onOpen: () => void })
   return (
     <TR interactive onClick={onOpen}>
       <TD>
-        <div className="text-fg font-semibold">{host.name}</div>
+        <div className="text-fg flex items-center gap-1.5 font-semibold">
+          {host.name}
+          {host.critical && <Badge tone="danger">{t("patchpilot.critical.badge")}</Badge>}
+        </div>
         <div className="text-fg-subtle text-[12px]">
           {host.hostname}:{host.sshPort}
         </div>

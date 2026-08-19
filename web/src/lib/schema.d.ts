@@ -5881,6 +5881,8 @@ export interface components {
             osPretty?: string;
             arch?: string;
             isProxmox: boolean;
+            /** @description Marked critical / the hypervisor — immediate runs including it get an escalated confirm. */
+            critical: boolean;
             enabled: boolean;
             autoReboot: boolean;
             notes?: string;
@@ -10112,6 +10114,7 @@ export interface operations {
                     name?: string;
                     enabled?: boolean;
                     autoReboot?: boolean;
+                    critical?: boolean;
                     notes?: string;
                 };
             };

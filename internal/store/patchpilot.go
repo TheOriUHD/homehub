@@ -22,6 +22,7 @@ type PatchpilotHost struct {
 	OSPretty       string     `db:"os_pretty"`
 	Arch           string     `db:"arch"`
 	IsProxmox      bool       `db:"is_proxmox"`
+	Critical       bool       `db:"critical"`
 	Enabled        bool       `db:"enabled"`
 	AutoReboot     bool       `db:"auto_reboot"`
 	Notes          string     `db:"notes"`
@@ -35,7 +36,7 @@ type PatchpilotHost struct {
 }
 
 const ppHostCols = `id, integration_id, name, hostname, ssh_port, ssh_user, host_type, host_key,
-	package_manager, os_pretty, arch, is_proxmox, enabled, auto_reboot, notes,
+	package_manager, os_pretty, arch, is_proxmox, critical, enabled, auto_reboot, notes,
 	updates_pending, reboot_required, last_checked_at, last_run_status, last_run_at, created_at, updated_at`
 
 func (s *Store) ListPatchpilotHosts(ctx context.Context, integrationID uuid.UUID) ([]PatchpilotHost, error) {
@@ -69,12 +70,12 @@ func (s *Store) SetPatchpilotHostKey(ctx context.Context, id uuid.UUID, hostKey 
 }
 
 // UpdatePatchpilotHost writes the operator-mutable fields.
-func (s *Store) UpdatePatchpilotHost(ctx context.Context, id uuid.UUID, name string, enabled, autoReboot bool, notes string) (*PatchpilotHost, error) {
+func (s *Store) UpdatePatchpilotHost(ctx context.Context, id uuid.UUID, name string, enabled, autoReboot, critical bool, notes string) (*PatchpilotHost, error) {
 	return scanOne[PatchpilotHost](s.pool.Query(ctx, `
 		update patchpilot_hosts
-		set name = $2, enabled = $3, auto_reboot = $4, notes = $5, updated_at = now()
+		set name = $2, enabled = $3, auto_reboot = $4, critical = $5, notes = $6, updated_at = now()
 		where id = $1
-		returning `+ppHostCols, id, name, enabled, autoReboot, notes))
+		returning `+ppHostCols, id, name, enabled, autoReboot, critical, notes))
 }
 
 // SetPatchpilotHostSnapshot records the latest dry-run/run outcome for the grid.

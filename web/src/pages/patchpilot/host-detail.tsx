@@ -15,6 +15,7 @@ import { EmptyState, ErrorState } from "@/ui/states";
 import { Switch } from "@/ui/switch";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { useToast } from "@/ui/toast";
+import { CriticalRunConfirm } from "./critical";
 import {
   managerLabel,
   runStatusTone,
@@ -47,6 +48,7 @@ export function PatchpilotHostDetailPage() {
 
   const [busy, setBusy] = useState<ActionKind | null>(null);
   const [confirm, setConfirm] = useState<null | "reboot" | "remove">(null);
+  const [runConfirm, setRunConfirm] = useState(false);
   const [dry, setDry] = useState<PatchpilotDryRunResult | null>(null);
 
   // Notes are a free-text field saved on blur. The poll refreshes the host
@@ -146,11 +148,14 @@ export function PatchpilotHostDetailPage() {
 
   // ---- settings persistence -------------------------------------------------
 
-  const patch = (body: { enabled?: boolean; autoReboot?: boolean; notes?: string }) =>
+  const patch = (body: { enabled?: boolean; autoReboot?: boolean; critical?: boolean; notes?: string }) =>
     updateHost.mutate(
       { hostId, body },
       { onError: (e) => toast("error", errMsg(e)) },
     );
+
+  // A manual run of a critical host is gated behind the timed confirmation.
+  const runNow = () => (host?.critical ? setRunConfirm(true) : doRun());
 
   const saveNotes = () => {
     notesDirty.current = false;
@@ -192,6 +197,7 @@ export function PatchpilotHostDetailPage() {
             <Badge tone="neutral">{managerLabel(host.packageManager)}</Badge>
             {host.arch && <Badge tone="neutral">{host.arch}</Badge>}
             {host.isProxmox && <Badge tone="info">Proxmox</Badge>}
+            {host.critical && <Badge tone="danger">{t("patchpilot.critical.badge")}</Badge>}
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
@@ -222,7 +228,7 @@ export function PatchpilotHostDetailPage() {
               <Search className="size-3.5" />
               {busy === "dryRun" ? t("patchpilot.hostDetail.dryRunning") : t("patchpilot.hostDetail.dryRun")}
             </Button>
-            <Button variant="primary" loading={busy === "run"} disabled={busyAny} onClick={doRun}>
+            <Button variant="primary" loading={busy === "run"} disabled={busyAny} onClick={runNow}>
               <Play className="size-3.5" />
               {busy === "run" ? t("patchpilot.hostDetail.running") : t("patchpilot.hostDetail.run")}
             </Button>
@@ -278,6 +284,12 @@ export function PatchpilotHostDetailPage() {
             hint={t("patchpilot.hostDetail.autoRebootHint")}
             checked={host.autoReboot}
             onCheckedChange={(v) => patch({ autoReboot: v })}
+          />
+          <SettingRow
+            label={t("patchpilot.critical.settingLabel")}
+            hint={t("patchpilot.critical.settingHint")}
+            checked={host.critical}
+            onCheckedChange={(v) => patch({ critical: v })}
           />
           <Field label={t("patchpilot.hostDetail.notes")}>
             {(fieldProps) => (
@@ -339,6 +351,16 @@ export function PatchpilotHostDetailPage() {
         confirmLabel={t("patchpilot.hostDetail.remove")}
         loading={deleteHost.isPending}
         onConfirm={doRemove}
+      />
+      <CriticalRunConfirm
+        open={runConfirm}
+        onOpenChange={setRunConfirm}
+        hostNames={[host.name]}
+        loading={busy === "run"}
+        onConfirm={() => {
+          setRunConfirm(false);
+          doRun();
+        }}
       />
     </div>
   );
