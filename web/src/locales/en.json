@@ -3170,6 +3170,19 @@
       "following": "Following",
       "autoFollow": "Auto-following the active host",
       "waiting": "Waiting for output…"
+    },
+    "critical": {
+      "badge": "Critical",
+      "settingLabel": "Critical host (hypervisor)",
+      "settingHint": "Marks this as the hypervisor / a critical host. Scheduled runs are unchanged, but any immediate run that includes it asks for a timed confirmation first.",
+      "runTitle": "This run may restart a critical host",
+      "runWarn": "This run includes a host marked critical / the hypervisor:",
+      "runWarn2": "Installing updates could reboot it and disrupt every service and VM it hosts. The confirm button unlocks after the countdown.",
+      "runConfirm": "Run anyway",
+      "runWait": "Confirm in {{s}}s",
+      "scheduleTitle": "Schedule includes a critical host",
+      "scheduleWarn": "This schedule targets a host marked critical / the hypervisor. Scheduled runs won't change — this just confirms you meant to include it:",
+      "scheduleConfirm": "Save schedule"
     }
   },
   "signals": {

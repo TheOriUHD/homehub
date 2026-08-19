@@ -61,6 +61,7 @@ func toAPIPatchpilotHost(h *store.PatchpilotHost) PatchpilotHost {
 		OsPretty:       strPtr(h.OSPretty),
 		Arch:           strPtr(h.Arch),
 		IsProxmox:      h.IsProxmox,
+		Critical:       h.Critical,
 		Enabled:        h.Enabled,
 		AutoReboot:     h.AutoReboot,
 		Notes:          strPtr(h.Notes),
@@ -256,7 +257,8 @@ func (s *Server) PatchpilotUpdateHost(ctx context.Context, req PatchpilotUpdateH
 		name = *b.Name
 	}
 	updated, err := s.store.UpdatePatchpilotHost(ctx, host.ID, name,
-		derefBool(b.Enabled, host.Enabled), derefBool(b.AutoReboot, host.AutoReboot), derefStr(b.Notes, host.Notes))
+		derefBool(b.Enabled, host.Enabled), derefBool(b.AutoReboot, host.AutoReboot),
+		derefBool(b.Critical, host.Critical), derefStr(b.Notes, host.Notes))
 	if err != nil {
 		return nil, err
 	}

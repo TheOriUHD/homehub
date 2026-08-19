@@ -3170,6 +3170,19 @@
       "following": "Folgt",
       "autoFollow": "Folgt automatisch dem aktiven Host",
       "waiting": "Warte auf Ausgabe…"
+    },
+    "critical": {
+      "badge": "Kritisch",
+      "settingLabel": "Kritischer Host (Hypervisor)",
+      "settingHint": "Markiert diesen als Hypervisor / kritischen Host. Geplante Läufe bleiben unverändert, aber jeder sofortige Lauf, der ihn enthält, verlangt zuerst eine zeitverzögerte Bestätigung.",
+      "runTitle": "Dieser Lauf kann einen kritischen Host neu starten",
+      "runWarn": "Dieser Lauf enthält einen als kritisch / Hypervisor markierten Host:",
+      "runWarn2": "Das Installieren von Updates könnte ihn neu starten und alle Dienste und VMs stören, die er hostet. Der Bestätigen-Button wird nach dem Countdown freigeschaltet.",
+      "runConfirm": "Trotzdem ausführen",
+      "runWait": "Bestätigen in {{s}}s",
+      "scheduleTitle": "Zeitplan enthält einen kritischen Host",
+      "scheduleWarn": "Dieser Zeitplan zielt auf einen als kritisch / Hypervisor markierten Host. Geplante Läufe ändern sich nicht — dies bestätigt nur, dass du ihn einschließen wolltest:",
+      "scheduleConfirm": "Zeitplan speichern"
     }
   },
   "signals": {

@@ -3500,6 +3500,7 @@ paths:
                 name: { type: string }
                 enabled: { type: boolean }
                 autoReboot: { type: boolean }
+                critical: { type: boolean }
                 notes: { type: string }
       responses:
         "200":
@@ -8601,7 +8602,7 @@ components:
 
     PatchpilotHost:
       type: object
-      required: [id, name, hostname, sshPort, sshUser, hostType, packageManager, isProxmox, enabled, autoReboot, updatesPending, rebootRequired]
+      required: [id, name, hostname, sshPort, sshUser, hostType, packageManager, isProxmox, critical, enabled, autoReboot, updatesPending, rebootRequired]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -8613,6 +8614,9 @@ components:
         osPretty: { type: string }
         arch: { type: string }
         isProxmox: { type: boolean }
+        critical:
+          type: boolean
+          description: Marked critical / the hypervisor — immediate runs including it get an escalated confirm.
         enabled: { type: boolean }
         autoReboot: { type: boolean }
         notes: { type: string }
