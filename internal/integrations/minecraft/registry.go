@@ -33,9 +33,11 @@ type Registry struct {
 	store  *store.Store
 	vault  *vault.Vault
 	logger *slog.Logger
-	// Publish emits an event on the instance's WS topic, wired to the hub in
-	// app wiring with the same {event, data} envelope the manager uses.
-	Publish func(instanceID uuid.UUID, event string, data any)
+	// Publish emits a per-server event on the network's WS topic, wired to the
+	// hub in app wiring with the same {event, data} envelope the manager uses.
+	// resource is the server's fine-grained RBAC path so delivery is scoped to
+	// clients who may see that server (not every sibling on the network).
+	Publish func(instanceID uuid.UUID, resource string, event string, data any)
 	// StatusChanged fires when a companion binds or drops, wired to the
 	// integration manager's Kick so the instance status follows within a
 	// second instead of the next poll cycle.
@@ -45,13 +47,19 @@ type Registry struct {
 	sessions map[uuid.UUID]*Session // keyed by SERVER id
 }
 
+// serverResource is a Minecraft server's fine-grained RBAC path, used to scope
+// WS delivery to clients who may see that specific server.
+func serverResource(networkID, serverID uuid.UUID) string {
+	return TypeID + "/" + networkID.String() + "/server/" + serverID.String()
+}
+
 func NewRegistry(st *store.Store, v *vault.Vault, logger *slog.Logger) *Registry {
 	return &Registry{
 		store:         st,
 		vault:         v,
 		logger:        logger.With("component", "minecraft"),
 		sessions:      map[uuid.UUID]*Session{},
-		Publish:       func(uuid.UUID, string, any) {},
+		Publish:       func(uuid.UUID, string, string, any) {},
 		StatusChanged: func(uuid.UUID) {},
 	}
 }
@@ -276,7 +284,7 @@ func (r *Registry) HandleAgent(w http.ResponseWriter, req *http.Request, clientI
 	}
 	r.logger.Info("companion connected",
 		"network", server.IntegrationID, "serverId", server.ID, "server", first.ServerName, "loader", first.Loader, "mc", first.McVersion)
-	r.Publish(server.IntegrationID, "companion-changed", map[string]any{"serverId": server.ID.String()})
+	r.Publish(server.IntegrationID, serverResource(server.IntegrationID, server.ID), "companion-changed", map[string]any{"serverId": server.ID.String()})
 	r.StatusChanged(server.IntegrationID)
 
 	r.pump(ctx, sess)
@@ -288,7 +296,7 @@ func (r *Registry) HandleAgent(w http.ResponseWriter, req *http.Request, clientI
 	r.mu.Unlock()
 	sess.close()
 	r.logger.Info("companion disconnected", "network", server.IntegrationID, "serverId", server.ID, "server", first.ServerName)
-	r.Publish(server.IntegrationID, "companion-changed", map[string]any{"serverId": server.ID.String()})
+	r.Publish(server.IntegrationID, serverResource(server.IntegrationID, server.ID), "companion-changed", map[string]any{"serverId": server.ID.String()})
 	r.StatusChanged(server.IntegrationID)
 }
 
@@ -383,20 +391,20 @@ func (r *Registry) pump(ctx context.Context, s *Session) {
 			// Backfill is history — clients pull it via the console API; only
 			// live lines push through the hub to keep events light.
 			if f.Type == FrameConsole && len(stored) > 0 {
-				r.Publish(s.NetworkID, "console", map[string]any{"serverId": s.ServerID.String(), "lines": stored})
+				r.Publish(s.NetworkID, serverResource(s.NetworkID, s.ServerID), "console", map[string]any{"serverId": s.ServerID.String(), "lines": stored})
 			}
 		case FrameStatus:
 			if f.Status != nil {
 				s.mu.Lock()
 				s.status = f.Status
 				s.mu.Unlock()
-				r.Publish(s.NetworkID, "status", map[string]any{"serverId": s.ServerID.String(), "status": f.Status})
+				r.Publish(s.NetworkID, serverResource(s.NetworkID, s.ServerID), "status", map[string]any{"serverId": s.ServerID.String(), "status": f.Status})
 			}
 		case FramePlayers:
 			s.mu.Lock()
 			s.players = f.Players
 			s.mu.Unlock()
-			r.Publish(s.NetworkID, "players-changed", map[string]any{"serverId": s.ServerID.String(), "players": f.Players})
+			r.Publish(s.NetworkID, serverResource(s.NetworkID, s.ServerID), "players-changed", map[string]any{"serverId": s.ServerID.String(), "players": f.Players})
 		case FrameCmdResult:
 			s.cmdMu.Lock()
 			ch := s.cmdWaiters[f.ID]

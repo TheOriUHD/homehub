@@ -569,10 +569,13 @@ func (c *Conn) pollConsole(ctx context.Context, instanceID string, state *consol
 	}
 	state.mu.Unlock()
 
+	// Console + status belong to ONE instance; deliver only to clients with
+	// view on that instance's resource, not everyone who can see the panel.
+	instRes := TypeID + "/" + c.inst.ID.String() + "/instance/" + instanceID
 	if len(fresh) > 0 {
-		c.deps.Publish("console", map[string]any{"instanceId": instanceID, "lines": fresh})
+		c.deps.PublishScoped("console", instRes, map[string]any{"instanceId": instanceID, "lines": fresh})
 	}
-	c.deps.Publish("instance-status", map[string]any{
+	c.deps.PublishScoped("instance-status", instRes, map[string]any{
 		"instanceId": instanceID,
 		"state":      stateName(updates.Status.State),
 		"uptime":     updates.Status.Uptime,

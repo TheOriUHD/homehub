@@ -221,6 +221,12 @@ func (m *Manager) run(ctx context.Context, r *runner, d Driver, inst Instance) {
 			// subscription authorization maps straight onto RBAC visibility.
 			m.hub.Publish("integration:"+inst.ResourcePath(), map[string]any{"event": event, "data": data})
 		},
+		PublishScoped: func(event string, resource string, data any) {
+			// Same coarse subscribe topic, but delivered only to clients with
+			// view on the specific sub-resource — closes per-child leakage.
+			m.hub.PublishScoped("integration:"+inst.ResourcePath(), resource,
+				map[string]any{"event": event, "data": data})
+		},
 	}
 
 	for ctx.Err() == nil {
@@ -334,8 +340,19 @@ func (m *Manager) collect(ctx context.Context, inst Instance, conn Connection) {
 	if err := m.metrics.Record(ctx, samples); err != nil {
 		m.logger.Error("record metrics", "integration", inst.Name, "error", err)
 	}
-	// Live graphs ride the instance topic; clients filter by resource.
-	m.hub.Publish("metrics:"+inst.Type+"/"+inst.ID.String(), metrics.WirePayload(samples))
+	// Live graphs ride the instance topic, but each sample carries its own
+	// fine-grained resource; deliver every client only the samples it has view
+	// on, so a single-guest/-container grant can't read a sibling's metrics.
+	rows := make([]ws.ScopedRow, 0, len(samples))
+	for _, s := range samples {
+		rows = append(rows, ws.ScopedRow{Resource: s.Resource, Data: map[string]any{
+			"resource": s.Resource,
+			"metric":   s.Metric,
+			"ts":       s.TS.UnixMilli(),
+			"value":    s.Value,
+		}})
+	}
+	m.hub.PublishRows("metrics:"+inst.Type+"/"+inst.ID.String(), "samples", rows)
 }
 
 // transition persists and publishes a status change; no-ops when unchanged.

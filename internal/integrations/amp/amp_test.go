@@ -27,7 +27,7 @@ func newTestConn(t *testing.T) (*Conn, *ampsim.Sim) {
 		t.Fatalf("newClient: %v", err)
 	}
 	inst := integration.Instance{ID: uuid.New(), Type: TypeID, Name: "sim"}
-	conn := newConn(inst, c, integration.Deps{Publish: func(string, any) {}})
+	conn := newConn(inst, c, integration.Deps{Publish: func(string, any) {}, PublishScoped: func(string, string, any) {}})
 	t.Cleanup(conn.Close)
 	return conn, sim
 }

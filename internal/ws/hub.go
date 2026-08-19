@@ -29,18 +29,27 @@ import (
 // RBAC engine at startup; nil denies everything (fail closed).
 type AuthorizeFunc func(ctx context.Context, userID uuid.UUID, viewAsRole *uuid.UUID, topic string) bool
 
+// CanViewFunc reports whether a principal has view on one fine-grained RBAC
+// resource path (e.g. "amp/<panel>/instance/<id>"). Used to scope per-child
+// live data on a coarse instance topic down to what the client may actually
+// see — mirroring the REST layer's per-sub-resource `Can(view)` check. Wired to
+// the RBAC engine at startup; nil denies everything (fail closed).
+type CanViewFunc func(ctx context.Context, userID uuid.UUID, viewAsRole *uuid.UUID, resource string) bool
+
 type Hub struct {
 	logger    *slog.Logger
 	authorize AuthorizeFunc
+	canView   CanViewFunc
 
 	mu      sync.RWMutex
 	clients map[*Client]struct{}
 }
 
-func NewHub(logger *slog.Logger, authorize AuthorizeFunc) *Hub {
+func NewHub(logger *slog.Logger, authorize AuthorizeFunc, canView CanViewFunc) *Hub {
 	return &Hub{
 		logger:    logger.With("component", "ws"),
 		authorize: authorize,
+		canView:   canView,
 		clients:   map[*Client]struct{}{},
 	}
 }
@@ -91,6 +100,82 @@ func (h *Hub) Publish(topic string, data any) {
 		if !ok {
 			continue
 		}
+		c.trySend(msg)
+	}
+}
+
+// canViewResource authorizes one client against a fine-grained resource path.
+func (h *Hub) canViewResource(c *Client, resource string) bool {
+	if h.canView == nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return h.canView(ctx, c.userID, c.viewAsRole, resource)
+}
+
+// PublishScoped fans an event out to subscribers of the coarse `topic`, but
+// delivers only to clients who also have view on `resource` — the specific
+// sub-resource this event concerns (one AMP instance, one Minecraft server).
+// Clients still SUBSCRIBE to the whole-instance topic (so the frontend is
+// unchanged), but a member granted only a sibling sub-resource never receives
+// this one. Closes the per-child console/status leak on instance topics.
+func (h *Hub) PublishScoped(topic, resource string, data any) {
+	raw, err := json.Marshal(data)
+	if err != nil {
+		h.logger.Error("marshal event", "topic", topic, "error", err)
+		return
+	}
+	msg, _ := json.Marshal(frame{Type: "event", Topic: topic, Data: raw})
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for c := range h.clients {
+		if !c.subscribed(topic) {
+			continue
+		}
+		if !h.canViewResource(c, resource) {
+			continue
+		}
+		c.trySend(msg)
+	}
+}
+
+// ScopedRow is one payload row tagged with the RBAC resource it belongs to, so
+// PublishRows can deliver each client only the rows it may see.
+type ScopedRow struct {
+	Resource string
+	Data     any
+}
+
+// PublishRows delivers, to each subscriber of `topic`, a `{key: [...]}` event
+// containing only the rows they have view on. A client with no visible rows is
+// skipped entirely. Used for batched per-resource fanout (metrics samples)
+// where one event carries data for many sibling sub-resources.
+func (h *Hub) PublishRows(topic, key string, rows []ScopedRow) {
+	if len(rows) == 0 {
+		return
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for c := range h.clients {
+		if !c.subscribed(topic) {
+			continue
+		}
+		visible := make([]any, 0, len(rows))
+		for _, row := range rows {
+			if h.canViewResource(c, row.Resource) {
+				visible = append(visible, row.Data)
+			}
+		}
+		if len(visible) == 0 {
+			continue
+		}
+		raw, err := json.Marshal(map[string]any{key: visible})
+		if err != nil {
+			continue
+		}
+		msg, _ := json.Marshal(frame{Type: "event", Topic: topic, Data: raw})
 		c.trySend(msg)
 	}
 }

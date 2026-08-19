@@ -319,12 +319,20 @@ func (s *Server) TsKeys(ctx context.Context, req TsKeysRequestObject) (TsKeysRes
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	conn, _, err := s.tsConn(ctx, id, req.Id)
+	conn, resource, err := s.tsConn(ctx, id, req.Id)
 	if err == store.ErrNotFound {
 		return TsKeys404JSONResponse{notFoundErr("tailnet")}, nil
 	}
 	if err != nil {
 		return TsKeys502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+	}
+	// Pre-auth key metadata (tags, reusability, expiry) describes how devices
+	// join the tailnet — network-level recon. Mere device-subtree visibility
+	// (which tsConn checks) is not enough: require view on the tailnet root, so
+	// a member granted only one device can't enumerate join keys. Tailnet-level
+	// viewers still see the list; create/revoke remain configure-level.
+	if !s.can(ctx, id, resource, rbac.LevelView) {
+		return TsKeys200JSONResponse([]TsKey{}), nil
 	}
 	keys, err := conn.Keys(ctx)
 	if err != nil {

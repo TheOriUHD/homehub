@@ -156,16 +156,3 @@ func (s *Service) RunMaintenance(ctx context.Context) error {
 	return s.store.PruneMetrics(ctx, rawKeep, fiveMinKeep, hourKeep)
 }
 
-// WirePayload shapes a sample batch for WebSocket delivery.
-func WirePayload(samples []Sample) any {
-	out := make([]map[string]any, 0, len(samples))
-	for _, sample := range samples {
-		out = append(out, map[string]any{
-			"resource": sample.Resource,
-			"metric":   sample.Metric,
-			"ts":       sample.TS.UnixMilli(),
-			"value":    sample.Value,
-		})
-	}
-	return map[string]any{"samples": out}
-}

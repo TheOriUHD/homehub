@@ -473,7 +473,7 @@ func (s *Server) PatchpilotRunDetail(ctx context.Context, req PatchpilotRunDetai
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	fleetID, _, err := s.ppFleet(ctx, id, req.Id)
+	fleetID, root, err := s.ppFleet(ctx, id, req.Id)
 	if err != nil {
 		return PatchpilotRunDetail404JSONResponse{notFoundErr("fleet")}, nil
 	}
@@ -485,9 +485,21 @@ func (s *Server) PatchpilotRunDetail(ctx context.Context, req PatchpilotRunDetai
 	if err != nil {
 		return nil, err
 	}
+	// A run spans the whole fleet, but each host run carries that host's full
+	// command log, package inventory and hostname. Return only the host runs
+	// the caller may see — the same per-host visibility PatchpilotHosts applies
+	// — so a member granted view on one host can't read sibling hosts' output.
+	// Orphaned rows (host deleted → nil HostID) show only to fleet-level viewers.
+	fleetViewer := s.can(ctx, id, root, rbac.LevelView)
 	hrs := []PatchpilotHostRun{}
 	for i := range hostRuns {
-		hrs = append(hrs, toAPIPatchpilotHostRun(&hostRuns[i]))
+		visible := fleetViewer
+		if hr := hostRuns[i].HostID; hr != nil {
+			visible = s.visibleUnder(ctx, id, root+"/host/"+hr.String())
+		}
+		if visible {
+			hrs = append(hrs, toAPIPatchpilotHostRun(&hostRuns[i]))
+		}
 	}
 	return PatchpilotRunDetail200JSONResponse(PatchpilotRunDetail{
 		Run:      toAPIPatchpilotRun(run),
