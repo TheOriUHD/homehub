@@ -2864,7 +2864,6 @@
       "tile": "Write and edit files with highlighting, keep them in your workspace, download under any name.",
       "fileCount": "{{count}} file(s) in your workspace",
       "newFile": "New file",
-      "newFileBody": "The extension picks the syntax highlighting — any name and ending works.",
       "fileName": "File name",
       "empty": {
         "title": "No files yet",
@@ -2900,7 +2899,9 @@
       "closeTitle": "Close {{name}}?",
       "closeBody": "This file has unsaved changes.",
       "closeDiscard": "Discard changes",
-      "closeSave": "Save & close"
+      "closeSave": "Save & close",
+      "saveAsTitle": "Save file",
+      "saveAsBody": "Name the file — the extension sets the syntax highlighting."
     },
     "files": {
       "title": "Files",

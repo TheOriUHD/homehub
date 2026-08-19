@@ -50,9 +50,13 @@ type Buf = {
   baseName: string;
   baseContent: string;
   savedAt?: string;
+  /** A scratch buffer that has never been saved — no server file behind it. */
+  draft?: boolean;
 };
 
-const isDirty = (b: Buf) => b.name !== b.baseName || b.content !== b.baseContent;
+// A draft is worth keeping only once it has content; a saved file is dirty on
+// any divergence from the server baseline.
+const isDirty = (b: Buf) => (b.draft ? b.content !== "" : b.name !== b.baseName || b.content !== b.baseContent);
 
 export function ToolsEditorPage() {
   const { t } = useTranslation();
@@ -75,12 +79,27 @@ export function ToolsEditorPage() {
   const [cursor, setCursor] = useState({ line: 1, col: 1, selected: 0 });
   const [wrap, setWrap] = useState(true);
   const [fontSize, setFontSize] = useState(13.5);
-  const [createOpen, setCreateOpen] = useState(false);
+  // First save of a draft prompts for name+extension; closeAfter closes the
+  // tab once the save lands (the save-and-close path of the close prompt).
+  const [saveAs, setSaveAs] = useState<{ id: string; closeAfter: boolean } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState<string | null>(null);
   const editorRef = useRef<CodeEditorHandle>(null);
+  const draftSeq = useRef(0);
+  const initRef = useRef(false);
 
   const active = activeId ? bufs[activeId] : undefined;
+
+  // Open a fresh scratch buffer — like any editor: "untitled", no extension,
+  // named for real on first save.
+  const newDraft = () => {
+    const n = ++draftSeq.current;
+    const id = `draft:${n}`;
+    const name = n === 1 ? "untitled" : `untitled ${n}`;
+    setBufs((b) => ({ ...b, [id]: { name, content: "", baseName: name, baseContent: "", draft: true } }));
+    setOpenIds((ids) => [...ids, id]);
+    setActiveId(id);
+  };
 
   const openFile = async (id: string) => {
     if (bufs[id]) {
@@ -105,8 +124,15 @@ export function ToolsEditorPage() {
   };
 
   // Deep link: /tools/editor?file=<id> opens that file (used by the manager).
+  // Otherwise the editor opens with a scratch buffer ready to paste into.
   useEffect(() => {
-    if (search.file) void openFile(search.file);
+    if (search.file) {
+      initRef.current = true;
+      void openFile(search.file);
+    } else if (!initRef.current) {
+      initRef.current = true;
+      newDraft();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.file]);
 
@@ -134,19 +160,34 @@ export function ToolsEditorPage() {
     setBufs((b) => (b[activeId] ? { ...b, [activeId]: { ...b[activeId], ...patch } } : b));
   };
 
-  const create = useMutation({
-    mutationFn: async (newName: string) =>
-      unwrap(await api.POST("/files", { body: { name: newName, content: "" } })),
-    onSuccess: (f) => {
+  // First save of a draft: create the server file with the buffer's content,
+  // then swap the draft buffer over to the real file id in place (same tab).
+  const createAs = useMutation({
+    mutationFn: async (vars: { draftId: string; name: string; closeAfter: boolean }) =>
+      unwrap(await api.POST("/files", { body: { name: vars.name, content: bufs[vars.draftId]?.content ?? "" } })),
+    onSuccess: (f, vars) => {
       void qc.invalidateQueries({ queryKey: ["files"], exact: true });
-      // Seed the buffer straight from the response — no extra GET, no races.
-      setBufs((b) => ({
-        ...b,
-        [f.id]: { name: f.name, content: f.content ?? "", baseName: f.name, baseContent: f.content ?? "" },
-      }));
-      setOpenIds((ids) => [...ids, f.id]);
-      setActiveId(f.id);
-      setCreateOpen(false);
+      setSaveAs(null);
+      if (vars.closeAfter) {
+        closeTab(vars.draftId, true);
+      } else {
+        setBufs((b) => {
+          const { [vars.draftId]: old, ...rest } = b;
+          return {
+            ...rest,
+            [f.id]: {
+              name: f.name,
+              content: old?.content ?? f.content ?? "",
+              baseName: f.name,
+              baseContent: f.content ?? "",
+              savedAt: f.updatedAt,
+            },
+          };
+        });
+        setOpenIds((ids) => ids.map((x) => (x === vars.draftId ? f.id : x)));
+        setActiveId((prev) => (prev === vars.draftId ? f.id : prev));
+      }
+      toast("success", t("tools.editor.saved", { name: f.name }));
     },
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
@@ -197,6 +238,15 @@ export function ToolsEditorPage() {
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
+  // Save routes by buffer kind: drafts prompt for name+extension (save-as),
+  // saved files PUT straight back.
+  const saveBuffer = (id: string) => {
+    const b = bufs[id];
+    if (!b || !isDirty(b)) return;
+    if (b.draft) setSaveAs({ id, closeAfter: false });
+    else save.mutate(id);
+  };
+
   // Download the current buffer under the current name — always exactly what
   // is on screen, saved or not.
   const download = () => {
@@ -230,7 +280,7 @@ export function ToolsEditorPage() {
           <h1 className="text-fg text-xl font-semibold tracking-tight">{t("tools.editor.title")}</h1>
           <p className="text-fg-muted text-sm">{t("tools.editor.subtitle")}</p>
         </div>
-        <Button size="sm" variant="primary" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" variant="primary" onClick={newDraft}>
           <FilePlus2 className="size-3.5" />
           {t("tools.editor.newFile")}
         </Button>
@@ -410,10 +460,14 @@ export function ToolsEditorPage() {
                 <Button
                   size="sm"
                   variant="primary"
-                  disabled={!activeDirty || save.isPending}
-                  onClick={() => activeId && save.mutate(activeId)}
+                  disabled={!activeDirty || save.isPending || createAs.isPending}
+                  onClick={() => activeId && saveBuffer(activeId)}
                 >
-                  {save.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+                  {save.isPending || createAs.isPending ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Save className="size-3.5" />
+                  )}
                   {t("common.save")}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={download} title={t("tools.editor.downloadHint")}>
@@ -431,7 +485,7 @@ export function ToolsEditorPage() {
                     initialValue={active.content}
                     onChange={(next) => patchActive({ content: next })}
                     onSave={() => {
-                      if (activeId && isDirty(bufs[activeId])) save.mutate(activeId);
+                      if (activeId) saveBuffer(activeId);
                     }}
                     onCursor={(line, col, selected) => setCursor({ line, col, selected })}
                     autoFocus
@@ -457,11 +511,12 @@ export function ToolsEditorPage() {
         </Card>
       </div>
 
-      {createOpen && (
-        <CreateFileDialog
-          onCreate={(n) => create.mutate(n)}
-          pending={create.isPending}
-          onClose={() => setCreateOpen(false)}
+      {saveAs && bufs[saveAs.id] && (
+        <SaveFileDialog
+          initialName={bufs[saveAs.id].name}
+          onSave={(n) => createAs.mutate({ draftId: saveAs.id, name: n, closeAfter: saveAs.closeAfter })}
+          pending={createAs.isPending}
+          onClose={() => setSaveAs(null)}
         />
       )}
 
@@ -510,6 +565,13 @@ export function ToolsEditorPage() {
                 onClick={async () => {
                   const id = confirmClose;
                   if (!id) return;
+                  if (bufs[id]?.draft) {
+                    // Never-saved buffer: name it first; the tab closes once
+                    // the save lands.
+                    setConfirmClose(null);
+                    setSaveAs({ id, closeAfter: true });
+                    return;
+                  }
                   await save.mutateAsync(id);
                   setConfirmClose(null);
                   closeTab(id, true);
@@ -552,21 +614,27 @@ function ToolButton({
   );
 }
 
-function CreateFileDialog({
-  onCreate,
+function SaveFileDialog({
+  initialName,
+  onSave,
   pending,
   onClose,
 }: {
-  onCreate: (name: string) => void;
+  initialName: string;
+  onSave: (name: string) => void;
   pending: boolean;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const [name, setName] = useState("untitled.txt");
+  const [name, setName] = useState(initialName);
   const inputRef = useRef<HTMLInputElement>(null);
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent title={t("tools.editor.newFile")} description={t("tools.editor.newFileBody")} className="max-w-sm">
+      <DialogContent
+        title={t("tools.editor.saveAsTitle")}
+        description={t("tools.editor.saveAsBody")}
+        className="max-w-sm"
+      >
         <Field label={t("tools.editor.fileName")}>
           {(p) => (
             <Input
@@ -575,14 +643,15 @@ function CreateFileDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               onFocus={(e) => {
-                // Preselect the stem so typing replaces "untitled" but keeps ".txt".
+                // Preselect the stem so typing replaces "untitled" but keeps
+                // an extension, if there is one.
                 const dot = e.target.value.lastIndexOf(".");
                 e.target.setSelectionRange(0, dot > 0 ? dot : e.target.value.length);
               }}
               autoFocus
               className="font-mono"
               onKeyDown={(e) => {
-                if (e.key === "Enter" && name.trim()) onCreate(name.trim());
+                if (e.key === "Enter" && name.trim()) onSave(name.trim());
               }}
             />
           )}
@@ -591,8 +660,8 @@ function CreateFileDialog({
           <Button variant="ghost" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button variant="primary" disabled={pending || !name.trim()} onClick={() => onCreate(name.trim())}>
-            {t("common.create")}
+          <Button variant="primary" disabled={pending || !name.trim()} onClick={() => onSave(name.trim())}>
+            {t("common.save")}
           </Button>
         </div>
       </DialogContent>
