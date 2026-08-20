@@ -1355,9 +1355,17 @@
       "connections": "Connections",
       "uptime": "Uptime",
       "slowQueries": "Slow queries",
-      "memResident": "Resident",
+      "memResident": "Resident memory",
       "memResidentValue": "{{mb}} MB",
-      "open": "Open"
+      "open": "Open",
+      "asUser": "connected as {{user}}",
+      "totalSize": "Total size",
+      "largestDatabases": "Databases by size",
+      "objects": "{{count}} objects",
+      "activeSessions": "Active sessions",
+      "allSessions": "All sessions",
+      "noActiveSessions": "No active sessions right now.",
+      "noData": "No data"
     },
     "create": {
       "nameHint": "Letters, digits, and underscores.",

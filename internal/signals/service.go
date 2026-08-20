@@ -127,35 +127,7 @@ func (s *Service) runCollector(ctx context.Context, c Collector) {
 			continue
 		}
 		seen[o.Key] = true
-		var detail json.RawMessage
-		if o.Detail != nil {
-			if b, jerr := json.Marshal(o.Detail); jerr == nil {
-				detail = b
-			}
-		}
-		prev, _ := s.store.GetLiveSignal(ctx, o.Key)
-		row, uerr := s.store.UpsertSignal(ctx, store.Signal{
-			Key:        o.Key,
-			Collector:  c.Name(),
-			SourceType: o.SourceType,
-			SourceID:   o.SourceID,
-			SourceName: o.SourceName,
-			Severity:    o.Severity,
-			AutoResolve: o.AutoResolve,
-			Title:       o.Title,
-			Body:        o.Body,
-			Detail:      detail,
-		}, o.Recur)
-		if uerr != nil {
-			s.logger.Error("upsert signal", "key", o.Key, "error", uerr)
-			continue
-		}
-		if o.AutoResolve {
-			s.mu.Lock()
-			s.resolveMsg[o.Key] = [2]string{o.ResolveTitle, o.ResolveBody}
-			s.mu.Unlock()
-		}
-		if prev == nil || prev.Severity != row.Severity {
+		if s.reconcileObservation(ctx, c.Name(), o) {
 			changed = true
 		}
 	}
@@ -176,9 +148,86 @@ func (s *Service) runCollector(ctx context.Context, c Collector) {
 		}
 	}
 
+	// The acknowledged-but-still-true set reconciles too: once a suppressed
+	// condition clears, its marker is resolved so a future occurrence
+	// surfaces fresh instead of staying muted forever.
+	if suppressed, serr := s.store.ListSuppressedSignalKeys(ctx, c.Name()); serr == nil {
+		for key := range suppressed {
+			if !seen[key] {
+				_ = s.store.ResolveSuppressedSignal(ctx, key)
+			}
+		}
+	}
+
 	if changed {
 		s.notify(ctx)
 	}
+}
+
+// severityRank orders severities for the escalation check.
+func severityRank(sev string) int {
+	switch sev {
+	case SevCritical:
+		return 3
+	case SevWarning:
+		return 2
+	case SevInfo:
+		return 1
+	}
+	return 0
+}
+
+// reconcileObservation records one observation, honouring acknowledgements:
+// a condition the operator dismissed WHILE STILL TRUE stays hidden as long
+// as it persists at the same (or lower) severity — it only resurfaces when
+// it escalates, recurs as a fresh event, or clears and later returns.
+// Returns whether anything operator-visible changed.
+func (s *Service) reconcileObservation(ctx context.Context, collector string, o Observation) bool {
+	var detail json.RawMessage
+	if o.Detail != nil {
+		if b, jerr := json.Marshal(o.Detail); jerr == nil {
+			detail = b
+		}
+	}
+	if o.AutoResolve {
+		s.mu.Lock()
+		s.resolveMsg[o.Key] = [2]string{o.ResolveTitle, o.ResolveBody}
+		s.mu.Unlock()
+	}
+
+	prev, _ := s.store.GetLiveSignal(ctx, o.Key)
+	if prev == nil && !o.Recur {
+		if sup, _ := s.store.GetSuppressedSignal(ctx, o.Key); sup != nil {
+			if severityRank(o.Severity) <= severityRank(sup.Severity) {
+				// Acknowledged and unchanged-or-milder — keep it muted, but
+				// keep the marker current so pruning can't unmute it early.
+				_ = s.store.TouchSuppressedSignal(ctx, sup.ID, o.Severity, o.Title, o.Body, detail)
+				return false
+			}
+			// Escalated past what was acknowledged — resurface the same row.
+			if _, rerr := s.store.ReopenSignal(ctx, sup.ID, o.Severity, o.Title, o.Body, detail); rerr == nil {
+				return true
+			}
+		}
+	}
+
+	row, uerr := s.store.UpsertSignal(ctx, store.Signal{
+		Key:         o.Key,
+		Collector:   collector,
+		SourceType:  o.SourceType,
+		SourceID:    o.SourceID,
+		SourceName:  o.SourceName,
+		Severity:    o.Severity,
+		AutoResolve: o.AutoResolve,
+		Title:       o.Title,
+		Body:        o.Body,
+		Detail:      detail,
+	}, o.Recur)
+	if uerr != nil {
+		s.logger.Error("upsert signal", "key", o.Key, "error", uerr)
+		return false
+	}
+	return prev == nil || prev.Severity != row.Severity
 }
 
 // notify pushes fresh counts to every client; the panel and page refetch.
@@ -192,28 +241,9 @@ func (s *Service) notify(ctx context.Context) {
 
 // Emit records an observation outside the sweep loop — for event-driven
 // sources (a run just failed) that shouldn't wait for the next interval.
+// It honours acknowledgements the same way the sweep does.
 func (s *Service) Emit(ctx context.Context, collector string, o Observation) {
-	var detail json.RawMessage
-	if o.Detail != nil {
-		if b, err := json.Marshal(o.Detail); err == nil {
-			detail = b
-		}
+	if s.reconcileObservation(ctx, collector, o) {
+		s.notify(ctx)
 	}
-	_, err := s.store.UpsertSignal(ctx, store.Signal{
-		Key:        o.Key,
-		Collector:  collector,
-		SourceType: o.SourceType,
-		SourceID:   o.SourceID,
-		SourceName: o.SourceName,
-		Severity:    o.Severity,
-		AutoResolve: o.AutoResolve,
-		Title:       o.Title,
-		Body:        o.Body,
-		Detail:      detail,
-	}, o.Recur)
-	if err != nil {
-		s.logger.Error("emit signal", "key", o.Key, "error", err)
-		return
-	}
-	s.notify(ctx)
 }

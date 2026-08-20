@@ -1355,9 +1355,17 @@
       "connections": "Verbindungen",
       "uptime": "Laufzeit",
       "slowQueries": "Langsame Abfragen",
-      "memResident": "Resident",
+      "memResident": "Residenter Speicher",
       "memResidentValue": "{{mb}} MB",
-      "open": "Öffnen"
+      "open": "Öffnen",
+      "asUser": "verbunden als {{user}}",
+      "totalSize": "Gesamtgröße",
+      "largestDatabases": "Datenbanken nach Größe",
+      "objects": "{{count}} Objekte",
+      "activeSessions": "Aktive Sitzungen",
+      "allSessions": "Alle Sitzungen",
+      "noActiveSessions": "Gerade keine aktiven Sitzungen.",
+      "noData": "Keine Daten"
     },
     "create": {
       "nameHint": "Buchstaben, Ziffern und Unterstriche.",
