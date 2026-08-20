@@ -4793,6 +4793,9 @@ paths:
                 createDns: { type: boolean, description: "also create the DNS record (default true when linked)" }
                 dnsContent: { type: string, description: "record target override; defaults to the link's configured target" }
                 proxied: { type: boolean, description: "proxied mode override; defaults to the link's setting" }
+                dnsProvider: { type: string, description: "TLS DNS-challenge provider for the Caddy site; omitted = inherit from existing sites, empty = none" }
+                dnsArgs: { type: string, description: "DNS-challenge args (used with dnsProvider)" }
+                encode: { type: string, description: "encode directive; omitted = inherit from existing sites, empty = none" }
       responses:
         "200":
           description: Outcome of both halves
@@ -8590,6 +8593,17 @@ components:
         rawSites:
           type: array
           items: { $ref: "#/components/schemas/CaddyRawSite" }
+        siteDefaults:
+          allOf: [{ $ref: "#/components/schemas/CaddySiteDefaults" }]
+          nullable: true
+          description: The "site template" inferred from existing entries — what new sites default to
+
+    CaddySiteDefaults:
+      type: object
+      properties:
+        dnsProvider: { type: string }
+        dnsArgs: { type: string }
+        encode: { type: string }
 
     CaddyServed:
       type: object
@@ -8675,6 +8689,9 @@ components:
           type: array
           description: Caddy domains under this zone that have no DNS record
           items: { type: string }
+        siteDefaults:
+          allOf: [{ $ref: "#/components/schemas/CaddySiteDefaults" }]
+          nullable: true
 
     CaddyPublishResult:
       type: object

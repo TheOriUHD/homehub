@@ -27,8 +27,8 @@ import (
 // in the DB (editable, assistant-readable); anything else is a blob under
 // {DataDir}/workspace/{fileID}. No RBAC resource — files are strictly
 // personal, scoped by the identity on every query.
-const maxTextFileBytes = 1 << 20   // 1 MiB — the editor stays a text editor
-const maxUploadBytes = 512 << 20   // 512 MiB per uploaded blob
+const maxTextFileBytes = 1 << 20 // 1 MiB — the editor stays a text editor
+const maxUploadBytes = 512 << 20 // 512 MiB per uploaded blob
 const maxFileName = 200
 const maxFolderPath = 400
 

@@ -46,6 +46,47 @@ type SiteEntry struct {
 	UnknownDirectives []string
 }
 
+// SiteDefaults is the "site template" inferred from the entries already in
+// the Caddyfile: the TLS DNS challenge and encode settings most sites share.
+// New sites (publish, the add-site form) default to these so they come out
+// looking like the operator's existing ones — critical for LAN-only setups,
+// where a site WITHOUT the DNS challenge can't get a certificate at all.
+type SiteDefaults struct {
+	DNSProvider string
+	DNSArgs     string
+	Encode      string
+}
+
+// InferSiteDefaults picks the most common non-empty DNS challenge (provider +
+// args as a pair) and encode value across the existing entries.
+func InferSiteDefaults(entries []SiteEntry) SiteDefaults {
+	type pair struct{ provider, args string }
+	dnsCount := map[pair]int{}
+	encCount := map[string]int{}
+	for _, e := range entries {
+		if e.DNSProvider != "" {
+			dnsCount[pair{e.DNSProvider, e.DNSArgs}]++
+		}
+		if e.Encode != "" {
+			encCount[e.Encode]++
+		}
+	}
+	var out SiteDefaults
+	best := 0
+	for p, n := range dnsCount {
+		if n > best || (n == best && (p.provider < out.DNSProvider || out.DNSProvider == "")) {
+			best, out.DNSProvider, out.DNSArgs = n, p.provider, p.args
+		}
+	}
+	best = 0
+	for enc, n := range encCount {
+		if n > best || (n == best && (enc < out.Encode || out.Encode == "")) {
+			best, out.Encode = n, enc
+		}
+	}
+	return out
+}
+
 // RawSite is a site block the splitter refused to model, shown verbatim.
 type RawSite struct {
 	Addresses []string

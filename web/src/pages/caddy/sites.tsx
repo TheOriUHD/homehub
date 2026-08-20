@@ -174,6 +174,7 @@ export function CaddySitesPage() {
         <SiteDialog
           instanceId={instanceId}
           site={editing}
+          defaults={state.siteDefaults ?? null}
           onClose={() => {
             setCreating(false);
             setEditing(null);
@@ -228,10 +229,12 @@ function useSiteMutationHandlers(instanceId: string, onDone: () => void) {
 function SiteDialog({
   instanceId,
   site,
+  defaults,
   onClose,
 }: {
   instanceId: string;
   site: CaddySite | null; // null = create
+  defaults?: { dnsProvider?: string; dnsArgs?: string; encode?: string } | null;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -240,9 +243,11 @@ function SiteDialog({
   const [scheme, setScheme] = useState(site?.upstreamScheme ?? "");
   const [host, setHost] = useState(site?.upstreamHost ?? "");
   const [port, setPort] = useState(site?.upstreamPort ?? "");
-  const [dnsProvider, setDnsProvider] = useState(site?.dnsProvider ?? "");
-  const [dnsArgs, setDnsArgs] = useState(site?.dnsArgs ?? "");
-  const [encode, setEncode] = useState(site?.encode ?? "");
+  // New sites start from the "site template" inferred from existing entries
+  // (TLS DNS challenge + encode), so they come out looking like the rest.
+  const [dnsProvider, setDnsProvider] = useState(site ? (site.dnsProvider ?? "") : (defaults?.dnsProvider ?? ""));
+  const [dnsArgs, setDnsArgs] = useState(site ? (site.dnsArgs ?? "") : (defaults?.dnsArgs ?? ""));
+  const [encode, setEncode] = useState(site ? (site.encode ?? "") : (defaults?.encode ?? ""));
   const [insecure, setInsecure] = useState(site?.insecureUpstream ?? false);
   const [headers, setHeaders] = useState<CaddyHeaderUp[]>(site?.headerUp ?? []);
 

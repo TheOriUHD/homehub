@@ -2774,9 +2774,9 @@
         "body": "Manage the DNS half of your reverse proxy from here: records that point your (sub)domains at Caddy, created together with the Caddy route in one step.",
         "noPermission": "Ask an administrator to link Cloudflare for this system.",
         "token": "Cloudflare API token",
-        "tokenHint": "Needs the Zone → DNS → Edit permission on your zone",
+        "tokenHint": "Needs Zone → Zone → Read and Zone → DNS → Edit on your zone",
         "tokenKeep": "Leave empty to keep the stored token",
-        "tokenHowTo": "Create one under <a>dash.cloudflare.com → My Profile → API Tokens</a> with the \"Edit zone DNS\" template.",
+        "tokenHowTo": "Create one under <a>dash.cloudflare.com → My Profile → API Tokens</a> — use the \"Edit zone DNS\" template and add the Zone → Zone → Read permission.",
         "zone": "Zone",
         "zoneHint": "The domain this Caddy instance serves",
         "content": "Default record target",
@@ -2842,7 +2842,9 @@
         "upstreamHost": "Service IP / host",
         "upstreamPort": "Port",
         "createDns": "Create DNS record",
-        "createDnsHint": "Points the name at {{content}}"
+        "createDnsHint": "Points the name at {{content}}",
+        "dnsChallenge": "TLS certificate via DNS challenge ({{provider}})",
+        "dnsChallengeHint": "Matches your existing sites — required when the domain resolves to a LAN IP"
       },
       "toast": {
         "published": "{{domain}} published",
