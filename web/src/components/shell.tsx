@@ -445,14 +445,8 @@ export function AppShell() {
           <NotificationsBell />
         </header>
 
-        <main
-          className={cn(
-            "mx-auto w-full flex-1 px-4 py-6 sm:px-6",
-            // The workhorse apps get the whole viewport; everything else
-            // keeps the comfortable reading column.
-            /^\/(calendar$|tools\/.|moonraker\/)/.test(pathname) ? "max-w-none" : "max-w-6xl",
-          )}
-        >
+        <main className="w-full flex-1 px-4 py-6 sm:px-6">
+
           <Outlet />
           <AssistantWidget />
         </main>
