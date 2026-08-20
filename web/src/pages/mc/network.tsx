@@ -7,7 +7,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { Card, CardBody } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
-import { loaderLabel, PROXY_LOADERS, tpsTone, useMcOverview } from "./shared";
+import { PROXY_LOADERS, loaderLabel, networkPlayers, tpsTone, useMcOverview } from "./shared";
 import { MiniStat } from "@/components/mini-stat";
 
 /**
@@ -49,8 +49,9 @@ export function McNetworkPage() {
   });
 
   const connected = servers.filter((sv) => sv.connected);
-  const players = connected.reduce((sum, sv) => sum + (sv.status?.playersOnline ?? 0), 0);
-  const slots = connected.reduce((sum, sv) => sum + (sv.status?.playersMax ?? 0), 0);
+  // Proxy-aware: on a proxied network every player also appears on a backend,
+  // so a raw sum double-counts. networkPlayers counts proxies when present.
+  const { online: players, max: slots } = networkPlayers(servers);
   const tpsValues = connected
     .map((sv) => sv.status?.tps)
     .filter((v): v is number => typeof v === "number");

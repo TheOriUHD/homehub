@@ -36,7 +36,12 @@ export function VncViewer({
   const [status, setStatus] = useState<VncStatus>({ kind: "connecting" });
   const [attempt, setAttempt] = useState(0);
   const [session, setSession] = useState<{ wsUrl: string; credential?: string }>({ wsUrl, credential });
-  useEffect(() => setSession({ wsUrl, credential }), [wsUrl, credential]);
+  // Bail out on equal values: a fresh object identity here re-runs the
+  // connect effect, and a second RFB dial would consume the ONE-TIME session
+  // ticket the first dial is already redeeming.
+  useEffect(() => {
+    setSession((prev) => (prev.wsUrl === wsUrl && prev.credential === credential ? prev : { wsUrl, credential }));
+  }, [wsUrl, credential]);
 
   const reconnect = async () => {
     if (!renew) {

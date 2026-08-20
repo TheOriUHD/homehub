@@ -1094,10 +1094,11 @@ function CameraSection({ cameras, instanceId, canControl }: { cameras: Moonraker
   );
 }
 
-function aspectStyle(ratio: string): React.CSSProperties {
+/** parseAspect turns Moonraker's "4:3" style ratio into a number, or null. */
+function parseAspect(ratio: string): number | null {
   const m = ratio.match(/^(\d+)\s*:\s*(\d+)$/);
-  if (m && Number(m[1]) > 0 && Number(m[2]) > 0) return { aspectRatio: `${m[1]} / ${m[2]}` };
-  return { aspectRatio: "16 / 9" };
+  if (m && Number(m[1]) > 0 && Number(m[2]) > 0) return Number(m[1]) / Number(m[2]);
+  return null;
 }
 
 function CameraTile({ cam, instanceId, canControl, onExpand, expanded }: { cam: MoonrakerCamera; instanceId: string; canControl?: boolean; onExpand?: () => void; expanded?: boolean }) {
@@ -1121,13 +1122,36 @@ function CameraTile({ cam, instanceId, canControl, onExpand, expanded }: { cam: 
   const toggleV = () => { const prev = flipV; const v = !flipV; setFlipV(v); save({ flipVertical: v }, () => setFlipV(prev)); };
   const rotate = () => { const prev = rotation; const v = (((rotation + 90) % 360) as 0 | 90 | 180 | 270); setRotation(v); save({ rotation: v }, () => setRotation(prev)); };
 
-  const transform = `rotate(${rotation}deg) scaleX(${flipH ? -1 : 1}) scaleY(${flipV ? -1 : 1})`;
   // The configured aspect ratio is often wrong (default 16:9 on a 4:3 cam),
-  // which letterboxes the stream in black bars. Measure the real frame once
-  // it loads and size the card to THAT; a 90°/270° rotation swaps the axes.
+  // which letterboxes the stream in black bars. Measure the real frame and
+  // size the card to THAT; a 90°/270° rotation swaps the card's axes and the
+  // image gets a compensating scale so it fills the swapped card instead of
+  // shrinking inside it (object-contain fits BEFORE the rotate transform).
   const [measured, setMeasured] = useState<number | null>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const rotated = rotation === 90 || rotation === 270;
-  const frameRatio = measured != null ? (rotated ? 1 / measured : measured) : null;
+  const ratio = measured ?? parseAspect(cam.aspectRatio) ?? 16 / 9;
+  const frameRatio = rotated ? 1 / ratio : ratio;
+  const rotScale = rotated ? Math.max(ratio, 1 / ratio) : 1;
+  const transform = `rotate(${rotation}deg) scale(${rotScale}) scaleX(${flipH ? -1 : 1}) scaleY(${flipV ? -1 : 1})`;
+  const measure = (img: HTMLImageElement | null) => {
+    if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+      const r = img.naturalWidth / img.naturalHeight;
+      setMeasured((prev) => (prev != null && Math.abs(prev - r) < 0.01 ? prev : r));
+    }
+  };
+  // Chromium doesn't fire onLoad for active multipart/MJPEG streams — poll
+  // naturalWidth briefly until the first frame has decoded.
+  useEffect(() => {
+    if (measured != null) return;
+    let tries = 0;
+    const id = window.setInterval(() => {
+      measure(imgRef.current);
+      if (++tries > 30 || imgRef.current == null) window.clearInterval(id);
+    }, 700);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measured, nonce]);
   const streamable = !/webrtc|hls|rtsp/i.test(cam.service ?? "");
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -1140,10 +1164,7 @@ function CameraTile({ cam, instanceId, canControl, onExpand, expanded }: { cam: 
   return (
     <div
       className={cn("border-edge group relative overflow-hidden rounded-lg border bg-black", expanded ? "mx-auto w-full" : "w-full")}
-      style={{
-        ...(frameRatio != null ? { aspectRatio: String(frameRatio) } : aspectStyle(cam.aspectRatio)),
-        maxHeight: expanded ? "78vh" : undefined,
-      }}
+      style={{ aspectRatio: String(frameRatio), maxHeight: expanded ? "78vh" : undefined }}
     >
       {src == null ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
@@ -1159,16 +1180,11 @@ function CameraTile({ cam, instanceId, canControl, onExpand, expanded }: { cam: 
         </button>
       ) : (
         <img
+          ref={imgRef}
           src={src}
           alt={cam.name}
           onError={() => streamable && setErrored(true)}
-          onLoad={(e) => {
-            const img = e.currentTarget;
-            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-              const r = img.naturalWidth / img.naturalHeight;
-              setMeasured((prev) => (prev != null && Math.abs(prev - r) < 0.01 ? prev : r));
-            }
-          }}
+          onLoad={(e) => measure(e.currentTarget)}
           className="absolute inset-0 size-full object-contain"
           style={{ transform }}
         />

@@ -577,8 +577,12 @@ func (s *Server) DnsOverview(ctx context.Context, req DnsOverviewRequestObject) 
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	provider, _, _, err := s.dnsProvider(ctx, id, req.Id)
-	if err == store.ErrNotFound {
+	provider, _, resource, err := s.dnsProvider(ctx, id, req.Id)
+	if errors.Is(err, store.ErrNotFound) {
+		return DnsOverview404JSONResponse{notFoundErr("instance")}, nil
+	}
+	// Same instance-view gate as every sibling DNS read endpoint.
+	if !s.can(ctx, id, resource, rbac.LevelView) {
 		return DnsOverview404JSONResponse{notFoundErr("instance")}, nil
 	}
 	if err != nil {
