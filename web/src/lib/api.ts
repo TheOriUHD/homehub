@@ -140,6 +140,11 @@ export type CaddySiteInput = ApiSchemas["CaddySiteInput"];
 export type CaddyRawSite = ApiSchemas["CaddyRawSite"];
 export type CaddyHeaderUp = ApiSchemas["CaddyHeaderUp"];
 export type CaddyServed = ApiSchemas["CaddyServed"];
+export type CaddyDnsState = ApiSchemas["CaddyDnsState"];
+export type CaddyDnsRecord = ApiSchemas["CaddyDnsRecord"];
+export type CaddyDnsRecordInput = ApiSchemas["CaddyDnsRecordInput"];
+export type CaddyCfLinkResult = ApiSchemas["CaddyCfLinkResult"];
+export type CaddyPublishResult = ApiSchemas["CaddyPublishResult"];
 
 export type TsTailnet = ApiSchemas["TsTailnet"];
 export type TsDevice = ApiSchemas["TsDevice"];

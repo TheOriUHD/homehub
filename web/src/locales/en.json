@@ -2685,7 +2685,8 @@
     "degradedBanner": "The helper is up but cannot reach Caddy: {{message}}",
     "tabs": {
       "sites": "Sites",
-      "served": "Running config"
+      "served": "Running config",
+      "dns": "DNS"
     },
     "sites": {
       "fileLabel": "Managing",
@@ -2766,6 +2767,87 @@
       "repairButton": "Re-pair",
       "repairSuccess": "Helper re-paired",
       "repairFailed": "Re-pairing failed"
+    },
+    "dns": {
+      "link": {
+        "title": "Link Cloudflare",
+        "body": "Manage the DNS half of your reverse proxy from here: records that point your (sub)domains at Caddy, created together with the Caddy route in one step.",
+        "noPermission": "Ask an administrator to link Cloudflare for this system.",
+        "token": "Cloudflare API token",
+        "tokenHint": "Needs the Zone → DNS → Edit permission on your zone",
+        "tokenKeep": "Leave empty to keep the stored token",
+        "tokenHowTo": "Create one under <a>dash.cloudflare.com → My Profile → API Tokens</a> with the \"Edit zone DNS\" template.",
+        "zone": "Zone",
+        "zoneHint": "The domain this Caddy instance serves",
+        "content": "Default record target",
+        "contentHint": "Where new DNS records point — your Caddy host's IP (or a DDNS hostname). Every published subdomain resolves here.",
+        "proxied": "Proxy through Cloudflare",
+        "proxiedHint": "Orange-cloud. Keep off when the target is a private LAN IP.",
+        "verify": "Verify token",
+        "confirm": "Link zone",
+        "linked": "Linked to {{zone}}",
+        "failed": "Linking failed"
+      },
+      "defaultTarget": "Default target",
+      "addRecord": "Add record",
+      "editRecord": "Edit record",
+      "publish": "Publish service",
+      "publishTitle": "Publish a service",
+      "publishBody": "Creates the DNS record pointing the name at your Caddy host and the Caddy route to the service — both in one step.",
+      "settings": "Cloudflare settings",
+      "unlink": "Unlink Cloudflare",
+      "unlinkConfirm": {
+        "title": "Unlink Cloudflare?",
+        "body": "Removes the stored API token and the link to {{zone}}. No DNS records are deleted."
+      },
+      "deleteConfirm": {
+        "title": "Delete DNS record?",
+        "body": "{{name}} will be removed from Cloudflare. Anything resolving it will stop working."
+      },
+      "missing": "{{count}} Caddy site(s) have no DNS record:",
+      "missingAdd": "Create a record for {{domain}}",
+      "empty": {
+        "title": "No DNS records",
+        "body": "This zone has no records yet — add one or publish a service."
+      },
+      "cols": {
+        "type": "Type",
+        "name": "Name",
+        "content": "Content",
+        "proxy": "Proxy",
+        "route": "Caddy route"
+      },
+      "proxied": "Proxied through Cloudflare",
+      "dnsOnly": "DNS only",
+      "createRoute": "Create route…",
+      "noRoute": "No route",
+      "outcome": {
+        "dns": "Cloudflare DNS",
+        "site": "Caddy site"
+      },
+      "dnsStatus": {
+        "created": "created",
+        "exists": "already existed",
+        "skipped": "skipped",
+        "error": "failed",
+        "unlinked": "not linked"
+      },
+      "siteStatus": {
+        "created": "created",
+        "error": "failed"
+      },
+      "form": {
+        "name": "Name",
+        "nameHint": "\"@\" for {{zone}} itself, or a subdomain like \"app\"",
+        "upstreamHost": "Service IP / host",
+        "upstreamPort": "Port",
+        "createDns": "Create DNS record",
+        "createDnsHint": "Points the name at {{content}}"
+      },
+      "toast": {
+        "published": "{{domain}} published",
+        "failed": "Action failed"
+      }
     }
   },
   "nvr": {
