@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -40,6 +41,8 @@ func OpenDockerExec(cli *dockerclient.Client, containerID, command string) OpenF
 
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
+		// Keep the browser leg alive through reverse-proxy idle timeouts.
+		KeepAlive(ctx, 30*time.Second, conn)
 
 		// exec output → client
 		go func() {
@@ -99,6 +102,8 @@ func OpenDockerLogs(cli *dockerclient.Client, containerID string, tty bool, tail
 
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
+		// Keep the browser leg alive through reverse-proxy idle timeouts.
+		KeepAlive(ctx, 30*time.Second, conn)
 
 		// Drain (and ignore) client frames so pings/close are noticed.
 		go func() {

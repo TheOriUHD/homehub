@@ -1284,6 +1284,22 @@ function ConsoleTab({
         : session.mode === "serial"
           ? t("pve.guest.consoleSerial")
           : t("pve.guest.consoleSsh");
+    // Session tickets are single-use and expire server-side; the reconnect
+    // button mints a fresh one instead of re-dialing the dead URL.
+    const mode = session.mode;
+    const renewSession = async (): Promise<TermSession> => {
+      const data =
+        mode === "ssh"
+          ? unwrap(await api.POST("/proxmox/{id}/guests/{vmid}/ssh", { params: { path: { id: instanceId, vmid } } }))
+          : unwrap(
+              await api.POST("/proxmox/{id}/guests/{vmid}/console", {
+                params: { path: { id: instanceId, vmid } },
+                body: { kind: mode },
+              }),
+            );
+      setSession({ ...data, mode });
+      return data;
+    };
     return (
       <div className="space-y-2.5">
         <div className="flex items-center justify-between gap-3">
@@ -1305,9 +1321,22 @@ function ConsoleTab({
         >
           <Suspense fallback={<PageLoader className="h-full" />}>
             {session.mode === "vnc" ? (
-              <VncViewer wsUrl={wsUrl(session.wsPath)} credential={session.credential ?? undefined} className="h-full" />
+              <VncViewer
+                wsUrl={wsUrl(session.wsPath)}
+                credential={session.credential ?? undefined}
+                renew={async () => {
+                  const fresh = await renewSession();
+                  return { wsUrl: wsUrl(fresh.wsPath), credential: fresh.credential ?? undefined };
+                }}
+                className="h-full"
+              />
             ) : (
-              <TerminalPane wsUrl={wsUrl(session.wsPath)} className="h-full" onExit={() => setSession(null)} />
+              <TerminalPane
+                wsUrl={wsUrl(session.wsPath)}
+                renew={async () => wsUrl((await renewSession()).wsPath)}
+                className="h-full"
+                onExit={() => setSession(null)}
+              />
             )}
           </Suspense>
         </div>
