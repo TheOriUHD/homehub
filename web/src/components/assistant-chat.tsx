@@ -72,6 +72,20 @@ type StreamEvent = {
 /** Friendly label for a tool name in the live spinner chips. */
 const toolLabel = (name: string) => name.replace(/_/g, " ");
 
+/**
+ * conversationId scopes the web chat to one app session: sessionStorage
+ * survives navigation and reloads within the running app but is gone once the
+ * app is fully closed — a fresh open starts a fresh conversation.
+ */
+function conversationId(): string {
+  let id = sessionStorage.getItem("hh-assistant-conversation");
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem("hh-assistant-conversation", id);
+  }
+  return id;
+}
+
 export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -81,9 +95,11 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  const conversation = conversationId();
   const history = useQuery({
-    queryKey: ["assistant", "history"],
-    queryFn: async () => unwrap(await api.GET("/assistant/history")),
+    queryKey: ["assistant", "history", conversation],
+    queryFn: async () =>
+      unwrap(await api.GET("/assistant/history", { params: { query: { conversation } } })),
   });
 
   // Streaming turn: interim text, tool spinners, a confirmation card for
@@ -106,7 +122,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ message }),
+          body: JSON.stringify({ message, conversation }),
           signal: controller.signal,
         });
         if (!res.ok || !res.body) {
@@ -181,7 +197,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ actions: pending }),
+        body: JSON.stringify({ actions: pending, conversation }),
       });
       if (!res.ok) {
         toast("error", t("assistant.failed"));
@@ -194,7 +210,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
     } finally {
       setApplying(false);
     }
-  }, [pending, queryClient, t, toast]);
+  }, [pending, conversation, queryClient, t, toast]);
 
   const clear = useMutation({
     mutationFn: async () => {
@@ -285,7 +301,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
             <Send className="size-4" />
           </Button>
         )}
-        {variant === "page" && items.length > 0 && (
+        {items.length > 0 && (
           <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)} aria-label={t("assistant.clear")}>
             <Eraser className="size-4" />
           </Button>

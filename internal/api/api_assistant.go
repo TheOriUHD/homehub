@@ -9,6 +9,7 @@ import (
 	"homehub/internal/assistant"
 	"homehub/internal/httpctx"
 	"homehub/internal/rbac"
+	"homehub/internal/store"
 )
 
 // The assistant runs with the CALLER's identity: every tool checks the
@@ -257,12 +258,16 @@ func stepsToAPI(steps []assistant.StepInfo) []AssistantStep {
 	return out
 }
 
-func (s *Server) GetAssistantHistory(ctx context.Context, _ GetAssistantHistoryRequestObject) (GetAssistantHistoryResponseObject, error) {
+func (s *Server) GetAssistantHistory(ctx context.Context, req GetAssistantHistoryRequestObject) (GetAssistantHistoryResponseObject, error) {
 	id := httpctx.IdentityFrom(ctx)
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	rows, err := s.store.ListAssistantMessages(ctx, id.User.ID, 100)
+	conversation := ""
+	if req.Params.Conversation != nil {
+		conversation = strings.TrimSpace(*req.Params.Conversation)
+	}
+	rows, err := s.store.ListAssistantMessages(ctx, id.User.ID, store.AssistantChannelWeb, conversation, 100)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +302,7 @@ func (s *Server) ClearAssistantHistory(ctx context.Context, _ ClearAssistantHist
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	if err := s.store.ClearAssistantMessages(ctx, id.User.ID); err != nil {
+	if err := s.store.ClearAssistantMessages(ctx, id.User.ID, store.AssistantChannelWeb); err != nil {
 		return nil, err
 	}
 	return ClearAssistantHistory204Response{}, nil

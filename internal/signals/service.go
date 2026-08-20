@@ -73,6 +73,10 @@ type Service struct {
 	// lists, so a single missing sweep proves nothing — resolving an
 	// acknowledgement is irreversible and must be debounced.
 	suppressedMiss map[string]int
+	// notifier pushes operator-relevant signal transitions to external
+	// channels (Telegram). Called for NEW and ESCALATED warning/critical
+	// signals and for their recovery; nil = disabled.
+	notifier func(sig store.Signal, event string)
 }
 
 func NewService(st *store.Store, publish PublishFunc, logger *slog.Logger) *Service {
@@ -84,6 +88,28 @@ func NewService(st *store.Store, publish PublishFunc, logger *slog.Logger) *Serv
 		resolveMsg:     map[string][2]string{},
 		suppressedMiss: map[string]int{},
 	}
+}
+
+// SetNotifier installs the external push hook (see the notifier field).
+func (s *Service) SetNotifier(fn func(sig store.Signal, event string)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.notifier = fn
+}
+
+// pushNotify fires the hook when it exists — only for severities worth a
+// phone buzz (warning/critical firing, and their recovery).
+func (s *Service) pushNotify(sig *store.Signal, event string) {
+	if sig == nil {
+		return
+	}
+	s.mu.Lock()
+	fn := s.notifier
+	s.mu.Unlock()
+	if fn == nil {
+		return
+	}
+	fn(*sig, event)
 }
 
 // Register adds a collector; call before the first sweep.
@@ -149,8 +175,13 @@ func (s *Service) runCollector(ctx context.Context, c Collector) {
 		s.mu.Unlock()
 		// ListLiveSignalKeys only returns auto_resolve rows, so anything
 		// here genuinely cleared; msg text is a best-effort override.
-		if _, rerr := s.store.ResolveSignal(ctx, key, msg[0], msg[1]); rerr == nil {
+		prev, _ := s.store.GetLiveSignal(ctx, key)
+		if row, rerr := s.store.ResolveSignal(ctx, key, msg[0], msg[1]); rerr == nil {
 			changed = true
+			// The all-clear is only worth a push when the firing was.
+			if prev != nil && severityRank(prev.Severity) >= severityRank(SevWarning) {
+				s.pushNotify(row, "recovered")
+			}
 		}
 	}
 
@@ -226,7 +257,10 @@ func (s *Service) reconcileObservation(ctx context.Context, collector string, o 
 				return false
 			}
 			// Escalated past what was acknowledged — resurface the same row.
-			if _, rerr := s.store.ReopenSignal(ctx, sup.ID, o.Severity, o.Title, o.Body, detail); rerr == nil {
+			if row, rerr := s.store.ReopenSignal(ctx, sup.ID, o.Severity, o.Title, o.Body, detail); rerr == nil {
+				if severityRank(o.Severity) >= severityRank(SevWarning) {
+					s.pushNotify(row, "escalated")
+				}
 				return true
 			}
 		}
@@ -247,6 +281,12 @@ func (s *Service) reconcileObservation(ctx context.Context, collector string, o 
 	if uerr != nil {
 		s.logger.Error("upsert signal", "key", o.Key, "error", uerr)
 		return false
+	}
+	// Push new firings and true escalations (never downgrades or recoveries —
+	// those are handled by the auto-resolve path).
+	if severityRank(row.Severity) >= severityRank(SevWarning) &&
+		(prev == nil || severityRank(row.Severity) > severityRank(prev.Severity)) {
+		s.pushNotify(row, map[bool]string{true: "new", false: "escalated"}[prev == nil])
 	}
 	return prev == nil || prev.Severity != row.Severity
 }

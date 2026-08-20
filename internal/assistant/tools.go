@@ -27,6 +27,11 @@ type Access struct {
 	DisplayName  string
 	Can          func(resource, level string) bool
 	VisibleUnder func(prefix string) bool
+	// Channel scopes the conversation history: "web" or "telegram" — the two
+	// surfaces keep fully separate threads. Conversation further scopes the
+	// web channel to one app session; Telegram uses "".
+	Channel      string
+	Conversation string
 }
 
 // Toolbox executes tools against HomeHub's own services. Call performs an

@@ -85,7 +85,7 @@ export function AssistantWidget() {
           onClick={() => setOpen(true)}
           aria-label={t("assistant.openWidget")}
           className={cn(
-            "bg-accent text-accent-fg fixed right-4 bottom-4 z-50 flex size-13 items-center justify-center rounded-full shadow-2",
+            "bg-accent text-accent-fg fixed right-4 bottom-4 z-50 flex size-13 cursor-pointer items-center justify-center rounded-full shadow-2",
             "hover:bg-accent-hover transition-all hover:scale-105 active:scale-95",
             "animate-[hh-pop-in_200ms_var(--ease-out-quick)]",
           )}

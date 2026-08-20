@@ -6784,7 +6784,12 @@ paths:
     get:
       operationId: getAssistantHistory
       summary: The caller's conversation history
+      description: Web-channel history only — the Telegram bridge keeps a fully separate thread. Scoped to the given per-app-session conversation id.
       tags: [assistant]
+      parameters:
+        - name: conversation
+          in: query
+          schema: { type: string }
       responses:
         "200":
           description: Messages, oldest first
