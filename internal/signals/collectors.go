@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	containertypes "github.com/docker/docker/api/types/container"
@@ -15,6 +16,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/integrations/aperture"
 	"github.com/TheOriUHD/homehub/internal/integrations/docker"
 	"github.com/TheOriUHD/homehub/internal/integrations/homeassistant"
+	"github.com/TheOriUHD/homehub/internal/integrations/minecraft"
 	"github.com/TheOriUHD/homehub/internal/integrations/proxmox"
 	"github.com/TheOriUHD/homehub/internal/integrations/tailscale"
 	"github.com/TheOriUHD/homehub/internal/integrations/truenas"
@@ -38,6 +40,7 @@ func RegisterBuiltins(s *Service, d Deps) {
 	s.Register(&dockerCollector{d})
 	s.Register(&tailscaleCollector{d})
 	s.Register(&apertureCollector{d})
+	s.Register(&minecraftCollector{Deps: d})
 	s.Register(&trashCollector{d})
 }
 
@@ -240,7 +243,7 @@ func (c *haBatteryCollector) Collect(ctx context.Context) ([]Observation, error)
 					Title:    fmt.Sprintf("%s is low", batteryLabel(e.Name)),
 					Body:     "Charge or replace the battery soon.",
 					Detail: map[string]any{
-						"entityId": e.EntityID,
+						"entityId":    e.EntityID,
 						"lastChanged": e.LastChanged.UTC().Format(time.RFC3339),
 					},
 					SourceType: "homeassistant", SourceID: srcID(inst.ID), SourceName: inst.Name,
@@ -357,11 +360,11 @@ func (c *patchpilotCollector) Collect(ctx context.Context) ([]Observation, error
 				})
 			case totalPkgs > 0:
 				out = append(out, Observation{
-					Key:      "pp:" + inst.ID.String() + ":run:" + run.ID.String(),
-					Severity: SevInfo,
-					Title:    fmt.Sprintf("Updates applied: %d packages across %d hosts", totalPkgs, okHosts),
-					Body:     fmt.Sprintf("A %s update run finished cleanly.", run.Trigger),
-					Detail:   map[string]any{"runId": run.ID, "trigger": run.Trigger, "packages": totalPkgs, "hosts": okHosts},
+					Key:        "pp:" + inst.ID.String() + ":run:" + run.ID.String(),
+					Severity:   SevInfo,
+					Title:      fmt.Sprintf("Updates applied: %d packages across %d hosts", totalPkgs, okHosts),
+					Body:       fmt.Sprintf("A %s update run finished cleanly.", run.Trigger),
+					Detail:     map[string]any{"runId": run.ID, "trigger": run.Trigger, "packages": totalPkgs, "hosts": okHosts},
 					SourceType: "patchpilot", SourceID: srcID(inst.ID), SourceName: inst.Name,
 				})
 			}
@@ -377,11 +380,11 @@ func (c *patchpilotCollector) Collect(ctx context.Context) ([]Observation, error
 				continue
 			}
 			out = append(out, Observation{
-				Key:      "pp:" + inst.ID.String() + ":reboot:" + h.ID.String(),
-				Severity: SevInfo,
-				Title:    fmt.Sprintf("%s is waiting for a reboot", h.Name),
-				Body:     "Updates were installed that need a restart to take effect.",
-				Detail:   map[string]any{"hostId": h.ID, "host": h.Name, "os": h.OSPretty},
+				Key:        "pp:" + inst.ID.String() + ":reboot:" + h.ID.String(),
+				Severity:   SevInfo,
+				Title:      fmt.Sprintf("%s is waiting for a reboot", h.Name),
+				Body:       "Updates were installed that need a restart to take effect.",
+				Detail:     map[string]any{"hostId": h.ID, "host": h.Name, "os": h.OSPretty},
 				SourceType: "patchpilot", SourceID: srcID(inst.ID), SourceName: inst.Name,
 				AutoResolve:  true,
 				ResolveTitle: fmt.Sprintf("%s rebooted", h.Name),
@@ -768,6 +771,21 @@ func humanAgo(d time.Duration) string {
 	}
 }
 
+// shortAgo renders a recent duration at outage resolution ("12 minutes",
+// "3 hours") — humanAgo's day-level coarseness reads uselessly for downtime.
+func shortAgo(d time.Duration) string {
+	switch {
+	case d < 2*time.Minute:
+		return "moments"
+	case d < 2*time.Hour:
+		return fmt.Sprintf("%d minutes", int(d.Minutes()))
+	case d < 48*time.Hour:
+		return fmt.Sprintf("%d hours", int(d.Hours()))
+	default:
+		return humanAgo(d)
+	}
+}
+
 // ---- Aperture (NVR) ---------------------------------------------------------
 
 // apertureCollector watches camera health: not delivering live video,
@@ -823,6 +841,93 @@ func (c *apertureCollector) Collect(ctx context.Context) ([]Observation, error) 
 				SourceType: "aperture", SourceID: srcID(inst.ID), SourceName: inst.Name,
 				AutoResolve:  true,
 				ResolveTitle: fmt.Sprintf("Camera %s is healthy again", cam.Name),
+			})
+		}
+	}
+	return out, nil
+}
+
+// ---- minecraft: per-server offline detection ---------------------------------
+
+// minecraftCollector signals each paired member server whose companion has
+// been gone longer than a short grace window. The instance-level status
+// collector only says "5 of 6 servers connected" — this one names the server.
+// The grace window keeps routine restarts (nightly reboots, /restart) from
+// paging anyone; a signal fires only for sustained downtime and auto-resolves
+// the sweep after the companion returns.
+type minecraftCollector struct {
+	Deps
+	mu           sync.Mutex
+	offlineSince map[uuid.UUID]time.Time
+}
+
+const mcOfflineGrace = 2 * time.Minute
+
+func (c *minecraftCollector) Name() string            { return "minecraft" }
+func (c *minecraftCollector) Interval() time.Duration { return time.Minute }
+
+func (c *minecraftCollector) Collect(ctx context.Context) ([]Observation, error) {
+	insts, err := c.instances(ctx, "minecraft")
+	if err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	if c.offlineSince == nil {
+		c.offlineSince = map[uuid.UUID]time.Time{}
+	}
+	c.mu.Unlock()
+
+	now := time.Now()
+	var out []Observation
+	for _, inst := range insts {
+		conn, cerr := c.Manager.Connection(inst.ID)
+		if cerr != nil {
+			continue
+		}
+		mc, ok := conn.(*minecraft.Conn)
+		if !ok {
+			continue
+		}
+		servers, serr := mc.ServerStates(ctx)
+		if serr != nil {
+			continue
+		}
+		for _, server := range servers {
+			if !server.Paired {
+				continue // still in setup, not an outage
+			}
+			c.mu.Lock()
+			if server.Connected {
+				delete(c.offlineSince, server.ID)
+				c.mu.Unlock()
+				continue
+			}
+			since, seen := c.offlineSince[server.ID]
+			if !seen {
+				since = now
+				c.offlineSince[server.ID] = since
+			}
+			c.mu.Unlock()
+			if now.Sub(since) < mcOfflineGrace {
+				continue // restart grace — don't page for a quick bounce
+			}
+			body := "The companion has not reconnected."
+			if server.LastConnectedAt != nil {
+				body = fmt.Sprintf("Last connected %s ago.", shortAgo(now.Sub(*server.LastConnectedAt)))
+			}
+			instID := inst.ID
+			out = append(out, Observation{
+				Key:          "mc:" + inst.ID.String() + ":server:" + server.ID.String() + ":offline",
+				Severity:     SevWarning,
+				Title:        fmt.Sprintf("Minecraft server %s is offline", server.Label),
+				Body:         body,
+				SourceType:   "minecraft",
+				SourceID:     &instID,
+				SourceName:   inst.Name,
+				AutoResolve:  true,
+				ResolveTitle: fmt.Sprintf("Minecraft server %s is back online", server.Label),
+				ResolveBody:  "The companion reconnected.",
+				Detail:       map[string]any{"serverId": server.ID, "label": server.Label},
 			})
 		}
 	}

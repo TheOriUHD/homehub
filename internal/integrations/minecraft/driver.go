@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/TheOriUHD/homehub/internal/integration"
 	"github.com/TheOriUHD/homehub/internal/metrics"
 )
@@ -131,3 +133,33 @@ func (c *Conn) Collect(ctx context.Context) ([]metrics.Sample, error) {
 // Close is a no-op: the companions own their sockets, and the registry
 // keeps them across driver reopen cycles.
 func (c *Conn) Close() {}
+
+// ServerState is one paired server's live connectivity — consumed by the
+// signals sweep for per-server offline detection.
+type ServerState struct {
+	ID              uuid.UUID
+	Label           string
+	Connected       bool
+	Paired          bool
+	LastConnectedAt *time.Time
+}
+
+// ServerStates lists every member server with its companion connectivity.
+func (c *Conn) ServerStates(ctx context.Context) ([]ServerState, error) {
+	servers, err := c.registry.store.ListMinecraftServers(ctx, c.inst.ID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ServerState, 0, len(servers))
+	for _, server := range servers {
+		_, connected := c.registry.Session(server.ID)
+		out = append(out, ServerState{
+			ID:              server.ID,
+			Label:           server.Label,
+			Connected:       connected,
+			Paired:          server.PairedAt != nil,
+			LastConnectedAt: server.LastConnectedAt,
+		})
+	}
+	return out, nil
+}
