@@ -67,7 +67,12 @@ export function useCfLink(instanceId: string) {
     mutationFn: async (body: { token?: string; zoneId?: string; recordContent?: string; proxied?: boolean }) =>
       unwrap(await api.POST("/caddy/{id}/cloudflare/link", { params: { path: { id: instanceId } }, body })),
     onSuccess: (res) => {
-      if (res.linked) void qc.invalidateQueries({ queryKey: caddyDnsKey(instanceId) });
+      if (res.linked) {
+        void qc.invalidateQueries({ queryKey: caddyDnsKey(instanceId) });
+        // The link lives in the integration's config — refresh the cached row
+        // so the systems editor's config-preserving spread stays current.
+        void qc.invalidateQueries({ queryKey: ["integrations"] });
+      }
     },
   });
 }
@@ -77,7 +82,10 @@ export function useCfUnlink(instanceId: string) {
   return useMutation({
     mutationFn: async () =>
       unwrap(await api.DELETE("/caddy/{id}/cloudflare/link", { params: { path: { id: instanceId } } })),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: caddyDnsKey(instanceId) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: caddyDnsKey(instanceId) });
+      void qc.invalidateQueries({ queryKey: ["integrations"] });
+    },
   });
 }
 

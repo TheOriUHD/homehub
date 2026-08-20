@@ -176,6 +176,27 @@ func toAPICaddyState(state *caddy.SitesState) CaddySitesState {
 	for _, r := range state.RawSites {
 		out.RawSites = append(out.RawSites, CaddyRawSite{Addresses: r.Addresses, Reason: r.Reason, Raw: r.Raw})
 	}
+	if d := toAPISiteDefaults(caddy.InferSiteDefaults(state.Entries)); d != nil {
+		out.SiteDefaults = d
+	}
+	return out
+}
+
+// toAPISiteDefaults maps inferred defaults; nil when there is nothing to inherit.
+func toAPISiteDefaults(d caddy.SiteDefaults) *CaddySiteDefaults {
+	if d.DNSProvider == "" && d.Encode == "" {
+		return nil
+	}
+	out := &CaddySiteDefaults{}
+	if d.DNSProvider != "" {
+		out.DnsProvider = &d.DNSProvider
+		if d.DNSArgs != "" {
+			out.DnsArgs = &d.DNSArgs
+		}
+	}
+	if d.Encode != "" {
+		out.Encode = &d.Encode
+	}
 	return out
 }
 

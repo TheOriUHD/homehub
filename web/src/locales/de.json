@@ -2774,9 +2774,9 @@
         "body": "Verwalte die DNS-Hälfte deines Reverse-Proxys von hier: Einträge, die deine (Sub-)Domains auf Caddy zeigen lassen — zusammen mit der Caddy-Route in einem Schritt erstellt.",
         "noPermission": "Bitte eine:n Administrator:in, Cloudflare für dieses System zu verknüpfen.",
         "token": "Cloudflare-API-Token",
-        "tokenHint": "Braucht die Berechtigung Zone → DNS → Bearbeiten für deine Zone",
+        "tokenHint": "Braucht Zone → Zone → Lesen und Zone → DNS → Bearbeiten für deine Zone",
         "tokenKeep": "Leer lassen, um das gespeicherte Token zu behalten",
-        "tokenHowTo": "Erstelle eins unter <a>dash.cloudflare.com → My Profile → API Tokens</a> mit der Vorlage „Zonen-DNS bearbeiten“.",
+        "tokenHowTo": "Erstelle eins unter <a>dash.cloudflare.com → My Profile → API Tokens</a> — nutze die Vorlage „Zonen-DNS bearbeiten“ und ergänze die Berechtigung Zone → Zone → Lesen.",
         "zone": "Zone",
         "zoneHint": "Die Domain, die diese Caddy-Instanz bedient",
         "content": "Standard-Ziel für Einträge",
@@ -2842,7 +2842,9 @@
         "upstreamHost": "Dienst-IP / Host",
         "upstreamPort": "Port",
         "createDns": "DNS-Eintrag erstellen",
-        "createDnsHint": "Zeigt den Namen auf {{content}}"
+        "createDnsHint": "Zeigt den Namen auf {{content}}",
+        "dnsChallenge": "TLS-Zertifikat per DNS-Challenge ({{provider}})",
+        "dnsChallengeHint": "Wie deine bestehenden Sites — nötig, wenn die Domain auf eine LAN-IP auflöst"
       },
       "toast": {
         "published": "{{domain}} veröffentlicht",

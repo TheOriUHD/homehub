@@ -351,9 +351,14 @@ function DnsBoard({
                     <td className="px-4 py-2 text-right">
                       {canControl && (
                         <div className="flex items-center justify-end gap-1">
-                          <Button size="sm" variant="ghost" aria-label={t("common.edit")} onClick={() => setRecord({ edit: rec })}>
-                            <Pencil className="size-3.5" />
-                          </Button>
+                          {/* Editing is offered only for types the dialog can
+                              round-trip — an MX/SRV needs priority/data fields
+                              a full-overwrite PUT would silently destroy. */}
+                          {(RECORD_TYPES as readonly string[]).includes(rec.type) && (
+                            <Button size="sm" variant="ghost" aria-label={t("common.edit")} onClick={() => setRecord({ edit: rec })}>
+                              <Pencil className="size-3.5" />
+                            </Button>
+                          )}
                           <Button size="sm" variant="ghost" aria-label={t("common.delete")} onClick={() => setDeleting(rec)}>
                             <Trash2 className="text-danger size-3.5" />
                           </Button>
@@ -453,9 +458,21 @@ function PublishDialog({
   const [scheme, setScheme] = useState("http");
   const [createDns, setCreateDns] = useState(preset.createDns ?? true);
   const [proxied, setProxied] = useState(state.proxiedDefault);
+  // New sites inherit the TLS DNS challenge your other entries use — without
+  // it, a LAN-only domain can never get a certificate.
+  const inheritedDns = state.siteDefaults?.dnsProvider ?? "";
+  const [useDnsChallenge, setUseDnsChallenge] = useState(true);
   const [result, setResult] = useState<CaddyPublishResult | null>(null);
 
-  const fqdn = name.trim() === "" || name.trim() === "@" ? state.zoneName : name.includes(".") && name.endsWith(state.zoneName) ? name : `${name.trim()}.${state.zoneName}`;
+  // Mirrors the backend's CFNormalizeName exactly: trim, lowercase, strip a
+  // trailing dot; "@"/empty/zone → apex; a ".zone" suffix is kept as-is.
+  const fqdn = (() => {
+    const n = name.trim().toLowerCase().replace(/\.$/, "");
+    const zone = state.zoneName.toLowerCase();
+    if (n === "" || n === "@" || n === zone) return zone;
+    if (n.endsWith("." + zone)) return n;
+    return `${n}.${zone}`;
+  })();
 
   const submit = () => {
     publish.mutate(
@@ -466,6 +483,8 @@ function PublishDialog({
         upstreamScheme: scheme !== "http" ? scheme : undefined,
         createDns,
         proxied: createDns ? proxied : undefined,
+        // Omitted = inherit the template; explicit "" = no DNS challenge.
+        ...(inheritedDns && !useDnsChallenge ? { dnsProvider: "" } : {}),
       },
       {
         onSuccess: (res) => {
@@ -504,7 +523,7 @@ function PublishDialog({
               )}
             </Field>
             <div className="grid grid-cols-[110px_1fr_110px] gap-2">
-              <Field label={t("caddy.sites.form.scheme", "Scheme")}>
+              <Field label={t("caddy.editor.scheme")}>
                 {(p) => (
                   <Select value={scheme} onValueChange={setScheme}>
                     <SelectTrigger id={p.id}>
@@ -540,6 +559,17 @@ function PublishDialog({
                   <span className="text-fg-subtle block text-[12px]">{t("caddy.dns.link.proxiedHint")}</span>
                 </span>
                 <Switch checked={proxied} onCheckedChange={setProxied} />
+              </label>
+            )}
+            {inheritedDns && (
+              <label className="flex items-center justify-between gap-3">
+                <span>
+                  <span className="text-fg block text-[13.5px] font-medium">
+                    {t("caddy.dns.form.dnsChallenge", { provider: inheritedDns })}
+                  </span>
+                  <span className="text-fg-subtle block text-[12px]">{t("caddy.dns.form.dnsChallengeHint")}</span>
+                </span>
+                <Switch checked={useDnsChallenge} onCheckedChange={setUseDnsChallenge} />
               </label>
             )}
             <div className="flex justify-end gap-2">
@@ -598,7 +628,16 @@ function RecordDialog({
   const busy = create.isPending || update.isPending;
 
   const submit = () => {
-    const body = { name: name.trim(), type, content: content.trim(), proxied };
+    const body = {
+      name: name.trim(),
+      type,
+      content: content.trim(),
+      // Only A/AAAA/CNAME can be proxied — never send a hidden proxied:true
+      // for TXT & co. (Cloudflare rejects it).
+      proxied: ["A", "AAAA", "CNAME"].includes(type) ? proxied : false,
+      // Preserve a deliberate TTL on edit; new records default to auto.
+      ...(edit?.ttl ? { ttl: edit.ttl } : {}),
+    };
     const opts = {
       onSuccess: () => onClose(),
       onError: (e: unknown) => toast("error", t("caddy.dns.toast.failed"), String(e)),

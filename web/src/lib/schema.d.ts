@@ -5826,6 +5826,13 @@ export interface components {
             global?: string;
             entries: components["schemas"]["CaddySite"][];
             rawSites: components["schemas"]["CaddyRawSite"][];
+            /** @description The "site template" inferred from existing entries — what new sites default to */
+            siteDefaults?: components["schemas"]["CaddySiteDefaults"] | null;
+        };
+        CaddySiteDefaults: {
+            dnsProvider?: string;
+            dnsArgs?: string;
+            encode?: string;
         };
         CaddyServed: {
             upstreams: {
@@ -5884,6 +5891,7 @@ export interface components {
             records: components["schemas"]["CaddyDnsRecord"][];
             /** @description Caddy domains under this zone that have no DNS record */
             missingDns: string[];
+            siteDefaults?: components["schemas"]["CaddySiteDefaults"] | null;
         };
         CaddyPublishResult: {
             /** @description the FQDN that was published */
@@ -12064,6 +12072,12 @@ export interface operations {
                     dnsContent?: string;
                     /** @description proxied mode override; defaults to the link's setting */
                     proxied?: boolean;
+                    /** @description TLS DNS-challenge provider for the Caddy site; omitted = inherit from existing sites, empty = none */
+                    dnsProvider?: string;
+                    /** @description DNS-challenge args (used with dnsProvider) */
+                    dnsArgs?: string;
+                    /** @description encode directive; omitted = inherit from existing sites, empty = none */
+                    encode?: string;
                 };
             };
         };

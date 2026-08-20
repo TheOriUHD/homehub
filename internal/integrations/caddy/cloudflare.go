@@ -130,7 +130,7 @@ func (c *cfClient) do(ctx context.Context, method, path string, body any, out an
 	}
 	if !env.Success {
 		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-			return nil, errors.New("Cloudflare rejected the API token — check that it is valid and has the Zone → DNS → Edit permission")
+			return nil, errors.New("Cloudflare rejected the API token — check that it is valid and has Zone → Zone → Read plus Zone → DNS → Edit on the zone")
 		}
 		if len(env.Errors) > 0 {
 			return nil, fmt.Errorf("Cloudflare: %s", env.Errors[0].Message)
@@ -271,50 +271,54 @@ func CFNormalizeName(input, zone string) string {
 	return name + "." + zone
 }
 
-// ---- Conn methods -------------------------------------------------------------
-
-// CFLink reads the instance's Cloudflare link config.
-func (c *Conn) CFLink() CFLink {
-	return CFLinkFromConfig(c.inst.Config)
+// CFProxiable reports whether a record type can be orange-clouded — only
+// A/AAAA/CNAME are; Cloudflare rejects proxied on everything else.
+func CFProxiable(recType string) bool {
+	switch strings.ToUpper(recType) {
+	case "A", "AAAA", "CNAME":
+		return true
+	}
+	return false
 }
 
-// cfClientFromVault builds a client with the stored token.
-func (c *Conn) cfClientFromVault(ctx context.Context) (*cfClient, error) {
-	token, err := c.deps.Secret(ctx, CFSecretName)
-	if err != nil || strings.TrimSpace(token) == "" {
+// ---- CFOps -------------------------------------------------------------------
+//
+// CFOps performs the Cloudflare operations for a linked instance. It is built
+// from the stored link config + vault token DIRECTLY — deliberately not from
+// the live helper connection — so DNS keeps working even while the caddy-reader
+// host is down (which is exactly when an operator may want to repoint DNS).
+
+type CFOps struct {
+	link   CFLink
+	client *cfClient
+}
+
+// NewCFOps builds the ops for a linked instance.
+func NewCFOps(link CFLink, token string) (*CFOps, error) {
+	if !link.Linked() {
+		return nil, errors.New("this Caddy instance is not linked to Cloudflare")
+	}
+	if strings.TrimSpace(token) == "" {
 		return nil, errors.New("the Cloudflare link is missing its API token — re-link Cloudflare")
 	}
-	return newCFClient(token), nil
+	return &CFOps{link: link, client: newCFClient(token)}, nil
 }
 
-// CFRecords lists the linked zone's records.
-func (c *Conn) CFRecords(ctx context.Context) ([]CFRecord, error) {
-	link := c.CFLink()
-	if !link.Linked() {
-		return nil, errors.New("this Caddy instance is not linked to Cloudflare")
-	}
-	client, err := c.cfClientFromVault(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return client.Records(ctx, link.ZoneID)
+// Link exposes the ops' link config.
+func (o *CFOps) Link() CFLink { return o.link }
+
+// Records lists the linked zone's records.
+func (o *CFOps) Records(ctx context.Context) ([]CFRecord, error) {
+	return o.client.Records(ctx, o.link.ZoneID)
 }
 
-// CFCreateRecord creates a record in the linked zone, filling defaults from
-// the link: empty content → the configured default target; empty type → auto
-// from content.
-func (c *Conn) CFCreateRecord(ctx context.Context, rec CFRecord) (*CFRecord, error) {
-	link := c.CFLink()
-	if !link.Linked() {
-		return nil, errors.New("this Caddy instance is not linked to Cloudflare")
-	}
-	client, err := c.cfClientFromVault(ctx)
-	if err != nil {
-		return nil, err
-	}
-	rec.Name = CFNormalizeName(rec.Name, link.ZoneName)
+// CreateRecord creates a record, filling defaults from the link: empty
+// content → the configured default target; empty type → auto from content.
+// Proxied is stripped for types Cloudflare can't proxy.
+func (o *CFOps) CreateRecord(ctx context.Context, rec CFRecord) (*CFRecord, error) {
+	rec.Name = CFNormalizeName(rec.Name, o.link.ZoneName)
 	if strings.TrimSpace(rec.Content) == "" {
-		rec.Content = link.RecordContent
+		rec.Content = o.link.RecordContent
 	}
 	if strings.TrimSpace(rec.Content) == "" {
 		return nil, errors.New("a record target is required — set a default target in the Cloudflare link settings or provide one")
@@ -322,35 +326,25 @@ func (c *Conn) CFCreateRecord(ctx context.Context, rec CFRecord) (*CFRecord, err
 	if strings.TrimSpace(rec.Type) == "" {
 		rec.Type = CFAutoType(rec.Content)
 	}
-	return client.CreateRecord(ctx, link.ZoneID, rec)
+	if !CFProxiable(rec.Type) {
+		rec.Proxied = false
+	}
+	return o.client.CreateRecord(ctx, o.link.ZoneID, rec)
 }
 
-// CFUpdateRecord updates a record in the linked zone.
-func (c *Conn) CFUpdateRecord(ctx context.Context, recordID string, rec CFRecord) (*CFRecord, error) {
-	link := c.CFLink()
-	if !link.Linked() {
-		return nil, errors.New("this Caddy instance is not linked to Cloudflare")
-	}
-	client, err := c.cfClientFromVault(ctx)
-	if err != nil {
-		return nil, err
-	}
-	rec.Name = CFNormalizeName(rec.Name, link.ZoneName)
+// UpdateRecord updates a record (full replace, Cloudflare semantics).
+func (o *CFOps) UpdateRecord(ctx context.Context, recordID string, rec CFRecord) (*CFRecord, error) {
+	rec.Name = CFNormalizeName(rec.Name, o.link.ZoneName)
 	if strings.TrimSpace(rec.Type) == "" {
 		rec.Type = CFAutoType(rec.Content)
 	}
-	return client.UpdateRecord(ctx, link.ZoneID, recordID, rec)
+	if !CFProxiable(rec.Type) {
+		rec.Proxied = false
+	}
+	return o.client.UpdateRecord(ctx, o.link.ZoneID, recordID, rec)
 }
 
-// CFDeleteRecord deletes a record from the linked zone.
-func (c *Conn) CFDeleteRecord(ctx context.Context, recordID string) error {
-	link := c.CFLink()
-	if !link.Linked() {
-		return errors.New("this Caddy instance is not linked to Cloudflare")
-	}
-	client, err := c.cfClientFromVault(ctx)
-	if err != nil {
-		return err
-	}
-	return client.DeleteRecord(ctx, link.ZoneID, recordID)
+// DeleteRecord deletes a record from the linked zone.
+func (o *CFOps) DeleteRecord(ctx context.Context, recordID string) error {
+	return o.client.DeleteRecord(ctx, o.link.ZoneID, recordID)
 }
