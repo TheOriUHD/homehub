@@ -2367,6 +2367,25 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/DnsInstance" }
 
+  /dns/{id}/overview:
+    get:
+      operationId: dnsOverview
+      summary: Deep dashboard data for one DNS instance
+      description: Leaderboards (top domains, blocked, clients, upstreams), the recent query/blocked history, and average processing time — whatever the upstream exposes; missing pieces come back empty.
+      tags: [dns]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DnsOverview" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /dns/{id}/queries:
     get:
       operationId: dnsQueryLog
@@ -7841,6 +7860,42 @@ components:
         enabled: { type: boolean }
         disabledUntil: { type: string, format: date-time, nullable: true }
         version: { type: string }
+
+    DnsTopItem:
+      type: object
+      required: [name, count]
+      properties:
+        name: { type: string }
+        count: { type: integer, format: int64 }
+
+    DnsSeriesPoint:
+      type: object
+      required: [ts, queries, blocked]
+      properties:
+        ts: { type: string, format: date-time }
+        queries: { type: integer, format: int64 }
+        blocked: { type: integer, format: int64 }
+
+    DnsOverview:
+      type: object
+      required: [series, topDomains, topBlocked, topClients, topUpstreams]
+      properties:
+        avgProcessingMs: { type: number, description: average upstream processing time in milliseconds }
+        series:
+          type: array
+          items: { $ref: "#/components/schemas/DnsSeriesPoint" }
+        topDomains:
+          type: array
+          items: { $ref: "#/components/schemas/DnsTopItem" }
+        topBlocked:
+          type: array
+          items: { $ref: "#/components/schemas/DnsTopItem" }
+        topClients:
+          type: array
+          items: { $ref: "#/components/schemas/DnsTopItem" }
+        topUpstreams:
+          type: array
+          items: { $ref: "#/components/schemas/DnsTopItem" }
 
     DnsBlocking:
       type: object

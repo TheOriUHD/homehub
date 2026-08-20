@@ -1193,7 +1193,20 @@
       "instancesOnline": "Instances online",
       "instanceSummary": "{{queries}} queries today · {{pct}} blocked",
       "chartQueries": "Queries per minute",
-      "chartBlocked": "Blocked"
+      "chartBlocked": "Blocked",
+      "clients": "Clients seen",
+      "rules": "Blocking rules",
+      "avgResponse": "Avg response",
+      "historyTitle": "Last 24 hours",
+      "historyBody": "Queries and blocked, from the resolver's own statistics",
+      "liveTitle": "Live",
+      "liveBody": "Per-minute rates collected by HomeHub",
+      "noHistory": "No history available yet.",
+      "noData": "No data",
+      "topDomains": "Top domains",
+      "topBlocked": "Top blocked",
+      "topClients": "Top clients",
+      "upstreams": "Upstreams"
     },
     "blocking": {
       "active": "Blocking active",
@@ -1206,7 +1219,8 @@
       "untilEnabled": "Until re-enabled",
       "enable": "Enable",
       "enabledToast": "Blocking enabled on {{name}}",
-      "disabledToast": "Blocking disabled on {{name}}"
+      "disabledToast": "Blocking disabled on {{name}}",
+      "title": "Blocking"
     },
     "queryLog": {
       "searchPlaceholder": "Filter by domain…",

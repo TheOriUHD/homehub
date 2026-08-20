@@ -194,3 +194,12 @@ func DNSRateSamples(mu *sync.Mutex, lastTotal, lastBlocked *int64, lastSample *t
 	*lastSample = now
 	return samples, nil
 }
+
+// Overview delegates to the underlying API client when it supports the rich
+// dashboard data (both v5 and v6 do, with different depth).
+func (c *Conn) Overview(ctx context.Context) (*dns.Overview, error) {
+	if op, ok := c.Provider.(dns.OverviewProvider); ok {
+		return op.Overview(ctx)
+	}
+	return nil, dns.ErrUnsupported
+}

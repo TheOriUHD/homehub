@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -259,10 +261,65 @@ func (c *v5Client) Clients(ctx context.Context) ([]dns.Client, error) {
 	return clients, nil
 }
 
-func (c *v5Client) Groups(ctx context.Context) ([]dns.Group, error)          { return []dns.Group{}, nil }
-func (c *v5Client) UpsertClient(context.Context, dns.Client) error           { return dns.ErrUnsupported }
-func (c *v5Client) DeleteClient(context.Context, string) error               { return dns.ErrUnsupported }
-func (c *v5Client) UpsertGroup(context.Context, dns.Group) error             { return dns.ErrUnsupported }
-func (c *v5Client) DeleteGroup(context.Context, string) error                { return dns.ErrUnsupported }
+func (c *v5Client) Groups(ctx context.Context) ([]dns.Group, error) { return []dns.Group{}, nil }
+func (c *v5Client) UpsertClient(context.Context, dns.Client) error  { return dns.ErrUnsupported }
+func (c *v5Client) DeleteClient(context.Context, string) error      { return dns.ErrUnsupported }
+func (c *v5Client) UpsertGroup(context.Context, dns.Group) error    { return dns.ErrUnsupported }
+func (c *v5Client) DeleteGroup(context.Context, string) error       { return dns.ErrUnsupported }
 
+// Overview pulls the dashboard extras from the legacy api.php interface.
+func (c *v5Client) Overview(ctx context.Context) (*dns.Overview, error) {
+	out := &dns.Overview{
+		Series: []dns.SeriesPoint{}, TopDomains: []dns.TopItem{}, TopBlocked: []dns.TopItem{},
+		TopClients: []dns.TopItem{}, TopUpstreams: []dns.TopItem{},
+	}
+	var top struct {
+		TopQueries map[string]int64 `json:"top_queries"`
+		TopAds     map[string]int64 `json:"top_ads"`
+	}
+	if err := c.get(ctx, url.Values{"topItems": {"8"}}, &top); err == nil {
+		out.TopDomains = mapItems(top.TopQueries)
+		out.TopBlocked = mapItems(top.TopAds)
+	}
+	var sources struct {
+		TopSources map[string]int64 `json:"top_sources"`
+	}
+	if err := c.get(ctx, url.Values{"getQuerySources": {"8"}}, &sources); err == nil {
+		out.TopClients = mapItems(sources.TopSources)
+	}
+	var over struct {
+		Domains map[string]int64 `json:"domains_over_time"`
+		Ads     map[string]int64 `json:"ads_over_time"`
+	}
+	if err := c.get(ctx, url.Values{"overTimeData10mins": {""}}, &over); err == nil {
+		keys := make([]string, 0, len(over.Domains))
+		for k := range over.Domains {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			ts, err := strconv.ParseInt(k, 10, 64)
+			if err != nil {
+				continue
+			}
+			out.Series = append(out.Series, dns.SeriesPoint{
+				TS: time.Unix(ts, 0), Queries: over.Domains[k], Blocked: over.Ads[k],
+			})
+		}
+	}
+	return out, nil
+}
 
+// mapItems flattens v5's {"name": count} maps into sorted leaderboards.
+func mapItems(m map[string]int64) []dns.TopItem {
+	out := make([]dns.TopItem, 0, len(m))
+	for name, count := range m {
+		// v5 keys client rows as "hostname|ip"; keep the hostname half.
+		if i := strings.IndexByte(name, '|'); i > 0 {
+			name = name[:i]
+		}
+		out = append(out, dns.TopItem{Name: name, Count: count})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Count > out[j].Count })
+	return out
+}

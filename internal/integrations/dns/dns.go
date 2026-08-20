@@ -119,3 +119,36 @@ type Provider interface {
 	UpsertGroup(ctx context.Context, group Group) error
 	DeleteGroup(ctx context.Context, id string) error
 }
+
+// ---- rich overview -----------------------------------------------------------
+
+// TopItem is one row of a leaderboard (domain, client, upstream).
+type TopItem struct {
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
+}
+
+// SeriesPoint is one bucket of the recent query history.
+type SeriesPoint struct {
+	TS      time.Time `json:"ts"`
+	Queries int64     `json:"queries"`
+	Blocked int64     `json:"blocked"`
+}
+
+// Overview is the deep per-instance dashboard data. Every field is
+// best-effort: a provider fills what its upstream exposes and leaves the
+// rest empty — the dashboard hides empty panels.
+type Overview struct {
+	AvgProcessingMs *float64      `json:"avgProcessingMs,omitempty"`
+	Series          []SeriesPoint `json:"series"`
+	TopDomains      []TopItem     `json:"topDomains"`
+	TopBlocked      []TopItem     `json:"topBlocked"`
+	TopClients      []TopItem     `json:"topClients"`
+	TopUpstreams    []TopItem     `json:"topUpstreams"`
+}
+
+// OverviewProvider is optional — implemented by providers whose upstream can
+// serve leaderboards and history.
+type OverviewProvider interface {
+	Overview(ctx context.Context) (*Overview, error)
+}
