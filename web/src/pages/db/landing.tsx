@@ -341,7 +341,9 @@ function SingleDbDashboard({ instance, consoleVisible }: { instance: DbInstance;
                       {[s.user, s.database, s.client].filter(Boolean).join(" · ")}
                     </span>
                   </span>
-                  <span className="text-fg-muted shrink-0 text-[12px] tabular-nums">{formatDuration(s.timeSec)}</span>
+                  <span className="text-fg-muted shrink-0 text-[12px] tabular-nums">
+                    {s.timeSec < 60 ? `${s.timeSec}s` : formatDuration(s.timeSec)}
+                  </span>
                 </div>
               ))
             )}

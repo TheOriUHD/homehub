@@ -459,7 +459,7 @@ func (c *v6Client) Overview(ctx context.Context) (*dns.Overview, error) {
 			Count  int64  `json:"count"`
 		} `json:"domains"`
 	}
-	if err := c.call(ctx, "GET", "/stats/top_domains?count=8", nil, &topAllowed); err == nil {
+	if err := c.call(ctx, "GET", "/api/stats/top_domains?count=8", nil, &topAllowed); err == nil {
 		for _, d := range topAllowed.Domains {
 			out.TopDomains = append(out.TopDomains, dns.TopItem{Name: d.Domain, Count: d.Count})
 		}
@@ -470,7 +470,7 @@ func (c *v6Client) Overview(ctx context.Context) (*dns.Overview, error) {
 			Count  int64  `json:"count"`
 		} `json:"domains"`
 	}
-	if err := c.call(ctx, "GET", "/stats/top_domains?blocked=true&count=8", nil, &topBlocked); err == nil {
+	if err := c.call(ctx, "GET", "/api/stats/top_domains?blocked=true&count=8", nil, &topBlocked); err == nil {
 		for _, d := range topBlocked.Domains {
 			out.TopBlocked = append(out.TopBlocked, dns.TopItem{Name: d.Domain, Count: d.Count})
 		}
@@ -482,7 +482,7 @@ func (c *v6Client) Overview(ctx context.Context) (*dns.Overview, error) {
 			Count int64  `json:"count"`
 		} `json:"clients"`
 	}
-	if err := c.call(ctx, "GET", "/stats/top_clients?count=8", nil, &clients); err == nil {
+	if err := c.call(ctx, "GET", "/api/stats/top_clients?count=8", nil, &clients); err == nil {
 		for _, cl := range clients.Clients {
 			name := cl.Name
 			if name == "" {
@@ -498,7 +498,7 @@ func (c *v6Client) Overview(ctx context.Context) (*dns.Overview, error) {
 			Count int64  `json:"count"`
 		} `json:"upstreams"`
 	}
-	if err := c.call(ctx, "GET", "/stats/upstreams", nil, &upstreams); err == nil {
+	if err := c.call(ctx, "GET", "/api/stats/upstreams", nil, &upstreams); err == nil {
 		for _, u := range upstreams.Upstreams {
 			name := u.Name
 			if name == "" {
@@ -514,7 +514,7 @@ func (c *v6Client) Overview(ctx context.Context) (*dns.Overview, error) {
 			Blocked   int64   `json:"blocked"`
 		} `json:"history"`
 	}
-	if err := c.call(ctx, "GET", "/history", nil, &history); err == nil {
+	if err := c.call(ctx, "GET", "/api/history", nil, &history); err == nil {
 		for _, h := range history.History {
 			out.Series = append(out.Series, dns.SeriesPoint{
 				TS: time.Unix(int64(h.Timestamp), 0), Queries: h.Total, Blocked: h.Blocked,

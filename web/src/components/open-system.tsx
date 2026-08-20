@@ -18,9 +18,15 @@ export function systemWebUrl(instance: Pick<Integration, "type" | "config">): st
     case "proxmox": {
       const host = str("host");
       if (!host) return null;
-      const url = withScheme(host, "https");
-      // The PVE web UI listens on 8006; only add it when no port was given.
-      return /:\d+/.test(url.replace(/^https?:\/\//, "")) ? url : `${url}:8006`;
+      // Mirror the driver: default https, and default port 8006 only when the
+      // URL parser (IPv6-safe) reports none.
+      try {
+        const u = new URL(withScheme(host, "https"));
+        if (!u.port && u.protocol === "https:") u.port = "8006";
+        return u.origin;
+      } catch {
+        return null;
+      }
     }
     case "homeassistant": {
       const host = str("host");

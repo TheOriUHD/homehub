@@ -68,15 +68,21 @@ type Service struct {
 	collectors []Collector
 	lastRun    map[string]time.Time
 	resolveMsg map[string][2]string // key → {title, body} to use on auto-resolve
+	// suppressedMiss counts consecutive sweeps an acknowledged marker went
+	// unobserved. Collectors swallow per-instance hiccups and return partial
+	// lists, so a single missing sweep proves nothing — resolving an
+	// acknowledgement is irreversible and must be debounced.
+	suppressedMiss map[string]int
 }
 
 func NewService(st *store.Store, publish PublishFunc, logger *slog.Logger) *Service {
 	return &Service{
-		store:      st,
-		publish:    publish,
-		logger:     logger.With("component", "signals"),
-		lastRun:    map[string]time.Time{},
-		resolveMsg: map[string][2]string{},
+		store:          st,
+		publish:        publish,
+		logger:         logger.With("component", "signals"),
+		lastRun:        map[string]time.Time{},
+		resolveMsg:     map[string][2]string{},
+		suppressedMiss: map[string]int{},
 	}
 }
 
@@ -150,13 +156,25 @@ func (s *Service) runCollector(ctx context.Context, c Collector) {
 
 	// The acknowledged-but-still-true set reconciles too: once a suppressed
 	// condition clears, its marker is resolved so a future occurrence
-	// surfaces fresh instead of staying muted forever.
+	// surfaces fresh instead of staying muted forever. Resolution is
+	// debounced over several consecutive misses because collectors swallow
+	// per-instance errors into partial lists — one flaky sweep must never
+	// silently discard an operator's acknowledgement.
+	const suppressedMissThreshold = 3
 	if suppressed, serr := s.store.ListSuppressedSignalKeys(ctx, c.Name()); serr == nil {
+		s.mu.Lock()
 		for key := range suppressed {
-			if !seen[key] {
+			if seen[key] {
+				delete(s.suppressedMiss, key)
+				continue
+			}
+			s.suppressedMiss[key]++
+			if s.suppressedMiss[key] >= suppressedMissThreshold {
+				delete(s.suppressedMiss, key)
 				_ = s.store.ResolveSuppressedSignal(ctx, key)
 			}
 		}
+		s.mu.Unlock()
 	}
 
 	if changed {
@@ -201,7 +219,10 @@ func (s *Service) reconcileObservation(ctx context.Context, collector string, o 
 			if severityRank(o.Severity) <= severityRank(sup.Severity) {
 				// Acknowledged and unchanged-or-milder — keep it muted, but
 				// keep the marker current so pruning can't unmute it early.
-				_ = s.store.TouchSuppressedSignal(ctx, sup.ID, o.Severity, o.Title, o.Body, detail)
+				// The stored severity stays at what the operator acknowledged:
+				// lowering it would let a boundary flap (crit→warn→crit)
+				// "escalate" past the lowered value and reopen the signal.
+				_ = s.store.TouchSuppressedSignal(ctx, sup.ID, sup.Severity, o.Title, o.Body, detail)
 				return false
 			}
 			// Escalated past what was acknowledged — resurface the same row.
