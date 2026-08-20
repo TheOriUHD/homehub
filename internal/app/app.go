@@ -305,6 +305,21 @@ func Run(ctx context.Context) error {
 	}
 	apiServer.SetTelegramBot(tgBot)
 	tgBot.Reload(ctx)
+
+	// Signals push to Telegram: warning/critical firings, escalations, and
+	// their recoveries go to every linked chat whose user has the signals
+	// surface visible. Runs detached so a slow Telegram API never stalls a
+	// collector sweep.
+	signalsSvc.SetNotifier(func(sig store.Signal, event string) {
+		go func() {
+			nctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			tgBot.Broadcast(nctx, telegramSignalText(sig, event), func(userID uuid.UUID) bool {
+				hidden, err := st.SignalsHiddenForUser(nctx, userID)
+				return err == nil && !hidden
+			})
+		}()
+	})
 	handler := httpserver.Handler(httpserver.Deps{
 		Logger:   logger,
 		Auth:     authSvc,
@@ -350,6 +365,29 @@ func Run(ctx context.Context) error {
 	stopJobs()
 	jobEngine.Wait()
 	return nil
+}
+
+// telegramSignalText renders one signal transition as a Telegram message.
+func telegramSignalText(sig store.Signal, event string) string {
+	icon := "⚠️"
+	switch {
+	case event == "recovered":
+		icon = "✅"
+	case sig.Severity == "critical":
+		icon = "🚨"
+	}
+	head := sig.Title
+	if event == "recovered" {
+		head = "Recovered: " + sig.Title
+	}
+	text := icon + " " + head
+	if sig.SourceName != "" {
+		text += "\n" + sig.SourceName
+	}
+	if sig.Body != "" && event != "recovered" {
+		text += "\n" + sig.Body
+	}
+	return text
 }
 
 // authorizeTopic maps WebSocket topics onto permission checks. Unknown
@@ -450,6 +488,13 @@ func registerMaintenance(engine *jobs.Engine, st *store.Store, logger *slog.Logg
 			return fmt.Errorf("prune jobs: %w", err)
 		} else if n > 0 {
 			logger.Info("pruned job history", "count", n)
+		}
+		// Web assistant conversations are per-app-session; a closed app's
+		// conversation id never returns, so its rows are unreachable.
+		if n, err := st.PruneAssistantMessages(ctx, 7*24*time.Hour); err != nil {
+			return fmt.Errorf("prune assistant messages: %w", err)
+		} else if n > 0 {
+			logger.Info("pruned assistant messages", "count", n)
 		}
 		if n, err := st.PruneNotifications(ctx, 30*24*time.Hour); err != nil {
 			return fmt.Errorf("prune notifications: %w", err)

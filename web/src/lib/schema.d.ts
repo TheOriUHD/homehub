@@ -4508,7 +4508,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The caller's conversation history */
+        /**
+         * The caller's conversation history
+         * @description Web-channel history only — the Telegram bridge keeps a fully separate thread. Scoped to the given per-app-session conversation id.
+         */
         get: operations["getAssistantHistory"];
         put?: never;
         post?: never;
@@ -14707,7 +14710,9 @@ export interface operations {
     };
     getAssistantHistory: {
         parameters: {
-            query?: never;
+            query?: {
+                conversation?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

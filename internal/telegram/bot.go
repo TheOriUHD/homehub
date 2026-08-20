@@ -466,3 +466,33 @@ func (b *Bot) NotifyLinked(ctx context.Context, chatID int64, userTag string) {
 	}
 	b.send(ctx, token, chatID, fmt.Sprintf("Linked to HomeHub as %s. Plain messages talk to the assistant; start one with ! or / to trigger commands.", userTag))
 }
+
+// Broadcast sends a message to every linked chat whose user passes the allow
+// check. Used for pushed notifications (e.g. firing signals); a no-op while
+// the bridge is disabled or unconfigured. Failures are logged per chat and
+// never abort the rest.
+func (b *Bot) Broadcast(ctx context.Context, text string, allow func(userID uuid.UUID) bool) {
+	if b.EnabledFn != nil && !b.EnabledFn(ctx) {
+		return
+	}
+	token := ""
+	if b.TokenFn != nil {
+		token = b.TokenFn(ctx)
+	}
+	if token == "" {
+		return
+	}
+	chats, err := b.Store.ListTelegramChats(ctx)
+	if err != nil {
+		b.Logger.Warn("telegram broadcast: list chats", "error", err)
+		return
+	}
+	for _, chat := range chats {
+		if allow != nil && !allow(chat.UserID) {
+			continue
+		}
+		if err := b.sendParsed(ctx, token, chat.ChatID, text, ""); err != nil {
+			b.Logger.Warn("telegram broadcast: send", "chat", chat.ChatID, "error", err)
+		}
+	}
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/assistant"
 	"github.com/TheOriUHD/homehub/internal/httpctx"
 	"github.com/TheOriUHD/homehub/internal/rbac"
+	"github.com/TheOriUHD/homehub/internal/store"
 	"github.com/TheOriUHD/homehub/internal/telegram"
 )
 
@@ -63,7 +64,10 @@ func (s *Server) RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, mess
 			},
 		},
 	}
-	reply, _, err := svc.RunTurn(ctx, provider, cfg, s.assistantAccess(ctx, id), message)
+	access := s.assistantAccess(ctx, id)
+	// Telegram keeps its own thread — never the web UI's conversation.
+	access.Channel = store.AssistantChannelTelegram
+	reply, _, err := svc.RunTurn(ctx, provider, cfg, access, message)
 	return reply, err
 }
 

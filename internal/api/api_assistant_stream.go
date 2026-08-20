@@ -13,6 +13,7 @@ import (
 
 	"github.com/TheOriUHD/homehub/internal/assistant"
 	"github.com/TheOriUHD/homehub/internal/httpctx"
+	"github.com/TheOriUHD/homehub/internal/store"
 )
 
 // assistantRuntime resolves the configured provider + a Service for one turn,
@@ -60,7 +61,8 @@ func (s *Server) HandleAssistantChatStream(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	var body struct {
-		Message string `json:"message"`
+		Message      string `json:"message"`
+		Conversation string `json:"conversation"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body); err != nil {
 		http.Error(w, `{"type":"error","message":"bad request"}`, http.StatusBadRequest)
@@ -93,6 +95,7 @@ func (s *Server) HandleAssistantChatStream(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	access := s.assistantAccess(ctx, id)
+	access.Conversation = strings.TrimSpace(body.Conversation)
 	var toolNames []string
 	err := svc.RunTurnStream(ctx, provider, cfg, access, message, func(e assistant.Event) {
 		if e.Type == "tool" {
@@ -110,7 +113,8 @@ func (s *Server) HandleAssistantChatStream(w http.ResponseWriter, r *http.Reques
 // ---- confirmed write actions -----------------------------------------------
 
 type applyActionsBody struct {
-	Actions []assistant.PendingAction `json:"actions"`
+	Actions      []assistant.PendingAction `json:"actions"`
+	Conversation string                    `json:"conversation"`
 }
 
 // HandleAssistantApply executes the write actions the user approved. Each
@@ -144,7 +148,7 @@ func (s *Server) HandleAssistantApply(w http.ResponseWriter, r *http.Request) {
 		applied++
 	}
 	msg := strings.Join(summaries, "\n")
-	_ = s.store.AddAssistantMessage(ctx, id.User.ID, "assistant", msg, nil)
+	_ = s.store.AddAssistantMessage(ctx, id.User.ID, store.AssistantChannelWeb, strings.TrimSpace(body.Conversation), "assistant", msg, nil)
 	s.audit.Log(ctx, actorFor(id), "assistant.apply", "system/settings", "success", map[string]any{"applied": applied})
 	writeJSON(w, http.StatusOK, map[string]any{"applied": applied, "message": msg, "summaries": summaries})
 }

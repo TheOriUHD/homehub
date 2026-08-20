@@ -92,7 +92,7 @@ type Event struct {
 // each tool, a confirm event carrying any write actions the model queued
 // (which are NOT executed — the user approves them in the UI), then done.
 func (s *Service) RunTurnStream(ctx context.Context, provider Provider, cfg Config, access Access, text string, emit func(Event)) error {
-	history, err := s.Store.ListAssistantMessages(ctx, access.UserID, historyWindow)
+	history, err := s.Store.ListAssistantMessages(ctx, access.UserID, channelOf(access), access.Conversation, historyWindow)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (s *Service) RunTurnStream(ctx context.Context, provider Provider, cfg Conf
 		turns = append(turns, Turn{Role: msg.Role, Text: msg.Content})
 	}
 	turns = append(turns, Turn{Role: "user", Text: text})
-	if err := s.Store.AddAssistantMessage(ctx, access.UserID, "user", text, nil); err != nil {
+	if err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation, "user", text, nil); err != nil {
 		return err
 	}
 
@@ -156,7 +156,7 @@ func (s *Service) RunTurnStream(ctx context.Context, provider Provider, cfg Conf
 	if len(steps) > 0 {
 		trace, _ = json.Marshal(steps)
 	}
-	if err := s.Store.AddAssistantMessage(ctx, access.UserID, "assistant", final, trace); err != nil {
+	if err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation, "assistant", final, trace); err != nil {
 		return err
 	}
 	if len(pending) > 0 {
@@ -169,7 +169,7 @@ func (s *Service) RunTurnStream(ctx context.Context, provider Provider, cfg Conf
 // RunTurn executes one user message: history in, tool loop, reply out.
 // Both sides of the exchange are persisted before returning.
 func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, access Access, text string) (string, []StepInfo, error) {
-	history, err := s.Store.ListAssistantMessages(ctx, access.UserID, historyWindow)
+	history, err := s.Store.ListAssistantMessages(ctx, access.UserID, channelOf(access), access.Conversation, historyWindow)
 	if err != nil {
 		return "", nil, err
 	}
@@ -179,7 +179,7 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 	}
 	turns = append(turns, Turn{Role: "user", Text: text})
 
-	if err := s.Store.AddAssistantMessage(ctx, access.UserID, "user", text, nil); err != nil {
+	if err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation, "user", text, nil); err != nil {
 		return "", nil, err
 	}
 
@@ -218,8 +218,16 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 	if len(steps) > 0 {
 		trace, _ = json.Marshal(steps)
 	}
-	if err := s.Store.AddAssistantMessage(ctx, access.UserID, "assistant", final, trace); err != nil {
+	if err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation, "assistant", final, trace); err != nil {
 		return "", steps, err
 	}
 	return final, steps, nil
+}
+
+// channelOf defaults an unset channel to the web surface.
+func channelOf(access Access) string {
+	if access.Channel == "" {
+		return "web"
+	}
+	return access.Channel
 }
