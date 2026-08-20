@@ -83,6 +83,31 @@ func (m *Manager) Take(id string, userID uuid.UUID) (*Session, bool) {
 	return s, true
 }
 
+// KeepAlive pings the given websockets every interval until ctx ends.
+// WS ping/pong are control frames — invisible to the bridged byte streams
+// (safe even inside a raw RFB pipe) — and they count as traffic for every
+// idle-timeout along the path: the browser, any reverse proxy in front of
+// HomeHub, and the upstream host. Pongs are processed by each side's active
+// read loop, which every bridge here has.
+func KeepAlive(ctx context.Context, interval time.Duration, conns ...*websocket.Conn) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				for _, c := range conns {
+					pctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+					_ = c.Ping(pctx) // a dead conn fails its read loop on its own
+					cancel()
+				}
+			}
+		}
+	}()
+}
+
 // ControlFrame is the JSON text-frame envelope on bridged sockets.
 type ControlFrame struct {
 	Type    string `json:"type"`

@@ -89,6 +89,8 @@ func OpenSSH(target SSHTarget) OpenFunc {
 
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
+		// Keep the browser leg alive through reverse-proxy idle timeouts.
+		KeepAlive(ctx, 30*time.Second, conn)
 
 		// upstream → client
 		go func() {

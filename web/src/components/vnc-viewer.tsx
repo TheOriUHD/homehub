@@ -20,11 +20,14 @@ type VncStatus =
 export function VncViewer({
   wsUrl,
   credential,
+  renew,
   className,
 }: {
   wsUrl: string;
   /** One-time RFB password (e.g. a Proxmox VNC ticket) answered during VNC authentication. */
   credential?: string;
+  /** Mints a fresh console session (URL + ticket are single-use); called on reconnect. */
+  renew?: () => Promise<{ wsUrl: string; credential?: string }>;
   className?: string;
 }) {
   const { t } = useTranslation();
@@ -32,6 +35,23 @@ export function VncViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<VncStatus>({ kind: "connecting" });
   const [attempt, setAttempt] = useState(0);
+  const [session, setSession] = useState<{ wsUrl: string; credential?: string }>({ wsUrl, credential });
+  useEffect(() => setSession({ wsUrl, credential }), [wsUrl, credential]);
+
+  const reconnect = async () => {
+    if (!renew) {
+      setAttempt((a) => a + 1);
+      return;
+    }
+    setStatus({ kind: "connecting" });
+    try {
+      const fresh = await renew();
+      setSession(fresh);
+      setAttempt((a) => a + 1);
+    } catch (err) {
+      setStatus({ kind: "failed", reason: String(err) });
+    }
+  };
 
   // Fit the stage (the box noVNC renders into) to the remote framebuffer's
   // aspect ratio within the available area, so the visible display always
@@ -82,7 +102,7 @@ export function VncViewer({
     const el = containerRef.current;
     if (!el) return;
     setStatus({ kind: "connecting" });
-    const rfb = new RFB(el, wsUrl, credential ? { credentials: { password: credential } } : undefined);
+    const rfb = new RFB(el, session.wsUrl, session.credential ? { credentials: { password: session.credential } } : undefined);
     rfb.scaleViewport = true;
     // Never ask the server to resize the session: QEMU answers by padding a
     // fixed-mode display (e.g. a VGA text console) with dead space instead of
@@ -114,7 +134,7 @@ export function VncViewer({
         // Already disconnected — nothing left to tear down.
       }
     };
-  }, [wsUrl, attempt]);
+  }, [session, attempt]);
 
   const ended = status.kind === "closed" || status.kind === "failed";
   const error = status.kind === "failed" || (status.kind === "closed" && !status.clean);
@@ -164,7 +184,7 @@ export function VncViewer({
             <Icon className="size-5" />
           </div>
           <p className="text-fg max-w-md text-sm font-medium">{message}</p>
-          <Button variant="secondary" size="sm" className="mt-4" onClick={() => setAttempt((a) => a + 1)}>
+          <Button variant="secondary" size="sm" className="mt-4" onClick={() => void reconnect()}>
             <RotateCw aria-hidden className="size-3.5" />
             {t("term.reconnect")}
           </Button>

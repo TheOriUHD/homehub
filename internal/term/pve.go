@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/coder/websocket"
 
@@ -48,6 +49,25 @@ func OpenPVESerial(client *pve.Client, node, kind string, vmid int, ticket pve.T
 
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
+
+		// Keepalives, both legs. Proxmox's termproxy drops idle sessions on an
+		// application-level timer — the official pve-xtermjs client sends a bare
+		// "2" ping frame to reset it, so we do too. The client leg gets WS pings.
+		KeepAlive(ctx, 30*time.Second, conn)
+		go func() {
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if err := upstream.Write(ctx, websocket.MessageText, []byte("2")); err != nil {
+						return
+					}
+				}
+			}
+		}()
 
 		// upstream → client: raw terminal output.
 		go func() {
@@ -96,6 +116,10 @@ func OpenPVESerial(client *pve.Client, node, kind string, vmid int, ticket pve.T
 func pipe(ctx context.Context, a, b *websocket.Conn) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	// An idle console generates no traffic; WS-level pings (control frames,
+	// invisible to the RFB stream) keep both legs alive through proxies and
+	// Proxmox's own idle handling.
+	KeepAlive(ctx, 30*time.Second, a, b)
 	copy := func(dst, src *websocket.Conn) {
 		defer cancel()
 		for {

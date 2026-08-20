@@ -503,7 +503,16 @@ function LogsTab({ instanceId, name }: { instanceId: string; name: string }) {
     return (
       <div className="border-edge overflow-hidden rounded-lg border" style={{ height: 520 }}>
         <Suspense fallback={<PageLoader className="h-full" />}>
-          <TerminalPane wsUrl={wsUrl(session.wsPath)} className="h-full" onExit={() => setSession(null)} />
+          <TerminalPane
+            wsUrl={wsUrl(session.wsPath)}
+            renew={async () => {
+              // Session tickets are single-use — reconnect mints a fresh one.
+              const fresh = await open.mutateAsync();
+              return wsUrl(fresh.wsPath);
+            }}
+            className="h-full"
+            onExit={() => setSession(null)}
+          />
         </Suspense>
       </div>
     );
@@ -550,7 +559,16 @@ function ShellTab({ instanceId, name }: { instanceId: string; name: string }) {
     return (
       <div className="border-edge overflow-hidden rounded-lg border" style={{ height: 520 }}>
         <Suspense fallback={<PageLoader className="h-full" />}>
-          <TerminalPane wsUrl={wsUrl(session.wsPath)} className="h-full" onExit={() => setSession(null)} />
+          <TerminalPane
+            wsUrl={wsUrl(session.wsPath)}
+            renew={async () => {
+              // Session tickets are single-use — reconnect mints a fresh one.
+              const fresh = await open.mutateAsync();
+              return wsUrl(fresh.wsPath);
+            }}
+            className="h-full"
+            onExit={() => setSession(null)}
+          />
         </Suspense>
       </div>
     );

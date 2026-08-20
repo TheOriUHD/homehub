@@ -50,13 +50,20 @@ type ServerFrame = { type?: string; message?: string };
  * carries raw terminal bytes as binary frames and control messages (resize,
  * exit, error) as JSON text frames. It never reconnects on its own — a dropped
  * session shows an overlay with a manual reconnect button.
+ *
+ * Session URLs are ONE-TIME tickets: the backend consumes them on connect, so
+ * reconnecting must mint a fresh session. Pass `renew` to make the reconnect
+ * button work — without it the button can only retry the (dead) original URL.
  */
 export function TerminalPane({
   wsUrl,
+  renew,
   onExit,
   className,
 }: {
   wsUrl: string;
+  /** Mints a fresh session and returns its WS URL; called on each reconnect. */
+  renew?: () => Promise<string>;
   onExit?: (message: string) => void;
   className?: string;
 }) {
@@ -71,8 +78,25 @@ export function TerminalPane({
 
   const [status, setStatus] = useState<PaneStatus>({ kind: "connecting" });
   const [attempt, setAttempt] = useState(0);
+  const [url, setUrl] = useState(wsUrl);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  useEffect(() => setUrl(wsUrl), [wsUrl]);
+
+  const reconnect = async () => {
+    if (!renew) {
+      setAttempt((a) => a + 1);
+      return;
+    }
+    setStatus({ kind: "connecting" });
+    try {
+      const fresh = await renew();
+      setUrl(fresh);
+      setAttempt((a) => a + 1);
+    } catch (err) {
+      setStatus({ kind: "ended", message: String(err), error: true });
+    }
+  };
 
   // The terminal lives for the component's lifetime; sockets come and go
   // across manual reconnects and keep writing into the same scrollback.
@@ -133,7 +157,7 @@ export function TerminalPane({
 
   useEffect(() => {
     setStatus({ kind: "connecting" });
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(url);
     ws.binaryType = "arraybuffer";
     wsRef.current = ws;
     // Once a text frame decides the session's fate, the close event that
@@ -178,7 +202,7 @@ export function TerminalPane({
       wsRef.current = null;
       ws.close(1000);
     };
-  }, [wsUrl, attempt]);
+  }, [url, attempt]);
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.select();
@@ -283,7 +307,7 @@ export function TerminalPane({
             {status.error ? <AlertTriangle className="size-5" /> : <SquareTerminal className="size-5" />}
           </div>
           <p className="text-fg max-w-md text-sm font-medium">{status.message ?? t("term.disconnected")}</p>
-          <Button variant="secondary" size="sm" className="mt-4" onClick={() => setAttempt((a) => a + 1)}>
+          <Button variant="secondary" size="sm" className="mt-4" onClick={() => void reconnect()}>
             <RotateCw aria-hidden className="size-3.5" />
             {t("term.reconnect")}
           </Button>
