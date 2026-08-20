@@ -861,8 +861,12 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
         return ampPayload(ampForm);
       case "tailscale":
         return tailscalePayload(tailscaleForm);
-      case "caddy":
-        return caddyPayload(caddyForm);
+      case "caddy": {
+        // Preserve config keys this form doesn't own (the Cloudflare link:
+        // cfZoneId/cfZoneName/…) — UpdateIntegration replaces config wholesale.
+        const p = caddyPayload(caddyForm);
+        return { ...p, config: { ...cfg, ...p.config } };
+      }
       case "patchpilot":
         return patchpilotPayload();
       case "aperture":

@@ -2685,7 +2685,8 @@
     "degradedBanner": "Der Helper läuft, erreicht Caddy aber nicht: {{message}}",
     "tabs": {
       "sites": "Sites",
-      "served": "Laufende Konfiguration"
+      "served": "Laufende Konfiguration",
+      "dns": "DNS"
     },
     "sites": {
       "fileLabel": "Verwaltet",
@@ -2766,6 +2767,87 @@
       "repairButton": "Neu koppeln",
       "repairSuccess": "Helper neu gekoppelt",
       "repairFailed": "Neukopplung fehlgeschlagen"
+    },
+    "dns": {
+      "link": {
+        "title": "Cloudflare verknüpfen",
+        "body": "Verwalte die DNS-Hälfte deines Reverse-Proxys von hier: Einträge, die deine (Sub-)Domains auf Caddy zeigen lassen — zusammen mit der Caddy-Route in einem Schritt erstellt.",
+        "noPermission": "Bitte eine:n Administrator:in, Cloudflare für dieses System zu verknüpfen.",
+        "token": "Cloudflare-API-Token",
+        "tokenHint": "Braucht die Berechtigung Zone → DNS → Bearbeiten für deine Zone",
+        "tokenKeep": "Leer lassen, um das gespeicherte Token zu behalten",
+        "tokenHowTo": "Erstelle eins unter <a>dash.cloudflare.com → My Profile → API Tokens</a> mit der Vorlage „Zonen-DNS bearbeiten“.",
+        "zone": "Zone",
+        "zoneHint": "Die Domain, die diese Caddy-Instanz bedient",
+        "content": "Standard-Ziel für Einträge",
+        "contentHint": "Wohin neue DNS-Einträge zeigen — die IP deines Caddy-Hosts (oder ein DDNS-Hostname). Jede veröffentlichte Subdomain löst hierhin auf.",
+        "proxied": "Über Cloudflare proxyen",
+        "proxiedHint": "Orange Wolke. Aus lassen, wenn das Ziel eine private LAN-IP ist.",
+        "verify": "Token prüfen",
+        "confirm": "Zone verknüpfen",
+        "linked": "Mit {{zone}} verknüpft",
+        "failed": "Verknüpfung fehlgeschlagen"
+      },
+      "defaultTarget": "Standard-Ziel",
+      "addRecord": "Eintrag hinzufügen",
+      "editRecord": "Eintrag bearbeiten",
+      "publish": "Dienst veröffentlichen",
+      "publishTitle": "Dienst veröffentlichen",
+      "publishBody": "Erstellt den DNS-Eintrag, der den Namen auf deinen Caddy-Host zeigt, und die Caddy-Route zum Dienst — beides in einem Schritt.",
+      "settings": "Cloudflare-Einstellungen",
+      "unlink": "Cloudflare trennen",
+      "unlinkConfirm": {
+        "title": "Cloudflare trennen?",
+        "body": "Entfernt das gespeicherte API-Token und die Verknüpfung mit {{zone}}. DNS-Einträge werden nicht gelöscht."
+      },
+      "deleteConfirm": {
+        "title": "DNS-Eintrag löschen?",
+        "body": "{{name}} wird aus Cloudflare entfernt. Alles, was darüber auflöst, funktioniert dann nicht mehr."
+      },
+      "missing": "{{count}} Caddy-Site(s) ohne DNS-Eintrag:",
+      "missingAdd": "Eintrag für {{domain}} erstellen",
+      "empty": {
+        "title": "Keine DNS-Einträge",
+        "body": "Diese Zone hat noch keine Einträge — füge einen hinzu oder veröffentliche einen Dienst."
+      },
+      "cols": {
+        "type": "Typ",
+        "name": "Name",
+        "content": "Inhalt",
+        "proxy": "Proxy",
+        "route": "Caddy-Route"
+      },
+      "proxied": "Über Cloudflare geproxyt",
+      "dnsOnly": "Nur DNS",
+      "createRoute": "Route erstellen…",
+      "noRoute": "Keine Route",
+      "outcome": {
+        "dns": "Cloudflare-DNS",
+        "site": "Caddy-Site"
+      },
+      "dnsStatus": {
+        "created": "erstellt",
+        "exists": "war schon vorhanden",
+        "skipped": "übersprungen",
+        "error": "fehlgeschlagen",
+        "unlinked": "nicht verknüpft"
+      },
+      "siteStatus": {
+        "created": "erstellt",
+        "error": "fehlgeschlagen"
+      },
+      "form": {
+        "name": "Name",
+        "nameHint": "„@“ für {{zone}} selbst, oder eine Subdomain wie „app“",
+        "upstreamHost": "Dienst-IP / Host",
+        "upstreamPort": "Port",
+        "createDns": "DNS-Eintrag erstellen",
+        "createDnsHint": "Zeigt den Namen auf {{content}}"
+      },
+      "toast": {
+        "published": "{{domain}} veröffentlicht",
+        "failed": "Aktion fehlgeschlagen"
+      }
     }
   },
   "nvr": {

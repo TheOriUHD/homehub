@@ -3025,6 +3025,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/caddy/{id}/cloudflare/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link (or re-configure) a Cloudflare zone for this Caddy instance
+         * @description Verifies the API token (Zone → DNS → Edit scope) and stores the link. Without a zoneId the call returns the zones the token can manage so the caller can pick one — nothing is stored until a zone is chosen (a token with exactly one zone links immediately). Omitting the token keeps the stored one, so zone/target/proxied can be re-configured without re-pasting it. The token lives in the vault and never reaches the browser. Requires configure on the instance.
+         */
+        post: operations["caddyCfLink"];
+        /** Remove the Cloudflare link (token and zone settings) */
+        delete: operations["caddyCfUnlink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/caddy/{id}/dns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The linked zone's DNS records, matched against Caddy sites
+         * @description Every record in the linked Cloudflare zone, each annotated with the Caddy site that serves its name (when one exists), plus the list of Caddy domains under the zone that have no DNS record yet.
+         */
+        get: operations["caddyDns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/caddy/{id}/dns/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a DNS record in the linked zone
+         * @description Name accepts "@" (zone apex), a bare subdomain, or a full name. Content defaults to the link's configured target; type auto-detects from the content (IPv4 → A, IPv6 → AAAA, hostname → CNAME) when omitted. Requires control on the instance. Audited.
+         */
+        post: operations["caddyDnsCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/caddy/{id}/dns/records/{recordId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a DNS record */
+        put: operations["caddyDnsUpdate"];
+        post?: never;
+        /** Delete a DNS record */
+        delete: operations["caddyDnsDelete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/caddy/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a service — DNS record and Caddy site in one step
+         * @description The one-shot flow — creates the Cloudflare record pointing the name at the reverse proxy (skipped when one already exists or createDns is false) and the Caddy site routing it to the service. Each half reports its own outcome so a partial failure is visible, never silent. Requires control on the instance. Audited.
+         */
+        post: operations["caddyPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/nvr/{id}/overview": {
         parameters: {
             query?: never;
@@ -5741,6 +5840,61 @@ export interface components {
             }[];
             domainsWithoutProxy: string[];
             warnings: string[];
+        };
+        CaddyCfLinkResult: {
+            linked: boolean;
+            zoneName?: string;
+            recordContent?: string;
+            proxied?: boolean;
+            /** @description Present when the token manages several zones and none was chosen yet */
+            zones?: {
+                id: string;
+                name: string;
+            }[];
+        };
+        CaddyDnsRecord: {
+            id: string;
+            type: string;
+            /** @description FQDN as Cloudflare stores it */
+            name: string;
+            content: string;
+            proxied: boolean;
+            /** @description 1 = auto */
+            ttl: number;
+            /** @description the Caddy site serving this name, when one exists */
+            routeDomain?: string;
+            /** @description that site's upstream (host:port) */
+            routeUpstream?: string;
+        };
+        CaddyDnsRecordInput: {
+            /** @description "@", a bare subdomain, or a full name */
+            name: string;
+            /** @description A / AAAA / CNAME / TXT / …; auto-detected from content when omitted */
+            type?: string;
+            /** @description defaults to the link's configured target */
+            content?: string;
+            proxied?: boolean;
+            ttl?: number;
+        };
+        CaddyDnsState: {
+            zoneName: string;
+            /** @description the link's default record target */
+            recordContent: string;
+            proxiedDefault: boolean;
+            records: components["schemas"]["CaddyDnsRecord"][];
+            /** @description Caddy domains under this zone that have no DNS record */
+            missingDns: string[];
+        };
+        CaddyPublishResult: {
+            /** @description the FQDN that was published */
+            domain: string;
+            /** @enum {string} */
+            dnsStatus: "created" | "exists" | "skipped" | "error" | "unlinked";
+            dnsMessage: string;
+            /** @enum {string} */
+            siteStatus: "created" | "error";
+            siteMessage: string;
+            sites?: components["schemas"]["CaddySitesState"] | null;
         };
         TsTailnet: {
             /** Format: uuid */
@@ -11713,6 +11867,220 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    caddyCfLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Cloudflare API token; empty keeps the stored token */
+                    token?: string;
+                    zoneId?: string;
+                    /** @description default target for new records — the reverse proxy's IP or hostname */
+                    recordContent?: string;
+                    /** @description default proxied (orange-cloud) mode for new records */
+                    proxied?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Linked, or the zone choices when none was given */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaddyCfLinkResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    caddyCfUnlink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unlinked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    caddyDns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description DNS state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaddyDnsState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    caddyDnsCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaddyDnsRecordInput"];
+            };
+        };
+        responses: {
+            /** @description The created record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaddyDnsRecord"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    caddyDnsUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                recordId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaddyDnsRecordInput"];
+            };
+        };
+        responses: {
+            /** @description The updated record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaddyDnsRecord"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    caddyDnsDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                recordId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
+        };
+    };
+    caddyPublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description "@" for the zone apex, a bare subdomain, or a full name */
+                    name: string;
+                    /** @description the service's IP or hostname */
+                    upstreamHost: string;
+                    upstreamPort?: string;
+                    upstreamScheme?: string;
+                    /** @description also create the DNS record (default true when linked) */
+                    createDns?: boolean;
+                    /** @description record target override; defaults to the link's configured target */
+                    dnsContent?: string;
+                    /** @description proxied mode override; defaults to the link's setting */
+                    proxied?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Outcome of both halves */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaddyPublishResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             502: components["responses"]["UpstreamError"];
         };
     };

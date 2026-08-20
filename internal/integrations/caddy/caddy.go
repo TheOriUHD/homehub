@@ -38,7 +38,10 @@ func (Driver) DisplayName() string { return "Caddy" }
 func (Driver) Description() string {
 	return "A Caddy reverse proxy, managed through the caddy-reader helper on its host: every site in the Caddyfile listed live, graphical add/edit/remove with Caddy validating each change before anything touches disk, and the running config's served domains."
 }
-func (Driver) SecretNames() []string { return []string{"token"} }
+
+// SecretNames: "token" authenticates the caddy-reader helper; "cfToken" is the
+// optional Cloudflare API token when the instance is linked to a zone.
+func (Driver) SecretNames() []string { return []string{"token", CFSecretName} }
 
 // client speaks the helper protocol with a Bearer token.
 type client struct {

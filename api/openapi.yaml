@@ -4605,6 +4605,211 @@ paths:
         "502":
           $ref: "#/components/responses/UpstreamError"
 
+  /caddy/{id}/cloudflare/link:
+    post:
+      operationId: caddyCfLink
+      summary: Link (or re-configure) a Cloudflare zone for this Caddy instance
+      description: >-
+        Verifies the API token (Zone → DNS → Edit scope) and stores the link.
+        Without a zoneId the call returns the zones the token can manage so the
+        caller can pick one — nothing is stored until a zone is chosen (a token
+        with exactly one zone links immediately). Omitting the token keeps the
+        stored one, so zone/target/proxied can be re-configured without
+        re-pasting it. The token lives in the vault and never reaches the
+        browser. Requires configure on the instance.
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token: { type: string, description: "Cloudflare API token; empty keeps the stored token" }
+                zoneId: { type: string }
+                recordContent: { type: string, description: "default target for new records — the reverse proxy's IP or hostname" }
+                proxied: { type: boolean, description: "default proxied (orange-cloud) mode for new records" }
+      responses:
+        "200":
+          description: Linked, or the zone choices when none was given
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaddyCfLinkResult" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: caddyCfUnlink
+      summary: Remove the Cloudflare link (token and zone settings)
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Unlinked
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /caddy/{id}/dns:
+    get:
+      operationId: caddyDns
+      summary: The linked zone's DNS records, matched against Caddy sites
+      description: >-
+        Every record in the linked Cloudflare zone, each annotated with the
+        Caddy site that serves its name (when one exists), plus the list of
+        Caddy domains under the zone that have no DNS record yet.
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: DNS state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaddyDnsState" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /caddy/{id}/dns/records:
+    post:
+      operationId: caddyDnsCreate
+      summary: Create a DNS record in the linked zone
+      description: >-
+        Name accepts "@" (zone apex), a bare subdomain, or a full name. Content
+        defaults to the link's configured target; type auto-detects from the
+        content (IPv4 → A, IPv6 → AAAA, hostname → CNAME) when omitted.
+        Requires control on the instance. Audited.
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CaddyDnsRecordInput" }
+      responses:
+        "200":
+          description: The created record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaddyDnsRecord" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /caddy/{id}/dns/records/{recordId}:
+    put:
+      operationId: caddyDnsUpdate
+      summary: Update a DNS record
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: recordId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CaddyDnsRecordInput" }
+      responses:
+        "200":
+          description: The updated record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaddyDnsRecord" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+    delete:
+      operationId: caddyDnsDelete
+      summary: Delete a DNS record
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+        - name: recordId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
+  /caddy/{id}/publish:
+    post:
+      operationId: caddyPublish
+      summary: Publish a service — DNS record and Caddy site in one step
+      description: >-
+        The one-shot flow — creates the Cloudflare record pointing the name at
+        the reverse proxy (skipped when one already exists or createDns is
+        false) and the Caddy site routing it to the service. Each half reports
+        its own outcome so a partial failure is visible, never silent.
+        Requires control on the instance. Audited.
+      tags: [caddy]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, upstreamHost]
+              properties:
+                name: { type: string, description: "\"@\" for the zone apex, a bare subdomain, or a full name" }
+                upstreamHost: { type: string, description: the service's IP or hostname }
+                upstreamPort: { type: string }
+                upstreamScheme: { type: string }
+                createDns: { type: boolean, description: "also create the DNS record (default true when linked)" }
+                dnsContent: { type: string, description: "record target override; defaults to the link's configured target" }
+                proxied: { type: boolean, description: "proxied mode override; defaults to the link's setting" }
+      responses:
+        "200":
+          description: Outcome of both halves
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaddyPublishResult" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "502":
+          $ref: "#/components/responses/UpstreamError"
+
   /nvr/{id}/overview:
     get:
       operationId: apertureOverview
@@ -8414,6 +8619,79 @@ components:
         warnings:
           type: array
           items: { type: string }
+
+    CaddyCfLinkResult:
+      type: object
+      required: [linked]
+      properties:
+        linked: { type: boolean }
+        zoneName: { type: string }
+        recordContent: { type: string }
+        proxied: { type: boolean }
+        zones:
+          type: array
+          description: Present when the token manages several zones and none was chosen yet
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string }
+              name: { type: string }
+
+    CaddyDnsRecord:
+      type: object
+      required: [id, type, name, content, proxied, ttl]
+      properties:
+        id: { type: string }
+        type: { type: string }
+        name: { type: string, description: FQDN as Cloudflare stores it }
+        content: { type: string }
+        proxied: { type: boolean }
+        ttl: { type: integer, description: "1 = auto" }
+        routeDomain: { type: string, description: "the Caddy site serving this name, when one exists" }
+        routeUpstream: { type: string, description: "that site's upstream (host:port)" }
+
+    CaddyDnsRecordInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, description: "\"@\", a bare subdomain, or a full name" }
+        type: { type: string, description: "A / AAAA / CNAME / TXT / …; auto-detected from content when omitted" }
+        content: { type: string, description: defaults to the link's configured target }
+        proxied: { type: boolean }
+        ttl: { type: integer }
+
+    CaddyDnsState:
+      type: object
+      required: [zoneName, recordContent, proxiedDefault, records, missingDns]
+      properties:
+        zoneName: { type: string }
+        recordContent: { type: string, description: the link's default record target }
+        proxiedDefault: { type: boolean }
+        records:
+          type: array
+          items: { $ref: "#/components/schemas/CaddyDnsRecord" }
+        missingDns:
+          type: array
+          description: Caddy domains under this zone that have no DNS record
+          items: { type: string }
+
+    CaddyPublishResult:
+      type: object
+      required: [domain, dnsStatus, dnsMessage, siteStatus, siteMessage]
+      properties:
+        domain: { type: string, description: the FQDN that was published }
+        dnsStatus:
+          type: string
+          enum: [created, exists, skipped, error, unlinked]
+        dnsMessage: { type: string }
+        siteStatus:
+          type: string
+          enum: [created, error]
+        siteMessage: { type: string }
+        sites:
+          allOf: [{ $ref: "#/components/schemas/CaddySitesState" }]
+          nullable: true
 
     TsTailnet:
       type: object

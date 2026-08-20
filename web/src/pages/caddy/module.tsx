@@ -50,6 +50,7 @@ export function CaddyModulePage() {
   const base = `/caddy/${instanceId}`;
   const tabs = [
     { to: base, label: t("caddy.tabs.sites"), exact: true },
+    { to: `${base}/dns`, label: t("caddy.tabs.dns") },
     { to: `${base}/served`, label: t("caddy.tabs.served") },
   ];
 

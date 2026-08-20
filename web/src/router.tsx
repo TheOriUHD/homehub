@@ -76,6 +76,7 @@ import { NvrModulePage } from "./pages/nvr/module";
 import { MoonrakerModulePage } from "./pages/moonraker/module";
 import { CaddySitesPage } from "./pages/caddy/sites";
 import { CaddyServedPage } from "./pages/caddy/served";
+import { CaddyDnsPage } from "./pages/caddy/dns";
 import { TsDevicesPage } from "./pages/ts/devices";
 import { TsKeysPage } from "./pages/ts/keys";
 import { TsDnsPage } from "./pages/ts/dns";
@@ -384,6 +385,12 @@ const caddyServedRoute = createRoute({
   getParentRoute: () => caddyModuleRoute,
   path: "/served",
   component: CaddyServedPage,
+});
+
+const caddyDnsRoute = createRoute({
+  getParentRoute: () => caddyModuleRoute,
+  path: "/dns",
+  component: CaddyDnsPage,
 });
 
 const tsModuleRoute = createRoute({
@@ -823,7 +830,7 @@ const routeTree = rootRoute.addChildren([
     ]),
     ampModuleRoute.addChildren([ampOverviewRoute, ampInstanceRoute]),
     tsModuleRoute.addChildren([tsDevicesRoute, tsKeysRoute, tsDnsRoute]),
-    caddyModuleRoute.addChildren([caddySitesRoute, caddyServedRoute]),
+    caddyModuleRoute.addChildren([caddySitesRoute, caddyDnsRoute, caddyServedRoute]),
     nvrModuleRoute,
     moonrakerModuleRoute,
   ]),
