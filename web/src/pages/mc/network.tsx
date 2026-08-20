@@ -1,6 +1,6 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { Pickaxe, Waypoints } from "lucide-react";
+import { Gauge, MemoryStick, Pickaxe, Users, Waypoints } from "lucide-react";
 import { capacityTextClass } from "@/lib/capacity";
 import { cn } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
@@ -8,6 +8,7 @@ import { Card, CardBody } from "@/ui/card";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { loaderLabel, PROXY_LOADERS, tpsTone, useMcOverview } from "./shared";
+import { MiniStat } from "@/components/mini-stat";
 
 /**
  * The network dashboard: one card per member server — proxy or subserver —
@@ -47,8 +48,35 @@ export function McNetworkPage() {
     return ap - bp;
   });
 
+  const connected = servers.filter((sv) => sv.connected);
+  const players = connected.reduce((sum, sv) => sum + (sv.status?.playersOnline ?? 0), 0);
+  const slots = connected.reduce((sum, sv) => sum + (sv.status?.playersMax ?? 0), 0);
+  const tpsValues = connected
+    .map((sv) => sv.status?.tps)
+    .filter((v): v is number => typeof v === "number");
+  const worstTps = tpsValues.length > 0 ? Math.min(...tpsValues) : null;
+  const heapMb = connected.reduce((sum, sv) => sum + (sv.status?.heapUsedMb ?? 0), 0);
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MiniStat
+          icon={Pickaxe}
+          label={t("mc.network.stats.servers")}
+          value={`${connected.length}/${servers.length}`}
+          tone={connected.length === servers.length ? "success" : "warning"}
+        />
+        <MiniStat icon={Users} label={t("mc.network.stats.players")} value={players} sub={slots > 0 ? `/ ${slots}` : undefined} />
+        <MiniStat
+          icon={Gauge}
+          label={t("mc.network.stats.worstTps")}
+          value={worstTps != null ? worstTps.toFixed(1) : "—"}
+          tone={worstTps != null ? (worstTps >= 18 ? "success" : worstTps >= 15 ? "warning" : "danger") : undefined}
+        />
+        <MiniStat icon={MemoryStick} label={t("mc.network.stats.heap")} value={heapMb > 0 ? `${(heapMb / 1024).toFixed(1)} GB` : "—"} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {ordered.map((server) => {
         const isProxy = PROXY_LOADERS.includes(server.loader ?? "");
         const Icon = isProxy ? Waypoints : Pickaxe;
@@ -105,6 +133,7 @@ export function McNetworkPage() {
           </Link>
         );
       })}
+      </div>
     </div>
   );
 }

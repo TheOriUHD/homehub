@@ -1122,6 +1122,12 @@ function CameraTile({ cam, instanceId, canControl, onExpand, expanded }: { cam: 
   const rotate = () => { const prev = rotation; const v = (((rotation + 90) % 360) as 0 | 90 | 180 | 270); setRotation(v); save({ rotation: v }, () => setRotation(prev)); };
 
   const transform = `rotate(${rotation}deg) scaleX(${flipH ? -1 : 1}) scaleY(${flipV ? -1 : 1})`;
+  // The configured aspect ratio is often wrong (default 16:9 on a 4:3 cam),
+  // which letterboxes the stream in black bars. Measure the real frame once
+  // it loads and size the card to THAT; a 90°/270° rotation swaps the axes.
+  const [measured, setMeasured] = useState<number | null>(null);
+  const rotated = rotation === 90 || rotation === 270;
+  const frameRatio = measured != null ? (rotated ? 1 / measured : measured) : null;
   const streamable = !/webrtc|hls|rtsp/i.test(cam.service ?? "");
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -1132,7 +1138,13 @@ function CameraTile({ cam, instanceId, canControl, onExpand, expanded }: { cam: 
   const src = streamable ? `${webcamStreamUrl(instanceId, cam.name)}&_=${nonce}` : cam.snapshot ? `${webcamSnapshotUrl(instanceId, cam.name)}&_=${tick}` : null;
 
   return (
-    <div className={cn("border-edge group relative overflow-hidden rounded-lg border bg-black", expanded ? "mx-auto w-full" : "w-full")} style={{ ...aspectStyle(cam.aspectRatio), maxHeight: expanded ? "78vh" : undefined }}>
+    <div
+      className={cn("border-edge group relative overflow-hidden rounded-lg border bg-black", expanded ? "mx-auto w-full" : "w-full")}
+      style={{
+        ...(frameRatio != null ? { aspectRatio: String(frameRatio) } : aspectStyle(cam.aspectRatio)),
+        maxHeight: expanded ? "78vh" : undefined,
+      }}
+    >
       {src == null ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
           <VideoOff className="size-6 text-white/60" />
@@ -1146,7 +1158,20 @@ function CameraTile({ cam, instanceId, canControl, onExpand, expanded }: { cam: 
           <span className="text-[11px] text-white/45">{t("moonraker.camera.retry")}</span>
         </button>
       ) : (
-        <img src={src} alt={cam.name} onError={() => streamable && setErrored(true)} className="absolute inset-0 size-full object-contain" style={{ transform }} />
+        <img
+          src={src}
+          alt={cam.name}
+          onError={() => streamable && setErrored(true)}
+          onLoad={(e) => {
+            const img = e.currentTarget;
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+              const r = img.naturalWidth / img.naturalHeight;
+              setMeasured((prev) => (prev != null && Math.abs(prev - r) < 0.01 ? prev : r));
+            }
+          }}
+          className="absolute inset-0 size-full object-contain"
+          style={{ transform }}
+        />
       )}
 
       <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">

@@ -656,7 +656,7 @@
     "title": "Systeme",
     "subtitle": "Alles, womit HomeHub verbunden ist — hier Systeme hinzufügen, testen und verwalten.",
     "add": "System hinzufügen",
-    "open": "Öffnen",
+    "open": "{{product}} öffnen",
     "test": "Testen",
     "testConnection": "Verbindung testen",
     "testing": "Teste…",
@@ -688,7 +688,7 @@
       }
     },
     "types": {
-      "proxmox": "Proxmox VE",
+      "proxmox": "Proxmox",
       "docker": "Docker",
       "pihole": "Pi-hole",
       "adguard": "AdGuard Home",
@@ -1154,9 +1154,11 @@
       "unreachableHosts": "Einige Hosts waren nicht erreichbar: {{hosts}}",
       "stats": {
         "hostsOnline": "Hosts online",
-        "running": "Container laufen",
+        "running": "Laufend",
         "stopped": "Gestoppt",
-        "unreachable": "Nicht erreichbare Hosts"
+        "unreachable": "Nicht erreichbare Hosts",
+        "hosts": "Hosts online",
+        "problems": "Probleme"
       },
       "socket": "lokaler Socket",
       "stateCount": "{{n}} {{state}}",
@@ -1900,6 +1902,13 @@
       "attributeKey": "Attribut",
       "attributeValue": "Wert",
       "noHistory": "Für diese Entität wurde noch kein Verlauf aufgezeichnet."
+    },
+    "stats": {
+      "entities": "Entitäten",
+      "areas": "{{count}} Bereiche",
+      "lightsOn": "Lichter an",
+      "automations": "Automationen an",
+      "unavailable": "Nicht verfügbar"
     }
   },
   "mc": {
@@ -2023,7 +2032,13 @@
       "emptyBody": "Öffne das Setup, um den Proxy und jeden Subserver mit einem eigenen Code zu koppeln.",
       "unknownLoader": "noch nicht verbunden",
       "offline": "Companion offline",
-      "backends": "{{count}} Backends"
+      "backends": "{{count}} Backends",
+      "stats": {
+        "servers": "Server online",
+        "players": "Spieler online",
+        "worstTps": "Schlechteste TPS",
+        "heap": "Heap belegt"
+      }
     },
     "server": {
       "back": "Alle Server",
@@ -2732,7 +2747,15 @@
       "advancedTitle": "Erweiterte Blöcke",
       "advancedBody": "Site-Blöcke, die der Editor nicht abbildet. Sie bleiben exakt wie geschrieben erhalten — hier angezeigt, damit die Liste nie darüber lügt, was in der Datei steht.",
       "globalTitle": "Globale Optionen",
-      "globalBody": "Gilt für jede Site, die dieser Caddy ausliefert."
+      "globalBody": "Gilt für jede Site, die dieser Caddy ausliefert.",
+      "stats": {
+        "sites": "Verwaltete Sites",
+        "unmanaged": "+{{count}} unverwaltet",
+        "domains": "Domains",
+        "dnsChallenge": "TLS per DNS",
+        "missingDns": "DNS fehlt",
+        "notLinked": "Cloudflare nicht verknüpft"
+      }
     },
     "reasons": {
       "noProxy": "kein reverse_proxy",
@@ -3132,7 +3155,14 @@
       "rebootRequired": "Neustart erforderlich",
       "never": "Nie",
       "disabled": "Deaktiviert",
-      "runAllStarted": "Update auf allen Hosts gestartet"
+      "runAllStarted": "Update auf allen Hosts gestartet",
+      "stats": {
+        "hosts": "Hosts aktiv",
+        "critical": "{{count}} kritisch",
+        "updates": "Ausstehende Updates",
+        "reboots": "Neustarts nötig",
+        "failed": "Letzter Lauf fehlgeschlagen"
+      }
     },
     "addHost": {
       "title": "Host hinzufügen",

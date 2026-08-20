@@ -1,6 +1,6 @@
 import { Link, Outlet, useParams, useRouterState } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, House } from "lucide-react";
+import { AlertTriangle, Boxes, House, Lightbulb, Workflow } from "lucide-react";
 import { useLiveInvalidate } from "@/lib/live";
 import { cn } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
@@ -8,7 +8,10 @@ import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { Card } from "@/ui/card";
 import { statusTone } from "@/lib/systems";
-import { useHaInstances, useHaLiveStates } from "./shared";
+import { OpenSystemLink } from "@/components/open-system";
+import { useHaEntities, useHaInstances, useHaLiveStates } from "./shared";
+import { MiniStat } from "@/components/mini-stat";
+import type { HaEntity } from "@/lib/api";
 
 export function HaModulePage() {
   const { t } = useTranslation();
@@ -17,6 +20,7 @@ export function HaModulePage() {
 
   const instances = useHaInstances();
   useLiveInvalidate("integrations", [["ha", "instances"]]);
+  const entities = useHaEntities(instanceId);
   // One subscription for the whole module: "state" events patch the entities
   // cache in place; "entities-changed" invalidates it.
   useHaLiveStates(instanceId);
@@ -70,6 +74,7 @@ export function HaModulePage() {
             {meta.length > 0 && ` · ${meta.join(" · ")}`}
           </p>
         </div>
+        <OpenSystemLink instanceId={instanceId} />
       </div>
 
       {(instance.status === "unreachable" || instance.status === "degraded") && (
@@ -88,6 +93,8 @@ export function HaModulePage() {
             : t("ha.degradedBanner", { message: instance.statusMessage })}
         </div>
       )}
+
+      {entities.data && <HaStatRow entities={entities.data.entities} areaCount={entities.data.areas.length} />}
 
       <nav className="border-edge no-scrollbar flex gap-1 overflow-x-auto border-b">
         {tabs.map((tab) => {
@@ -110,6 +117,36 @@ export function HaModulePage() {
       </nav>
 
       <Outlet />
+    </div>
+  );
+}
+
+
+/** HaStatRow condenses the home's live state into four glanceable tiles. */
+function HaStatRow({ entities, areaCount }: { entities: HaEntity[]; areaCount: number }) {
+  const { t } = useTranslation();
+  if (entities.length === 0) return null;
+  const lights = entities.filter((e) => e.domain === "light");
+  const lightsOn = lights.filter((e) => e.state === "on").length;
+  const automations = entities.filter((e) => e.domain === "automation");
+  const automationsOn = automations.filter((e) => e.state === "on").length;
+  const areas = areaCount;
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <MiniStat icon={Boxes} label={t("ha.stats.entities")} value={entities.length} sub={t("ha.stats.areas", { count: areas })} />
+      <MiniStat
+        icon={Lightbulb}
+        label={t("ha.stats.lightsOn")}
+        value={`${lightsOn}/${lights.length}`}
+        tone={lightsOn > 0 ? "warning" : undefined}
+      />
+      <MiniStat icon={Workflow} label={t("ha.stats.automations")} value={`${automationsOn}/${automations.length}`} />
+      <MiniStat
+        icon={AlertTriangle}
+        label={t("ha.stats.unavailable")}
+        value={entities.filter((e) => e.state === "unavailable").length}
+        tone={entities.some((e) => e.state === "unavailable") ? "warning" : "success"}
+      />
     </div>
   );
 }

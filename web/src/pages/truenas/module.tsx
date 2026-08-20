@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AlertTriangle, Bell, HardDrive, X } from "lucide-react";
 import { useLiveInvalidate } from "@/lib/live";
 import { statusTone } from "@/lib/systems";
+import { OpenSystemLink } from "@/components/open-system";
 import { cn, formatBytes, formatRelative } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Button } from "@/ui/button";
@@ -102,6 +103,7 @@ export function TruenasModulePage() {
               {t("truenas.chips.memory", { size: formatBytes(info.physicalMemoryBytes) })}
             </Badge>
           )}
+          <OpenSystemLink instanceId={instanceId} />
         </div>
       </div>
 

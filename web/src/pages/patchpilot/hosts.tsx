@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { Check, Loader2, Play, Plus, ServerCog, X } from "lucide-react";
+import { AlertTriangle, Check, Loader2, PackageOpen, Play, Plus, RotateCcw, ServerCog, X } from "lucide-react";
 import { isApiError, type PatchpilotDetectResult, type PatchpilotHost } from "@/lib/api";
 import { live } from "@/lib/ws";
 import { formatRelative } from "@/lib/utils";
@@ -29,6 +29,7 @@ import {
 } from "./shared";
 import { RunMonitor } from "./run-monitor";
 import { CriticalRunConfirm } from "./critical";
+import { MiniStat } from "@/components/mini-stat";
 
 /**
  * PatchpilotHostsPage is the fleet's landing tab: a "run everything" and an
@@ -83,6 +84,10 @@ export function PatchpilotHostsPage() {
   }
 
   const list = hosts.data ?? [];
+  const enabled = list.filter((h) => h.enabled);
+  const updatesPending = list.reduce((sum, h) => sum + (h.updatesPending ?? 0), 0);
+  const rebootCount = list.filter((h) => h.rebootRequired).length;
+  const failedCount = list.filter((h) => h.lastRunStatus === "failed").length;
 
   const addButton = (
     <Button variant="primary" size="sm" onClick={() => setAdding(true)}>
@@ -93,6 +98,33 @@ export function PatchpilotHostsPage() {
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MiniStat
+          icon={ServerCog}
+          label={t("patchpilot.hosts.stats.hosts")}
+          value={`${enabled.length}/${list.length}`}
+          sub={list.some((h) => h.critical) ? t("patchpilot.hosts.stats.critical", { count: list.filter((h) => h.critical).length }) : undefined}
+        />
+        <MiniStat
+          icon={PackageOpen}
+          label={t("patchpilot.hosts.stats.updates")}
+          value={updatesPending}
+          tone={updatesPending > 0 ? "warning" : "success"}
+        />
+        <MiniStat
+          icon={RotateCcw}
+          label={t("patchpilot.hosts.stats.reboots")}
+          value={rebootCount}
+          tone={rebootCount > 0 ? "warning" : undefined}
+        />
+        <MiniStat
+          icon={AlertTriangle}
+          label={t("patchpilot.hosts.stats.failed")}
+          value={failedCount}
+          tone={failedCount > 0 ? "danger" : "success"}
+        />
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-fg flex-1 text-[15px] font-semibold">{t("patchpilot.hosts.title")}</h2>
         <div className="flex items-center gap-1.5">

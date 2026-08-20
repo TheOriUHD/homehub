@@ -656,7 +656,7 @@
     "title": "Systems",
     "subtitle": "Everything HomeHub is connected to — add, test, and manage systems here.",
     "add": "Add system",
-    "open": "Open",
+    "open": "Open {{product}}",
     "test": "Test",
     "testConnection": "Test connection",
     "testing": "Testing…",
@@ -688,7 +688,7 @@
       }
     },
     "types": {
-      "proxmox": "Proxmox VE",
+      "proxmox": "Proxmox",
       "docker": "Docker",
       "pihole": "Pi-hole",
       "adguard": "AdGuard Home",
@@ -1154,9 +1154,11 @@
       "unreachableHosts": "Some hosts could not be reached: {{hosts}}",
       "stats": {
         "hostsOnline": "Hosts online",
-        "running": "Containers running",
+        "running": "Running",
         "stopped": "Stopped",
-        "unreachable": "Unreachable hosts"
+        "unreachable": "Unreachable hosts",
+        "hosts": "Hosts online",
+        "problems": "Problems"
       },
       "socket": "local socket",
       "stateCount": "{{n}} {{state}}",
@@ -1900,6 +1902,13 @@
       "attributeKey": "Attribute",
       "attributeValue": "Value",
       "noHistory": "No recorded history for this entity yet."
+    },
+    "stats": {
+      "entities": "Entities",
+      "areas": "{{count}} areas",
+      "lightsOn": "Lights on",
+      "automations": "Automations on",
+      "unavailable": "Unavailable"
     }
   },
   "mc": {
@@ -2023,7 +2032,13 @@
       "emptyBody": "Open Setup to pair the proxy and each subserver with its own code.",
       "unknownLoader": "not yet connected",
       "offline": "Companion offline",
-      "backends": "{{count}} backends"
+      "backends": "{{count}} backends",
+      "stats": {
+        "servers": "Servers online",
+        "players": "Players online",
+        "worstTps": "Worst TPS",
+        "heap": "Heap in use"
+      }
     },
     "server": {
       "back": "All servers",
@@ -2732,7 +2747,15 @@
       "advancedTitle": "Advanced blocks",
       "advancedBody": "Site blocks the editor doesn't model. They are preserved exactly as written — shown here so the list never lies about what the file contains.",
       "globalTitle": "Global options",
-      "globalBody": "Applies to every site this Caddy serves."
+      "globalBody": "Applies to every site this Caddy serves.",
+      "stats": {
+        "sites": "Managed sites",
+        "unmanaged": "+{{count}} unmanaged",
+        "domains": "Domains",
+        "dnsChallenge": "TLS via DNS",
+        "missingDns": "Missing DNS",
+        "notLinked": "Cloudflare not linked"
+      }
     },
     "reasons": {
       "noProxy": "no reverse_proxy",
@@ -3132,7 +3155,14 @@
       "rebootRequired": "Reboot required",
       "never": "Never",
       "disabled": "Disabled",
-      "runAllStarted": "Update started on all hosts"
+      "runAllStarted": "Update started on all hosts",
+      "stats": {
+        "hosts": "Hosts enabled",
+        "critical": "{{count}} critical",
+        "updates": "Updates pending",
+        "reboots": "Reboots required",
+        "failed": "Failed last run"
+      }
     },
     "addHost": {
       "title": "Add a host",

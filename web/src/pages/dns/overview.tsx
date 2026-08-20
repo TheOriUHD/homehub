@@ -14,6 +14,7 @@ import { useToast } from "@/ui/toast";
 import { TimeSeriesChart } from "@/components/time-series-chart";
 import { MultiSeriesChart } from "@/components/multi-series-chart";
 import { statusTone } from "@/lib/systems";
+import { OpenSystemLink } from "@/components/open-system";
 import { dnsResource, dnsTypeLabel, useDnsInstances } from "./module";
 
 function formatPct(fraction: number): string {
@@ -124,7 +125,10 @@ function SingleInstanceDashboard({ instance }: { instance: DnsInstance }) {
         <h2 className="text-fg text-lg font-semibold tracking-tight">{instance.name}</h2>
         <Badge tone="neutral">{dnsTypeLabel[instance.type]}</Badge>
         {stats?.version && <span className="text-fg-subtle text-[12.5px]">{stats.version}</span>}
-        <div className="ml-auto">{stats && <BlockingControls instance={instance} compact />}</div>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {stats && <BlockingControls instance={instance} compact />}
+          <OpenSystemLink instanceId={instance.id} />
+        </div>
       </div>
 
       {instance.status !== "connected" && instance.statusMessage && (
