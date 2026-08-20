@@ -35,9 +35,12 @@ const signalCols = `id, key, collector, source_type, source_id, source_name, sev
 	title, body, detail, count, first_seen, last_seen, resolved_at, dismissed_at, dismissed_by`
 
 // UpsertSignal reconciles one observation into the live set. A fresh key
-// inserts; a live key updates severity/title/body/detail, bumps last_seen,
-// and increments count only when `recur` (a new occurrence of a one-shot
-// event, not a still-true condition).
+// inserts; a live key updates severity/title/body/detail and increments count
+// only when `recur` (a new occurrence of a one-shot event, not a still-true
+// condition). last_seen bumps only when something the operator can SEE
+// changed (severity/title/body, or a recurrence) — a still-true, unchanged
+// condition keeps its timestamp, so the panel never shows a wall of
+// "1 minute ago" rows that merely got re-observed by the sweep.
 func (s *Store) UpsertSignal(ctx context.Context, sig Signal, recur bool) (*Signal, error) {
 	return scanOne[Signal](s.pool.Query(ctx, `
 		insert into signals (key, collector, source_type, source_id, source_name, severity, auto_resolve, title, body, detail)
@@ -50,11 +53,84 @@ func (s *Store) UpsertSignal(ctx context.Context, sig Signal, recur bool) (*Sign
 			detail      = excluded.detail,
 			source_name = excluded.source_name,
 			count       = signals.count + case when $10 then 1 else 0 end,
-			last_seen   = now(),
+			last_seen   = case when $10
+				or signals.severity is distinct from excluded.severity
+				or signals.title    is distinct from excluded.title
+				or signals.body     is distinct from excluded.body
+				then now() else signals.last_seen end,
 			resolved_at = case when excluded.severity = 'recovered' then coalesce(signals.resolved_at, now()) else null end
 		returning `+signalCols,
 		sig.Key, sig.Collector, sig.SourceType, sig.SourceID, sig.SourceName,
 		sig.Severity, sig.Title, sig.Body, sig.Detail, recur, sig.AutoResolve))
+}
+
+// ---- dismissal-as-acknowledgement --------------------------------------------
+//
+// Dismissing a signal whose condition is STILL TRUE must not make it pop back
+// on the next sweep. The dismissed row stays behind as a suppression marker:
+// re-observations of the same key at the same (or lower) severity update it
+// quietly, an escalation reopens it, and when the condition finally clears it
+// is marked resolved so a genuine re-occurrence later surfaces fresh.
+
+// GetSuppressedSignal returns the newest dismissed-but-unresolved row for a
+// key — the marker that says "the operator acknowledged this while it stood".
+func (s *Store) GetSuppressedSignal(ctx context.Context, key string) (*Signal, error) {
+	return scanOne[Signal](s.pool.Query(ctx,
+		`select `+signalCols+` from signals
+		 where key = $1 and dismissed_at is not null and resolved_at is null
+		 order by dismissed_at desc limit 1`, key))
+}
+
+// TouchSuppressedSignal keeps an acknowledged, still-true condition current
+// (and un-prunable) without resurfacing it.
+func (s *Store) TouchSuppressedSignal(ctx context.Context, id int64, severity, title, body string, detail json.RawMessage) error {
+	_, err := s.pool.Exec(ctx, `
+		update signals set severity = $2, title = $3, body = $4, detail = coalesce($5, detail), last_seen = now()
+		where id = $1 and dismissed_at is not null`, id, severity, title, body, detail)
+	return err
+}
+
+// ReopenSignal resurfaces an acknowledged row — the condition escalated past
+// the severity the operator dismissed. Caller must ensure no live row exists
+// for the key (the partial unique index allows one undismissed row per key).
+func (s *Store) ReopenSignal(ctx context.Context, id int64, severity, title, body string, detail json.RawMessage) (*Signal, error) {
+	return scanOne[Signal](s.pool.Query(ctx, `
+		update signals set dismissed_at = null, dismissed_by = null,
+			severity = $2, title = $3, body = $4, detail = coalesce($5, detail),
+			count = count + 1, last_seen = now(), resolved_at = null
+		where id = $1
+		returning `+signalCols, id, severity, title, body, detail))
+}
+
+// ListSuppressedSignalKeys returns the acknowledged, still-unresolved,
+// self-clearing keys for one collector — reconciled alongside the live set so
+// suppression ends when the condition does.
+func (s *Store) ListSuppressedSignalKeys(ctx context.Context, collector string) (map[string]bool, error) {
+	rows, err := s.pool.Query(ctx,
+		`select key from signals
+		 where collector = $1 and dismissed_at is not null and resolved_at is null and auto_resolve`, collector)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			return nil, err
+		}
+		out[k] = true
+	}
+	return out, rows.Err()
+}
+
+// ResolveSuppressedSignal quietly closes an acknowledged condition that has
+// cleared, re-arming the key for a genuine future occurrence.
+func (s *Store) ResolveSuppressedSignal(ctx context.Context, key string) error {
+	_, err := s.pool.Exec(ctx, `
+		update signals set severity = 'recovered', resolved_at = now()
+		where key = $1 and dismissed_at is not null and resolved_at is null`, key)
+	return err
 }
 
 // GetLiveSignal fetches the undismissed row for a key, if any.
