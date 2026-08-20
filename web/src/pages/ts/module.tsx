@@ -10,6 +10,7 @@ import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { Card } from "@/ui/card";
 import { statusTone } from "@/lib/systems";
+import { OpenSystemLink } from "@/components/open-system";
 
 export function TsModulePage() {
   const { t } = useTranslation();
@@ -62,7 +63,8 @@ export function TsModulePage() {
           </h1>
           <p className="text-fg-muted text-sm">Tailscale</p>
         </div>
-      </div>
+        <OpenSystemLink instanceId={instanceId} />
+        </div>
 
       {(instance.status === "unreachable" || instance.status === "degraded") && (
         <div

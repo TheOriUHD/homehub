@@ -10,6 +10,7 @@ import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { Card } from "@/ui/card";
 import { statusTone } from "@/lib/systems";
+import { OpenSystemLink } from "@/components/open-system";
 
 /** usePveInstance loads the integration row for the current module route. */
 export function usePveInstance(): { instanceId: string; instance: Integration | undefined } {
@@ -74,9 +75,10 @@ export function PveModulePage() {
               {t(`integrations.status.${instance.status}`)}
             </Badge>
           </h1>
-          <p className="text-fg-muted text-sm">Proxmox VE</p>
+          <p className="text-fg-muted text-sm">Proxmox</p>
         </div>
-      </div>
+        <OpenSystemLink instanceId={instanceId} />
+        </div>
 
       {(instance.status === "unreachable" || instance.status === "degraded") && (
         <div

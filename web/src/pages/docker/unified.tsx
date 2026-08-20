@@ -2,18 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import {
-  AlertTriangle,
-  ArrowUpRight,
-  Boxes,
-  Container,
-  FileText,
-  Play,
-  RotateCcw,
-  Server,
-  Square,
-  SquareTerminal,
-} from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Boxes, Container, FileText, Play, RotateCcw, Server, Square, SquareTerminal } from "lucide-react";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { api, unwrap, isApiError, type DockerContainer, type Integration } from "@/lib/api";
@@ -28,6 +17,7 @@ import { Input } from "@/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
+import { MiniStat } from "@/components/mini-stat";
 import { SkeletonRows } from "@/ui/skeleton";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { useToast } from "@/ui/toast";
@@ -77,6 +67,7 @@ export function DockerHubPage() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const { integrations, hosts } = useDockerHosts();
+  const containerResults = useHostContainers(hosts);
   useLiveInvalidate("integrations", [["integrations"]]);
 
   if (integrations.isLoading) return <PageLoader />;
@@ -108,6 +99,12 @@ export function DockerHubPage() {
   }
 
   const online = hosts.filter((h) => h.status === "connected").length;
+  const containers = containerResults.flatMap((r) => r.data ?? []);
+  const running = containers.filter((c) => c.state === "running").length;
+  const stopped = containers.filter((c) => c.state === "exited").length;
+  const trouble = containers.filter(
+    (c) => c.state === "restarting" || c.state === "dead" || (c.status ?? "").toLowerCase().includes("unhealthy"),
+  ).length;
   const tabs = [
     { to: "/docker", label: t("docker.unified.tabs.containers"), exact: true },
     { to: "/docker/hosts", label: t("docker.unified.tabs.hosts") },
@@ -128,6 +125,23 @@ export function DockerHubPage() {
             {t("docker.unified.hostsSummary", { online, total: hosts.length })}
           </p>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MiniStat
+          icon={Server}
+          label={t("docker.unified.stats.hosts")}
+          value={`${online}/${hosts.length}`}
+          tone={online === hosts.length ? "success" : "warning"}
+        />
+        <MiniStat icon={Play} label={t("docker.unified.stats.running")} value={running} />
+        <MiniStat icon={Square} label={t("docker.unified.stats.stopped")} value={stopped} />
+        <MiniStat
+          icon={AlertTriangle}
+          label={t("docker.unified.stats.problems")}
+          value={trouble}
+          tone={trouble > 0 ? "danger" : undefined}
+        />
       </div>
 
       <nav className="border-edge flex gap-1 overflow-x-auto border-b">

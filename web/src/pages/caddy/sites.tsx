@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { FileWarning, Lock, Pencil, Plus, Trash2, Waypoints } from "lucide-react";
+import { Cloud, FileWarning, Globe, Lock, Pencil, Plus, ShieldCheck, Trash2, Waypoints } from "lucide-react";
 import {
   api,
   isApiError,
@@ -24,13 +24,15 @@ import { Checkbox, PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { useToast } from "@/ui/toast";
-import { caddyResource, caddySitesKey, useCaddyLive, useCaddySites } from "./shared";
+import { caddyResource, caddySitesKey, useCaddyDns, useCaddyLive, useCaddySites } from "./shared";
+import { MiniStat } from "@/components/mini-stat";
 
 export function CaddySitesPage() {
   const { t } = useTranslation();
   const { instanceId } = useParams({ from: "/shell/caddy/$instanceId/" });
   const { can } = useAuth();
   const sites = useCaddySites(instanceId);
+  const dns = useCaddyDns(instanceId);
   useCaddyLive(instanceId);
 
   const [editing, setEditing] = useState<CaddySite | null>(null);
@@ -58,8 +60,30 @@ export function CaddySitesPage() {
     );
   }
 
+  const domainCount = state.entries.reduce((sum, e) => sum + 1 + (e.extraDomains?.length ?? 0), 0);
+  const dnsChallengeCount = state.entries.filter((e) => e.dnsProvider).length;
+  const missingDns = dns.data?.linked ? (dns.data.state?.missingDns.length ?? 0) : null;
+
   return (
     <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MiniStat icon={Waypoints} label={t("caddy.sites.stats.sites")} value={state.entries.length} sub={state.rawSites.length > 0 ? t("caddy.sites.stats.unmanaged", { count: state.rawSites.length }) : undefined} />
+        <MiniStat icon={Globe} label={t("caddy.sites.stats.domains")} value={domainCount} />
+        <MiniStat
+          icon={ShieldCheck}
+          label={t("caddy.sites.stats.dnsChallenge")}
+          value={`${dnsChallengeCount}/${state.entries.length}`}
+          tone={dnsChallengeCount === state.entries.length && state.entries.length > 0 ? "success" : undefined}
+        />
+        <MiniStat
+          icon={Cloud}
+          label={t("caddy.sites.stats.missingDns")}
+          value={missingDns == null ? "—" : missingDns}
+          sub={missingDns == null ? t("caddy.sites.stats.notLinked") : undefined}
+          tone={missingDns != null && missingDns > 0 ? "warning" : missingDns === 0 ? "success" : undefined}
+        />
+      </div>
+
       {!state.writable && (
         <div className="bg-warning-soft text-warning-soft-fg flex items-start gap-2.5 rounded-lg px-4 py-3 text-[13px]" role="note">
           <Lock className="mt-0.5 size-4 shrink-0" />
