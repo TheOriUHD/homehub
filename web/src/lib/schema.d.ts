@@ -1516,6 +1516,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dns/{id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deep dashboard data for one DNS instance
+         * @description Leaderboards (top domains, blocked, clients, upstreams), the recent query/blocked history, and average processing time — whatever the upstream exposes; missing pieces come back empty.
+         */
+        get: operations["dnsOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/dns/{id}/queries": {
         parameters: {
             query?: never;
@@ -5201,6 +5221,28 @@ export interface components {
             /** Format: date-time */
             disabledUntil?: string | null;
             version: string;
+        };
+        DnsTopItem: {
+            name: string;
+            /** Format: int64 */
+            count: number;
+        };
+        DnsSeriesPoint: {
+            /** Format: date-time */
+            ts: string;
+            /** Format: int64 */
+            queries: number;
+            /** Format: int64 */
+            blocked: number;
+        };
+        DnsOverview: {
+            /** @description average upstream processing time in milliseconds */
+            avgProcessingMs?: number;
+            series: components["schemas"]["DnsSeriesPoint"][];
+            topDomains: components["schemas"]["DnsTopItem"][];
+            topBlocked: components["schemas"]["DnsTopItem"][];
+            topClients: components["schemas"]["DnsTopItem"][];
+            topUpstreams: components["schemas"]["DnsTopItem"][];
         };
         DnsBlocking: {
             enabled: boolean;
@@ -9296,6 +9338,30 @@ export interface operations {
                     "application/json": components["schemas"]["DnsInstance"][];
                 };
             };
+        };
+    };
+    dnsOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsOverview"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
         };
     };
     dnsQueryLog: {

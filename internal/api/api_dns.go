@@ -568,3 +568,54 @@ func (s *Server) DnsSync(ctx context.Context, req DnsSyncRequestObject) (DnsSync
 		map[string]any{"from": req.Body.From, "added": result.Added, "failed": len(result.Failed)})
 	return result, nil
 }
+
+// DnsOverview serves the deep single-instance dashboard: leaderboards,
+// history, latency. Providers that can't supply it get an empty (not error)
+// answer so the dashboard renders what exists.
+func (s *Server) DnsOverview(ctx context.Context, req DnsOverviewRequestObject) (DnsOverviewResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	provider, _, _, err := s.dnsProvider(ctx, id, req.Id)
+	if err == store.ErrNotFound {
+		return DnsOverview404JSONResponse{notFoundErr("instance")}, nil
+	}
+	if err != nil {
+		return DnsOverview502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+	}
+	out := DnsOverview{
+		Series: []DnsSeriesPoint{}, TopDomains: []DnsTopItem{}, TopBlocked: []DnsTopItem{},
+		TopClients: []DnsTopItem{}, TopUpstreams: []DnsTopItem{},
+	}
+	op, ok := provider.(dnscore.OverviewProvider)
+	if !ok {
+		return DnsOverview200JSONResponse(out), nil
+	}
+	ov, oerr := op.Overview(ctx)
+	if errors.Is(oerr, dnscore.ErrUnsupported) {
+		return DnsOverview200JSONResponse(out), nil
+	}
+	if oerr != nil {
+		return DnsOverview502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", oerr.Error()))}, nil
+	}
+	toItems := func(rows []dnscore.TopItem) []DnsTopItem {
+		items := make([]DnsTopItem, 0, len(rows))
+		for _, r := range rows {
+			items = append(items, DnsTopItem{Name: r.Name, Count: r.Count})
+		}
+		return items
+	}
+	out.TopDomains = toItems(ov.TopDomains)
+	out.TopBlocked = toItems(ov.TopBlocked)
+	out.TopClients = toItems(ov.TopClients)
+	out.TopUpstreams = toItems(ov.TopUpstreams)
+	if ov.AvgProcessingMs != nil {
+		v := float32(*ov.AvgProcessingMs)
+		out.AvgProcessingMs = &v
+	}
+	for _, p := range ov.Series {
+		out.Series = append(out.Series, DnsSeriesPoint{Ts: p.TS, Queries: p.Queries, Blocked: p.Blocked})
+	}
+	return DnsOverview200JSONResponse(out), nil
+}

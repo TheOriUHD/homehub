@@ -444,3 +444,82 @@ func (c *v6Client) DeleteGroup(ctx context.Context, id string) error {
 	}
 	return fmt.Errorf("group %s not found", id)
 }
+
+// Overview pulls the dashboard extras from the v6 REST API. Every call is
+// best-effort — a missing endpoint yields an empty panel, not an error.
+func (c *v6Client) Overview(ctx context.Context) (*dns.Overview, error) {
+	out := &dns.Overview{
+		Series: []dns.SeriesPoint{}, TopDomains: []dns.TopItem{}, TopBlocked: []dns.TopItem{},
+		TopClients: []dns.TopItem{}, TopUpstreams: []dns.TopItem{},
+	}
+
+	var topAllowed struct {
+		Domains []struct {
+			Domain string `json:"domain"`
+			Count  int64  `json:"count"`
+		} `json:"domains"`
+	}
+	if err := c.call(ctx, "GET", "/stats/top_domains?count=8", nil, &topAllowed); err == nil {
+		for _, d := range topAllowed.Domains {
+			out.TopDomains = append(out.TopDomains, dns.TopItem{Name: d.Domain, Count: d.Count})
+		}
+	}
+	var topBlocked struct {
+		Domains []struct {
+			Domain string `json:"domain"`
+			Count  int64  `json:"count"`
+		} `json:"domains"`
+	}
+	if err := c.call(ctx, "GET", "/stats/top_domains?blocked=true&count=8", nil, &topBlocked); err == nil {
+		for _, d := range topBlocked.Domains {
+			out.TopBlocked = append(out.TopBlocked, dns.TopItem{Name: d.Domain, Count: d.Count})
+		}
+	}
+	var clients struct {
+		Clients []struct {
+			IP    string `json:"ip"`
+			Name  string `json:"name"`
+			Count int64  `json:"count"`
+		} `json:"clients"`
+	}
+	if err := c.call(ctx, "GET", "/stats/top_clients?count=8", nil, &clients); err == nil {
+		for _, cl := range clients.Clients {
+			name := cl.Name
+			if name == "" {
+				name = cl.IP
+			}
+			out.TopClients = append(out.TopClients, dns.TopItem{Name: name, Count: cl.Count})
+		}
+	}
+	var upstreams struct {
+		Upstreams []struct {
+			IP    string `json:"ip"`
+			Name  string `json:"name"`
+			Count int64  `json:"count"`
+		} `json:"upstreams"`
+	}
+	if err := c.call(ctx, "GET", "/stats/upstreams", nil, &upstreams); err == nil {
+		for _, u := range upstreams.Upstreams {
+			name := u.Name
+			if name == "" {
+				name = u.IP
+			}
+			out.TopUpstreams = append(out.TopUpstreams, dns.TopItem{Name: name, Count: u.Count})
+		}
+	}
+	var history struct {
+		History []struct {
+			Timestamp float64 `json:"timestamp"`
+			Total     int64   `json:"total"`
+			Blocked   int64   `json:"blocked"`
+		} `json:"history"`
+	}
+	if err := c.call(ctx, "GET", "/history", nil, &history); err == nil {
+		for _, h := range history.History {
+			out.Series = append(out.Series, dns.SeriesPoint{
+				TS: time.Unix(int64(h.Timestamp), 0), Queries: h.Total, Blocked: h.Blocked,
+			})
+		}
+	}
+	return out, nil
+}

@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -538,3 +539,69 @@ func (c *Conn) DeleteClient(ctx context.Context, id string) error {
 
 func (c *Conn) UpsertGroup(context.Context, dns.Group) error { return dns.ErrUnsupported }
 func (c *Conn) DeleteGroup(context.Context, string) error    { return dns.ErrUnsupported }
+
+// Overview pulls the dashboard extras from /control/stats: leaderboards, the
+// recent per-bucket history, and average processing time. Fields absent on
+// older AdGuard Home versions (e.g. top_upstreams_responses, added in
+// v0.107.30) simply come back empty.
+func (c *Conn) Overview(ctx context.Context) (*dns.Overview, error) {
+	var raw struct {
+		TimeUnits         string             `json:"time_units"` // "hours" or "days"
+		AvgProcessingTime float64            `json:"avg_processing_time"`
+		TopQueriedDomains []map[string]int64 `json:"top_queried_domains"`
+		TopBlockedDomains []map[string]int64 `json:"top_blocked_domains"`
+		TopClients        []map[string]int64 `json:"top_clients"`
+		TopUpstreams      []map[string]int64 `json:"top_upstreams_responses"`
+		DNSQueries        []int64            `json:"dns_queries"`
+		BlockedFiltering  []int64            `json:"blocked_filtering"`
+		ReplacedSafebro   []int64            `json:"replaced_safebrowsing"`
+		ReplacedParental  []int64            `json:"replaced_parental"`
+	}
+	if err := c.client.call(ctx, "GET", "/control/stats", nil, &raw); err != nil {
+		return nil, err
+	}
+	out := &dns.Overview{
+		Series:       []dns.SeriesPoint{},
+		TopDomains:   topItems(raw.TopQueriedDomains),
+		TopBlocked:   topItems(raw.TopBlockedDomains),
+		TopClients:   topItems(raw.TopClients),
+		TopUpstreams: topItems(raw.TopUpstreams),
+	}
+	if raw.AvgProcessingTime > 0 {
+		ms := raw.AvgProcessingTime * 1000 // upstream reports seconds
+		out.AvgProcessingMs = &ms
+	}
+	// The buckets are oldest→newest ending "now"; stamp them accordingly.
+	unit := time.Hour
+	if raw.TimeUnits == "days" {
+		unit = 24 * time.Hour
+	}
+	n := len(raw.DNSQueries)
+	end := time.Now().Truncate(unit).Add(unit)
+	for i := 0; i < n; i++ {
+		point := dns.SeriesPoint{TS: end.Add(-time.Duration(n-i) * unit), Queries: raw.DNSQueries[i]}
+		if i < len(raw.BlockedFiltering) {
+			point.Blocked = raw.BlockedFiltering[i]
+		}
+		if i < len(raw.ReplacedSafebro) {
+			point.Blocked += raw.ReplacedSafebro[i]
+		}
+		if i < len(raw.ReplacedParental) {
+			point.Blocked += raw.ReplacedParental[i]
+		}
+		out.Series = append(out.Series, point)
+	}
+	return out, nil
+}
+
+// topItems flattens AdGuard's [{"name": count}, …] leaderboard encoding.
+func topItems(rows []map[string]int64) []dns.TopItem {
+	out := make([]dns.TopItem, 0, len(rows))
+	for _, row := range rows {
+		for name, count := range row {
+			out = append(out, dns.TopItem{Name: name, Count: count})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Count > out[j].Count })
+	return out
+}
