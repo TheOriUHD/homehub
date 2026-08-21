@@ -373,7 +373,7 @@ export function AppShell() {
   );
 
   return (
-    <div className="bg-bg flex min-h-full">
+    <div className="bg-bg flex h-full">
       {/* Desktop sidebar */}
       <aside className="border-edge bg-surface fixed inset-y-0 left-0 z-30 hidden w-60 border-r lg:block">
         {sidebar}
@@ -399,7 +399,7 @@ export function AppShell() {
         </div>
       )}
 
-      <div className="flex min-h-full w-full flex-col lg:pl-60">
+      <div className="flex h-full min-h-0 w-full flex-col lg:pl-60">
         {me.viewAsRoleId && <ViewAsBanner roleId={me.viewAsRoleId} />}
 
         <header className="border-edge bg-bg/85 sticky top-0 z-20 flex h-14 items-center gap-2 border-b px-4 backdrop-blur-sm">
@@ -423,7 +423,11 @@ export function AppShell() {
           <NotificationsBell />
         </header>
 
-        <main className="w-full flex-1 px-4 py-6 sm:px-6">
+        {/* The app owns its scroll container instead of relying on document
+            scroll: that kept breaking in ways that survived a reload, and a
+            dedicated container is deterministic (and lets dialogs freeze the
+            background by locking exactly this element). */}
+        <main data-app-scroll className="w-full min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
 
           <Outlet />
           <AssistantWidget />
