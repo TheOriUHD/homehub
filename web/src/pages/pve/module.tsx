@@ -97,7 +97,7 @@ export function PveModulePage() {
         </div>
       )}
 
-      <nav className="border-edge no-scrollbar flex gap-1 overflow-x-auto border-b">
+      <nav className="border-edge no-scrollbar flex gap-1 overflow-x-auto overflow-y-hidden border-b">
         {tabs.map((tab) => {
           const active = tab.exact ? pathname === tab.to : pathname.startsWith(tab.to);
           return (

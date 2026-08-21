@@ -29,6 +29,21 @@ function scrollTargets(): HTMLElement[] {
   return out;
 }
 
+/**
+ * ScrollLock freezes the background for as long as it is mounted. It lives
+ * INSIDE the portal on purpose: DialogContent itself mounts even while the
+ * dialog is closed (only the portal's children are gated on open), so locking
+ * from DialogContent's own effect froze every page that merely renders a
+ * closed dialog — permanently, and surviving reloads.
+ */
+function ScrollLock() {
+  useEffect(() => {
+    lockBodyScroll();
+    return releaseBodyScroll;
+  }, []);
+  return null;
+}
+
 function lockBodyScroll() {
   if (scrollLocks === 0) {
     for (const el of scrollTargets()) el.style.overflow = "hidden";
@@ -82,17 +97,10 @@ export function DialogContent({
 }) {
   const { t } = useTranslation();
   const close = useContext(DialogCloseContext);
-  // Non-modal Radix doesn't lock background scroll; do it ourselves. The lock
-  // is REFERENCE COUNTED across every open dialog: capturing/restoring the
-  // previous value per dialog leaks when two overlap (the second captures
-  // "hidden", the first restores "", the second restores "hidden" — and the
-  // page can never scroll again until reload).
-  useEffect(() => {
-    lockBodyScroll();
-    return releaseBodyScroll;
-  }, []);
+
   return (
     <DialogPrimitive.Portal>
+      <ScrollLock />
       {/* Non-modal Radix doesn't dismiss on overlay clicks, so the overlay
           carries it — click-away still closes, while clicks on the assistant
           widget (which floats above, outside this overlay) pass through to it. */}

@@ -193,7 +193,7 @@ export function DockerContainerDetailPage() {
         </div>
       </div>
 
-      <nav className="border-edge flex gap-1 overflow-x-auto border-b">
+      <nav className="border-edge flex gap-1 overflow-x-auto overflow-y-hidden border-b">
         {tabs.filter((entry) => entry.show).map((entry) => (
           <button
             key={entry.key}
