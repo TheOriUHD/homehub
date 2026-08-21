@@ -2,7 +2,10 @@ package term
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -249,4 +252,82 @@ func truncate(s string, max int) string {
 		return s[:max] + "\n… output truncated"
 	}
 	return s
+}
+
+// ---- key provisioning ---------------------------------------------------------
+
+// KeyPair is a freshly minted SSH identity.
+type KeyPair struct {
+	PrivatePEM string
+	PublicKey  string // authorized_keys line
+}
+
+// GenerateKeyPair creates an ed25519 SSH keypair in memory.
+func GenerateKeyPair(comment string) (*KeyPair, error) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	block, err := ssh.MarshalPrivateKey(priv, comment)
+	if err != nil {
+		return nil, err
+	}
+	sshPub, err := ssh.NewPublicKey(pub)
+	if err != nil {
+		return nil, err
+	}
+	return &KeyPair{
+		PrivatePEM: string(pem.EncodeToMemory(block)),
+		PublicKey:  strings.TrimSpace(string(ssh.MarshalAuthorizedKey(sshPub))),
+	}, nil
+}
+
+// InstallAuthorizedKey appends a public key to the target user's
+// authorized_keys over an existing (password) session, then proves the key
+// actually works by reconnecting with it.
+//
+// It APPENDS and de-duplicates — never truncates — so an existing key
+// (including one another tool installed) is left untouched.
+func InstallAuthorizedKey(ctx context.Context, passwordTarget SSHTarget, kp *KeyPair) error {
+	client, err := dialSSH(ctx, passwordTarget)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("open SSH session: %w", err)
+	}
+	// Single idempotent shell step: create ~/.ssh with the permissions sshd
+	// insists on, then append the key only when it isn't already present.
+	quoted := shellQuote(kp.PublicKey)
+	script := "set -e; mkdir -p ~/.ssh; chmod 700 ~/.ssh; touch ~/.ssh/authorized_keys; " +
+		"chmod 600 ~/.ssh/authorized_keys; " +
+		"grep -qxF " + quoted + " ~/.ssh/authorized_keys || printf '%s\\n' " + quoted + " >> ~/.ssh/authorized_keys"
+	out, runErr := session.CombinedOutput(script)
+	session.Close()
+	if runErr != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = runErr.Error()
+		}
+		return fmt.Errorf("installing the key failed: %s", msg)
+	}
+
+	// Prove it: authenticate with the new key before we store anything.
+	keyTarget := passwordTarget
+	keyTarget.AuthType = "key"
+	keyTarget.Secret = kp.PrivatePEM
+	vctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	if _, verr := TestSSH(vctx, keyTarget); verr != nil {
+		return fmt.Errorf("the key was installed but did not authenticate — the server may forbid key auth for this user: %w", verr)
+	}
+	return nil
+}
+
+// shellQuote wraps a value in single quotes for safe shell interpolation.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

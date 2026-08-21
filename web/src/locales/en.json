@@ -3612,7 +3612,8 @@
     },
     "auth": {
       "password": "Password",
-      "key": "Key"
+      "key": "Key",
+      "generate": "Generate a key for me (recommended)"
     },
     "boundCount": "{{count}} resource(s)",
     "form": {
@@ -3625,7 +3626,10 @@
       "password": "Password",
       "privateKey": "Private key",
       "secretKeep": "Leave empty to keep the stored secret",
-      "notes": "Notes"
+      "notes": "Notes",
+      "passwordOnce": "Password (used once)",
+      "passwordOnceHint": "Only used now to install the key — never stored",
+      "generateExplainer": "HomeHub creates an ed25519 keypair, adds the public half to this account's authorized_keys, verifies it works, and stores only the private key. Existing keys on the host are left untouched."
     },
     "deleteConfirm": {
       "title": "Delete SSH host?",
@@ -3637,6 +3641,8 @@
       "manual": "Enter credentials manually",
       "label": "SSH host",
       "hint": "Pick a saved host, or enter credentials just for this resource."
-    }
+    },
+    "generateAndSave": "Generate keypair & save",
+    "generated": "Keypair generated and installed"
   }
 }

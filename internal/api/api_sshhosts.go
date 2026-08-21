@@ -312,3 +312,89 @@ func (s *Server) runSSHOnHost(ctx context.Context, hostID, command string) (stri
 	defer cancel()
 	return term.RunSSH(rctx, target, command, sshAgentOutputCap)
 }
+
+// ProvisionSSHHost is the one-click path to key auth: enter the address, the
+// user, and the password once — HomeHub generates a keypair, installs it,
+// proves it works, and stores only the private key. The password is used for
+// this call and then discarded.
+func (s *Server) ProvisionSSHHost(ctx context.Context, req ProvisionSSHHostRequestObject) (ProvisionSSHHostResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	if !s.can(ctx, id, ResSSHHosts, rbac.LevelConfigure) {
+		s.deniedAudit(ctx, id, "ssh_host.provision", ResSSHHosts)
+		return ProvisionSSHHost403JSONResponse{forbidden()}, nil
+	}
+	hostname := strings.TrimSpace(req.Body.Hostname)
+	username := strings.TrimSpace(req.Body.Username)
+	password := req.Body.Password
+	if hostname == "" || username == "" || strings.TrimSpace(password) == "" {
+		return ProvisionSSHHost400JSONResponse{BadRequestJSONResponse(errBody("bad_input", "address, username and password are required"))}, nil
+	}
+	port := 22
+	if req.Body.Port != nil && *req.Body.Port > 0 {
+		port = *req.Body.Port
+	}
+	name := hostname
+	if req.Body.Name != nil && strings.TrimSpace(*req.Body.Name) != "" {
+		name = strings.TrimSpace(*req.Body.Name)
+	}
+	notes := ""
+	if req.Body.Notes != nil {
+		notes = strings.TrimSpace(*req.Body.Notes)
+	}
+
+	kp, err := term.GenerateKeyPair("homehub@" + name)
+	if err != nil {
+		return nil, err
+	}
+	pctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	if err := term.InstallAuthorizedKey(pctx, term.SSHTarget{
+		Host: hostname, Port: port, Username: username,
+		AuthType: "password", Secret: password,
+	}, kp); err != nil {
+		s.audit.Log(ctx, actorFor(id), "ssh_host.provision", ResSSHHosts, "error",
+			map[string]any{"hostname": hostname, "username": username, "error": err.Error()})
+		return ProvisionSSHHost400JSONResponse{BadRequestJSONResponse(errBody("provision_failed", err.Error()))}, nil
+	}
+
+	// The key works — now persist. Convert in place when an id was given.
+	rec := store.SSHHost{
+		Name: name, Hostname: hostname, Port: port, Username: username,
+		AuthType: "key", Notes: notes,
+	}
+	var saved *store.SSHHost
+	if req.Body.Id != nil {
+		existing, gerr := s.store.GetSSHHost(ctx, *req.Body.Id)
+		if gerr != nil {
+			return ProvisionSSHHost400JSONResponse{BadRequestJSONResponse(errBody("unknown_host", "that SSH host does not exist"))}, nil
+		}
+		rec.ID = existing.ID
+		if req.Body.Name == nil || strings.TrimSpace(*req.Body.Name) == "" {
+			rec.Name = existing.Name // keep the operator's chosen name
+		}
+		if notes == "" {
+			rec.Notes = existing.Notes
+		}
+		saved, err = s.store.UpdateSSHHost(ctx, &rec)
+	} else {
+		saved, err = s.store.CreateSSHHost(ctx, &rec)
+	}
+	if err != nil {
+		if store.IsUniqueViolation(err) {
+			return ProvisionSSHHost409JSONResponse{ConflictJSONResponse(errBody("name_taken", "an SSH host with that name already exists"))}, nil
+		}
+		return nil, err
+	}
+	if err := s.vault.Seal(ctx, sshVaultScope, saved.ID.String(), []byte(kp.PrivatePEM)); err != nil {
+		if req.Body.Id == nil {
+			_ = s.store.DeleteSSHHost(ctx, saved.ID) // no credential-less leftovers
+		}
+		return nil, err
+	}
+	s.audit.Log(ctx, actorFor(id), "ssh_host.provision", sshHostResource(saved.ID), "success",
+		map[string]any{"name": saved.Name, "hostname": hostname, "username": username})
+	return ProvisionSSHHost200JSONResponse(s.toAPISSHHost(ctx, saved)), nil
+}
