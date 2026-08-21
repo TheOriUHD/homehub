@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/coder/websocket"
@@ -154,3 +155,98 @@ func OpenSSH(target SSHTarget) OpenFunc {
 type writerFunc func(p []byte) (int, error)
 
 func (f writerFunc) Write(p []byte) (int, error) { return f(p) }
+
+// dialSSH opens a client to the target with the same auth and host-key
+// pinning the interactive bridge uses.
+func dialSSH(ctx context.Context, target SSHTarget) (*ssh.Client, error) {
+	var auth ssh.AuthMethod
+	switch target.AuthType {
+	case "key":
+		signer, err := ssh.ParsePrivateKey([]byte(target.Secret))
+		if err != nil {
+			return nil, fmt.Errorf("private key not usable: %w", err)
+		}
+		auth = ssh.PublicKeys(signer)
+	default:
+		auth = ssh.Password(target.Secret)
+	}
+	addr := net.JoinHostPort(target.Host, fmt.Sprint(target.Port))
+	pin := sshpin.For(ctx, target.Host, target.Port)
+	client, err := ssh.Dial("tcp", addr, &ssh.ClientConfig{
+		User:            target.Username,
+		Auth:            []ssh.AuthMethod{auth},
+		HostKeyCallback: pin.Verify,
+		Timeout:         10 * time.Second,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("SSH connection to %s failed: %w", addr, err)
+	}
+	pin.Commit(ctx)
+	return client, nil
+}
+
+// TestSSH proves the credentials work, returning the remote's identity.
+func TestSSH(ctx context.Context, target SSHTarget) (string, error) {
+	client, err := dialSSH(ctx, target)
+	if err != nil {
+		return "", err
+	}
+	defer client.Close()
+	session, err := client.NewSession()
+	if err != nil {
+		return "", fmt.Errorf("open SSH session: %w", err)
+	}
+	defer session.Close()
+	out, err := session.Output("uname -sr 2>/dev/null; hostname 2>/dev/null")
+	if err != nil {
+		// Authentication already succeeded — a shell-less account still counts.
+		return "connected", nil
+	}
+	return strings.TrimSpace(strings.ReplaceAll(string(out), "\n", " · ")), nil
+}
+
+// RunSSH executes one non-interactive command and returns its combined
+// output plus the exit status. Output is capped so a runaway command can't
+// blow up memory or a chat transcript.
+func RunSSH(ctx context.Context, target SSHTarget, command string, maxBytes int) (string, int, error) {
+	client, err := dialSSH(ctx, target)
+	if err != nil {
+		return "", 0, err
+	}
+	defer client.Close()
+	session, err := client.NewSession()
+	if err != nil {
+		return "", 0, fmt.Errorf("open SSH session: %w", err)
+	}
+	defer session.Close()
+
+	var buf strings.Builder
+	session.Stdout = &buf
+	session.Stderr = &buf
+	done := make(chan error, 1)
+	go func() { done <- session.Run(command) }()
+
+	exit := 0
+	select {
+	case <-ctx.Done():
+		_ = session.Signal(ssh.SIGKILL)
+		return truncate(buf.String(), maxBytes), 0, ctx.Err()
+	case rerr := <-done:
+		if rerr != nil {
+			var ee *ssh.ExitError
+			if errors.As(rerr, &ee) {
+				exit = ee.ExitStatus()
+			} else {
+				return truncate(buf.String(), maxBytes), 0, rerr
+			}
+		}
+	}
+	return truncate(buf.String(), maxBytes), exit, nil
+}
+
+func truncate(s string, max int) string {
+	if max > 0 && len(s) > max {
+		return s[:max] + "\n… output truncated"
+	}
+	return s
+}

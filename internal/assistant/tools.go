@@ -41,6 +41,10 @@ type Toolbox struct {
 	Store   *store.Store
 	Metrics *metrics.Service
 	Call    func(ctx context.Context, method, path string, body any) (int, []byte)
+	// SSHRun executes one command on a registry host, returning its output
+	// and exit code. Supplied by the API layer (which owns the vault); nil
+	// disables the SSH tools.
+	SSHRun func(ctx context.Context, hostID, command string) (string, int, error)
 }
 
 type toolFunc func(ctx context.Context, access Access, input json.RawMessage) (any, error)
@@ -60,7 +64,7 @@ func obj(properties string, required ...string) json.RawMessage {
 }
 
 func (tb *Toolbox) tools() []tool {
-	return []tool{
+	base := []tool{
 		{
 			def: ToolDef{
 				Name:        "list_systems",
@@ -190,6 +194,10 @@ func (tb *Toolbox) tools() []tool {
 			run: tb.readWorkspaceFile,
 		},
 	}
+	if tb.SSHRun != nil {
+		base = append(base, tb.sshTools()...)
+	}
+	return base
 }
 
 // ---- workspace files (the utilities editor's storage) ----------------------

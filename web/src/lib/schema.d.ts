@@ -1733,6 +1733,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ssh-hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The central SSH host registry
+         * @description Named SSH machines reused across HomeHub. Secrets are never returned.
+         */
+        get: operations["listSSHHosts"];
+        put?: never;
+        /** Add an SSH host */
+        post: operations["createSSHHost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ssh-hosts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update an SSH host */
+        put: operations["updateSSHHost"];
+        post?: never;
+        /**
+         * Remove an SSH host
+         * @description Resources bound to it fall back to needing their own credentials.
+         */
+        delete: operations["deleteSSHHost"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ssh-hosts/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify the stored credentials connect */
+        post: operations["testSSHHost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ssh-hosts/{id}/terminal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open an interactive terminal to this host
+         * @description Requires control on the host. Audited.
+         */
+        post: operations["openSSHHostTerminal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/db/instances": {
         parameters: {
             query?: never;
@@ -5109,8 +5188,46 @@ export interface components {
             username: string;
             /** @enum {string} */
             authType: "password" | "key";
+            /**
+             * Format: uuid
+             * @description The central SSH host this resource is bound to, when any
+             */
+            hostId?: string | null;
+            /** @description That host's display name */
+            hostName?: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        SSHHost: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            hostname: string;
+            port: number;
+            username: string;
+            /** @enum {string} */
+            authType: "password" | "key";
+            notes: string;
+            /** @description How many resources are bound to this host */
+            inUse: number;
+            boundResources?: string[];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SSHHostInput: {
+            /** @description Display name */
+            name: string;
+            hostname: string;
+            /** @default 22 */
+            port: number;
+            username: string;
+            /** @enum {string} */
+            authType: "password" | "key";
+            /** @description Password or PEM private key; omit on update to keep the stored one */
+            secret?: string;
+            notes?: string;
         };
         DockerContainer: {
             id: string;
@@ -9762,6 +9879,11 @@ export interface operations {
                     authType: "password" | "key";
                     /** @description Password or PEM private key; omit to keep the stored secret */
                     secret?: string;
+                    /**
+                     * Format: uuid
+                     * @description Bind this resource to a central SSH host instead of storing its own credential. When set, host/username/authType/secret are ignored and the registry entry is used. Null unbinds.
+                     */
+                    hostId?: string | null;
                 };
             };
         };
@@ -9798,6 +9920,155 @@ export interface operations {
                 content?: never;
             };
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listSSHHosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Hosts, by name */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHHost"][];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createSSHHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSHHostInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHHost"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateSSHHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSHHostInput"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHHost"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteSSHHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    testSSHHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Test outcome */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestConnectionResult"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    openSSHHostTerminal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One-time terminal session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermSession"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     dbListInstances: {

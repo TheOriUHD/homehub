@@ -58,7 +58,8 @@
     "assistant": "Assistant",
     "tools": "Utilities",
     "signals": "Signals",
-    "calendar": "Calendar"
+    "calendar": "Calendar",
+    "sshHosts": "SSH Hosts"
   },
   "palette": {
     "placeholder": "Jump to a page or action…",
@@ -3587,6 +3588,55 @@
       "target": "Target",
       "collecting": "Collecting temperature data…",
       "tempAxis": "Temperature °C"
+    }
+  },
+  "ssh": {
+    "title": "SSH Hosts",
+    "subtitle": "Machines HomeHub can reach over SSH — entered once, used everywhere.",
+    "add": "Add host",
+    "addTitle": "Add SSH host",
+    "editTitle": "Edit SSH host",
+    "dialogBody": "Credentials are encrypted in the vault and never sent back to the browser.",
+    "saved": "SSH host saved",
+    "test": "Test connection",
+    "terminal": "Open terminal",
+    "empty": {
+      "title": "No SSH hosts yet",
+      "body": "Add a machine once and reuse it for Proxmox guests, the assistant, and ad-hoc terminals."
+    },
+    "cols": {
+      "name": "Name",
+      "target": "Target",
+      "auth": "Auth",
+      "usedBy": "Used by"
+    },
+    "auth": {
+      "password": "Password",
+      "key": "Key"
+    },
+    "boundCount": "{{count}} resource(s)",
+    "form": {
+      "name": "Name",
+      "nameHint": "How it appears when picking a host",
+      "hostname": "Hostname or IP",
+      "port": "Port",
+      "username": "Username",
+      "authType": "Authentication",
+      "password": "Password",
+      "privateKey": "Private key",
+      "secretKeep": "Leave empty to keep the stored secret",
+      "notes": "Notes"
+    },
+    "deleteConfirm": {
+      "title": "Delete SSH host?",
+      "body": "{{name}} will be removed and its stored credentials destroyed.",
+      "bodyInUse": "{{name}} is used by {{count}} resource(s). They will lose SSH access until you point them somewhere else. Its stored credentials are destroyed."
+    },
+    "picker": {
+      "placeholder": "Choose an SSH host",
+      "manual": "Enter credentials manually",
+      "label": "SSH host",
+      "hint": "Pick a saved host, or enter credentials just for this resource."
     }
   }
 }

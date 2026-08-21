@@ -58,7 +58,8 @@
     "assistant": "Assistent",
     "tools": "Werkzeuge",
     "signals": "Signale",
-    "calendar": "Kalender"
+    "calendar": "Kalender",
+    "sshHosts": "SSH-Hosts"
   },
   "palette": {
     "placeholder": "Zu einer Seite oder Aktion springen…",
@@ -3587,6 +3588,55 @@
       "target": "Ziel",
       "collecting": "Sammle Temperaturdaten…",
       "tempAxis": "Temperatur °C"
+    }
+  },
+  "ssh": {
+    "title": "SSH-Hosts",
+    "subtitle": "Maschinen, die HomeHub per SSH erreicht — einmal eingetragen, überall nutzbar.",
+    "add": "Host hinzufügen",
+    "addTitle": "SSH-Host hinzufügen",
+    "editTitle": "SSH-Host bearbeiten",
+    "dialogBody": "Zugangsdaten liegen verschlüsselt im Vault und werden nie an den Browser zurückgegeben.",
+    "saved": "SSH-Host gespeichert",
+    "test": "Verbindung testen",
+    "terminal": "Terminal öffnen",
+    "empty": {
+      "title": "Noch keine SSH-Hosts",
+      "body": "Trage eine Maschine einmal ein und nutze sie für Proxmox-Gäste, den Assistenten und spontane Terminals."
+    },
+    "cols": {
+      "name": "Name",
+      "target": "Ziel",
+      "auth": "Auth",
+      "usedBy": "Verwendet von"
+    },
+    "auth": {
+      "password": "Passwort",
+      "key": "Schlüssel"
+    },
+    "boundCount": "{{count}} Ressource(n)",
+    "form": {
+      "name": "Name",
+      "nameHint": "So erscheint er bei der Host-Auswahl",
+      "hostname": "Hostname oder IP",
+      "port": "Port",
+      "username": "Benutzername",
+      "authType": "Authentifizierung",
+      "password": "Passwort",
+      "privateKey": "Privater Schlüssel",
+      "secretKeep": "Leer lassen, um das gespeicherte Geheimnis zu behalten",
+      "notes": "Notizen"
+    },
+    "deleteConfirm": {
+      "title": "SSH-Host löschen?",
+      "body": "{{name}} wird entfernt und die gespeicherten Zugangsdaten werden vernichtet.",
+      "bodyInUse": "{{name}} wird von {{count}} Ressource(n) genutzt. Diese verlieren den SSH-Zugang, bis du sie anders verknüpfst. Die gespeicherten Zugangsdaten werden vernichtet."
+    },
+    "picker": {
+      "placeholder": "SSH-Host wählen",
+      "manual": "Zugangsdaten manuell eingeben",
+      "label": "SSH-Host",
+      "hint": "Wähle einen gespeicherten Host oder gib Zugangsdaten nur für diese Ressource ein."
     }
   }
 }

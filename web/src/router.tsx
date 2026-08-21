@@ -33,6 +33,7 @@ import { MdStandalonePage } from "./pages/tools/md-standalone";
 import { ToolAppPage } from "./pages/tools/tool-layout";
 import { NotFoundPage } from "./pages/not-found";
 import { SystemsPage } from "./pages/systems";
+import { SSHHostsPage } from "./pages/ssh-hosts";
 import { SystemTypeLanding } from "./pages/systems/type-landing";
 import { PveModulePage } from "./pages/pve/module";
 import { PveSummaryPage } from "./pages/pve/summary";
@@ -255,6 +256,12 @@ const appSettingsRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: "/admin/settings",
   component: AppSettingsPage,
+});
+
+const sshHostsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: "/ssh-hosts",
+  component: SSHHostsPage,
 });
 
 const systemsRoute = createRoute({
@@ -765,6 +772,7 @@ const routeTree = rootRoute.addChildren([
     auditRoute,
     appSettingsRoute,
     systemsRoute,
+    sshHostsRoute,
     integrationsRedirectRoute,
     pveLandingRoute,
     haLandingRoute,
