@@ -1,10 +1,31 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
-export const Dialog = DialogPrimitive.Root;
+/**
+ * Dialog runs Radix in NON-modal mode on purpose. A modal dialog sets
+ * pointer-events:none on <body> and re-enables it only inside the content, so
+ * anything floating above it — the assistant widget — becomes unclickable:
+ * the click lands on nothing, and Radix's dismiss layer closes the dialog.
+ * Non-modal keeps clicks flowing; DialogContent below re-implements the modal
+ * behaviour we actually want (dim, click-away, Escape, scroll lock) while
+ * letting the assistant stay usable.
+ */
+const DialogCloseContext = createContext<(() => void) | null>(null);
+
+export function Dialog({ onOpenChange, ...props }: ComponentPropsWithoutRef<typeof DialogPrimitive.Root>) {
+  // Context carries the closer to DialogContent's overlay, so the 70+ call
+  // sites keep their existing <Dialog open onOpenChange=...> shape.
+  const close = useCallback(() => onOpenChange?.(false), [onOpenChange]);
+  return (
+    <DialogCloseContext.Provider value={close}>
+      <DialogPrimitive.Root {...props} onOpenChange={onOpenChange} modal={false} />
+    </DialogCloseContext.Provider>
+  );
+}
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
@@ -24,19 +45,31 @@ export function DialogContent({
   className?: string;
 }) {
   const { t } = useTranslation();
+  const close = useContext(DialogCloseContext);
+  // Non-modal Radix doesn't lock background scroll; do it ourselves so the
+  // page behind an open dialog still can't scroll away under it.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] animate-[hh-fade-in_150ms_var(--ease-out-quick)]" />
+      {/* Non-modal Radix doesn't dismiss on overlay clicks, so the overlay
+          carries it — click-away still closes, while clicks on the assistant
+          widget (which floats above, outside this overlay) pass through to it. */}
+      <DialogPrimitive.Overlay
+        onClick={() => close?.()}
+        className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] animate-[hh-fade-in_150ms_var(--ease-out-quick)]"
+      />
       <DialogPrimitive.Content
-        // The assistant widget floats above dialogs (z-[55]) and must stay
-        // usable while one is open: without this, Radix treats a click on it
-        // as "outside" and closes the dialog under the user.
-        onPointerDownOutside={(e) => {
-          if ((e.target as HTMLElement | null)?.closest?.("[data-assistant-widget]")) e.preventDefault();
-        }}
-        onInteractOutside={(e) => {
-          if ((e.target as HTMLElement | null)?.closest?.("[data-assistant-widget]")) e.preventDefault();
-        }}
+        // Dismissal is driven by the overlay click above; ignore Radix's own
+        // outside-interaction events so a click on the assistant widget (or
+        // any other floating surface) can never close the dialog.
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
         className={cn(
           "bg-overlay border-edge fixed top-1/2 left-1/2 z-50 w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border shadow-3",
           "animate-[hh-pop-in_170ms_var(--ease-out-quick)] focus:outline-none",
