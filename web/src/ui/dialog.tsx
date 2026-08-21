@@ -28,6 +28,15 @@ export function DialogContent({
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] animate-[hh-fade-in_150ms_var(--ease-out-quick)]" />
       <DialogPrimitive.Content
+        // The assistant widget floats above dialogs (z-[55]) and must stay
+        // usable while one is open: without this, Radix treats a click on it
+        // as "outside" and closes the dialog under the user.
+        onPointerDownOutside={(e) => {
+          if ((e.target as HTMLElement | null)?.closest?.("[data-assistant-widget]")) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if ((e.target as HTMLElement | null)?.closest?.("[data-assistant-widget]")) e.preventDefault();
+        }}
         className={cn(
           "bg-overlay border-edge fixed top-1/2 left-1/2 z-50 w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border shadow-3",
           "animate-[hh-pop-in_170ms_var(--ease-out-quick)] focus:outline-none",

@@ -13,6 +13,13 @@ import { AssistantChatPane } from "./assistant-chat";
  * conversation as the /assistant page (shared query keys), so moving
  * between the two is seamless. Hidden while the assistant is disabled and
  * on the assistant page itself (no point doubling up).
+ *
+ * Layering: the launcher and panel sit at z-[55] — ABOVE modal dialogs
+ * (z-50), below toasts (z-[60]) — so the assistant stays reachable while an
+ * expanded camera, console, or any other dialog is open. Radix dialogs are
+ * modal and would otherwise treat a click here as "outside" and close
+ * themselves, so both surfaces carry data-assistant-widget, which
+ * DialogContent checks before honouring an outside interaction.
  */
 export function AssistantWidget() {
   const { t } = useTranslation();
@@ -41,12 +48,13 @@ export function AssistantWidget() {
       {open && (
         <div
           className={cn(
-            "border-edge bg-surface fixed right-4 bottom-4 z-50 flex flex-col overflow-hidden rounded-2xl border shadow-2",
+            "border-edge bg-surface fixed right-4 bottom-4 z-[55] flex flex-col overflow-hidden rounded-2xl border shadow-2",
             "h-[min(600px,calc(100dvh-5rem))] w-[min(400px,calc(100vw-2rem))]",
             "origin-bottom-right animate-[hh-pop-in_160ms_var(--ease-out-quick)]",
           )}
           role="dialog"
           aria-label={t("assistant.title")}
+          data-assistant-widget=""
         >
           <div className="border-edge flex items-center gap-2.5 border-b px-4 py-3">
             <span className="bg-accent-soft text-accent-soft-fg flex size-7 items-center justify-center rounded-lg">
@@ -84,8 +92,9 @@ export function AssistantWidget() {
           type="button"
           onClick={() => setOpen(true)}
           aria-label={t("assistant.openWidget")}
+          data-assistant-widget=""
           className={cn(
-            "bg-accent text-accent-fg fixed right-4 bottom-4 z-50 flex size-13 cursor-pointer items-center justify-center rounded-full shadow-2",
+            "bg-accent text-accent-fg fixed right-4 bottom-4 z-[55] flex size-13 cursor-pointer items-center justify-center rounded-full shadow-2",
             "hover:bg-accent-hover transition-all hover:scale-105 active:scale-95",
             "animate-[hh-pop-in_200ms_var(--ease-out-quick)]",
           )}
