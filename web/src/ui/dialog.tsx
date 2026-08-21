@@ -16,6 +16,34 @@ import { cn } from "@/lib/utils";
  */
 const DialogCloseContext = createContext<(() => void) | null>(null);
 
+// ---- reference-counted background scroll lock --------------------------------
+let scrollLocks = 0;
+let scrollPrev = "";
+
+function lockBodyScroll() {
+  if (scrollLocks === 0) {
+    scrollPrev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  scrollLocks++;
+}
+
+function releaseBodyScroll() {
+  scrollLocks = Math.max(0, scrollLocks - 1);
+  if (scrollLocks === 0) {
+    // Restore what the page had before the FIRST dialog opened.
+    document.body.style.overflow = scrollPrev;
+  }
+}
+
+/** unlockBodyScrollHard is the escape hatch: whatever went wrong, the page
+ * must never be left unscrollable. Called on route changes. */
+export function unlockBodyScrollHard() {
+  scrollLocks = 0;
+  scrollPrev = "";
+  document.body.style.overflow = "";
+}
+
 export function Dialog({ onOpenChange, ...props }: ComponentPropsWithoutRef<typeof DialogPrimitive.Root>) {
   // Context carries the closer to DialogContent's overlay, so the 70+ call
   // sites keep their existing <Dialog open onOpenChange=...> shape.
@@ -46,14 +74,14 @@ export function DialogContent({
 }) {
   const { t } = useTranslation();
   const close = useContext(DialogCloseContext);
-  // Non-modal Radix doesn't lock background scroll; do it ourselves so the
-  // page behind an open dialog still can't scroll away under it.
+  // Non-modal Radix doesn't lock background scroll; do it ourselves. The lock
+  // is REFERENCE COUNTED across every open dialog: capturing/restoring the
+  // previous value per dialog leaks when two overlap (the second captures
+  // "hidden", the first restores "", the second restores "hidden" — and the
+  // page can never scroll again until reload).
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    lockBodyScroll();
+    return releaseBodyScroll;
   }, []);
   return (
     <DialogPrimitive.Portal>
