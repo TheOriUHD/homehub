@@ -18,30 +18,38 @@ const DialogCloseContext = createContext<(() => void) | null>(null);
 
 // ---- reference-counted background scroll lock --------------------------------
 let scrollLocks = 0;
-let scrollPrev = "";
+
+/** scrollTargets are every element a lock applies to: the app's scroll
+ * container (the shell's <main>) plus body, so it works on standalone pages
+ * that have no shell. */
+function scrollTargets(): HTMLElement[] {
+  const out: HTMLElement[] = [document.body];
+  const main = document.querySelector<HTMLElement>("[data-app-scroll]");
+  if (main) out.push(main);
+  return out;
+}
 
 function lockBodyScroll() {
   if (scrollLocks === 0) {
-    scrollPrev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    for (const el of scrollTargets()) el.style.overflow = "hidden";
   }
   scrollLocks++;
 }
 
 function releaseBodyScroll() {
   scrollLocks = Math.max(0, scrollLocks - 1);
-  if (scrollLocks === 0) {
-    // Restore what the page had before the FIRST dialog opened.
-    document.body.style.overflow = scrollPrev;
-  }
+  if (scrollLocks === 0) unlockBodyScrollHard();
 }
 
-/** unlockBodyScrollHard is the escape hatch: whatever went wrong, the page
- * must never be left unscrollable. Called on route changes. */
+/** unlockBodyScrollHard is the escape hatch: whatever went wrong, the app
+ * must never be left unscrollable. Also called on every route change.
+ * Clearing the inline value restores the stylesheet's own rule rather than
+ * a snapshot, so overlapping dialogs can't strand a stale value. */
 export function unlockBodyScrollHard() {
   scrollLocks = 0;
-  scrollPrev = "";
   document.body.style.overflow = "";
+  const main = document.querySelector<HTMLElement>("[data-app-scroll]");
+  if (main) main.style.overflow = "";
 }
 
 export function Dialog({ onOpenChange, ...props }: ComponentPropsWithoutRef<typeof DialogPrimitive.Root>) {
