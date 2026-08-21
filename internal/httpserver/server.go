@@ -284,12 +284,19 @@ func termHandler(deps Deps) http.HandlerFunc {
 			writeJSONError(w, http.StatusUnauthorized, "unauthorized", "sign in to continue")
 			return
 		}
-		session, ok := deps.Term.Take(chi.URLParam(r, "sessionID"), id.User.ID)
+		sessionID := chi.URLParam(r, "sessionID")
+		session, ok := deps.Term.Take(sessionID, id.User.ID)
 		if !ok {
+			// This used to fail silently, which made "the console just doesn't
+			// connect" impossible to diagnose: a consumed ticket (double dial)
+			// and an expired one look identical from the browser.
+			deps.Logger.Warn("terminal session rejected",
+				"session", sessionID, "user", id.User.ID, "origin", r.Header.Get("Origin"))
 			writeJSONError(w, http.StatusNotFound, "session_expired",
 				"terminal session expired or already used — reopen the console")
 			return
 		}
+		deps.Logger.Info("terminal session opened", "session", sessionID, "user", id.User.ID)
 		patterns := []string{r.Host}
 		if appURL := deps.Settings.AppURL(r.Context()); appURL != "" {
 			if u, err := url.Parse(appURL); err == nil && u.Host != "" {
@@ -303,6 +310,9 @@ func termHandler(deps Deps) http.HandlerFunc {
 			CompressionMode: websocket.CompressionDisabled,
 		})
 		if err != nil {
+			// Most often an Origin the patterns don't cover — silent until now.
+			deps.Logger.Warn("terminal websocket upgrade failed",
+				"error", err, "origin", r.Header.Get("Origin"), "patterns", patterns)
 			return
 		}
 		if err := session.Open(r.Context(), conn); err != nil {

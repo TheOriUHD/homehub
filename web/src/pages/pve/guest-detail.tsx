@@ -1537,18 +1537,26 @@ function SshSection({
                     )
                   }
                 </Field>
-                <div className="flex justify-end">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={!host.trim() || !username.trim() || (!secret && !cred.data)}
-                    loading={save.isPending}
-                    onClick={() => save.mutate()}
-                  >
-                    {t("common.save")}
-                  </Button>
-                </div>
               </>
+            )}
+            {/* Save lives outside the manual-entry block: binding a saved host
+                needs saving too (it was unreachable when a host was picked). */}
+            {canConfigure && (
+              <div className="flex justify-end">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={
+                    hostId
+                      ? false
+                      : !host.trim() || !username.trim() || (!secret && !cred.data)
+                  }
+                  loading={save.isPending}
+                  onClick={() => save.mutate()}
+                >
+                  {t("common.save")}
+                </Button>
+              </div>
             )}
           </div>
 

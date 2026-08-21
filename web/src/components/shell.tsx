@@ -15,6 +15,7 @@ import { LogoMark, Wordmark } from "./logo";
 import { NotificationsBell } from "./notifications";
 import { LanguagePrompt, languagePromptPending } from "./language";
 import { CommandPalette } from "./command-palette";
+import { unlockBodyScrollHard } from "@/ui/dialog";
 import { Kbd, PageLoader } from "@/ui/misc";
 import { Button } from "@/ui/button";
 import {
@@ -45,6 +46,12 @@ export function AppShell() {
 
   // Close the mobile drawer on navigation.
   useEffect(() => setMobileNav(false), [pathname]);
+
+  // Failsafe: a dialog that unmounted without releasing the scroll lock (or
+  // any third-party lock that leaked) must never leave the app unscrollable.
+  useEffect(() => {
+    unlockBodyScrollHard();
+  }, [pathname]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
