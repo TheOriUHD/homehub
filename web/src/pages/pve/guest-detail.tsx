@@ -140,10 +140,12 @@ export function PveGuestDetailPage() {
   return (
     <div className="space-y-5">
       <div>
+        {/* The resource tree replaces this link from lg up, where it is always
+            on screen; below that the tree sits behind a toggle, so keep it. */}
         <Link
           to="/pve/$instanceId/guests"
           params={{ instanceId }}
-          className="text-fg-subtle hover:text-fg mb-3 inline-flex items-center gap-1.5 text-[13px] transition-colors"
+          className="text-fg-subtle hover:text-fg mb-3 inline-flex items-center gap-1.5 text-[13px] transition-colors lg:hidden"
         >
           <ArrowLeft className="size-3.5" />
           {t("pve.tabs.guests")}

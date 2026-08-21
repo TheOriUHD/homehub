@@ -14,6 +14,7 @@ import { Badge, StatusDot } from "@/ui/badge";
 import { ErrorState } from "@/ui/states";
 import { Skeleton } from "@/ui/skeleton";
 import { MultiSeriesChart, type ChartSeries } from "@/components/multi-series-chart";
+import { nodeAnchor, useHashFocus } from "./util";
 
 /**
  * PveSummaryPage is the instance dashboard: an aggregate stat row (cluster
@@ -240,12 +241,21 @@ function shortPveVersion(version: string | undefined): string {
 
 function NodeCard({ node }: { node: PveNode }) {
   const { t } = useTranslation();
+  // Clicking a node in the resource tree lands here rather than at the top.
+  const focused = useHashFocus(nodeAnchor(node.name));
   const online = node.status === "online";
   const cpuPct = node.cpu * 100;
   const memPct = node.maxMemBytes > 0 ? (node.memBytes / node.maxMemBytes) * 100 : 0;
 
   return (
-    <Card className={cn("p-4", !online && "opacity-75")}>
+    <Card
+      id={nodeAnchor(node.name)}
+      className={cn(
+        "scroll-mt-6 p-4 transition-shadow duration-300",
+        !online && "opacity-75",
+        focused && "ring-accent/70 ring-2",
+      )}
+    >
       <div className="flex items-start gap-3">
         <span className="bg-accent-soft text-accent-soft-fg flex size-9 shrink-0 items-center justify-center rounded-lg">
           <Server className="size-4.5" aria-hidden />

@@ -729,6 +729,14 @@
       "tasks": "Tasks",
       "backups": "Backups"
     },
+    "tree": {
+      "title": "Resources",
+      "datacenter": "Datacenter",
+      "filter": "Filter resources…",
+      "noMatch": "No matching resources",
+      "expand": "Expand",
+      "collapse": "Collapse"
+    },
     "unreachableBanner": "This Proxmox instance is unreachable: {{message}}",
     "degradedBanner": "Degraded: {{message}}",
     "summary": {
