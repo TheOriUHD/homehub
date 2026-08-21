@@ -12,6 +12,10 @@ import (
 	"github.com/TheOriUHD/homehub/internal/pve"
 )
 
+// UpstreamReadLimit mirrors the client-side console limit: the library's
+// 32 KB default silently closes the socket on a big framebuffer update.
+const UpstreamReadLimit = 64 << 20
+
 // OpenPVEVNC bridges a client WebSocket to a Proxmox VNC websocket. The
 // stream is raw RFB in both directions; the frontend's noVNC answers VNC
 // authentication with the proxy ticket returned alongside the session.
@@ -22,6 +26,8 @@ func OpenPVEVNC(client *pve.Client, node, kind string, vmid int, ticket pve.VNCP
 			return fmt.Errorf("connect to Proxmox console: %w", err)
 		}
 		defer upstream.Close(websocket.StatusNormalClosure, "")
+		// Same 32 KB default applies to the Proxmox side of the pipe.
+		upstream.SetReadLimit(UpstreamReadLimit)
 		pipe(ctx, conn, upstream)
 		return nil
 	}
@@ -38,6 +44,7 @@ func OpenPVESerial(client *pve.Client, node, kind string, vmid int, ticket pve.T
 			return fmt.Errorf("connect to Proxmox serial console: %w", err)
 		}
 		defer upstream.Close(websocket.StatusNormalClosure, "")
+		upstream.SetReadLimit(UpstreamReadLimit)
 
 		if err := upstream.Write(ctx, websocket.MessageText, []byte(ticket.User+":"+ticket.Ticket+"\n")); err != nil {
 			return fmt.Errorf("console authentication failed: %w", err)

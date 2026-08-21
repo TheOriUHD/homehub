@@ -117,6 +117,11 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
+// termReadLimit is the per-message cap on console sockets. Framebuffer
+// updates dominate; 64 MiB is far above any single legitimate message while
+// still bounding a hostile one.
+const termReadLimit = 64 << 20
+
 // maxJSONBody caps ordinary JSON request bodies. Generous for legitimate API
 // payloads, small enough that a single request can't exhaust memory.
 const maxJSONBody = 8 << 20 // 8 MiB
@@ -315,6 +320,12 @@ func termHandler(deps Deps) http.HandlerFunc {
 				"error", err, "origin", r.Header.Get("Origin"), "patterns", patterns)
 			return
 		}
+		// coder/websocket caps a single message at 32 KB by default and CLOSES
+		// the connection when it's exceeded. A VNC framebuffer update (a waking
+		// screen redraws everything) is far larger, which killed the console
+		// moments after it connected. Consoles are raw byte pipes — give them
+		// room, while still bounding a hostile message.
+		conn.SetReadLimit(termReadLimit)
 		if err := session.Open(r.Context(), conn); err != nil {
 			deps.Logger.Warn("terminal session ended with error", "error", err)
 			term.SendControl(r.Context(), conn, term.ControlFrame{Type: "error", Message: err.Error()})
