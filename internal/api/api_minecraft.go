@@ -49,14 +49,37 @@ func (s *Server) mcServer(ctx context.Context, id *httpctx.Identity, netID, serv
 	return server, resource, nil
 }
 
-// mcSSHConfig assembles the network's SSH credential from config + vault.
+// mcSSHConfig assembles the network's SSH credential. A network bound to a
+// registry host reads from there — one place to rotate a key that half the
+// app dials; only an unbound network falls back to its own inline fields.
 func (s *Server) mcSSHConfig(ctx context.Context, row *store.Integration) minecraft.SSHConfig {
 	var cfg struct {
-		SSHHost string `json:"sshHost"`
-		SSHPort int    `json:"sshPort"`
-		SSHUser string `json:"sshUser"`
+		SSHHostID string `json:"sshHostId"`
+		SSHHost   string `json:"sshHost"`
+		SSHPort   int    `json:"sshPort"`
+		SSHUser   string `json:"sshUser"`
 	}
 	_ = json.Unmarshal(row.Config, &cfg)
+
+	if cfg.SSHHostID != "" {
+		if hostID, err := uuid.Parse(cfg.SSHHostID); err == nil {
+			if h, herr := s.store.GetSSHHost(ctx, hostID); herr == nil {
+				if target, terr := s.sshTargetForHost(ctx, h); terr == nil {
+					out := minecraft.SSHConfig{Host: target.Host, Port: target.Port, User: target.Username}
+					if target.AuthType == "key" {
+						out.Key = target.Secret
+					} else {
+						out.Password = target.Secret
+					}
+					return out
+				}
+			}
+		}
+		// A dangling or unreadable binding must not silently fall through to
+		// stale inline credentials pointing at a different machine.
+		return minecraft.SSHConfig{}
+	}
+
 	out := minecraft.SSHConfig{Host: cfg.SSHHost, Port: cfg.SSHPort, User: cfg.SSHUser}
 	scope := "integration:" + row.ID.String()
 	if raw, err := s.vault.Open(ctx, scope, "sshPassword"); err == nil {

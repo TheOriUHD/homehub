@@ -19,6 +19,7 @@ import { Checkbox } from "@/ui/misc";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
 import { SkeletonRows } from "@/ui/skeleton";
 import { useToast } from "@/ui/toast";
+import { SSHHostPicker } from "@/pages/ssh-hosts";
 
 // ---- per-type form state ---------------------------------------------------
 
@@ -36,6 +37,8 @@ type DockerTransport = "socket" | "tcp" | "ssh";
 type DockerFormState = {
   name: string;
   transport: DockerTransport;
+  /** A registry host id, or "" when the inline SSH fields below are used. */
+  sshHostId: string;
   socketPath: string;
   host: string;
   port: string;
@@ -60,6 +63,7 @@ const emptyPveForm: PveFormState = {
 const emptyDockerForm: DockerFormState = {
   name: "",
   transport: "socket",
+  sshHostId: "",
   socketPath: "/var/run/docker.sock",
   host: "",
   port: "22",
@@ -130,19 +134,21 @@ function dockerPayload(form: DockerFormState): FormPayload {
     if (form.clientCert) secrets.clientCert = form.clientCert;
     if (form.clientKey) secrets.clientKey = form.clientKey;
   }
-  if (form.transport === "ssh" && form.sshSecret) secrets.sshSecret = form.sshSecret;
-  return {
-    config: {
-      transport: form.transport,
-      socketPath: form.socketPath,
-      host: form.host,
-      port: Number(form.port) || 22,
-      username: form.username,
-      authType: form.authType,
-      tls: form.tls,
-    },
-    secrets,
+  const bound = form.transport === "ssh" && form.sshHostId !== "";
+  if (form.transport === "ssh" && !bound && form.sshSecret) secrets.sshSecret = form.sshSecret;
+  const config: Record<string, unknown> = {
+    transport: form.transport,
+    socketPath: form.socketPath,
+    host: form.host,
+    port: Number(form.port) || 22,
+    username: form.username,
+    authType: form.authType,
+    tls: form.tls,
   };
+  // The binding is what the server resolves from; the inline fields it
+  // overwrites are left as-is so unbinding restores what was typed before.
+  if (bound) config.sshHostId = form.sshHostId;
+  return { config, secrets };
 }
 
 function piholePayload(form: PiholeFormState): FormPayload {
@@ -227,6 +233,8 @@ type TruenasFormState = {
 
 type McFormState = {
   name: string;
+  /** A registry host id, or "" when the inline fields below are used. */
+  sshHostId: string;
   sshHost: string;
   sshPort: string;
   sshUser: string;
@@ -275,7 +283,7 @@ const emptyMongoForm: MongoFormState = {
 
 const emptyTruenasForm: TruenasFormState = { name: "", host: "", username: "", apiKey: "", insecureTls: false };
 
-const emptyMcForm: McFormState = { name: "", sshHost: "", sshPort: "22", sshUser: "", sshPassword: "", sshKey: "" };
+const emptyMcForm: McFormState = { name: "", sshHostId: "", sshHost: "", sshPort: "22", sshUser: "", sshPassword: "", sshKey: "" };
 
 const emptyCaddyForm: CaddyFormState = { name: "", baseUrl: "", code: "" };
 const emptyPatchpilotForm: PatchpilotFormState = { name: "" };
@@ -322,6 +330,9 @@ function truenasPayload(form: TruenasFormState): FormPayload {
 
 function mcPayload(form: McFormState): FormPayload {
   const config: Record<string, unknown> = {};
+  // The binding is what the server resolves from; the inline fields it
+  // overrides are left as-is so unbinding restores what was typed before.
+  if (form.sshHostId) config.sshHostId = form.sshHostId;
   if (form.sshHost.trim()) {
     config.sshHost = form.sshHost.trim();
     config.sshPort = Math.max(1, Math.min(65535, Number(form.sshPort) || 22));
@@ -756,6 +767,7 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
     ...emptyDockerForm,
     name: row.name,
     transport: cfg.transport === "tcp" || cfg.transport === "ssh" ? cfg.transport : "socket",
+    sshHostId: String(cfg.sshHostId ?? ""),
     socketPath: String(cfg.socketPath ?? "") || "/var/run/docker.sock",
     host: String(cfg.host ?? ""),
     port: String(cfg.port ?? 22),
@@ -806,6 +818,7 @@ export function EditSystemDialog({ row, onClose }: { row: Integration; onClose: 
   const [mcForm, setMcForm] = useState<McFormState>({
     ...emptyMcForm,
     name: row.name,
+    sshHostId: String(cfg.sshHostId ?? ""),
     sshHost: String(cfg.sshHost ?? ""),
     sshPort: String(cfg.sshPort ?? "22"),
     sshUser: String(cfg.sshUser ?? ""),
@@ -1172,7 +1185,20 @@ function DockerForm({
         </>
       )}
 
+      {/* Picking a saved host is the normal path; the manual fields stay for
+          the one-off case and collapse away once a host is chosen. */}
       {form.transport === "ssh" && (
+        <Field label={t("integrations.docker.sshHostLabel")} hint={t("integrations.docker.sshHostPickerHint")}>
+          {() => (
+            <SSHHostPicker
+              value={form.sshHostId || null}
+              onChange={(hostId) => update({ sshHostId: hostId ?? "" })}
+            />
+          )}
+        </Field>
+      )}
+
+      {form.transport === "ssh" && !form.sshHostId && (
         <>
           <div className="grid grid-cols-3 gap-3">
             <Field label={t("integrations.docker.host")} hint={t("integrations.docker.hostHintSsh")} className="col-span-2">
@@ -1838,46 +1864,61 @@ function McForm({
           />
         )}
       </Field>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label={t("integrations.mc.sshHost")} hint={t("integrations.mc.sshHostHint")}>
-          {(p) => (
-            <Input {...p} placeholder="192.168.1.10" value={form.sshHost}
-              onChange={(e) => setForm((prev) => ({ ...prev, sshHost: e.target.value }))} />
-          )}
-        </Field>
-        <Field label={t("integrations.mc.sshPort")}>
-          {(p) => (
-            <Input {...p} type="number" value={form.sshPort}
-              onChange={(e) => setForm((prev) => ({ ...prev, sshPort: e.target.value }))} />
-          )}
-        </Field>
-        <Field label={t("integrations.mc.sshUser")}>
-          {(p) => (
-            <Input {...p} placeholder="minecraft" value={form.sshUser}
-              onChange={(e) => setForm((prev) => ({ ...prev, sshUser: e.target.value }))} />
-          )}
-        </Field>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={t("integrations.mc.sshPassword")} hint={t("integrations.mc.sshSecretHint")}>
-          {(p) => (
-            <Input {...p} type="password" placeholder="••••••••" value={form.sshPassword}
-              onChange={(e) => setForm((prev) => ({ ...prev, sshPassword: e.target.value }))} />
-          )}
-        </Field>
-        <Field label={t("integrations.mc.sshKey")} hint={t("integrations.mc.sshKeyHint")}>
-          {(p) => (
-            <textarea
-              id={p.id}
-              aria-describedby={p["aria-describedby"]}
-              className="border-edge bg-surface text-fg focus:border-accent focus:ring-ring/40 h-20 w-full rounded-md border px-3 py-2 font-mono text-[12px] shadow-1 focus:ring-2 focus:outline-none"
-              placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
-              value={form.sshKey}
-              onChange={(e) => setForm((prev) => ({ ...prev, sshKey: e.target.value }))}
-            />
-          )}
-        </Field>
-      </div>
+      {/* Picking a saved host is the normal path; the manual fields stay for
+          the one-off case and collapse away once a host is chosen. */}
+      <Field label={t("integrations.mc.sshHostLabel")} hint={t("integrations.mc.sshHostPickerHint")}>
+        {() => (
+          <SSHHostPicker
+            value={form.sshHostId || null}
+            onChange={(hostId) => setForm((prev) => ({ ...prev, sshHostId: hostId ?? "" }))}
+          />
+        )}
+      </Field>
+
+      {!form.sshHostId && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label={t("integrations.mc.sshHost")} hint={t("integrations.mc.sshHostHint")}>
+              {(p) => (
+                <Input {...p} placeholder="192.168.1.10" value={form.sshHost}
+                  onChange={(e) => setForm((prev) => ({ ...prev, sshHost: e.target.value }))} />
+              )}
+            </Field>
+            <Field label={t("integrations.mc.sshPort")}>
+              {(p) => (
+                <Input {...p} type="number" value={form.sshPort}
+                  onChange={(e) => setForm((prev) => ({ ...prev, sshPort: e.target.value }))} />
+              )}
+            </Field>
+            <Field label={t("integrations.mc.sshUser")}>
+              {(p) => (
+                <Input {...p} placeholder="minecraft" value={form.sshUser}
+                  onChange={(e) => setForm((prev) => ({ ...prev, sshUser: e.target.value }))} />
+              )}
+            </Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t("integrations.mc.sshPassword")} hint={t("integrations.mc.sshSecretHint")}>
+              {(p) => (
+                <Input {...p} type="password" placeholder="••••••••" value={form.sshPassword}
+                  onChange={(e) => setForm((prev) => ({ ...prev, sshPassword: e.target.value }))} />
+              )}
+            </Field>
+            <Field label={t("integrations.mc.sshKey")} hint={t("integrations.mc.sshKeyHint")}>
+              {(p) => (
+                <textarea
+                  id={p.id}
+                  aria-describedby={p["aria-describedby"]}
+                  className="border-edge bg-surface text-fg focus:border-accent focus:ring-ring/40 h-20 w-full rounded-md border px-3 py-2 font-mono text-[12px] shadow-1 focus:ring-2 focus:outline-none"
+                  placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                  value={form.sshKey}
+                  onChange={(e) => setForm((prev) => ({ ...prev, sshKey: e.target.value }))}
+                />
+              )}
+            </Field>
+          </div>
+        </>
+      )}
       <div className="bg-accent-soft/40 border-accent/30 text-fg rounded-lg border p-4 text-[13px] leading-relaxed">
         <p className="font-semibold">{t("integrations.minecraft.howTitle")}</p>
         <ol className="text-fg-muted mt-2 list-decimal space-y-1 pl-4">

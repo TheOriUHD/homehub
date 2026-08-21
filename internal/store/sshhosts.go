@@ -21,6 +21,10 @@ type SSHHost struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
+// SSHHostVaultScope is where every registry host's password or private key
+// is sealed. Shared so the API and the integration manager cannot drift.
+const SSHHostVaultScope = "sshhost"
+
 const sshHostCols = `id, name, hostname, port, username, auth_type, notes, created_at, updated_at`
 
 func (s *Store) ListSSHHosts(ctx context.Context) ([]SSHHost, error) {
