@@ -282,7 +282,7 @@ function Stat({
 function OpenModuleLink({ row }: { row: Integration }) {
   const { t } = useTranslation();
   const className = "text-accent text-[12.5px] font-medium hover:underline";
-  const label = <>{t("systems.open")} →</>;
+  const label = <>{t("systems.openModule")} →</>;
   switch (row.type) {
     case "proxmox":
       return (

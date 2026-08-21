@@ -202,6 +202,28 @@ func (m *Manager) launch(inst Instance) {
 	go m.run(ctx, r, d, inst)
 }
 
+// bindSSHHost fills an instance's SSH fields from the registry host it points
+// at, so a driver keeps reading its own config keys and never has to know the
+// registry exists. Instances without a binding pass through untouched.
+func (m *Manager) bindSSHHost(ctx context.Context, inst Instance, deps Deps) (Instance, Deps, error) {
+	binding, bound, err := ResolveSSHBinding(ctx, m.store, m.vault, inst.Config)
+	if err != nil {
+		return inst, deps, err
+	}
+	if !bound {
+		return inst, deps, nil
+	}
+	inst.Config = ApplySSHBinding(inst.Config, binding)
+	inner := deps.Secret
+	deps.Secret = func(ctx context.Context, name string) (string, error) {
+		if SSHSecretNames[name] {
+			return binding.Secret, nil
+		}
+		return inner(ctx, name)
+	}
+	return inst, deps, nil
+}
+
 // run is the supervision loop for one instance.
 func (m *Manager) run(ctx context.Context, r *runner, d Driver, inst Instance) {
 	defer close(r.done)
@@ -233,7 +255,13 @@ func (m *Manager) run(ctx context.Context, r *runner, d Driver, inst Instance) {
 		m.transition(ctx, r, inst, StatusConnecting, "")
 
 		openCtx, cancel := context.WithTimeout(ctx, upstreamCallTime)
-		conn, err := d.Open(openCtx, inst, deps)
+		// Resolved per attempt rather than once at startup, so editing the
+		// registry host takes effect on the next reconnect.
+		attempt, attemptDeps, err := m.bindSSHHost(openCtx, inst, deps)
+		var conn Connection
+		if err == nil {
+			conn, err = d.Open(openCtx, attempt, attemptDeps)
+		}
 		cancel()
 		if err != nil {
 			m.transition(ctx, r, inst, StatusUnreachable, err.Error())

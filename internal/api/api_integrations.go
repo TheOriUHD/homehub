@@ -49,6 +49,27 @@ func (s *Server) ListIntegrations(ctx context.Context, _ ListIntegrationsRequest
 	return ListIntegrations200JSONResponse(out), nil
 }
 
+// applySSHBindingForTest resolves a registry SSH host into the plain config
+// and secret entries a driver's Test reads, so testing a bound system checks
+// the same credential the manager will actually dial.
+func (s *Server) applySSHBindingForTest(
+	ctx context.Context,
+	config map[string]any,
+	secrets map[string]string,
+) (map[string]any, error) {
+	binding, bound, err := integration.ResolveSSHBinding(ctx, s.store, s.vault, config)
+	if err != nil {
+		return config, err
+	}
+	if !bound {
+		return config, nil
+	}
+	for name := range integration.SSHSecretNames {
+		secrets[name] = binding.Secret
+	}
+	return integration.ApplySSHBinding(config, binding), nil
+}
+
 func (s *Server) TestIntegrationConfig(ctx context.Context, req TestIntegrationConfigRequestObject) (TestIntegrationConfigResponseObject, error) {
 	id := httpctx.IdentityFrom(ctx)
 	if id == nil {
@@ -65,7 +86,11 @@ func (s *Server) TestIntegrationConfig(ctx context.Context, req TestIntegrationC
 	if req.Body.Secrets != nil {
 		secrets = *req.Body.Secrets
 	}
-	result := driver.Test(ctx, req.Body.Config, secrets)
+	config, berr := s.applySSHBindingForTest(ctx, req.Body.Config, secrets)
+	if berr != nil {
+		return TestIntegrationConfig200JSONResponse(TestConnectionResult{Ok: false, Message: berr.Error()}), nil
+	}
+	result := driver.Test(ctx, config, secrets)
 	return TestIntegrationConfig200JSONResponse(toAPITestResult(result)), nil
 }
 
@@ -244,7 +269,11 @@ func (s *Server) TestIntegration(ctx context.Context, req TestIntegrationRequest
 			secrets[name] = string(raw)
 		}
 	}
-	result := driver.Test(ctx, integration.ConfigFromJSON(row.Config), secrets)
+	config, berr := s.applySSHBindingForTest(ctx, integration.ConfigFromJSON(row.Config), secrets)
+	if berr != nil {
+		return TestIntegration200JSONResponse(TestConnectionResult{Ok: false, Message: berr.Error()}), nil
+	}
+	result := driver.Test(ctx, config, secrets)
 	return TestIntegration200JSONResponse(toAPITestResult(result)), nil
 }
 

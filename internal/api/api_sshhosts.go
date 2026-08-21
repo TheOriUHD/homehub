@@ -29,7 +29,7 @@ const ResSSHHosts = "system/ssh"
 func sshHostResource(id uuid.UUID) string { return "ssh/" + id.String() }
 
 // sshVaultScope holds each host's password or private key.
-const sshVaultScope = "sshhost"
+const sshVaultScope = store.SSHHostVaultScope
 
 func (s *Server) toAPISSHHost(ctx context.Context, h *store.SSHHost) SSHHost {
 	out := SSHHost{

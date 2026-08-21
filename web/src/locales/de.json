@@ -519,6 +519,8 @@
       "fingerprintHint": "SHA-256-Fingerprint von der Zertifikatseite des Nodes, z. B. AA:BB:… — sicherer, als die Prüfung zu überspringen"
     },
     "docker": {
+      "sshHostLabel": "SSH-Host",
+      "sshHostPickerHint": "Wähle einen gespeicherten Host oder gib Zugangsdaten nur für dieses System ein.",
       "transport": "Verbindung",
       "transportSocket": "Lokaler Socket",
       "transportTcp": "TCP",
@@ -637,6 +639,8 @@
       "apiKeyHint": "Settings → Integrations → API tokens in Aperture, angelegt von einem Admin mit den Scopes media:live, system:read, storage:read, cameras:read (beginnt mit apt_)"
     },
     "mc": {
+      "sshHostLabel": "SSH-Host",
+      "sshHostPickerHint": "Wähle einen gespeicherten Host oder gib Zugangsdaten nur für dieses Netzwerk ein.",
       "sshHost": "SSH-Host",
       "sshHostHint": "Optional: die Maschine, auf der dieses Netzwerk läuft — für vollständige Neustarts.",
       "sshPort": "SSH-Port",
@@ -658,6 +662,7 @@
     "subtitle": "Alles, womit HomeHub verbunden ist — hier Systeme hinzufügen, testen und verwalten.",
     "add": "System hinzufügen",
     "open": "{{product}} öffnen",
+    "openModule": "Öffnen",
     "test": "Testen",
     "testConnection": "Verbindung testen",
     "testing": "Teste…",
