@@ -3612,7 +3612,8 @@
     },
     "auth": {
       "password": "Passwort",
-      "key": "Schlüssel"
+      "key": "Schlüssel",
+      "generate": "Schlüssel automatisch erzeugen (empfohlen)"
     },
     "boundCount": "{{count}} Ressource(n)",
     "form": {
@@ -3625,7 +3626,10 @@
       "password": "Passwort",
       "privateKey": "Privater Schlüssel",
       "secretKeep": "Leer lassen, um das gespeicherte Geheimnis zu behalten",
-      "notes": "Notizen"
+      "notes": "Notizen",
+      "passwordOnce": "Passwort (einmalig)",
+      "passwordOnceHint": "Wird nur jetzt zum Installieren des Schlüssels genutzt — nie gespeichert",
+      "generateExplainer": "HomeHub erzeugt ein ed25519-Schlüsselpaar, trägt den öffentlichen Teil in die authorized_keys dieses Kontos ein, prüft die Anmeldung und speichert nur den privaten Schlüssel. Vorhandene Schlüssel bleiben unangetastet."
     },
     "deleteConfirm": {
       "title": "SSH-Host löschen?",
@@ -3637,6 +3641,8 @@
       "manual": "Zugangsdaten manuell eingeben",
       "label": "SSH-Host",
       "hint": "Wähle einen gespeicherten Host oder gib Zugangsdaten nur für diese Ressource ein."
-    }
+    },
+    "generateAndSave": "Schlüsselpaar erzeugen & speichern",
+    "generated": "Schlüsselpaar erzeugt und installiert"
   }
 }

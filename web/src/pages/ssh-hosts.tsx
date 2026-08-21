@@ -254,6 +254,32 @@ function SSHHostDialog({ host, onClose }: { host: SSHHost | null; onClose: () =>
   const [authType, setAuthType] = useState<"password" | "key">(host?.authType ?? "password");
   const [secret, setSecret] = useState("");
   const [notes, setNotes] = useState(host?.notes ?? "");
+  // "generate" is the default for new hosts: HomeHub makes the keypair,
+  // installs it with the password once, and stores only the private half.
+  const [mode, setMode] = useState<"generate" | "password" | "key">(host ? host.authType : "generate");
+
+  const provision = useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await api.POST("/ssh-hosts/provision", {
+          body: {
+            ...(host ? { id: host.id } : {}),
+            name: name.trim() || undefined,
+            hostname: hostname.trim(),
+            port: Number(port) || 22,
+            username: username.trim(),
+            password: secret,
+            notes: notes.trim(),
+          },
+        }),
+      ),
+    onSuccess: () => {
+      toast("success", t("ssh.generated"));
+      void queryClient.invalidateQueries({ queryKey: ["ssh-hosts"] });
+      onClose();
+    },
+    onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
+  });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -279,6 +305,8 @@ function SSHHostDialog({ host, onClose }: { host: SSHHost | null; onClose: () =>
   });
 
   const complete = name.trim() && hostname.trim() && username.trim() && (host || secret.trim());
+  // Generating needs only the address, the user, and the password once.
+  const generateReady = hostname.trim() && username.trim() && secret.trim();
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -306,11 +334,20 @@ function SSHHostDialog({ host, onClose }: { host: SSHHost | null; onClose: () =>
             </Field>
             <Field label={t("ssh.form.authType")}>
               {(p) => (
-                <Select value={authType} onValueChange={(v) => setAuthType(v as "password" | "key")}>
+                <Select
+                  value={mode}
+                  onValueChange={(v) => {
+                    const m = v as "generate" | "password" | "key";
+                    setMode(m);
+                    setSecret("");
+                    if (m !== "generate") setAuthType(m);
+                  }}
+                >
                   <SelectTrigger id={p.id}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="generate">{t("ssh.auth.generate")}</SelectItem>
                     <SelectItem value="password">{t("ssh.auth.password")}</SelectItem>
                     <SelectItem value="key">{t("ssh.auth.key")}</SelectItem>
                   </SelectContent>
@@ -319,11 +356,23 @@ function SSHHostDialog({ host, onClose }: { host: SSHHost | null; onClose: () =>
             </Field>
           </div>
           <Field
-            label={authType === "key" ? t("ssh.form.privateKey") : t("ssh.form.password")}
-            hint={host ? t("ssh.form.secretKeep") : undefined}
+            label={
+              mode === "generate"
+                ? t("ssh.form.passwordOnce")
+                : mode === "key"
+                  ? t("ssh.form.privateKey")
+                  : t("ssh.form.password")
+            }
+            hint={
+              mode === "generate"
+                ? t("ssh.form.passwordOnceHint")
+                : host
+                  ? t("ssh.form.secretKeep")
+                  : undefined
+            }
           >
             {(p) =>
-              authType === "key" ? (
+              mode === "key" ? (
                 <Textarea {...p} rows={5} className="font-mono text-[12px]" value={secret}
                   onChange={(e) => setSecret(e.target.value)} placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" />
               ) : (
@@ -331,13 +380,26 @@ function SSHHostDialog({ host, onClose }: { host: SSHHost | null; onClose: () =>
               )
             }
           </Field>
+          {mode === "generate" && (
+            <p className="text-fg-subtle flex items-start gap-1.5 text-[12px]">
+              <KeyRound className="mt-0.5 size-3.5 shrink-0" />
+              {t("ssh.form.generateExplainer")}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={onClose}>
               {t("common.cancel")}
             </Button>
-            <Button variant="primary" loading={save.isPending} disabled={!complete} onClick={() => save.mutate()}>
-              {host ? t("common.save") : t("ssh.add")}
-            </Button>
+            {mode === "generate" ? (
+              <Button variant="primary" loading={provision.isPending} disabled={!generateReady} onClick={() => provision.mutate()}>
+                <KeyRound className="size-4" />
+                {t("ssh.generateAndSave")}
+              </Button>
+            ) : (
+              <Button variant="primary" loading={save.isPending} disabled={!complete} onClick={() => save.mutate()}>
+                {host ? t("common.save") : t("ssh.add")}
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

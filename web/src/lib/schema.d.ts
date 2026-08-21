@@ -1754,6 +1754,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ssh-hosts/provision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set up key authentication in one step
+         * @description Generates an ed25519 keypair, installs the public half into the account's authorized_keys using the password supplied once, verifies the key actually authenticates, then stores the host with key auth. The password is used for this call only and never stored. Pass id to convert an existing entry instead of creating one.
+         */
+        post: operations["provisionSSHHost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ssh-hosts/{id}": {
         parameters: {
             query?: never;
@@ -9958,6 +9978,48 @@ export interface operations {
         responses: {
             /** @description Created */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHHost"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    provisionSSHHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description Existing host to convert to key auth; omit to create a new one
+                     */
+                    id?: string;
+                    /** @description Display name; defaults to the hostname */
+                    name?: string;
+                    hostname: string;
+                    /** @default 22 */
+                    port?: number;
+                    username: string;
+                    /** @description Used once to install the key; never stored */
+                    password: string;
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Host now authenticates by key */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

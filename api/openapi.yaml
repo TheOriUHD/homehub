@@ -2832,6 +2832,48 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /ssh-hosts/provision:
+    post:
+      operationId: provisionSSHHost
+      summary: Set up key authentication in one step
+      description: >-
+        Generates an ed25519 keypair, installs the public half into the
+        account's authorized_keys using the password supplied once, verifies
+        the key actually authenticates, then stores the host with key auth.
+        The password is used for this call only and never stored. Pass id to
+        convert an existing entry instead of creating one.
+      tags: [ssh]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hostname, username, password]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Existing host to convert to key auth; omit to create a new one
+                name: { type: string, description: Display name; defaults to the hostname }
+                hostname: { type: string, minLength: 1 }
+                port: { type: integer, minimum: 1, maximum: 65535, default: 22 }
+                username: { type: string, minLength: 1 }
+                password: { type: string, minLength: 1, description: Used once to install the key; never stored }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Host now authenticates by key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SSHHost" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /ssh-hosts/{id}:
     put:
       operationId: updateSSHHost
