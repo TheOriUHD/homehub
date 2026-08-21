@@ -19,26 +19,9 @@ import { EmptyState, ErrorState } from "@/ui/states";
 import { SkeletonRows } from "@/ui/skeleton";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { useToast } from "@/ui/toast";
+import { SHARED_STORAGE_TYPES, storageAnchor, useHashFocus } from "./util";
 
 // ---- storage ---------------------------------------------------------------
-
-/**
- * Storage types that are cluster-wide by nature. Name-based detection is
- * wrong here — "local" exists on every node but is a different disk each
- * time — so the type decides: these get deduplicated into one "Shared
- * storage" section, everything else lists under the node that owns it.
- */
-const SHARED_STORAGE_TYPES = new Set([
-  "nfs",
-  "cifs",
-  "pbs",
-  "cephfs",
-  "rbd",
-  "glusterfs",
-  "iscsi",
-  "iscsidirect",
-  "zfs",
-]);
 
 export function PveStoragePage() {
   const { t } = useTranslation();
@@ -149,47 +132,62 @@ function StorageTable({
         {pools
           .slice()
           .sort((a, b) => a.storage.localeCompare(b.storage))
-          .map((pool) => {
-            const fraction = pool.totalBytes > 0 ? pool.usedBytes / pool.totalBytes : 0;
-            const nodeCount = sharedNodeCounts?.get(pool.storage);
-            return (
-              <TR key={pool.storage + pool.node}>
-                <TD>
-                  <span className="text-fg flex items-center gap-2 font-medium">
-                    <Database className="text-fg-subtle size-4" />
-                    {pool.storage}
-                    {nodeCount !== undefined && (
-                      <Badge tone="info">
-                        {t("pve.storage.shared")}
-                        {nodeCount > 1 ? ` · ${t("pve.storage.sharedNodes", { count: nodeCount })}` : ""}
-                      </Badge>
-                    )}
-                    {!pool.active && <Badge tone="neutral">{t("pve.storage.inactive")}</Badge>}
-                  </span>
-                </TD>
-                <TD className="text-fg-muted hidden sm:table-cell">{pool.type}</TD>
-                <TD className="text-fg-subtle hidden max-w-44 truncate text-xs md:table-cell">{pool.content}</TD>
-                <TD>
-                  <div className="flex items-center gap-2.5">
-                    <div className="bg-bg-subtle h-1.5 min-w-24 flex-1 overflow-hidden rounded-full">
-                      <div
-                        className={cn(
-                          "h-full rounded-full",
-                          fraction > 0.9 ? "bg-danger" : fraction > 0.75 ? "bg-warning" : "bg-accent",
-                        )}
-                        style={{ width: `${Math.min(fraction * 100, 100)}%` }}
-                      />
-                    </div>
-                    <span className="text-fg-muted text-xs whitespace-nowrap">
-                      {formatBytes(pool.usedBytes)} / {formatBytes(pool.totalBytes)}
-                    </span>
-                  </div>
-                </TD>
-              </TR>
-            );
-          })}
+          .map((pool) => (
+            <StoragePoolRow
+              key={pool.storage + pool.node}
+              pool={pool}
+              nodeCount={sharedNodeCounts?.get(pool.storage)}
+            />
+          ))}
       </TBody>
     </Table>
+  );
+}
+
+/** StoragePoolRow is its own component so it can claim the anchor the
+ *  resource tree links to and flash when navigated to. */
+function StoragePoolRow({ pool, nodeCount }: { pool: PveStorage; nodeCount?: number }) {
+  const { t } = useTranslation();
+  const focused = useHashFocus(storageAnchor(pool));
+  const fraction = pool.totalBytes > 0 ? pool.usedBytes / pool.totalBytes : 0;
+
+  return (
+    <TR
+      id={storageAnchor(pool)}
+      className={cn("scroll-mt-6 transition-colors duration-300", focused && "bg-accent-soft/40")}
+    >
+      <TD>
+        <span className="text-fg flex items-center gap-2 font-medium">
+          <Database className="text-fg-subtle size-4" />
+          {pool.storage}
+          {nodeCount !== undefined && (
+            <Badge tone="info">
+              {t("pve.storage.shared")}
+              {nodeCount > 1 ? ` · ${t("pve.storage.sharedNodes", { count: nodeCount })}` : ""}
+            </Badge>
+          )}
+          {!pool.active && <Badge tone="neutral">{t("pve.storage.inactive")}</Badge>}
+        </span>
+      </TD>
+      <TD className="text-fg-muted hidden sm:table-cell">{pool.type}</TD>
+      <TD className="text-fg-subtle hidden max-w-44 truncate text-xs md:table-cell">{pool.content}</TD>
+      <TD>
+        <div className="flex items-center gap-2.5">
+          <div className="bg-bg-subtle h-1.5 min-w-24 flex-1 overflow-hidden rounded-full">
+            <div
+              className={cn(
+                "h-full rounded-full",
+                fraction > 0.9 ? "bg-danger" : fraction > 0.75 ? "bg-warning" : "bg-accent",
+              )}
+              style={{ width: `${Math.min(fraction * 100, 100)}%` }}
+            />
+          </div>
+          <span className="text-fg-muted text-xs whitespace-nowrap">
+            {formatBytes(pool.usedBytes)} / {formatBytes(pool.totalBytes)}
+          </span>
+        </div>
+      </TD>
+    </TR>
   );
 }
 

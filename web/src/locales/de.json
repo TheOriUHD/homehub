@@ -729,6 +729,14 @@
       "tasks": "Aufgaben",
       "backups": "Backups"
     },
+    "tree": {
+      "title": "Ressourcen",
+      "datacenter": "Rechenzentrum",
+      "filter": "Ressourcen filtern…",
+      "noMatch": "Keine passenden Ressourcen",
+      "expand": "Ausklappen",
+      "collapse": "Einklappen"
+    },
     "unreachableBanner": "Diese Proxmox-Instanz ist nicht erreichbar: {{message}}",
     "degradedBanner": "Beeinträchtigt: {{message}}",
     "summary": {
