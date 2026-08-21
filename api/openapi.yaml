@@ -2761,6 +2761,14 @@ paths:
                 secret:
                   type: string
                   description: Password or PEM private key; omit to keep the stored secret
+                hostId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: >-
+                    Bind this resource to a central SSH host instead of storing
+                    its own credential. When set, host/username/authType/secret
+                    are ignored and the registry entry is used. Null unbinds.
       responses:
         "200":
           description: Stored credential metadata
@@ -2785,6 +2793,120 @@ paths:
           description: Removed
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /ssh-hosts:
+    get:
+      operationId: listSSHHosts
+      summary: The central SSH host registry
+      description: Named SSH machines reused across HomeHub. Secrets are never returned.
+      tags: [ssh]
+      responses:
+        "200":
+          description: Hosts, by name
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SSHHost" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createSSHHost
+      summary: Add an SSH host
+      tags: [ssh]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SSHHostInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SSHHost" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /ssh-hosts/{id}:
+    put:
+      operationId: updateSSHHost
+      summary: Update an SSH host
+      tags: [ssh]
+      parameters: [{ $ref: "#/components/parameters/idParam" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SSHHostInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SSHHost" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteSSHHost
+      summary: Remove an SSH host
+      description: Resources bound to it fall back to needing their own credentials.
+      tags: [ssh]
+      parameters: [{ $ref: "#/components/parameters/idParam" }]
+      responses:
+        "204":
+          description: Removed
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /ssh-hosts/{id}/test:
+    post:
+      operationId: testSSHHost
+      summary: Verify the stored credentials connect
+      tags: [ssh]
+      parameters: [{ $ref: "#/components/parameters/idParam" }]
+      responses:
+        "200":
+          description: Test outcome
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestConnectionResult" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /ssh-hosts/{id}/terminal:
+    post:
+      operationId: openSSHHostTerminal
+      summary: Open an interactive terminal to this host
+      description: Requires control on the host. Audited.
+      tags: [ssh]
+      parameters: [{ $ref: "#/components/parameters/idParam" }]
+      responses:
+        "200":
+          description: One-time terminal session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermSession" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /db/instances:
     get:
@@ -7699,7 +7821,47 @@ components:
         port: { type: integer }
         username: { type: string }
         authType: { type: string, enum: [password, key] }
+        hostId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The central SSH host this resource is bound to, when any
+        hostName: { type: string, description: That host's display name }
         updatedAt: { type: string, format: date-time }
+
+    SSHHost:
+      type: object
+      required: [id, name, hostname, port, username, authType, notes, inUse, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        hostname: { type: string }
+        port: { type: integer }
+        username: { type: string }
+        authType: { type: string, enum: [password, key] }
+        notes: { type: string }
+        inUse:
+          type: integer
+          description: How many resources are bound to this host
+        boundResources:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    SSHHostInput:
+      type: object
+      required: [name, hostname, username, authType]
+      properties:
+        name: { type: string, minLength: 1, description: Display name, unique }
+        hostname: { type: string, minLength: 1 }
+        port: { type: integer, minimum: 1, maximum: 65535, default: 22 }
+        username: { type: string, minLength: 1 }
+        authType: { type: string, enum: [password, key] }
+        secret:
+          type: string
+          description: Password or PEM private key; omit on update to keep the stored one
+        notes: { type: string }
 
     DockerContainer:
       type: object

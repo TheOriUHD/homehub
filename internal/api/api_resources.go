@@ -28,7 +28,7 @@ func (s *Server) GetSSHCredential(ctx context.Context, req GetSSHCredentialReque
 		}
 		return nil, err
 	}
-	return GetSSHCredential200JSONResponse(toAPISSHCredential(cred)), nil
+	return GetSSHCredential200JSONResponse(s.sshCredentialWithHostName(ctx, cred)), nil
 }
 
 func (s *Server) PutSSHCredential(ctx context.Context, req PutSSHCredentialRequestObject) (PutSSHCredentialResponseObject, error) {
@@ -44,6 +44,28 @@ func (s *Server) PutSSHCredential(ctx context.Context, req PutSSHCredentialReque
 	if !rbac.ValidSelector(resource) || strings.Contains(resource, "*") {
 		return PutSSHCredential400JSONResponse{BadRequestJSONResponse(errBody("invalid_resource", "resource must be a concrete path"))}, nil
 	}
+	// Binding to a central SSH host is the primary path: the registry entry
+	// carries host/user/secret, so none of the inline fields are required.
+	if req.Body.HostId != nil {
+		h, herr := s.store.GetSSHHost(ctx, *req.Body.HostId)
+		if herr != nil {
+			return PutSSHCredential400JSONResponse{BadRequestJSONResponse(errBody("unknown_host", "that SSH host does not exist"))}, nil
+		}
+		if err := s.store.UpsertSSHCredential(ctx, &store.SSHCredential{
+			Resource: resource, Host: h.Hostname, Port: h.Port, Username: h.Username,
+			AuthType: h.AuthType, HostID: &h.ID,
+		}); err != nil {
+			return nil, err
+		}
+		s.audit.Log(ctx, actorFor(id), "resource.ssh_credential", resource, "success",
+			map[string]any{"boundTo": h.Name})
+		cred, cerr := s.store.GetSSHCredential(ctx, resource)
+		if cerr != nil {
+			return nil, cerr
+		}
+		return PutSSHCredential200JSONResponse(s.sshCredentialWithHostName(ctx, cred)), nil
+	}
+
 	host := ""
 	if req.Body.Host != nil {
 		host = strings.TrimSpace(*req.Body.Host)
@@ -114,7 +136,7 @@ func (s *Server) DeleteSSHCredential(ctx context.Context, req DeleteSSHCredentia
 }
 
 func toAPISSHCredential(cred *store.SSHCredential) SSHCredentialInfo {
-	return SSHCredentialInfo{
+	out := SSHCredentialInfo{
 		Resource:  cred.Resource,
 		Host:      cred.Host,
 		Port:      cred.Port,
@@ -122,6 +144,23 @@ func toAPISSHCredential(cred *store.SSHCredential) SSHCredentialInfo {
 		AuthType:  SSHCredentialInfoAuthType(cred.AuthType),
 		UpdatedAt: cred.UpdatedAt,
 	}
+	out.HostId = cred.HostID
+	return out
+}
+
+// sshCredentialWithHostName decorates the mapper with the bound registry
+// host's display name, so the UI can show "via <name>" without a second call.
+func (s *Server) sshCredentialWithHostName(ctx context.Context, cred *store.SSHCredential) SSHCredentialInfo {
+	out := toAPISSHCredential(cred)
+	if cred.HostID != nil {
+		if h, err := s.store.GetSSHHost(ctx, *cred.HostID); err == nil {
+			out.HostName = &h.Name
+			// Surface the effective target so callers don't render blanks.
+			out.Host, out.Port, out.Username = h.Hostname, h.Port, h.Username
+			out.AuthType = SSHCredentialInfoAuthType(h.AuthType)
+		}
+	}
+	return out
 }
 
 // ---- metrics ---------------------------------------------------------------

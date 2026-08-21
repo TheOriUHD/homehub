@@ -2,43 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  Activity,
-  BellRing,
-  Boxes,
-  ChartSpline,
-  Container,
-  Database,
-  DatabaseBackup,
-  Eye,
-  FileClock,
-  Gamepad2,
-  HardDrive,
-  Cctv,
-  Printer,
-  Network,
-  Waypoints,
-  Home,
-  House,
-  KeyRound,
-  LogOut,
-  Menu,
-  Moon,
-  Pickaxe,
-  Search,
-  Server,
-  Settings,
-  Shield,
-  ShieldCheck,
-  Sparkles,
-  Sun,
-  Users,
-  X,
-  Wrench,
-  ServerCog,
-  Radio,
-  CalendarDays,
-} from "lucide-react";
+import { Activity, BellRing, Boxes, CalendarDays, Cctv, ChartSpline, Container, Database, DatabaseBackup, Eye, FileClock, Gamepad2, HardDrive, Home, House, KeyRound, LogOut, Menu, Moon, Network, Pickaxe, Printer, Radio, Search, Server, ServerCog, Settings, Shield, ShieldCheck, Sparkles, Sun, Users, Waypoints, Wrench, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { RES } from "@/lib/perms";
@@ -174,6 +138,7 @@ export function AppShell() {
   const truenasRows = rows.filter((row) => row.type === "truenas");
   const ppRows = rows.filter((row) => row.type === "patchpilot");
   const systemsVisible = (integrations.data ?? []).length > 0 || can(SYSTEMS_RES, "configure");
+  const sshVisible = can("system/ssh", "view");
 
   type TypeEntry = NavItem & { status: string; prefix: string };
   const typeEntries: TypeEntry[] = [
@@ -349,6 +314,12 @@ export function AppShell() {
                 <SidebarLink
                   item={{ to: "/systems", label: t("nav.systems"), icon: Boxes }}
                   active={pathname.startsWith("/systems")}
+                />
+              )}
+              {sshVisible && (
+                <SidebarLink
+                  item={{ to: "/ssh-hosts", label: t("nav.sshHosts"), icon: ServerCog }}
+                  active={pathname.startsWith("/ssh-hosts")}
                 />
               )}
               {adminVisible.map((item) => (

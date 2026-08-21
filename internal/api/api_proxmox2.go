@@ -414,31 +414,18 @@ func (s *Server) PveOpenSSH(ctx context.Context, req PveOpenSSHRequestObject) (P
 		return PveOpenSSH403JSONResponse{forbidden()}, nil
 	}
 
-	cred, err := s.store.GetSSHCredential(ctx, guestRes)
+	// One resolver for every SSH consumer: a bound registry host wins,
+	// otherwise this guest's own inline credential.
+	target, err := s.ResolveSSHForResource(ctx, guestRes)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return PveOpenSSH400JSONResponse{BadRequestJSONResponse(errBody("no_ssh_credential",
-				"no SSH access configured for this guest — add credentials under the guest's SSH tab"))}, nil
+				"no SSH access configured for this guest — pick an SSH host or add credentials under the guest's SSH tab"))}, nil
 		}
-		return nil, err
-	}
-	secret, err := s.vault.Open(ctx, "ssh", guestRes)
-	if err != nil {
-		return PveOpenSSH400JSONResponse{BadRequestJSONResponse(errBody("no_ssh_credential",
-			"stored SSH secret unreadable — re-enter the credentials"))}, nil
-	}
-	if cred.Host == "" {
-		return PveOpenSSH400JSONResponse{BadRequestJSONResponse(errBody("no_ssh_host",
-			"no host or IP stored for this guest — set it in the SSH settings"))}, nil
+		return PveOpenSSH400JSONResponse{BadRequestJSONResponse(errBody("no_ssh_credential", err.Error()))}, nil
 	}
 
-	sessionID := s.term.Create(id.User.ID, term.OpenSSH(term.SSHTarget{
-		Host:     cred.Host,
-		Port:     cred.Port,
-		Username: cred.Username,
-		AuthType: cred.AuthType,
-		Secret:   string(secret),
-	}))
+	sessionID := s.term.Create(id.User.ID, term.OpenSSH(target))
 	s.audit.Log(ctx, actorFor(id), "proxmox.ssh", guestRes, "success", nil)
 	return PveOpenSSH200JSONResponse(TermSession{SessionId: sessionID, WsPath: "/api/term/" + sessionID}), nil
 }

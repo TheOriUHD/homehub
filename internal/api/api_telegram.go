@@ -62,6 +62,9 @@ func (s *Server) RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, mess
 			Call: func(cctx context.Context, method, path string, body any) (int, []byte) {
 				return s.SelfCall(cctx, id, method, path, body)
 			},
+			SSHRun: func(cctx context.Context, hostID, command string) (string, int, error) {
+				return s.runSSHOnHost(cctx, hostID, command)
+			},
 		},
 	}
 	access := s.assistantAccess(ctx, id)

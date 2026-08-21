@@ -28,6 +28,7 @@ import {
   type TermSession,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { SSHHostPicker } from "@/pages/ssh-hosts";
 import { useLiveInvalidate } from "@/lib/live";
 import { cn, formatBytes, formatDateTime, formatDuration } from "@/lib/utils";
 import { Card, CardBody, CardHeader } from "@/ui/card";
@@ -1429,12 +1430,15 @@ function SshSection({
   const [username, setUsername] = useState("root");
   const [authType, setAuthType] = useState<"password" | "key">("password");
   const [secret, setSecret] = useState("");
+  // Picking a saved SSH host is the primary path; null means "type it here".
+  const [hostId, setHostId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   if (cred.data && !hydrated) {
     setHost(cred.data.host);
     setPort(String(cred.data.port));
     setUsername(cred.data.username);
     setAuthType(cred.data.authType);
+    setHostId(cred.data.hostId ?? null);
     setHydrated(true);
   }
 
@@ -1442,14 +1446,16 @@ function SshSection({
     mutationFn: async () =>
       unwrap(
         await api.PUT("/resources/ssh", {
-          body: {
-            resource,
-            host,
-            port: Number(port) || 22,
-            username,
-            authType,
-            secret: secret || undefined,
-          },
+          body: hostId
+            ? { resource, hostId, username, authType }
+            : {
+                resource,
+                host,
+                port: Number(port) || 22,
+                username,
+                authType,
+                secret: secret || undefined,
+              },
         }),
       ),
     onSuccess: () => {
@@ -1486,7 +1492,12 @@ function SshSection({
         <div className="border-edge grid items-start gap-6 border-t px-5 py-4 lg:grid-cols-2">
           <div className="space-y-4">
             <p className="text-fg-muted text-[13px]">{t("pve.guest.sshIntro")}</p>
-            <div className="grid grid-cols-3 gap-3">
+            {/* The registry is the default path — manual entry stays available
+                for one-off guests that don't warrant a saved host. */}
+            <Field label={t("ssh.picker.label")} hint={t("ssh.picker.hint")}>
+              {() => <SSHHostPicker value={hostId} onChange={setHostId} />}
+            </Field>
+            <div className={cn("grid grid-cols-3 gap-3", hostId && "hidden")}>
               <Field label={t("pve.guest.sshHost")} className="col-span-2">
                 {(p) => <Input {...p} disabled={!canConfigure} placeholder="10.0.0.14" value={host} onChange={(e) => setHost(e.target.value)} />}
               </Field>
@@ -1494,10 +1505,12 @@ function SshSection({
                 {(p) => <Input {...p} disabled={!canConfigure} type="number" value={port} onChange={(e) => setPort(e.target.value)} />}
               </Field>
             </div>
-            <Field label={t("pve.guest.sshUser")}>
-              {(p) => <Input {...p} disabled={!canConfigure} value={username} onChange={(e) => setUsername(e.target.value)} />}
-            </Field>
-            {canConfigure && (
+            <div className={cn(hostId && "hidden")}>
+              <Field label={t("pve.guest.sshUser")}>
+                {(p) => <Input {...p} disabled={!canConfigure} value={username} onChange={(e) => setUsername(e.target.value)} />}
+              </Field>
+            </div>
+            {canConfigure && !hostId && (
               <>
                 <Field label={t("pve.guest.sshAuthType")}>
                   {() => (

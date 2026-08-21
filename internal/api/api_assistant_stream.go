@@ -13,6 +13,7 @@ import (
 
 	"homehub/internal/assistant"
 	"homehub/internal/httpctx"
+	"homehub/internal/rbac"
 	"homehub/internal/store"
 )
 
@@ -43,6 +44,9 @@ func (s *Server) assistantRuntime(ctx context.Context, id *httpctx.Identity) (*a
 			Metrics: s.metrics,
 			Call: func(cctx context.Context, method, path string, body any) (int, []byte) {
 				return s.SelfCall(cctx, id, method, path, body)
+			},
+			SSHRun: func(cctx context.Context, hostID, command string) (string, int, error) {
+				return s.runSSHOnHost(cctx, hostID, command)
 			},
 		},
 	}
@@ -212,6 +216,41 @@ func (s *Server) applyAssistantAction(ctx context.Context, id *httpctx.Identity,
 			return label, err
 		}
 		return fmt.Sprintf("Created calendar “%s”", p.Name), nil
+
+	case "ssh.run":
+		var p struct {
+			HostID   string `json:"hostId"`
+			HostName string `json:"hostName"`
+			Command  string `json:"command"`
+		}
+		if err := json.Unmarshal(a.Params, &p); err != nil {
+			return "Run SSH command", err
+		}
+		summary := fmt.Sprintf("Run on %s: %s", p.HostName, p.Command)
+		hostID, perr := uuid.Parse(p.HostID)
+		if perr != nil {
+			return summary, errors.New("bad host id")
+		}
+		// Re-check permission at apply time: the proposal may be minutes old.
+		if !s.can(ctx, id, ResSSHHosts, rbac.LevelControl) &&
+			!s.can(ctx, id, sshHostResource(hostID), rbac.LevelControl) {
+			s.deniedAudit(ctx, id, "ssh_host.agent_run", sshHostResource(hostID))
+			return summary, errors.New("not permitted")
+		}
+		out, exit, rerr := s.runSSHOnHost(ctx, p.HostID, p.Command)
+		s.audit.Log(ctx, actorFor(id), "ssh_host.agent_run", sshHostResource(hostID),
+			map[bool]string{true: "success", false: "error"}[rerr == nil && exit == 0],
+			map[string]any{"command": p.Command, "exit": exit})
+		if rerr != nil {
+			return summary, rerr
+		}
+		if strings.TrimSpace(out) != "" {
+			summary += "\n" + strings.TrimSpace(out)
+		}
+		if exit != 0 {
+			summary += fmt.Sprintf("\n(exit %d)", exit)
+		}
+		return summary, nil
 
 	case "signals.dismiss":
 		var p struct {
