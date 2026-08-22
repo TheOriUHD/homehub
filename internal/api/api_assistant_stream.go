@@ -453,6 +453,7 @@ func (s *Server) NarrateSignal(ctx context.Context, sig store.Signal, event stri
 	if notice, nerr := s.store.GetSignalNotice(ctx, sig.Key); nerr == nil && notice != nil {
 		in.TimesNotified = notice.SentCount
 		in.LastNotified = &notice.LastSentAt
+		in.LastSeverity = notice.LastSeverity
 	}
 
 	notice, err := assistant.WriteNotice(ctx, provider, model, in)
