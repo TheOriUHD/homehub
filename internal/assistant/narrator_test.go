@@ -102,10 +102,14 @@ func TestNoticePromptForbidsInventedContext(t *testing.T) {
 	}
 }
 
-// "Sir" on every message reads as a template rather than as courtesy.
-func TestNoticeVoiceDoesNotMandateSalutation(t *testing.T) {
-	if !strings.Contains(noticeSystem, `Use "Sir" ONLY when`) {
-		t.Error("the salutation should be conditional on actually addressing the owner")
+// "Sir" is part of the voice, but opening every message with it reads as a
+// form letter rather than as manners.
+func TestNoticeVoicePlacesSalutationNaturally(t *testing.T) {
+	if !strings.Contains(noticeSystem, `"Sir" belongs in this voice`) {
+		t.Error("the salutation is part of the Telegram voice and should be invited, not rationed")
+	}
+	if !strings.Contains(noticeSystem, "rather than opening every message") {
+		t.Error("it should not be a mandatory prefix")
 	}
 	if !strings.Contains(noticeSystem, "never send a bare fact") {
 		t.Error("the prompt must require context around the condition")
