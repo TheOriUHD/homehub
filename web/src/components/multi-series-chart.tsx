@@ -249,7 +249,14 @@ function UnitPlot({
         stroke: theme.resolve(s.color),
         width: 2,
         spanGaps: true,
-        points: { show: false },
+        // A line needs two points to draw anything, so a series with only a
+        // handful of samples in view renders as blank canvas while the
+        // tooltip cheerfully reports its values. Show markers when the data
+        // is sparse; dense series stay clean lines.
+        points: {
+          show: (_u: uPlot, _si: number, idx0: number, idx1: number) => idx1 - idx0 < 30,
+          size: 5,
+        },
         show: !hiddenRef.current.has(s.key),
       })),
     ];
