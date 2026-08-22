@@ -17,6 +17,7 @@ const (
 
 type AssistantMessage struct {
 	ID           int64           `db:"id"`
+	ParentID     *int64          `db:"parent_id"`
 	UserID       uuid.UUID       `db:"user_id"`
 	Channel      string          `db:"channel"`
 	Conversation string          `db:"conversation"`
@@ -26,25 +27,62 @@ type AssistantMessage struct {
 	CreatedAt    time.Time       `db:"created_at"`
 }
 
+const assistantCols = `id, parent_id, user_id, channel, conversation, role, content, tool_trace, created_at`
+
 // ListAssistantMessages returns the newest `limit` messages of one channel's
-// conversation, in chronological order. The web channel scopes by the
-// per-app-session conversation id; Telegram uses a single "" conversation.
+// conversation, in chronological order — EVERY branch, not one path. The
+// reader picks a path through the tree; the model is given one via
+// AssistantThread. The web channel scopes by the per-app-session conversation
+// id; Telegram uses a single "" conversation.
 func (s *Store) ListAssistantMessages(ctx context.Context, userID uuid.UUID, channel, conversation string, limit int) ([]AssistantMessage, error) {
 	return scanMany[AssistantMessage](s.pool.Query(ctx, `
 		select * from (
-			select id, user_id, channel, conversation, role, content, tool_trace, created_at
+			select `+assistantCols+`
 			from assistant_messages where user_id = $1 and channel = $2 and conversation = $3
 			order by id desc limit $4
 		) newest order by id asc`,
 		userID, channel, conversation, limit))
 }
 
-func (s *Store) AddAssistantMessage(ctx context.Context, userID uuid.UUID, channel, conversation, role, content string, toolTrace json.RawMessage) error {
-	_, err := s.pool.Exec(ctx, `
-		insert into assistant_messages (user_id, channel, conversation, role, content, tool_trace)
-		values ($1, $2, $3, $4, $5, $6)`,
-		userID, channel, conversation, role, content, toolTrace)
-	return err
+// AssistantThread returns one path through the tree: the message `leafID` and
+// its ancestors, oldest first, capped at `limit` nearest messages. This is
+// what the model sees — siblings on other branches are invisible to it, so a
+// retried answer never learns about the answer it replaced.
+func (s *Store) AssistantThread(ctx context.Context, userID uuid.UUID, leafID int64, limit int) ([]AssistantMessage, error) {
+	return scanMany[AssistantMessage](s.pool.Query(ctx, `
+		with recursive chain as (
+			select `+assistantCols+`
+			from assistant_messages where id = $1 and user_id = $2
+			union all
+			select m.id, m.parent_id, m.user_id, m.channel, m.conversation, m.role, m.content, m.tool_trace, m.created_at
+			from assistant_messages m join chain c on m.id = c.parent_id
+		)
+		select * from (select * from chain order by id desc limit $3) nearest order by id asc`,
+		leafID, userID, limit))
+}
+
+// AddAssistantMessage appends a message under `parentID` (nil for a thread's
+// first message) and returns its id, which becomes the next message's parent.
+func (s *Store) AddAssistantMessage(
+	ctx context.Context,
+	userID uuid.UUID,
+	channel, conversation, role, content string,
+	toolTrace json.RawMessage,
+	parentID *int64,
+) (int64, error) {
+	var id int64
+	err := s.pool.QueryRow(ctx, `
+		insert into assistant_messages (user_id, channel, conversation, role, content, tool_trace, parent_id)
+		values ($1, $2, $3, $4, $5, $6, $7) returning id`,
+		userID, channel, conversation, role, content, toolTrace, parentID).Scan(&id)
+	return id, err
+}
+
+// GetAssistantMessage loads one message, scoped to its owner so an id from
+// another user's conversation resolves to nothing.
+func (s *Store) GetAssistantMessage(ctx context.Context, userID uuid.UUID, id int64) (*AssistantMessage, error) {
+	return scanOne[AssistantMessage](s.pool.Query(ctx,
+		`select `+assistantCols+` from assistant_messages where id = $1 and user_id = $2`, id, userID))
 }
 
 // ClearAssistantMessages wipes one channel's entire history for a user —

@@ -2951,7 +2951,7 @@
     "apiKey": "API key",
     "apiKeyHint": "Stored encrypted in the vault, never shown again.",
     "apiKeySetHint": "A key is stored. Enter a new one to replace it, or leave empty to keep it.",
-    "scopeNote": "The assistant currently has read-only tools: systems, alerts, metrics, notifications and (with permission) the audit log. It cannot change anything.",
+    "scopeNote": "The assistant reads your systems and can act on them — Home Assistant devices, container and guest lifecycle, DNS blocking, calendar events, and commands on registered SSH hosts. Anything destructive is proposed first and runs only after you approve it. Every tool runs under each user's own permissions and is audited.",
     "saved": "Assistant settings saved",
     "chatTitle": "Conversation",
     "clear": "Clear",
@@ -3023,7 +3023,22 @@
     },
     "working": "Working…",
     "confirmTitle": "Confirm these changes?",
-    "approve": "Approve"
+    "approve": "Approve",
+    "actions": {
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyFailed": "Couldn't copy to the clipboard",
+      "edit": "Edit",
+      "saveEdit": "Send",
+      "retry": "Try again",
+      "speak": "Read aloud",
+      "stopSpeaking": "Stop reading",
+      "prevBranch": "Previous version",
+      "nextBranch": "Next version",
+      "showOutput": "Show output ({{count}} line)",
+      "showOutput_other": "Show output ({{count}} lines)",
+      "hideOutput": "Hide output"
+    }
   },
   "tools": {
     "title": "Utilities",

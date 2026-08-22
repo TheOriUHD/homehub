@@ -6948,7 +6948,12 @@ paths:
     get:
       operationId: getAssistantHistory
       summary: The caller's conversation history
-      description: Web-channel history only — the Telegram bridge keeps a fully separate thread. Scoped to the given per-app-session conversation id.
+      description: >-
+        Web-channel history only — the Telegram bridge keeps a fully separate thread.
+        Scoped to the given per-app-session conversation id. Returns EVERY branch of the
+        conversation tree; parentId links each message to the one it follows, and the
+        client walks one path through it (editing a question or retrying an answer
+        creates a sibling branch).
       tags: [assistant]
       parameters:
         - name: conversation
@@ -6966,6 +6971,11 @@ paths:
                   required: [id, role, content, ts]
                   properties:
                     id: { type: integer, format: int64 }
+                    parentId:
+                      type: integer
+                      format: int64
+                      nullable: true
+                      description: The message this one follows; absent for a thread's first message.
                     role: { type: string, enum: [user, assistant] }
                     content: { type: string }
                     tools:
