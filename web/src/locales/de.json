@@ -3051,9 +3051,7 @@
       "hideOutput": "Ausgabe verbergen"
     },
     "usage": {
-      "label": "Tokens und Kosten",
-      "estimate": "Geschätzt nach Listenpreisen",
-      "routed": "Auto · {{rule}}"
+      "label": "Tokens und Kosten"
     },
     "autoLanes": {
       "title": "Auto-Spuren",

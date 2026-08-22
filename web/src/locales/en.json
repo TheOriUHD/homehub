@@ -3051,9 +3051,7 @@
       "hideOutput": "Hide output"
     },
     "usage": {
-      "label": "Tokens and cost",
-      "estimate": "Estimated from list prices",
-      "routed": "Auto · {{rule}}"
+      "label": "Tokens and cost"
     },
     "autoLanes": {
       "title": "Auto lanes",

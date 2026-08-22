@@ -713,17 +713,10 @@ function UsageInfo({ usage }: { usage: NonNullable<ChatMessage["usage"]> }) {
   const { t } = useTranslation();
   return (
     <Tooltip
-      label={
-        <span className="flex flex-col gap-0.5">
-          <span className="tabular-nums">{usageLine(usage)}</span>
-          {usage.route && (
-            <span className="opacity-70">{t("assistant.usage.routed", { rule: usage.route })}</span>
-          )}
-          {usage.costUsd != null && (
-            <span className="opacity-70">{t("assistant.usage.estimate")}</span>
-          )}
-        </span>
-      }
+      // One line, sized to its content, on a surface that belongs to the
+      // current theme rather than the inverted chip short labels use.
+      className="bg-overlay text-fg border-edge max-w-none border font-normal whitespace-nowrap"
+      label={<span className="tabular-nums">{usageLine(usage)}</span>}
     >
       <button
         type="button"

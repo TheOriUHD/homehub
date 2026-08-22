@@ -58,11 +58,13 @@ export function formatDuration(ms: number): string {
   return mins + "m " + Math.round(seconds - mins * 60) + "s";
 }
 
-/** The one-line summary shown in the info tooltip:
- *  "Haiku 4.5 · 8.2k input · 420 output · $0.010 · 4.2s" */
+/** The one-line summary shown in the info tooltip. The routing rule rides
+ *  along with the model that served it, so the whole receipt stays one line:
+ *  "Sonnet 5 (Auto: asks why) · 8.2k input · 420 output · $0.010 · 4.2s" */
 export function usageLine(usage: MessageUsage): string {
+  const model = usage.modelLabel || usage.model;
   const parts = [
-    usage.modelLabel || usage.model,
+    usage.route ? `${model} (Auto: ${usage.route})` : model,
     compactTokens(usage.inputTokens) + " input",
     compactTokens(usage.outputTokens) + " output",
   ];
