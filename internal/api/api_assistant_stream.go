@@ -14,6 +14,7 @@ import (
 	"homehub/internal/assistant"
 	"homehub/internal/httpctx"
 	"homehub/internal/rbac"
+	"homehub/internal/store"
 )
 
 // assistantRuntime resolves the provider for one turn. `pick` is an optional
@@ -409,4 +410,70 @@ func selfCallResult(code int, body []byte) error {
 		return errors.New(e.Message)
 	}
 	return fmt.Errorf("request failed (%d)", code)
+}
+
+// ---- outbound notifications ---------------------------------------------------
+
+// NarrateSignal turns one signal transition into the message the owner
+// actually receives. It reports (text, decided): decided is false when no
+// model could answer, and the caller falls back to the templated text; an
+// empty text with decided true means the narrator judged this repeat not
+// worth an interruption.
+//
+// Deliberately never fails loudly: a notification that reads awkwardly beats
+// one that never arrives.
+func (s *Server) NarrateSignal(ctx context.Context, sig store.Signal, event string) (string, bool) {
+	enabled, providerName, _, baseURL := s.settings.Assistant(ctx)
+	if !enabled {
+		return "", false
+	}
+	model := s.settings.AssistantNotifyModel(ctx)
+	if model == "" {
+		// Default to the provider's small lane rather than whatever the chat
+		// is pinned to — this runs unattended, once per condition.
+		basic, advanced := s.settings.AssistantAutoLanes(ctx)
+		model = assistant.LaneModel(providerName, assistant.LaneBasic, basic, advanced)
+	}
+	if model == "" {
+		return "", false
+	}
+	apiKey, _ := s.assistantKeyFor(ctx, providerName)
+	provider, err := assistant.NewProviderFor(assistant.Config{
+		Provider: providerName, Model: model, APIKey: apiKey, BaseURL: baseURL,
+	})
+	if err != nil {
+		return "", false
+	}
+
+	in := assistant.NoticeInput{
+		Event: event, Severity: sig.Severity, Title: sig.Title, Body: sig.Body,
+		SourceName: sig.SourceName, SourceType: sig.SourceType,
+		Count: sig.Count, FirstSeen: sig.FirstSeen, LastSeen: sig.LastSeen,
+	}
+	if notice, nerr := s.store.GetSignalNotice(ctx, sig.Key); nerr == nil && notice != nil {
+		in.TimesNotified = notice.SentCount
+		in.LastNotified = &notice.LastSentAt
+	}
+
+	notice, err := assistant.WriteNotice(ctx, provider, model, in)
+	if err != nil {
+		s.logger.Warn("notification narrator failed, sending the plain text",
+			"signal", sig.Key, "error", err)
+		return "", false
+	}
+	if !notice.Send {
+		s.logger.Info("notification held back", "signal", sig.Key, "why", notice.Why)
+		return "", true
+	}
+	return notice.Text, true
+}
+
+// RecordSignalNotice remembers that a condition was reported, and forgets it
+// once it recovers so the next occurrence reads as news.
+func (s *Server) RecordSignalNotice(ctx context.Context, sig store.Signal, event string) {
+	if event == "recovered" {
+		_ = s.store.ClearSignalNotice(ctx, sig.Key)
+		return
+	}
+	_ = s.store.RecordSignalNotice(ctx, sig.Key, sig.Severity)
 }

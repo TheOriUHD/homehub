@@ -3066,6 +3066,12 @@
       "basicHint": "Lookups, status, and named commands.",
       "advanced": "Advanced",
       "advancedHint": "Why-questions, diagnosis, judgement."
+    },
+    "notify": {
+      "label": "Notification model",
+      "hint": "Writes the status messages sent to Telegram, and decides when a repeat is not worth an interruption. Runs unattended once per condition — keep it small.",
+      "auto": "Small model for this provider (recommended)",
+      "recommended": "small"
     }
   },
   "tools": {
