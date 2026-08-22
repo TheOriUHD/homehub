@@ -47,6 +47,7 @@ function useChartTheme() {
 export function MultiSeriesChart({
   series,
   eventMarkers,
+  range,
   height = 260,
   className,
   onScrub,
@@ -54,6 +55,13 @@ export function MultiSeriesChart({
 }: {
   series: ChartSeries[];
   eventMarkers?: EventMarker[];
+  /**
+   * The window that was asked for, in ms. Without it the x-axis auto-ranges
+   * to the DATA, so nine hours of samples stretch across a chart labelled
+   * "7d" as if they covered the week. With it, the axis is the window and
+   * data sits where it actually happened — gaps included.
+   */
+  range?: { from: number; to: number };
   height?: number;
   className?: string;
   /** Fires with the hovered sample time (ms), or null when the cursor leaves. */
@@ -133,6 +141,7 @@ export function MultiSeriesChart({
           series={group.series}
           hidden={hidden}
           eventMarkers={eventMarkers}
+          range={range}
           height={groupHeight}
           showUnitLabel={groups.length > 1}
           theme={theme}
@@ -166,6 +175,7 @@ function UnitPlot({
   series,
   hidden,
   eventMarkers,
+  range,
   height,
   showUnitLabel,
   theme,
@@ -176,6 +186,7 @@ function UnitPlot({
   series: ChartSeries[];
   hidden: ReadonlySet<string>;
   eventMarkers?: EventMarker[];
+  range?: { from: number; to: number };
   height: number;
   showUnitLabel: boolean;
   theme: ReturnType<typeof useChartTheme>;
@@ -199,6 +210,8 @@ function UnitPlot({
   onScrubPinRef.current = onScrubPin;
   const seriesRef = useRef(series);
   seriesRef.current = series;
+  const rangeRef = useRef(range);
+  rangeRef.current = range;
 
   // uPlot wants aligned data: one x column, each series joined onto the union
   // of timestamps with nulls for gaps (spanGaps bridges them visually).
@@ -272,6 +285,9 @@ function UnitPlot({
         points: { size: 6 },
       },
       scales: {
+        x: rangeRef.current
+          ? { range: [rangeRef.current.from / 1000, rangeRef.current.to / 1000] }
+          : {},
         y: { range: (_u, min, max) => chartYRange(unit, min, max) },
       },
       axes: [
@@ -322,6 +338,38 @@ function UnitPlot({
           },
         ],
         draw: [
+          // A series with one sample in view has no second point to draw a
+          // line to, so it renders as blank canvas. Draw its level across the
+          // plot instead — the point marker still shows where the single
+          // reading sits, so the flat line never implies more than one.
+          (u) => {
+            const { ctx } = u;
+            currentSeries.forEach((s, i) => {
+              if (u.series[i + 1]?.show === false) return;
+              const column = u.data[i + 1];
+              if (!column) return;
+              let seen = 0;
+              let value: number | null = null;
+              for (const v of column) {
+                if (v != null) {
+                  seen++;
+                  value = v;
+                  if (seen > 1) return;
+                }
+              }
+              if (seen !== 1 || value == null) return;
+              const y = Math.round(u.valToPos(value, "y", true));
+              ctx.save();
+              ctx.strokeStyle = theme.resolve(s.color);
+              ctx.lineWidth = 2;
+              ctx.globalAlpha = 0.85;
+              ctx.beginPath();
+              ctx.moveTo(u.bbox.left, y);
+              ctx.lineTo(u.bbox.left + u.bbox.width, y);
+              ctx.stroke();
+              ctx.restore();
+            });
+          },
           // Audit event markers: subtle dashed verticals on the canvas; the
           // hoverable dots on top are DOM so they can carry tooltips.
           (u) => {
@@ -404,6 +452,17 @@ function UnitPlot({
 
     const plot = new uPlot(options, data, el);
     plotRef.current = plot;
+    // Diagnostic handle: window.__hhPlots lists every live chart with the
+    // data and scales it actually holds, so a broken chart can be inspected
+    // from the console instead of guessed at from a screenshot.
+    const registry = ((window as unknown as { __hhPlots?: unknown[] }).__hhPlots ??= []);
+    registry.push({
+      unit,
+      points: data[0].length,
+      xs: [data[0][0], data[0][data[0].length - 1]],
+      scales: () => ({ x: { ...plot.scales.x }, y: { ...plot.scales.y } }),
+      plot,
+    });
 
     const resize = new ResizeObserver(() => {
       plot.setSize({ width: el.clientWidth, height });
