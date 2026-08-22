@@ -108,6 +108,9 @@ type StreamEvent = {
  *  lands on the branch the user is reading. */
 type Pending = { actions: PendingAction[]; parentId: number | null };
 
+/** How tall the composer may grow before its content scrolls instead. */
+const COMPOSER_MAX_PX = 160;
+
 /** Friendly label for a tool name in the live spinner chips. */
 const toolLabel = (name: string) => name.replace(/_/g, " ");
 
@@ -132,6 +135,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
   const [draft, setDraft] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const conversation = conversationId();
@@ -351,10 +355,39 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
   const cut = live?.replacing != null ? path.findIndex((e) => e.msg.id === live.replacing) : -1;
   const shown = cut >= 0 ? path.slice(0, cut) : path;
 
+  // Land in the composer on open and whenever the window regains focus, so
+  // typing or pasting works immediately after tabbing back in. Skipped on
+  // touch, where stealing focus would throw the on-screen keyboard up
+  // unbidden every time the app comes forward.
+  useEffect(() => {
+    if (!window.matchMedia("(hover: hover)").matches) return;
+    const focusComposer = () => {
+      const el = composerRef.current;
+      if (!el || el === document.activeElement) return;
+      // Never yank focus out of a dialog or a field already in use.
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      if (document.querySelector("[role='dialog']")) return;
+      el.focus();
+    };
+    focusComposer();
+    window.addEventListener("focus", focusComposer);
+    return () => window.removeEventListener("focus", focusComposer);
+  }, []);
+
+  // Grow the field with its content up to a few lines, then let it scroll.
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, COMPOSER_MAX_PX) + "px";
+  }, [draft]);
+
   const submit = () => {
     const message = draft.trim();
     if (!message || streaming) return;
     setDraft("");
+    composerRef.current?.focus();
     send(message, leafId);
   };
 
@@ -416,8 +449,9 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
       {/* One composer surface — the field on top, controls beneath — so the
           model switcher sits with the send button instead of floating loose
           on the page. The border tracks focus as if it were a single input. */}
-      <div className="border-edge bg-surface shadow-1 focus-within:border-accent focus-within:ring-ring/30 rounded-xl border transition-colors focus-within:ring-2">
+      <div className="border-edge bg-surface shadow-1 focus-within:border-accent rounded-xl border transition-colors">
         <textarea
+          ref={composerRef}
           rows={1}
           value={draft}
           placeholder={t("assistant.placeholder")}
@@ -428,9 +462,10 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
               submit();
             }
           }}
-          // Grows with the text to a few lines, then scrolls — a one-line
-          // field for a paragraph-long question is its own small misery.
-          className="text-fg placeholder:text-fg-subtle max-h-40 min-h-9 w-full resize-none bg-transparent px-3 pt-2.5 text-sm focus:outline-none"
+          // Height is driven by the content (see the effect above), capped at
+          // COMPOSER_MAX_PX — a one-line field for a paragraph-long question
+          // is its own small misery.
+          className="text-fg placeholder:text-fg-subtle w-full resize-none bg-transparent px-3 pt-2.5 pb-1.5 text-sm focus:outline-none"
         />
         <div className="flex items-center justify-between gap-2 px-2 pb-2">
           <AssistantModelPicker compact={variant === "widget"} />
