@@ -6974,6 +6974,7 @@ paths:
                     steps:
                       type: array
                       items: { $ref: "#/components/schemas/AssistantStep" }
+                    usage: { $ref: "#/components/schemas/AssistantUsage" }
                     ts: { type: string, format: date-time }
     delete:
       operationId: clearAssistantHistory
@@ -7453,6 +7454,21 @@ components:
           items: { $ref: "#/components/schemas/AssistantModel" }
         defaultBaseUrl: { type: string }
         modelHint: { type: string }
+
+    AssistantUsage:
+      type: object
+      description: >-
+        What producing one answer cost, summed across every round of that turn's
+        tool loop. costUsd is an ESTIMATE from published list prices — cached
+        input and promotional rates bill lower — and is absent for models with no
+        known price.
+      required: [model, inputTokens, outputTokens]
+      properties:
+        model: { type: string, description: The model id that produced the answer. }
+        modelLabel: { type: string, description: Its display name, when it is a catalog model. }
+        inputTokens: { type: integer, format: int64 }
+        outputTokens: { type: integer, format: int64 }
+        costUsd: { type: number, format: double }
 
     AssistantStep:
       type: object

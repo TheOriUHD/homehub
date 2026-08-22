@@ -294,12 +294,14 @@ func (s *Server) GetAssistantHistory(ctx context.Context, req GetAssistantHistor
 			Steps    *[]AssistantStep                           `json:"steps,omitempty"`
 			Tools    *[]string                                  `json:"tools,omitempty"`
 			Ts       time.Time                                  `json:"ts"`
+			Usage    *AssistantUsage                            `json:"usage,omitempty"`
 		}{
 			Content:  row.Content,
 			Id:       row.ID,
 			ParentId: row.ParentID,
 			Role:     GetAssistantHistory200JSONResponseBodyRole(row.Role),
 			Ts:       row.CreatedAt,
+			Usage:    assistantUsage(row),
 		}
 		if names := toolNamesFromTrace(row.ToolTrace); len(names) > 0 {
 			item.Tools = &names
@@ -310,6 +312,31 @@ func (s *Server) GetAssistantHistory(ctx context.Context, req GetAssistantHistor
 		out = append(out, item)
 	}
 	return out, nil
+}
+
+// assistantUsage prices a stored answer. Rows written before usage was
+// recorded carry no token counts and return nil, so the UI can distinguish
+// "we did not measure this" from "this cost nothing".
+func assistantUsage(row store.AssistantMessage) *AssistantUsage {
+	if row.InputTokens == nil || row.OutputTokens == nil || row.Model == "" {
+		return nil
+	}
+	out := &AssistantUsage{
+		Model:        row.Model,
+		InputTokens:  *row.InputTokens,
+		OutputTokens: *row.OutputTokens,
+	}
+	if info := assistant.ModelInfoFor(row.Model); info != nil {
+		label := info.Label
+		out.ModelLabel = &label
+	}
+	if cost, ok := assistant.EstimateCost(row.Model, assistant.Usage{
+		InputTokens:  *row.InputTokens,
+		OutputTokens: *row.OutputTokens,
+	}); ok {
+		out.CostUsd = &cost
+	}
+	return out
 }
 
 func (s *Server) ClearAssistantHistory(ctx context.Context, _ ClearAssistantHistoryRequestObject) (ClearAssistantHistoryResponseObject, error) {

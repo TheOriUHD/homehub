@@ -3047,6 +3047,10 @@
       "showOutput": "Ausgabe zeigen ({{count}} Zeile)",
       "showOutput_other": "Ausgabe zeigen ({{count}} Zeilen)",
       "hideOutput": "Ausgabe verbergen"
+    },
+    "usage": {
+      "label": "Tokens und Kosten",
+      "estimate": "Geschätzt nach Listenpreisen"
     }
   },
   "tools": {

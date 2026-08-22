@@ -55,6 +55,14 @@ type anthropicRequest struct {
 type anthropicResponse struct {
 	Content    []anthropicContent `json:"content"`
 	StopReason string             `json:"stop_reason"`
+	Usage      struct {
+		InputTokens  int64 `json:"input_tokens"`
+		OutputTokens int64 `json:"output_tokens"`
+		// Cached reads bill at a lower rate, but they are still input the
+		// user paid something for; counting them keeps the total honest.
+		CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
+		CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
+	} `json:"usage"`
 	Error      *struct {
 		Type    string `json:"type"`
 		Message string `json:"message"`
@@ -132,6 +140,11 @@ func (p *AnthropicProvider) Chat(ctx context.Context, model, system string, turn
 	}
 
 	var out Reply
+	out.Usage = Usage{
+		InputTokens: parsed.Usage.InputTokens + parsed.Usage.CacheReadInputTokens +
+			parsed.Usage.CacheCreationInputTokens,
+		OutputTokens: parsed.Usage.OutputTokens,
+	}
 	for _, block := range parsed.Content {
 		switch block.Type {
 		case "text":

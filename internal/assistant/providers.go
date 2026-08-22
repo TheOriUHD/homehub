@@ -45,6 +45,11 @@ type ModelInfo struct {
 	// Aliases are other ids that mean this model, so a pinned dated snapshot
 	// already in the settings still lights up its own row in the picker.
 	Aliases []string `json:"aliases,omitempty"`
+	// List price in US dollars per million tokens. Used only to estimate what
+	// an answer cost — cached input and promotional rates bill lower, so the
+	// figure shown to the user is labelled an estimate.
+	InputPerMTok  float64 `json:"inputPerMTok,omitempty"`
+	OutputPerMTok float64 `json:"outputPerMTok,omitempty"`
 }
 
 // Providers is the registry, in display order: cloud APIs first, then
@@ -99,20 +104,23 @@ var Providers = []ProviderInfo{
 // dated snapshot id; the 5-family ids are complete as written.
 var AnthropicModels = []ModelInfo{
 	{ID: "claude-haiku-4-5", Label: "Haiku 4.5", Blurb: "Fastest and cheapest. Fine for lookups and status questions.",
-		Aliases: []string{"claude-haiku-4-5-20251001"}},
-	{ID: "claude-sonnet-5", Label: "Sonnet 5", Blurb: "The balanced default — strong reasoning at a moderate price."},
+		Aliases: []string{"claude-haiku-4-5-20251001"}, InputPerMTok: 1, OutputPerMTok: 5},
+	{ID: "claude-sonnet-5", Label: "Sonnet 5", Blurb: "The balanced default — strong reasoning at a moderate price.",
+		InputPerMTok: 2, OutputPerMTok: 10},
 	{ID: "claude-opus-5", Label: "Opus 5", Blurb: "Deeper reasoning for hard diagnosis.", Tier: TierPremium,
-		CostNote: "About 2.5× the price of Sonnet 5 per token."},
+		CostNote: "About 2.5× the price of Sonnet 5 per token.", InputPerMTok: 5, OutputPerMTok: 25},
 	{ID: "claude-fable-5", Label: "Fable 5", Blurb: "The most capable model, for the hardest problems.", Tier: TierUltra,
-		CostNote: "Twice the price of Opus 5 — about 5× Sonnet 5 — per token."},
+		CostNote: "Twice the price of Opus 5 — about 5× Sonnet 5 — per token.", InputPerMTok: 10, OutputPerMTok: 50},
 }
 
 // OpenAIModels is the GPT picker, cheapest first.
 var OpenAIModels = []ModelInfo{
-	{ID: "gpt-5.6-luna", Label: "GPT-5.6 Luna", Blurb: "Cost-optimised. Fine for lookups and status questions."},
-	{ID: "gpt-5.6-terra", Label: "GPT-5.6 Terra", Blurb: "The balanced default — intelligence against cost."},
+	{ID: "gpt-5.6-luna", Label: "GPT-5.6 Luna", Blurb: "Cost-optimised. Fine for lookups and status questions.",
+		InputPerMTok: 0.20, OutputPerMTok: 1.20},
+	{ID: "gpt-5.6-terra", Label: "GPT-5.6 Terra", Blurb: "The balanced default — intelligence against cost.",
+		InputPerMTok: 2, OutputPerMTok: 12},
 	{ID: "gpt-5.6-sol", Label: "GPT-5.6 Sol", Blurb: "Frontier model for complex professional work.", Tier: TierPremium,
-		CostNote: "About 2.5× the price of Terra per token."},
+		CostNote: "About 2.5× the price of Terra per token.", InputPerMTok: 5, OutputPerMTok: 30},
 }
 
 // ResolveModel accepts a model only when the configured provider actually
@@ -134,6 +142,37 @@ func ResolveModel(providerID, model string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// ModelInfoFor finds the catalog entry for a model id (aliases included) on
+// any provider, so a stored answer can be priced even after the instance has
+// switched providers.
+func ModelInfoFor(model string) *ModelInfo {
+	for i := range Providers {
+		for j := range Providers[i].Models {
+			m := &Providers[i].Models[j]
+			if m.ID == model {
+				return m
+			}
+			for _, alias := range m.Aliases {
+				if alias == model {
+					return m
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EstimateCost prices a turn in US dollars from list rates, and reports
+// whether the model is one we have prices for at all.
+func EstimateCost(model string, u Usage) (float64, bool) {
+	info := ModelInfoFor(model)
+	if info == nil || (info.InputPerMTok == 0 && info.OutputPerMTok == 0) {
+		return 0, false
+	}
+	return float64(u.InputTokens)/1e6*info.InputPerMTok +
+		float64(u.OutputTokens)/1e6*info.OutputPerMTok, true
 }
 
 // ProviderByID looks a provider up, or nil.
