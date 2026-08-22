@@ -76,9 +76,13 @@ type ToolStep = { name: string; running: boolean; isError?: boolean };
 type PendingAction = { kind: string; summary: string; params: unknown };
 
 /** The in-progress turn. userText is null while regenerating, where the
- *  question is already in the transcript and must not be echoed twice. */
+ *  question is already in the transcript and must not be echoed twice.
+ *  `replacing` is the message this turn stands in for — a retried answer or
+ *  an edited question — so it streams IN PLACE of the version it forks from
+ *  instead of appearing underneath it. */
 type Live = {
   userText: string | null;
+  replacing: number | null;
   segments: string[];
   tools: ToolStep[];
   outcomes: ActionOutcome[];
@@ -168,11 +172,16 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
    * runs (null when the transcript already shows it).
    */
   const runStream = useCallback(
-    async (url: string, body: Record<string, unknown>, showUser: string | null) => {
+    async (
+      url: string,
+      body: Record<string, unknown>,
+      showUser: string | null,
+      replacing: number | null = null,
+    ) => {
       setPending(null);
       const controller = new AbortController();
       abortRef.current = controller;
-      setLive({ userText: showUser, segments: [], tools: [], outcomes: [] });
+      setLive({ userText: showUser, replacing, segments: [], tools: [], outcomes: [] });
       let confirm: Pending | null = null;
       const ran: ActionOutcome[] = [];
       try {
@@ -279,7 +288,12 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
     (entry: PathEntry) => {
       const parent = entry.msg.parentId;
       if (parent == null) return;
-      void runStream("/api/assistant/chat/stream", { parentId: parent, regenerate: true }, null);
+      void runStream(
+        "/api/assistant/chat/stream",
+        { parentId: parent, regenerate: true },
+        null,
+        entry.msg.id,
+      );
     },
     [runStream],
   );
@@ -292,6 +306,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
         "/api/assistant/chat/stream",
         { message: text, parentId: entry.msg.parentId ?? null },
         text,
+        entry.msg.id,
       );
     },
     [runStream],
@@ -326,6 +341,12 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [path.length, live, pending]);
 
+  // A retry or an edit stands in for a message already on screen: hide it and
+  // everything after it while the replacement streams, so the new version
+  // appears exactly where the old one was rather than below it.
+  const cut = live?.replacing != null ? path.findIndex((e) => e.msg.id === live.replacing) : -1;
+  const shown = cut >= 0 ? path.slice(0, cut) : path;
+
   const submit = () => {
     const message = draft.trim();
     if (!message || streaming) return;
@@ -349,7 +370,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
             <span className="text-fg-subtle text-[12.5px]">{t("assistant.emptyExamples")}</span>
           </div>
         )}
-        {path.map((entry) => (
+        {shown.map((entry) => (
           <Fragment key={entry.msg.id}>
             {(outcomes[entry.msg.id] ?? []).map((o, i) => (
               <ActionOutcomeCard key={i} outcome={o} />
