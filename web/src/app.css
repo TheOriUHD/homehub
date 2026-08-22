@@ -183,6 +183,15 @@ body {
   border-radius: var(--radius-sm);
 }
 
+/* Opt-out for a control whose WRAPPER shows the focus state — the assistant
+   composer is a field inside a box that highlights as one surface, and two
+   rings there read as two nested boxes rather than one focused control.
+   This rule lives here, unlayered, because Tailwind's utilities sit in a
+   layer and would lose to the unlayered rule above. */
+[data-focus-ring="none"]:focus-visible {
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
