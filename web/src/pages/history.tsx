@@ -404,6 +404,7 @@ export function HistoryPage() {
                   <MultiSeriesChart
                     series={chartSeries}
                     eventMarkers={eventMarkers}
+                    range={{ from: new Date(range.from).getTime(), to: new Date(range.to).getTime() }}
                     height={280}
                     onScrub={handleScrub}
                     onScrubPin={handlePin}
