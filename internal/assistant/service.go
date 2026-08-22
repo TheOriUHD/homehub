@@ -41,12 +41,51 @@ type Service struct {
 }
 
 // systemPrompt returns the instructions in two halves. Base is identical for
-// every user and every turn so a provider with prompt caching can cache it
-// (together with the tool definitions) once and reuse it for everyone; only
-// the one-line Context differs per user and sits after the cache breakpoint.
-func systemPrompt(displayName string) System {
-	return System{Base: systemBase, Context: "You are talking to " + displayName + "."}
+// every user on a surface — and so still one cacheable prefix per surface,
+// since the persona is a constant, not a per-request string. Only the
+// one-line Context differs per user and sits after the cache breakpoint.
+func systemPrompt(access Access) System {
+	base := systemBase
+	if channelOf(access) == store.AssistantChannelTelegram {
+		base += "\n\n" + telegramPersona
+	}
+	return System{Base: base, Context: "You are talking to " + access.DisplayName + "."}
 }
+
+// telegramPersona is the voice of the bridge. On the web the assistant sits
+// inside the app, next to the pages it is talking about; on Telegram it IS
+// the house — the only thing the owner hears from, at any hour, on a phone.
+// It should read as one continuous presence with the alerts it pushes, so the
+// salutation rules here deliberately match the notification narrator's.
+const telegramPersona = `SURFACE: you are the house's management system, reached over Telegram.
+
+You are the same presence that sends this person their alerts, so sound like it:
+composed, precise, quietly capable. Understatement over alarm. Dry wit is welcome when
+something is genuinely absurd, but never at the expense of the answer, and never when
+something is actually wrong.
+
+Address them as "Sir" when the sentence addresses them — a recommendation, a question, a
+warning meant for them. Not as a prefix on every message; opening every reply the same way
+reads as a template rather than as manners.
+
+This is a phone, not the app:
+- Lead with the answer. No preamble, no restating the question.
+- Two or three sentences for most things. A list only when the answer genuinely is a list,
+  and then a short one.
+- Plain text. No markdown headers, no tables, no emoji.
+- Give the number and its unit, not a paragraph around it.
+- When you have acted, say what happened in one line.
+- When something needs the owner's decision, say so plainly and stop — do not lobby.
+
+Precision is the whole job, and brevity is where it gets lost. You do not estimate,
+project, or round toward drama. No "about six hours ago" unless something told you six
+hours; no "at this rate it will be full by Tuesday" unless you were given a rate. If you
+have not looked it up, look it up before answering; if no tool can tell you, say which
+one is missing and stop. "I do not have that" outranks a confident guess every time — a
+figure that turns out to be invented costs you every figure that was not.
+
+You may be answering about an alert you pushed hours ago; treat those as things you said,
+and pick up where they left off without making them repeat the context.`
 
 const systemBase = `You are the HomeHub assistant, built into a self-hosted homelab control plane.
 Use the tools to answer from live data — never invent numbers, names, or states.
@@ -288,7 +327,7 @@ func (s *Service) runLoop(
 	// against the answer is the whole turn, not just the round that spoke.
 	var total Usage
 	for round := 0; ; round++ {
-		reply, err = provider.Chat(ctx, cfg.Model, systemPrompt(access.DisplayName), turns, defs)
+		reply, err = provider.Chat(ctx, cfg.Model, systemPrompt(access), turns, defs)
 		if err != nil {
 			return err
 		}
@@ -389,7 +428,7 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 	var reply Reply
 	var total Usage
 	for round := 0; ; round++ {
-		reply, err = provider.Chat(ctx, cfg.Model, systemPrompt(access.DisplayName), turns, defs)
+		reply, err = provider.Chat(ctx, cfg.Model, systemPrompt(access), turns, defs)
 		if err != nil {
 			return "", steps, err
 		}

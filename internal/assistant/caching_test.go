@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -80,8 +81,8 @@ func TestCacheBreakpointFollowsTheConversation(t *testing.T) {
 // The prefix must be byte-identical between turns or nothing is ever read.
 // The one input that varies per user is the only thing allowed to move.
 func TestStablePrefixIsIdenticalAcrossUsers(t *testing.T) {
-	a := captureRequest(t, systemPrompt("Alice"), []Turn{{Role: "user", Text: "hi"}}, nil)
-	b := captureRequest(t, systemPrompt("Bob"), []Turn{{Role: "user", Text: "hi"}}, nil)
+	a := captureRequest(t, systemPrompt(Access{DisplayName: "Alice"}), []Turn{{Role: "user", Text: "hi"}}, nil)
+	b := captureRequest(t, systemPrompt(Access{DisplayName: "Bob"}), []Turn{{Role: "user", Text: "hi"}}, nil)
 	if a.System[0].Text != b.System[0].Text {
 		t.Error("the cached system block differs per user — no entry can ever be shared")
 	}
@@ -107,5 +108,42 @@ func TestCostUsesCacheRates(t *testing.T) {
 	u := Usage{InputTokens: 100, CacheReadTokens: 8000, CacheWriteTokens: 100}
 	if u.PromptTokens() != 8200 {
 		t.Errorf("PromptTokens = %d, want the sum of all three input fields", u.PromptTokens())
+	}
+}
+
+// The persona is per-surface, but it is a constant — so each surface still
+// has ONE stable cacheable prefix, not one per user or per turn.
+func TestPersonaIsPerSurfaceAndStillCacheable(t *testing.T) {
+	web := systemPrompt(Access{DisplayName: "Alex"})
+	tg := systemPrompt(Access{DisplayName: "Alex", Channel: "telegram"})
+
+	if !strings.Contains(tg.Base, "management system") {
+		t.Error("the Telegram surface should carry its own voice")
+	}
+	if strings.Contains(web.Base, "management system") {
+		t.Error("the web assistant sits inside the app and keeps the plain voice")
+	}
+	if !strings.Contains(tg.Base, systemBase) {
+		t.Error("the persona must extend the shared instructions, not replace them")
+	}
+
+	// Two people on the same surface must share the cached prefix, or every
+	// user pays to write their own entry.
+	other := systemPrompt(Access{DisplayName: "Someone Else", Channel: "telegram"})
+	if tg.Base != other.Base {
+		t.Error("the Telegram prefix differs per user — nothing would ever be cached")
+	}
+	if tg.Context == other.Context {
+		t.Error("the per-user half should be the part that names them")
+	}
+}
+
+// Brevity instructions push a small model toward answering from nothing.
+func TestTelegramPersonaForbidsEstimates(t *testing.T) {
+	base := systemPrompt(Access{Channel: "telegram"}).Base
+	for _, want := range []string{"do not estimate", "look it up before answering", "outranks a confident guess"} {
+		if !strings.Contains(strings.ToLower(base), strings.ToLower(want)) {
+			t.Errorf("the Telegram persona is missing %q — brevity without this invites invented figures", want)
+		}
 	}
 }
