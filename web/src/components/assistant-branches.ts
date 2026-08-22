@@ -16,6 +16,8 @@ export type MessageUsage = {
   costUsd?: number;
   /** The Auto rule that chose this model, absent when the user pinned one. */
   route?: string;
+  /** Wall-clock time to produce the answer. */
+  durationMs?: number;
 };
 
 export type ChatMessage = {
@@ -46,8 +48,18 @@ export function formatUsd(v: number): string {
   return "$" + v.toFixed(v < 1 ? 3 : 2);
 }
 
+/** formatDuration reads at a glance: sub-second in ms, then seconds to one
+ *  decimal, then minutes once an answer takes that long. */
+export function formatDuration(ms: number): string {
+  if (ms < 1000) return Math.round(ms) + "ms";
+  const seconds = ms / 1000;
+  if (seconds < 60) return seconds.toFixed(1).replace(/\.0$/, "") + "s";
+  const mins = Math.floor(seconds / 60);
+  return mins + "m " + Math.round(seconds - mins * 60) + "s";
+}
+
 /** The one-line summary shown in the info tooltip:
- *  "Haiku 4.5 · 8.2k input · 420 output · $0.010" */
+ *  "Haiku 4.5 · 8.2k input · 420 output · $0.010 · 4.2s" */
 export function usageLine(usage: MessageUsage): string {
   const parts = [
     usage.modelLabel || usage.model,
@@ -55,6 +67,7 @@ export function usageLine(usage: MessageUsage): string {
     compactTokens(usage.outputTokens) + " output",
   ];
   if (usage.costUsd != null) parts.push(formatUsd(usage.costUsd));
+  if (usage.durationMs != null) parts.push(formatDuration(usage.durationMs));
   return parts.join(" · ");
 }
 
