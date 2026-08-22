@@ -28,7 +28,11 @@ const (
 	// "receptionist" model and one that can interpret.
 	keyAssistantAutoBasic    = "assistant_auto_basic"
 	keyAssistantAutoAdvanced = "assistant_auto_advanced"
-	keyTelegramEnabled       = "telegram_enabled"
+	// The small model that writes push notifications. Separate from the chat
+	// model on purpose: it runs unattended, once per condition, and should
+	// never be the expensive one someone picked for a hard question.
+	keyAssistantNotifyModel = "assistant_notify_model"
+	keyTelegramEnabled      = "telegram_enabled"
 
 	defaultSessionTTLHours = 720 // 30 days, rolling
 	defaultRawHours        = 48
@@ -184,6 +188,23 @@ func (s *Service) AssistantAutoLanes(ctx context.Context) (basic, advanced strin
 	s.get(ctx, keyAssistantAutoBasic, &basic)
 	s.get(ctx, keyAssistantAutoAdvanced, &advanced)
 	return
+}
+
+// AssistantNotifyModel returns the model that writes push notifications.
+// Empty means "the provider's basic Auto lane", which is the small one.
+func (s *Service) AssistantNotifyModel(ctx context.Context) string {
+	var model string
+	s.get(ctx, keyAssistantNotifyModel, &model)
+	return model
+}
+
+// SetAssistantNotifyModel stores it. Empty restores the default.
+func (s *Service) SetAssistantNotifyModel(ctx context.Context, model string) error {
+	if err := s.store.SetSetting(ctx, keyAssistantNotifyModel, strings.TrimSpace(model)); err != nil {
+		return err
+	}
+	s.invalidate()
+	return nil
 }
 
 // SetAssistantAutoLanes stores the Auto lane models.

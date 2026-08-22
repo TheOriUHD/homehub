@@ -14848,6 +14848,8 @@ export interface operations {
                         autoAdvanced?: string;
                         /** @description Whether Auto can route right now — it needs a model for both lanes. */
                         autoAvailable?: boolean;
+                        /** @description The small model that writes push notifications. Empty means the provider's basic Auto lane. Independent of the chat model: it runs unattended, once per condition. */
+                        notifyModel?: string;
                         /** @description The selectable provider catalog with per-provider defaults. */
                         providers: components["schemas"]["AssistantProvider"][];
                     };
@@ -14979,6 +14981,8 @@ export interface operations {
                     autoBasic?: string;
                     /** @description Auto's interpretation lane. Only needed for providers with no built-in catalog. */
                     autoAdvanced?: string;
+                    /** @description The small model that writes push notifications. Empty restores the default. */
+                    notifyModel?: string;
                 };
             };
         };

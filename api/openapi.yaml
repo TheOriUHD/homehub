@@ -6728,6 +6728,12 @@ paths:
                   autoAvailable:
                     type: boolean
                     description: Whether Auto can route right now — it needs a model for both lanes.
+                  notifyModel:
+                    type: string
+                    description: >-
+                      The small model that writes push notifications. Empty means the
+                      provider's basic Auto lane. Independent of the chat model: it runs
+                      unattended, once per condition.
                   providers:
                     type: array
                     description: The selectable provider catalog with per-provider defaults.
@@ -6830,6 +6836,10 @@ paths:
                   type: string
                   maxLength: 200
                   description: Auto's interpretation lane. Only needed for providers with no built-in catalog.
+                notifyModel:
+                  type: string
+                  maxLength: 200
+                  description: The small model that writes push notifications. Empty restores the default.
       responses:
         "204":
           description: Saved

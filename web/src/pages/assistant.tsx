@@ -122,7 +122,7 @@ type ProviderInfo = {
   defaultModel: string;
   defaultBaseUrl?: string;
   modelHint?: string;
-  models?: { id: string; autoLane?: "basic" | "advanced" }[];
+  models?: { id: string; label?: string; autoLane?: "basic" | "advanced" }[];
 };
 
 function AssistantSettingsDialog({
@@ -139,6 +139,7 @@ function AssistantSettingsDialog({
     providers: ProviderInfo[];
     autoBasic?: string;
     autoAdvanced?: string;
+    notifyModel?: string;
   };
   onClose: () => void;
 }) {
@@ -152,6 +153,7 @@ function AssistantSettingsDialog({
   const [apiKey, setApiKey] = useState("");
   const [autoBasic, setAutoBasic] = useState(info.autoBasic ?? "");
   const [autoAdvanced, setAutoAdvanced] = useState(info.autoAdvanced ?? "");
+  const [notifyModel, setNotifyModel] = useState(info.notifyModel ?? "");
 
   const selected = info.providers.find((p) => p.id === provider);
   // Switching providers adopts that provider's defaults — the common case
@@ -177,6 +179,7 @@ function AssistantSettingsDialog({
             apiKey: apiKey.trim() || undefined,
             autoBasic: autoBasic.trim(),
             autoAdvanced: autoAdvanced.trim(),
+            notifyModel: notifyModel.trim(),
           },
         }),
       );
@@ -259,6 +262,36 @@ function AssistantSettingsDialog({
               )}
             </Field>
           )}
+          {/* Notifications are written unattended, one call per condition, so
+              they get their own small model rather than inheriting whatever
+              the chat is pinned to. */}
+          <Field label={t("assistant.notify.label")} hint={t("assistant.notify.hint")}>
+            {() =>
+              selected?.models?.length ? (
+                <Select value={notifyModel || "__default"} onValueChange={(v) => setNotifyModel(v === "__default" ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__default">{t("assistant.notify.auto")}</SelectItem>
+                    {selected.models.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.label ?? m.id}
+                        {m.autoLane === "basic" ? ` · ${t("assistant.notify.recommended")}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  placeholder={selected?.defaultModel}
+                  value={notifyModel}
+                  onChange={(e) => setNotifyModel(e.target.value)}
+                />
+              )
+            }
+          </Field>
+
           {/* Providers with a built-in catalog already name their own Auto
               lanes; everything else needs the pair spelled out before Auto
               can offer itself in the composer. */}

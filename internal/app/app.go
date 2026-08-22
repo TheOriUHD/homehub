@@ -312,12 +312,27 @@ func Run(ctx context.Context) error {
 	// collector sweep.
 	signalsSvc.SetNotifier(func(sig store.Signal, event string) {
 		go func() {
-			nctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			// The narrator gets its own budget: it is one small model call,
+			// and a slow provider must not hold a notification hostage.
+			nctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 			defer cancel()
-			tgBot.Broadcast(nctx, telegramSignalText(sig, event), func(userID uuid.UUID) bool {
+
+			// The model writes the message and may judge a repeat not worth
+			// sending. The templated text is the fallback for everything
+			// else — no model, no key, a bad answer — because a notification
+			// that reads plainly still beats one that never arrives.
+			text, decided := apiServer.NarrateSignal(nctx, sig, event)
+			if decided && text == "" {
+				return // held back deliberately
+			}
+			if !decided {
+				text = telegramSignalText(sig, event)
+			}
+			tgBot.Broadcast(nctx, text, func(userID uuid.UUID) bool {
 				hidden, err := st.SignalsHiddenForUser(nctx, userID)
 				return err == nil && !hidden
 			})
+			apiServer.RecordSignalNotice(nctx, sig, event)
 		}()
 	})
 	handler := httpserver.Handler(httpserver.Deps{

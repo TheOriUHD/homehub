@@ -61,6 +61,7 @@ func (s *Server) GetAssistant(ctx context.Context, _ GetAssistantRequestObject) 
 		AutoBasic:     &autoBasic,
 		AutoAdvanced:  &autoAdvanced,
 		AutoAvailable: ptr(assistant.AutoAvailable(provider, autoBasic, autoAdvanced)),
+		NotifyModel:   ptr(s.settings.AssistantNotifyModel(ctx)),
 		Enabled:       enabled,
 		Provider:      provider,
 		Model:         model,
@@ -156,6 +157,11 @@ func (s *Server) PutAssistantSettings(ctx context.Context, req PutAssistantSetti
 	}
 	if err := s.settings.SetAssistantAutoLanes(ctx, autoBasic, autoAdvanced); err != nil {
 		return nil, err
+	}
+	if req.Body.NotifyModel != nil {
+		if err := s.settings.SetAssistantNotifyModel(ctx, *req.Body.NotifyModel); err != nil {
+			return nil, err
+		}
 	}
 	if err := s.settings.SetAssistant(ctx, req.Body.Enabled, req.Body.Provider, req.Body.Model, baseURL); err != nil {
 		return PutAssistantSettings400JSONResponse{BadRequestJSONResponse(errBody("invalid_settings", err.Error()))}, nil

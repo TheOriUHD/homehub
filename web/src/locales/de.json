@@ -3066,6 +3066,12 @@
       "basicHint": "Abfragen, Status und benannte Befehle.",
       "advanced": "Fortgeschritten",
       "advancedHint": "Warum-Fragen, Diagnose, Einschätzung."
+    },
+    "notify": {
+      "label": "Modell für Benachrichtigungen",
+      "hint": "Schreibt die Statusmeldungen an Telegram und entscheidet, wann eine Wiederholung keine Unterbrechung wert ist. Läuft unbeaufsichtigt, einmal pro Zustand — klein halten.",
+      "auto": "Kleines Modell dieses Anbieters (empfohlen)",
+      "recommended": "klein"
     }
   },
   "tools": {
