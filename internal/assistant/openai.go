@@ -73,8 +73,9 @@ type oaResponse struct {
 	} `json:"error"`
 }
 
-func (p *OpenAIProvider) Chat(ctx context.Context, model, system string, turns []Turn, tools []ToolDef) (Reply, error) {
-	msgs := []oaMessage{{Role: "system", Content: system}}
+func (p *OpenAIProvider) Chat(ctx context.Context, model string, system System, turns []Turn, tools []ToolDef) (Reply, error) {
+	// OpenAI caches long prefixes automatically; nothing to mark.
+	msgs := []oaMessage{{Role: "system", Content: system.Text()}}
 	for _, turn := range turns {
 		// Tool results become individual role:"tool" messages BEFORE the
 		// next user text, mirroring how the calls were issued.

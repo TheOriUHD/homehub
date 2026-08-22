@@ -33,12 +33,15 @@ type AssistantMessage struct {
 	// Kept so an answer can show what decided, not just what ran.
 	Route *string `db:"route"`
 	// DurationMs is the wall-clock time the turn took end to end.
-	DurationMs *int64    `db:"duration_ms"`
-	CreatedAt  time.Time `db:"created_at"`
+	DurationMs *int64 `db:"duration_ms"`
+	// CostUsd was priced when the turn ran, so cache-rate splits and any
+	// later price change cannot distort it.
+	CostUsd   *float64  `db:"cost_usd"`
+	CreatedAt time.Time `db:"created_at"`
 }
 
 const assistantCols = `id, parent_id, user_id, channel, conversation, role, content, tool_trace,
-	model, input_tokens, output_tokens, route, duration_ms, created_at`
+	model, input_tokens, output_tokens, route, duration_ms, cost_usd, created_at`
 
 // ListAssistantMessages returns the newest `limit` messages of one channel's
 // conversation, in chronological order — EVERY branch, not one path. The
@@ -66,7 +69,7 @@ func (s *Store) AssistantThread(ctx context.Context, userID uuid.UUID, leafID in
 			from assistant_messages where id = $1 and user_id = $2
 			union all
 			select m.id, m.parent_id, m.user_id, m.channel, m.conversation, m.role, m.content, m.tool_trace,
-				m.model, m.input_tokens, m.output_tokens, m.route, m.duration_ms, m.created_at
+				m.model, m.input_tokens, m.output_tokens, m.route, m.duration_ms, m.cost_usd, m.created_at
 			from assistant_messages m join chain c on m.id = c.parent_id
 		)
 		select * from (select * from chain order by id desc limit $3) nearest order by id asc`,
@@ -82,6 +85,9 @@ type AssistantUsage struct {
 	Route string
 	// DurationMs is how long the turn took, end to end.
 	DurationMs int64
+	// CostUsd is the turn priced at the time it ran; nil when the model has
+	// no published price.
+	CostUsd *float64
 }
 
 // AddAssistantMessage appends a message under `parentID` (nil for a thread's
@@ -99,6 +105,7 @@ func (s *Store) AddAssistantMessage(
 	var in, out *int64
 	var route *string
 	var duration *int64
+	var cost *float64
 	if usage != nil {
 		model = usage.Model
 		in, out = &usage.InputTokens, &usage.OutputTokens
@@ -109,15 +116,16 @@ func (s *Store) AddAssistantMessage(
 			ms := usage.DurationMs
 			duration = &ms
 		}
+		cost = usage.CostUsd
 	}
 	var id int64
 	err := s.pool.QueryRow(ctx, `
 		insert into assistant_messages
 			(user_id, channel, conversation, role, content, tool_trace, parent_id,
-			 model, input_tokens, output_tokens, route, duration_ms)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) returning id`,
+			 model, input_tokens, output_tokens, route, duration_ms, cost_usd)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id`,
 		userID, channel, conversation, role, content, toolTrace, parentID,
-		model, in, out, route, duration).Scan(&id)
+		model, in, out, route, duration, cost).Scan(&id)
 	return id, err
 }
 

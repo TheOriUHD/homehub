@@ -354,7 +354,11 @@ func assistantUsage(row store.AssistantMessage) *AssistantUsage {
 	if row.DurationMs != nil && *row.DurationMs > 0 {
 		out.DurationMs = row.DurationMs
 	}
-	if cost, ok := assistant.EstimateCost(row.Model, assistant.Usage{
+	// Priced when it ran. Rows from before that was recorded fall back to a
+	// flat estimate, which cannot know how much of their input was cached.
+	if row.CostUsd != nil {
+		out.CostUsd = row.CostUsd
+	} else if cost, ok := assistant.EstimateCost(row.Model, assistant.Usage{
 		InputTokens:  *row.InputTokens,
 		OutputTokens: *row.OutputTokens,
 	}); ok {

@@ -50,18 +50,48 @@ type Reply struct {
 // of the tool loop, so the figure shown against an answer is the whole cost
 // of producing it, not just the last round.
 type Usage struct {
+	// InputTokens is the uncached remainder — tokens processed at full price.
 	InputTokens  int64 `json:"inputTokens"`
 	OutputTokens int64 `json:"outputTokens"`
+	// Prompt-cache activity, billed at different rates: reads ~0.1x input,
+	// writes ~1.25x. Total prompt size is the sum of all three input fields.
+	CacheReadTokens  int64 `json:"cacheReadTokens,omitempty"`
+	CacheWriteTokens int64 `json:"cacheWriteTokens,omitempty"`
 }
 
 // Add accumulates another call's usage.
 func (u *Usage) Add(other Usage) {
 	u.InputTokens += other.InputTokens
 	u.OutputTokens += other.OutputTokens
+	u.CacheReadTokens += other.CacheReadTokens
+	u.CacheWriteTokens += other.CacheWriteTokens
+}
+
+// PromptTokens is every token of prompt the model processed this turn,
+// however it was billed — what a reader means by "input".
+func (u Usage) PromptTokens() int64 {
+	return u.InputTokens + u.CacheReadTokens + u.CacheWriteTokens
+}
+
+// System is the instruction prefix, split by how often it changes. Prompt
+// caching is a prefix match, so a per-user greeting sitting in front of the
+// shared instructions would give every user their own cache entry and share
+// nothing. Base is byte-identical for everyone; Context follows it.
+type System struct {
+	Base    string
+	Context string
+}
+
+// Text flattens the two halves for providers that do not cache prefixes.
+func (s System) Text() string {
+	if s.Context == "" {
+		return s.Base
+	}
+	return s.Base + "\n" + s.Context
 }
 
 // Provider speaks to one LLM API. Implementations are stateless; the
 // service owns history and the tool loop.
 type Provider interface {
-	Chat(ctx context.Context, model, system string, turns []Turn, tools []ToolDef) (Reply, error)
+	Chat(ctx context.Context, model string, system System, turns []Turn, tools []ToolDef) (Reply, error)
 }
