@@ -20,9 +20,23 @@ import (
 // per-turn model chosen in the chat's model switcher: it only ever selects
 // from the provider's own catalog, so a browser cannot point the API key at
 // an arbitrary model, and it never touches the instance-wide default.
-func (s *Server) assistantRuntime(ctx context.Context, id *httpctx.Identity, pick string) (*assistant.Service, assistant.Provider, assistant.Config, string, string) {
+func (s *Server) assistantRuntime(
+	ctx context.Context,
+	id *httpctx.Identity,
+	pick string,
+	route assistant.Routing,
+) (*assistant.Service, assistant.Provider, assistant.Config, string, string) {
 	enabled, providerName, model, baseURL := s.settings.Assistant(ctx)
-	if pick != "" {
+	switch {
+	case pick == assistant.ModelAuto:
+		basic, advanced := s.settings.AssistantAutoLanes(ctx)
+		chosen := assistant.LaneModel(providerName, route.Lane, basic, advanced)
+		if chosen == "" {
+			return nil, nil, assistant.Config{}, "auto_unconfigured",
+				"Auto needs a model for each lane — set them in the assistant settings"
+		}
+		model = chosen
+	case pick != "":
 		resolved, ok := assistant.ResolveModel(providerName, pick)
 		if !ok {
 			return nil, nil, assistant.Config{}, "unknown_model", "that model is not offered by the configured provider"
@@ -135,13 +149,27 @@ func (s *Server) HandleAssistantChatStream(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id, strings.TrimSpace(body.Model))
+	pick := strings.TrimSpace(body.Model)
+	route := assistant.Routing{Lane: assistant.LaneBasic}
+	if pick == assistant.ModelAuto {
+		classify := message
+		if classify == "" && body.ParentID != nil {
+			// A regeneration re-answers a question already stored; route on
+			// that text so a retry lands in the same lane.
+			if parent, err := s.store.GetAssistantMessage(ctx, id.User.ID, *body.ParentID); err == nil {
+				classify = parent.Content
+			}
+		}
+		route = assistant.ClassifyLane(classify)
+	}
+	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id, pick, route)
 	if code != "" {
 		write(assistant.Event{Type: "error", Message: emsg})
 		return
 	}
 	access := s.assistantAccess(ctx, id)
 	access.Conversation = strings.TrimSpace(body.Conversation)
+	access.Route = route.Rule
 	var toolNames []string
 	err := svc.RunTurnStream(ctx, provider, cfg, access,
 		assistant.TurnInput{Text: message, Parent: body.ParentID},
@@ -225,13 +253,26 @@ func (s *Server) HandleAssistantApply(w http.ResponseWriter, r *http.Request) {
 		write(assistant.Event{Type: "done"})
 		return
 	}
-	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id, strings.TrimSpace(body.Model))
+	pick := strings.TrimSpace(body.Model)
+	route := assistant.Routing{Lane: assistant.LaneBasic}
+	if pick == assistant.ModelAuto && body.ParentID != nil {
+		// Continue on whatever answered the paused turn rather than
+		// re-classifying: the continuation is the same thought.
+		if parent, err := s.store.GetAssistantMessage(ctx, id.User.ID, *body.ParentID); err == nil && parent.Model != "" {
+			pick = parent.Model
+			if parent.Route != nil {
+				route.Rule = *parent.Route
+			}
+		}
+	}
+	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id, pick, route)
 	if code != "" {
 		write(assistant.Event{Type: "error", Message: emsg})
 		return
 	}
 	access := s.assistantAccess(ctx, id)
 	access.Conversation = strings.TrimSpace(body.Conversation)
+	access.Route = route.Rule
 	if err := svc.RunActionOutcomes(ctx, provider, cfg, access, *body.ParentID, outcomes,
 		func(e assistant.Event) { write(e) }); err != nil {
 		write(assistant.Event{Type: "error", Message: err.Error()})

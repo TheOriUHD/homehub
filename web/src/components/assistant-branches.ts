@@ -14,6 +14,8 @@ export type MessageUsage = {
   inputTokens: number;
   outputTokens: number;
   costUsd?: number;
+  /** The Auto rule that chose this model, absent when the user pinned one. */
+  route?: string;
 };
 
 export type ChatMessage = {

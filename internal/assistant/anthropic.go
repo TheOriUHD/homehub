@@ -63,7 +63,7 @@ type anthropicResponse struct {
 		CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
 		CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
 	} `json:"usage"`
-	Error      *struct {
+	Error *struct {
 		Type    string `json:"type"`
 		Message string `json:"message"`
 	} `json:"error"`

@@ -716,6 +716,9 @@ function UsageInfo({ usage }: { usage: NonNullable<ChatMessage["usage"]> }) {
       label={
         <span className="flex flex-col gap-0.5">
           <span className="tabular-nums">{usageLine(usage)}</span>
+          {usage.route && (
+            <span className="opacity-70">{t("assistant.usage.routed", { rule: usage.route })}</span>
+          )}
           {usage.costUsd != null && (
             <span className="opacity-70">{t("assistant.usage.estimate")}</span>
           )}

@@ -27,6 +27,9 @@ type Access struct {
 	DisplayName  string
 	Can          func(resource, level string) bool
 	VisibleUnder func(prefix string) bool
+	// Route is the Auto rule that picked this turn's model, stored with the
+	// answer so the reader can see what decided.
+	Route string
 	// Channel scopes the conversation history: "web" or "telegram" — the two
 	// surfaces keep fully separate threads. Conversation further scopes the
 	// web channel to one app session; Telegram uses "".

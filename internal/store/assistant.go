@@ -26,14 +26,17 @@ type AssistantMessage struct {
 	ToolTrace    json.RawMessage `db:"tool_trace"`
 	// What producing this message cost. Model is "" and the token counts are
 	// nil on user messages and on rows written before usage was recorded.
-	Model        string    `db:"model"`
-	InputTokens  *int64    `db:"input_tokens"`
-	OutputTokens *int64    `db:"output_tokens"`
-	CreatedAt    time.Time `db:"created_at"`
+	Model        string `db:"model"`
+	InputTokens  *int64 `db:"input_tokens"`
+	OutputTokens *int64 `db:"output_tokens"`
+	// Route is the Auto rule that chose Model, nil when the user pinned one.
+	// Kept so an answer can show what decided, not just what ran.
+	Route     *string   `db:"route"`
+	CreatedAt time.Time `db:"created_at"`
 }
 
 const assistantCols = `id, parent_id, user_id, channel, conversation, role, content, tool_trace,
-	model, input_tokens, output_tokens, created_at`
+	model, input_tokens, output_tokens, route, created_at`
 
 // ListAssistantMessages returns the newest `limit` messages of one channel's
 // conversation, in chronological order — EVERY branch, not one path. The
@@ -61,7 +64,7 @@ func (s *Store) AssistantThread(ctx context.Context, userID uuid.UUID, leafID in
 			from assistant_messages where id = $1 and user_id = $2
 			union all
 			select m.id, m.parent_id, m.user_id, m.channel, m.conversation, m.role, m.content, m.tool_trace,
-				m.model, m.input_tokens, m.output_tokens, m.created_at
+				m.model, m.input_tokens, m.output_tokens, m.route, m.created_at
 			from assistant_messages m join chain c on m.id = c.parent_id
 		)
 		select * from (select * from chain order by id desc limit $3) nearest order by id asc`,
@@ -73,6 +76,8 @@ type AssistantUsage struct {
 	Model        string
 	InputTokens  int64
 	OutputTokens int64
+	// Route names the Auto rule that picked Model, empty when the user did.
+	Route string
 }
 
 // AddAssistantMessage appends a message under `parentID` (nil for a thread's
@@ -88,16 +93,21 @@ func (s *Store) AddAssistantMessage(
 ) (int64, error) {
 	var model string
 	var in, out *int64
+	var route *string
 	if usage != nil {
 		model = usage.Model
 		in, out = &usage.InputTokens, &usage.OutputTokens
+		if usage.Route != "" {
+			route = &usage.Route
+		}
 	}
 	var id int64
 	err := s.pool.QueryRow(ctx, `
 		insert into assistant_messages
-			(user_id, channel, conversation, role, content, tool_trace, parent_id, model, input_tokens, output_tokens)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
-		userID, channel, conversation, role, content, toolTrace, parentID, model, in, out).Scan(&id)
+			(user_id, channel, conversation, role, content, tool_trace, parent_id,
+			 model, input_tokens, output_tokens, route)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
+		userID, channel, conversation, role, content, toolTrace, parentID, model, in, out, route).Scan(&id)
 	return id, err
 }
 

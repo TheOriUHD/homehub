@@ -55,15 +55,19 @@ func (s *Server) GetAssistant(ctx context.Context, _ GetAssistantRequestObject) 
 		return nil, ErrUnauthenticated
 	}
 	enabled, provider, model, baseURL := s.settings.Assistant(ctx)
+	autoBasic, autoAdvanced := s.settings.AssistantAutoLanes(ctx)
 	_, keySet := s.assistantKeyFor(ctx, provider)
 	out := GetAssistant200JSONResponse{
-		Enabled:      enabled,
-		Provider:     provider,
-		Model:        model,
-		BaseUrl:      baseURL,
-		KeySet:       keySet,
-		KeysSet:      s.assistantKeysSet(ctx),
-		CanConfigure: s.can(ctx, id, ResSettings, rbac.LevelConfigure),
+		AutoBasic:     &autoBasic,
+		AutoAdvanced:  &autoAdvanced,
+		AutoAvailable: ptr(assistant.AutoAvailable(provider, autoBasic, autoAdvanced)),
+		Enabled:       enabled,
+		Provider:      provider,
+		Model:         model,
+		BaseUrl:       baseURL,
+		KeySet:        keySet,
+		KeysSet:       s.assistantKeysSet(ctx),
+		CanConfigure:  s.can(ctx, id, ResSettings, rbac.LevelConfigure),
 	}
 	for _, info := range assistant.Providers {
 		entry := AssistantProvider{
@@ -92,6 +96,10 @@ func (s *Server) GetAssistant(ctx context.Context, _ GetAssistantRequestObject) 
 				if m.CostNote != "" {
 					note := m.CostNote
 					model.CostNote = &note
+				}
+				if m.AutoLane != "" {
+					lane := AssistantModelAutoLane(m.AutoLane)
+					model.AutoLane = &lane
 				}
 				if len(m.Aliases) > 0 {
 					aliases := m.Aliases
@@ -138,6 +146,16 @@ func (s *Server) PutAssistantSettings(ctx context.Context, req PutAssistantSetti
 	baseURL := ""
 	if req.Body.BaseUrl != nil {
 		baseURL = strings.TrimSpace(*req.Body.BaseUrl)
+	}
+	autoBasic, autoAdvanced := "", ""
+	if req.Body.AutoBasic != nil {
+		autoBasic = *req.Body.AutoBasic
+	}
+	if req.Body.AutoAdvanced != nil {
+		autoAdvanced = *req.Body.AutoAdvanced
+	}
+	if err := s.settings.SetAssistantAutoLanes(ctx, autoBasic, autoAdvanced); err != nil {
+		return nil, err
 	}
 	if err := s.settings.SetAssistant(ctx, req.Body.Enabled, req.Body.Provider, req.Body.Model, baseURL); err != nil {
 		return PutAssistantSettings400JSONResponse{BadRequestJSONResponse(errBody("invalid_settings", err.Error()))}, nil
@@ -224,7 +242,7 @@ func (s *Server) AssistantChat(ctx context.Context, req AssistantChatRequestObje
 		return nil, ErrUnauthenticated
 	}
 	// No picker on this path — the Telegram bridge runs the instance default.
-	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id, "")
+	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id, "", assistant.Routing{})
 	if code != "" {
 		return AssistantChat409JSONResponse(errBody(code, emsg)), nil
 	}
@@ -329,6 +347,9 @@ func assistantUsage(row store.AssistantMessage) *AssistantUsage {
 	if info := assistant.ModelInfoFor(row.Model); info != nil {
 		label := info.Label
 		out.ModelLabel = &label
+	}
+	if row.Route != nil && *row.Route != "" {
+		out.Route = row.Route
 	}
 	if cost, ok := assistant.EstimateCost(row.Model, assistant.Usage{
 		InputTokens:  *row.InputTokens,

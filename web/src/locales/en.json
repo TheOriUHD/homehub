@@ -2954,7 +2954,9 @@
       "confirmTitle": "Switch to {{model}}?",
       "confirmBody": "New messages in this conversation will be answered by {{model}} until you switch back. The thread and its history stay exactly as they are.",
       "confirmAction": "Use {{model}}",
-      "confirmWait": "Read the warning… {{seconds}}s"
+      "confirmWait": "Read the warning… {{seconds}}s",
+      "auto": "Auto",
+      "autoBlurb": "Routes by rule: {{basic}} for lookups and commands, {{advanced}} when a question needs interpretation."
     },
     "modelHint": "The model name your provider expects.",
     "apiKey": "API key",
@@ -3050,7 +3052,16 @@
     },
     "usage": {
       "label": "Tokens and cost",
-      "estimate": "Estimated from list prices"
+      "estimate": "Estimated from list prices",
+      "routed": "Auto · {{rule}}"
+    },
+    "autoLanes": {
+      "title": "Auto lanes",
+      "intro": "Auto routes each message by rule — never by asking a model how hard it thinks the question is. Name the two models it should choose between.",
+      "basic": "Basic (receptionist)",
+      "basicHint": "Lookups, status, and named commands.",
+      "advanced": "Advanced",
+      "advancedHint": "Why-questions, diagnosis, judgement."
     }
   },
   "tools": {

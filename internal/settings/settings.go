@@ -24,7 +24,11 @@ const (
 	keyAssistantProvider = "assistant_provider"
 	keyAssistantModel    = "assistant_model"
 	keyAssistantBaseURL  = "assistant_base_url"
-	keyTelegramEnabled   = "telegram_enabled"
+	// The two Auto lanes for providers with no built-in catalog: a fast
+	// "receptionist" model and one that can interpret.
+	keyAssistantAutoBasic    = "assistant_auto_basic"
+	keyAssistantAutoAdvanced = "assistant_auto_advanced"
+	keyTelegramEnabled       = "telegram_enabled"
 
 	defaultSessionTTLHours = 720 // 30 days, rolling
 	defaultRawHours        = 48
@@ -170,6 +174,28 @@ func (s *Service) Assistant(ctx context.Context) (enabled bool, provider, model,
 	s.get(ctx, keyAssistantModel, &model)
 	s.get(ctx, keyAssistantBaseURL, &baseURL)
 	return
+}
+
+// AssistantAutoLanes returns the administrator-configured Auto lane models.
+// Empty means "use the provider catalog's own lanes", which is how the cloud
+// providers work; a local runtime has no catalog and needs both set before
+// Auto can offer itself.
+func (s *Service) AssistantAutoLanes(ctx context.Context) (basic, advanced string) {
+	s.get(ctx, keyAssistantAutoBasic, &basic)
+	s.get(ctx, keyAssistantAutoAdvanced, &advanced)
+	return
+}
+
+// SetAssistantAutoLanes stores the Auto lane models.
+func (s *Service) SetAssistantAutoLanes(ctx context.Context, basic, advanced string) error {
+	if err := s.store.SetSetting(ctx, keyAssistantAutoBasic, strings.TrimSpace(basic)); err != nil {
+		return err
+	}
+	if err := s.store.SetSetting(ctx, keyAssistantAutoAdvanced, strings.TrimSpace(advanced)); err != nil {
+		return err
+	}
+	s.invalidate()
+	return nil
 }
 
 // SetAssistant stores the assistant configuration.

@@ -285,6 +285,7 @@ func (s *Service) runLoop(
 		Model:        cfg.Model,
 		InputTokens:  total.InputTokens,
 		OutputTokens: total.OutputTokens,
+		Route:        access.Route,
 	}
 	msgID, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation,
 		"assistant", final, trace, &parentID, usage)

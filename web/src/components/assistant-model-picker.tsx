@@ -6,7 +6,13 @@ import { api, unwrap } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent } from "@/ui/dialog";
-import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "@/ui/dropdown";
+import {
+  Dropdown,
+  DropdownContent,
+  DropdownItem,
+  DropdownSeparator,
+  DropdownTrigger,
+} from "@/ui/dropdown";
 
 /**
  * The model switcher: a composer-bar pill that changes which model answers the
@@ -25,8 +31,12 @@ export type AssistantModel = {
   blurb: string;
   tier?: "premium" | "ultra";
   costNote?: string;
+  autoLane?: "basic" | "advanced";
   aliases?: string[];
 };
+
+/** The picker sentinel for rule-based routing. */
+export const MODEL_AUTO = "auto";
 
 /** How long the ultra-tier confirm button stays disabled. */
 const ULTRA_WAIT_SECONDS = 5;
@@ -77,29 +87,46 @@ export function useAssistantModels() {
 
   const provider = settings.data?.providers?.find((p) => p.id === settings.data?.provider);
   const models = useMemo(() => (provider?.models ?? []) as AssistantModel[], [provider]);
+  const autoAvailable = settings.data?.autoAvailable ?? false;
+  // Which models Auto would route to, so the picker can say so out loud
+  // instead of asking the reader to trust it.
+  const lanes = useMemo(() => {
+    const named = (lane: "basic" | "advanced") => models.find((m) => m.autoLane === lane)?.label;
+    return {
+      basic: named("basic") ?? settings.data?.autoBasic ?? "",
+      advanced: named("advanced") ?? settings.data?.autoAdvanced ?? "",
+    };
+  }, [models, settings.data]);
 
   // Match the configured default through aliases too, so an instance pinned to
   // a dated snapshot still highlights that model instead of showing nothing.
   const configured = settings.data?.model ?? "";
   const matches = (m: AssistantModel, id: string) => m.id === id || (m.aliases ?? []).includes(id);
-  const active =
-    models.find((m) => matches(m, chosen)) ?? models.find((m) => matches(m, configured)) ?? null;
+  const isAuto = chosen === MODEL_AUTO && autoAvailable;
+  const active = isAuto
+    ? null
+    : models.find((m) => matches(m, chosen)) ?? models.find((m) => matches(m, configured)) ?? null;
 
-  // A stored choice from another provider must not silently keep applying.
+  // A stored choice that this provider cannot serve must not keep applying —
+  // including Auto, once its lanes are no longer configured.
   useEffect(() => {
+    if (chosen === MODEL_AUTO) {
+      if (settings.data && !autoAvailable) saveModelChoice("");
+      return;
+    }
     if (chosen && models.length > 0 && !models.some((m) => matches(m, chosen))) {
       saveModelChoice("");
     }
-  }, [chosen, models]);
+  }, [chosen, models, autoAvailable, settings.data]);
 
   const select = useCallback((id: string) => saveModelChoice(id), []);
 
-  return { models, active, select, ready: models.length > 0 };
+  return { models, active, isAuto, autoAvailable, lanes, select, ready: models.length > 0 || autoAvailable };
 }
 
 export function AssistantModelPicker({ compact }: { compact?: boolean }) {
   const { t } = useTranslation();
-  const { models, active, select, ready } = useAssistantModels();
+  const { models, active, isAuto, autoAvailable, lanes, select, ready } = useAssistantModels();
   const [gated, setGated] = useState<AssistantModel | null>(null);
 
   if (!ready) return null;
@@ -118,14 +145,31 @@ export function AssistantModelPicker({ compact }: { compact?: boolean }) {
             aria-label={t("assistant.model.switch")}
             className="text-fg-muted hover:bg-surface-hover hover:text-fg flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-[12.5px] font-medium transition-colors"
           >
-            <Sparkles className="size-3.5 shrink-0" />
-            <span className="max-w-40 truncate">{active?.label ?? t("assistant.model.pick")}</span>
+            <Sparkles className={cn("size-3.5 shrink-0", isAuto && "text-accent")} />
+            <span className="max-w-40 truncate">
+              {isAuto ? t("assistant.model.auto") : (active?.label ?? t("assistant.model.pick"))}
+            </span>
             <ChevronDown className="size-3.5 shrink-0 opacity-60" />
           </button>
         </DropdownTrigger>
         <DropdownContent align="start" side="top" className={cn("w-72", compact && "w-64")}>
+          {autoAvailable && (
+            <DropdownItem onSelect={() => select(MODEL_AUTO)} className="items-start gap-2.5 py-2">
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="text-accent size-3.5" />
+                  <span className="text-fg text-[13px] font-medium">{t("assistant.model.auto")}</span>
+                </span>
+                <span className="text-fg-subtle text-[11.5px] leading-snug">
+                  {t("assistant.model.autoBlurb", { basic: lanes.basic, advanced: lanes.advanced })}
+                </span>
+              </span>
+              {isAuto && <Check className="text-accent mt-0.5 size-4 shrink-0" />}
+            </DropdownItem>
+          )}
+          {autoAvailable && models.length > 0 && <DropdownSeparator />}
           {models.map((model) => {
-            const current = model.id === active?.id;
+            const current = !isAuto && model.id === active?.id;
             return (
               <DropdownItem
                 key={model.id}

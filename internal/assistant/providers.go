@@ -45,6 +45,9 @@ type ModelInfo struct {
 	// Aliases are other ids that mean this model, so a pinned dated snapshot
 	// already in the settings still lights up its own row in the picker.
 	Aliases []string `json:"aliases,omitempty"`
+	// AutoLane marks this model as a provider's basic or advanced lane for
+	// rule-based Auto routing. At most one model per lane per provider.
+	AutoLane string `json:"autoLane,omitempty"`
 	// List price in US dollars per million tokens. Used only to estimate what
 	// an answer cost — cached input and promotional rates bill lower, so the
 	// figure shown to the user is labelled an estimate.
@@ -104,9 +107,9 @@ var Providers = []ProviderInfo{
 // dated snapshot id; the 5-family ids are complete as written.
 var AnthropicModels = []ModelInfo{
 	{ID: "claude-haiku-4-5", Label: "Haiku 4.5", Blurb: "Fastest and cheapest. Fine for lookups and status questions.",
-		Aliases: []string{"claude-haiku-4-5-20251001"}, InputPerMTok: 1, OutputPerMTok: 5},
+		Aliases: []string{"claude-haiku-4-5-20251001"}, AutoLane: "basic", InputPerMTok: 1, OutputPerMTok: 5},
 	{ID: "claude-sonnet-5", Label: "Sonnet 5", Blurb: "The balanced default — strong reasoning at a moderate price.",
-		InputPerMTok: 2, OutputPerMTok: 10},
+		AutoLane: "advanced", InputPerMTok: 2, OutputPerMTok: 10},
 	{ID: "claude-opus-5", Label: "Opus 5", Blurb: "Deeper reasoning for hard diagnosis.", Tier: TierPremium,
 		CostNote: "About 2.5× the price of Sonnet 5 per token.", InputPerMTok: 5, OutputPerMTok: 25},
 	{ID: "claude-fable-5", Label: "Fable 5", Blurb: "The most capable model, for the hardest problems.", Tier: TierUltra,
@@ -116,9 +119,9 @@ var AnthropicModels = []ModelInfo{
 // OpenAIModels is the GPT picker, cheapest first.
 var OpenAIModels = []ModelInfo{
 	{ID: "gpt-5.6-luna", Label: "GPT-5.6 Luna", Blurb: "Cost-optimised. Fine for lookups and status questions.",
-		InputPerMTok: 0.20, OutputPerMTok: 1.20},
+		AutoLane: "basic", InputPerMTok: 0.20, OutputPerMTok: 1.20},
 	{ID: "gpt-5.6-terra", Label: "GPT-5.6 Terra", Blurb: "The balanced default — intelligence against cost.",
-		InputPerMTok: 2, OutputPerMTok: 12},
+		AutoLane: "advanced", InputPerMTok: 2, OutputPerMTok: 12},
 	{ID: "gpt-5.6-sol", Label: "GPT-5.6 Sol", Blurb: "Frontier model for complex professional work.", Tier: TierPremium,
 		CostNote: "About 2.5× the price of Terra per token.", InputPerMTok: 5, OutputPerMTok: 30},
 }
