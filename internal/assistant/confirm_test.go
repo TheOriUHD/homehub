@@ -9,7 +9,7 @@ import (
 // which survived the SSH tools being added: the model dutifully answered "I
 // cannot do that" while holding a working tool. Guard the correction.
 func TestSystemPromptDoesNotDenySSH(t *testing.T) {
-	p := systemPrompt("Someone").Text()
+	p := systemPrompt(Access{DisplayName: "Someone"}).Text()
 	for _, denial := range []string{"You do NOT have: SSH", "no SSH", "SSH or shell access"} {
 		if strings.Contains(p, denial) {
 			t.Fatalf("system prompt still denies SSH access (%q) — the SSH tools exist", denial)
