@@ -40,10 +40,15 @@ type Service struct {
 	Toolbox *Toolbox
 }
 
-func systemPrompt(displayName string) string {
-	return strings.TrimSpace(`
-You are the HomeHub assistant, built into a self-hosted homelab control plane.
-You are talking to ` + displayName + `.
+// systemPrompt returns the instructions in two halves. Base is identical for
+// every user and every turn so a provider with prompt caching can cache it
+// (together with the tool definitions) once and reuse it for everyone; only
+// the one-line Context differs per user and sits after the cache breakpoint.
+func systemPrompt(displayName string) System {
+	return System{Base: systemBase, Context: "You are talking to " + displayName + "."}
+}
+
+const systemBase = `You are the HomeHub assistant, built into a self-hosted homelab control plane.
 Use the tools to answer from live data — never invent numbers, names, or states.
 The tools already enforce the user's permissions; if one refuses, say so plainly.
 Answer concisely and concretely. Use short sentences. When a value has a unit, include it.
@@ -80,8 +85,7 @@ Minecraft servers (only AMP instances, Docker containers, and Proxmox guests can
 started/stopped). When a request needs a capability you lack, say so plainly and
 suggest where the user can do it — never offer to attempt it anyway.
 When a command needs an in-game or device name you don't know, look it up with the
-detail tools before asking the user.`)
-}
+detail tools before asking the user.`
 
 // Event is one streamed step of a turn (for RunTurnStream).
 type Event struct {
@@ -285,12 +289,18 @@ func (s *Service) runLoop(
 	if len(steps) > 0 {
 		trace, _ = json.Marshal(steps)
 	}
+	// Store the whole prompt as "input" — a reader means every token the model
+	// processed, however it was billed — but price it from the cache split,
+	// which only exists here and cannot be recovered from the total later.
 	usage := &store.AssistantUsage{
 		Model:        cfg.Model,
-		InputTokens:  total.InputTokens,
+		InputTokens:  total.PromptTokens(),
 		OutputTokens: total.OutputTokens,
 		Route:        access.Route,
 		DurationMs:   time.Since(started).Milliseconds(),
+	}
+	if cost, ok := EstimateCost(cfg.Model, total); ok {
+		usage.CostUsd = &cost
 	}
 	msgID, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation,
 		"assistant", final, trace, &parentID, usage)
@@ -366,8 +376,11 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 		trace, _ = json.Marshal(steps)
 	}
 	usage := &store.AssistantUsage{
-		Model: cfg.Model, InputTokens: total.InputTokens, OutputTokens: total.OutputTokens,
+		Model: cfg.Model, InputTokens: total.PromptTokens(), OutputTokens: total.OutputTokens,
 		DurationMs: time.Since(started).Milliseconds(),
+	}
+	if cost, ok := EstimateCost(cfg.Model, total); ok {
+		usage.CostUsd = &cost
 	}
 	if _, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation,
 		"assistant", final, trace, &userID, usage); err != nil {

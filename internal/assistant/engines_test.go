@@ -33,7 +33,7 @@ func TestOpenAIRequestShapeAndParse(t *testing.T) {
 		{Role: "assistant", Calls: []ToolCall{{ID: "a", Name: "x", Input: json.RawMessage(`{"q":1}`)}}},
 		{Role: "user", Results: []ToolResult{{ID: "a", Content: "[]"}}},
 	}
-	reply, err := p.Chat(context.Background(), "m1", "sys", turns, []ToolDef{{Name: "list_systems", Description: "d", InputSchema: json.RawMessage(`{"type":"object"}`)}})
+	reply, err := p.Chat(context.Background(), "m1", System{Base: "sys"}, turns, []ToolDef{{Name: "list_systems", Description: "d", InputSchema: json.RawMessage(`{"type":"object"}`)}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestOpenAINoAuthHeaderWithoutKey(t *testing.T) {
 	}))
 	defer srv.Close()
 	p := &OpenAIProvider{BaseURL: srv.URL + "/v1"}
-	reply, err := p.Chat(context.Background(), "m", "s", []Turn{{Role: "user", Text: "x"}}, nil)
+	reply, err := p.Chat(context.Background(), "m", System{Base: "s"}, []Turn{{Role: "user", Text: "x"}}, nil)
 	if err != nil || reply.Text != "hi" {
 		t.Fatalf("keyless chat failed: %+v %v", reply, err)
 	}
@@ -92,7 +92,7 @@ func TestGeminiRequestShapeAndParse(t *testing.T) {
 		{Role: "assistant", Calls: []ToolCall{{ID: "id1", Name: "x", Input: json.RawMessage(`{"b":2}`)}}},
 		{Role: "user", Results: []ToolResult{{ID: "id1", Content: "[]"}}},
 	}
-	reply, err := p.Chat(context.Background(), "gem-x", "sys", turns, []ToolDef{{Name: "list_systems", Description: "d", InputSchema: json.RawMessage(`{"type":"object"}`)}})
+	reply, err := p.Chat(context.Background(), "gem-x", System{Base: "sys"}, turns, []ToolDef{{Name: "list_systems", Description: "d", InputSchema: json.RawMessage(`{"type":"object"}`)}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestOpenAIReasoningEffortRetry(t *testing.T) {
 
 	p := &OpenAIProvider{APIKey: "k", BaseURL: srv.URL + "/v1"}
 	// A model OUTSIDE the known reasoning families exercises the backstop.
-	reply, err := p.Chat(context.Background(), "futurellm-9", "s",
+	reply, err := p.Chat(context.Background(), "futurellm-9", System{Base: "s"},
 		[]Turn{{Role: "user", Text: "x"}},
 		[]ToolDef{{Name: "t", Description: "d", InputSchema: json.RawMessage(`{"type":"object"}`)}})
 	if err != nil || reply.Text != "hi" {
@@ -178,7 +178,7 @@ func TestOpenAIReasoningEffortHardcoded(t *testing.T) {
 	p := &OpenAIProvider{APIKey: "k", BaseURL: srv.URL + "/v1"}
 	for _, model := range []string{"gpt-5.6-luna", "gpt-5", "o3-mini", "o4-nano"} {
 		requests = nil
-		reply, err := p.Chat(context.Background(), model, "s",
+		reply, err := p.Chat(context.Background(), model, System{Base: "s"},
 			[]Turn{{Role: "user", Text: "x"}},
 			[]ToolDef{{Name: "t", Description: "d", InputSchema: json.RawMessage(`{"type":"object"}`)}})
 		if err != nil || reply.Text != "hi" {
@@ -199,7 +199,7 @@ func TestOpenAIReasoningEffortHardcoded(t *testing.T) {
 	}))
 	defer srv2.Close()
 	p2 := &OpenAIProvider{APIKey: "k", BaseURL: srv2.URL + "/v1"}
-	if _, err := p2.Chat(context.Background(), "gpt-5.6-luna", "s", []Turn{{Role: "user", Text: "x"}}, nil); err != nil {
+	if _, err := p2.Chat(context.Background(), "gpt-5.6-luna", System{Base: "s"}, []Turn{{Role: "user", Text: "x"}}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if requests[0].ReasoningEffort != "" {
@@ -217,7 +217,7 @@ func TestOpenAINoRetryOnOtherErrors(t *testing.T) {
 	}))
 	defer srv.Close()
 	p := &OpenAIProvider{APIKey: "bad", BaseURL: srv.URL + "/v1"}
-	_, err := p.Chat(context.Background(), "m", "", []Turn{{Role: "user", Text: "x"}}, nil)
+	_, err := p.Chat(context.Background(), "m", System{Base: ""}, []Turn{{Role: "user", Text: "x"}}, nil)
 	if err == nil || calls != 1 {
 		t.Fatalf("unexpected retry: calls=%d err=%v", calls, err)
 	}

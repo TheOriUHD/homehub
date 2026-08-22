@@ -167,14 +167,27 @@ func ModelInfoFor(model string) *ModelInfo {
 	return nil
 }
 
+// Prompt-cache multipliers against the base input rate. A read is nearly
+// free; a write carries a premium that pays for itself on the second request.
+const (
+	cacheReadRate  = 0.10
+	cacheWriteRate = 1.25
+)
+
 // EstimateCost prices a turn in US dollars from list rates, and reports
-// whether the model is one we have prices for at all.
+// whether the model is one we have prices for at all. Cached tokens are
+// priced at their own rates — counting a cache read as full-price input
+// would overstate every turn after the first by roughly the size of the
+// conversation so far.
 func EstimateCost(model string, u Usage) (float64, bool) {
 	info := ModelInfoFor(model)
 	if info == nil || (info.InputPerMTok == 0 && info.OutputPerMTok == 0) {
 		return 0, false
 	}
-	return float64(u.InputTokens)/1e6*info.InputPerMTok +
+	billedInput := float64(u.InputTokens) +
+		float64(u.CacheReadTokens)*cacheReadRate +
+		float64(u.CacheWriteTokens)*cacheWriteRate
+	return billedInput/1e6*info.InputPerMTok +
 		float64(u.OutputTokens)/1e6*info.OutputPerMTok, true
 }
 

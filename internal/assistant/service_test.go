@@ -13,7 +13,7 @@ type fakeProvider struct {
 	seen    [][]Turn
 }
 
-func (f *fakeProvider) Chat(_ context.Context, _, _ string, turns []Turn, _ []ToolDef) (Reply, error) {
+func (f *fakeProvider) Chat(_ context.Context, _ string, _ System, turns []Turn, _ []ToolDef) (Reply, error) {
 	f.seen = append(f.seen, append([]Turn(nil), turns...))
 	r := f.replies[f.calls]
 	if f.calls < len(f.replies)-1 {
@@ -38,7 +38,7 @@ func TestToolLoopFeedsResultsBack(t *testing.T) {
 	turns := []Turn{{Role: "user", Text: "hi"}}
 	defs := tb.Defs()
 
-	reply, err := provider.Chat(context.Background(), "m", "s", turns, defs)
+	reply, err := provider.Chat(context.Background(), "m", System{Base: "s"}, turns, defs)
 	if err != nil || len(reply.Calls) != 1 {
 		t.Fatalf("scripted first reply broken: %+v %v", reply, err)
 	}
@@ -48,7 +48,7 @@ func TestToolLoopFeedsResultsBack(t *testing.T) {
 	}
 	turns = append(turns, Turn{Role: "assistant", Calls: reply.Calls})
 	turns = append(turns, Turn{Role: "user", Results: []ToolResult{{ID: "c1", Content: runErr.Error(), IsError: true}}})
-	final, err := provider.Chat(context.Background(), "m", "s", turns, defs)
+	final, err := provider.Chat(context.Background(), "m", System{Base: "s"}, turns, defs)
 	if err != nil || final.Text != "done" {
 		t.Fatalf("expected final text, got %+v %v", final, err)
 	}

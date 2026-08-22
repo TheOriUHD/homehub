@@ -63,7 +63,7 @@ type gemResponse struct {
 	} `json:"error"`
 }
 
-func (p *GeminiProvider) Chat(ctx context.Context, model, system string, turns []Turn, tools []ToolDef) (Reply, error) {
+func (p *GeminiProvider) Chat(ctx context.Context, model string, system System, turns []Turn, tools []ToolDef) (Reply, error) {
 	// callNames maps our synthetic IDs back to function names for
 	// functionResponse pairing.
 	callNames := map[string]string{}
@@ -74,8 +74,8 @@ func (p *GeminiProvider) Chat(ctx context.Context, model, system string, turns [
 	}
 
 	req := gemRequest{}
-	if system != "" {
-		req.SystemInstruction = &gemContent{Parts: []gemPart{{Text: system}}}
+	if text := system.Text(); text != "" {
+		req.SystemInstruction = &gemContent{Parts: []gemPart{{Text: text}}}
 	}
 	for _, turn := range turns {
 		role := "user"

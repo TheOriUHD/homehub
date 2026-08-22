@@ -29,11 +29,12 @@ func TestAnthropicRequestShapeAndParse(t *testing.T) {
 		{Role: "assistant", Text: "looking", Calls: []ToolCall{{ID: "a", Name: "x", Input: json.RawMessage(`{}`)}}},
 		{Role: "user", Results: []ToolResult{{ID: "a", Content: "[]"}}},
 	}
-	reply, err := p.Chat(context.Background(), "model-x", "sys", turns, []ToolDef{{Name: "list_systems", Description: "d", InputSchema: json.RawMessage(`{"type":"object"}`)}})
+	reply, err := p.Chat(context.Background(), "model-x", System{Base: "sys"}, turns, []ToolDef{{Name: "list_systems", Description: "d", InputSchema: json.RawMessage(`{"type":"object"}`)}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Model != "model-x" || got.System != "sys" || len(got.Messages) != 3 || len(got.Tools) != 1 {
+	if got.Model != "model-x" || len(got.System) == 0 || got.System[0].Text != "sys" ||
+		len(got.Messages) != 3 || len(got.Tools) != 1 {
 		t.Fatalf("request shape wrong: %+v", got)
 	}
 	// tool_result must precede any text in its user message per API contract
@@ -52,7 +53,7 @@ func TestAnthropicErrorSurfacesProviderMessage(t *testing.T) {
 	}))
 	defer srv.Close()
 	p := &AnthropicProvider{APIKey: "bad", BaseURL: srv.URL}
-	_, err := p.Chat(context.Background(), "m", "", []Turn{{Role: "user", Text: "hi"}}, nil)
+	_, err := p.Chat(context.Background(), "m", System{Base: ""}, []Turn{{Role: "user", Text: "hi"}}, nil)
 	if err == nil || !contains(err.Error(), "invalid x-api-key") {
 		t.Fatalf("provider error not surfaced: %v", err)
 	}
