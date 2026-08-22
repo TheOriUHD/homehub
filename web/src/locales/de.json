@@ -2954,7 +2954,9 @@
       "confirmTitle": "Zu {{model}} wechseln?",
       "confirmBody": "Neue Nachrichten in dieser Unterhaltung beantwortet {{model}}, bis du zurückwechselst. Der Verlauf bleibt unverändert.",
       "confirmAction": "{{model}} verwenden",
-      "confirmWait": "Warnung lesen… {{seconds}}s"
+      "confirmWait": "Warnung lesen… {{seconds}}s",
+      "auto": "Auto",
+      "autoBlurb": "Regelbasiert: {{basic}} für Abfragen und Befehle, {{advanced}} sobald eine Frage Deutung braucht."
     },
     "modelHint": "Der Modellname, den dein Provider erwartet.",
     "apiKey": "API-Schlüssel",
@@ -3050,7 +3052,16 @@
     },
     "usage": {
       "label": "Tokens und Kosten",
-      "estimate": "Geschätzt nach Listenpreisen"
+      "estimate": "Geschätzt nach Listenpreisen",
+      "routed": "Auto · {{rule}}"
+    },
+    "autoLanes": {
+      "title": "Auto-Spuren",
+      "intro": "Auto entscheidet nach festen Regeln — nie danach, wie schwer ein Modell die Frage selbst einschätzt. Nenne die beiden Modelle, zwischen denen gewählt wird.",
+      "basic": "Basis (Empfang)",
+      "basicHint": "Abfragen, Status und benannte Befehle.",
+      "advanced": "Fortgeschritten",
+      "advancedHint": "Warum-Fragen, Diagnose, Einschätzung."
     }
   },
   "tools": {

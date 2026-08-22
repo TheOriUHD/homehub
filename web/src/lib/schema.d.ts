@@ -4856,6 +4856,11 @@ export interface components {
             tier?: "premium" | "ultra";
             /** @description What the confirmation tells the user it costs. */
             costNote?: string;
+            /**
+             * @description Which Auto lane this model serves for its provider.
+             * @enum {string}
+             */
+            autoLane?: "basic" | "advanced";
             /** @description Other ids meaning this model, e.g. a pinned dated snapshot. */
             aliases?: string[];
         };
@@ -4883,6 +4888,8 @@ export interface components {
             outputTokens: number;
             /** Format: double */
             costUsd?: number;
+            /** @description The Auto rule that chose this model (e.g. "asks why"). Absent when the user pinned a model themselves. */
+            route?: string;
         };
         AssistantStep: {
             tool: string;
@@ -14825,6 +14832,12 @@ export interface operations {
                         /** @description Provider ids that have a stored API key — switching providers keeps each key sealed in its own slot. */
                         keysSet: string[];
                         canConfigure: boolean;
+                        /** @description Auto's fast lane for providers with no catalog. Empty means the catalog's own lane. */
+                        autoBasic?: string;
+                        /** @description Auto's interpretation lane for providers with no catalog. */
+                        autoAdvanced?: string;
+                        /** @description Whether Auto can route right now — it needs a model for both lanes. */
+                        autoAvailable?: boolean;
                         /** @description The selectable provider catalog with per-provider defaults. */
                         providers: components["schemas"]["AssistantProvider"][];
                     };
@@ -14952,6 +14965,10 @@ export interface operations {
                     model: string;
                     baseUrl?: string;
                     apiKey?: string;
+                    /** @description Auto's fast lane. Only needed for providers with no built-in catalog. */
+                    autoBasic?: string;
+                    /** @description Auto's interpretation lane. Only needed for providers with no built-in catalog. */
+                    autoAdvanced?: string;
                 };
             };
         };

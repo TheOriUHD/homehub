@@ -27,7 +27,7 @@ export function AssistantPage() {
   const { t } = useTranslation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [telegramOpen, setTelegramOpen] = useState(false);
-  const { active: activeModel } = useAssistantModels();
+  const { active: activeModel, isAuto: autoRouting } = useAssistantModels();
 
   const state = useQuery({
     queryKey: ["assistant"],
@@ -58,9 +58,11 @@ export function AssistantPage() {
           <p className="text-fg-muted text-sm">
             {info.enabled
               ? t("assistant.subtitle", {
-                  // The header names the model actually answering, which the
-                  // composer's switcher may have moved off the instance default.
-                  model: activeModel?.label ?? info.model,
+                  // The header names whatever is answering: a pinned model,
+                  // or Auto when the composer is routing per message.
+                  model: autoRouting
+                    ? t("assistant.model.auto")
+                    : (activeModel?.label ?? info.model),
                   provider: info.providers.find((p) => p.id === info.provider)?.label ?? info.provider,
                 })
               : t("assistant.disabledSubtitle")}
@@ -120,6 +122,7 @@ type ProviderInfo = {
   defaultModel: string;
   defaultBaseUrl?: string;
   modelHint?: string;
+  models?: { id: string; autoLane?: "basic" | "advanced" }[];
 };
 
 function AssistantSettingsDialog({
@@ -134,6 +137,8 @@ function AssistantSettingsDialog({
     keySet: boolean;
     keysSet: string[];
     providers: ProviderInfo[];
+    autoBasic?: string;
+    autoAdvanced?: string;
   };
   onClose: () => void;
 }) {
@@ -145,6 +150,8 @@ function AssistantSettingsDialog({
   const [model, setModel] = useState(info.model);
   const [baseUrl, setBaseUrl] = useState(info.baseUrl);
   const [apiKey, setApiKey] = useState("");
+  const [autoBasic, setAutoBasic] = useState(info.autoBasic ?? "");
+  const [autoAdvanced, setAutoAdvanced] = useState(info.autoAdvanced ?? "");
 
   const selected = info.providers.find((p) => p.id === provider);
   // Switching providers adopts that provider's defaults — the common case
@@ -168,6 +175,8 @@ function AssistantSettingsDialog({
             model: model.trim(),
             baseUrl: baseUrl.trim() || undefined,
             apiKey: apiKey.trim() || undefined,
+            autoBasic: autoBasic.trim(),
+            autoAdvanced: autoAdvanced.trim(),
           },
         }),
       );
@@ -249,6 +258,38 @@ function AssistantSettingsDialog({
                 />
               )}
             </Field>
+          )}
+          {/* Providers with a built-in catalog already name their own Auto
+              lanes; everything else needs the pair spelled out before Auto
+              can offer itself in the composer. */}
+          {!selected?.models?.some((m) => m.autoLane) && (
+            <div className="border-edge space-y-3 rounded-lg border p-3">
+              <p className="text-fg text-[13px] font-medium">{t("assistant.autoLanes.title")}</p>
+              <p className="text-fg-muted text-[12.5px] leading-relaxed">
+                {t("assistant.autoLanes.intro")}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label={t("assistant.autoLanes.basic")} hint={t("assistant.autoLanes.basicHint")}>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      placeholder={selected?.defaultModel}
+                      value={autoBasic}
+                      onChange={(e) => setAutoBasic(e.target.value)}
+                    />
+                  )}
+                </Field>
+                <Field label={t("assistant.autoLanes.advanced")} hint={t("assistant.autoLanes.advancedHint")}>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      value={autoAdvanced}
+                      onChange={(e) => setAutoAdvanced(e.target.value)}
+                    />
+                  )}
+                </Field>
+              </div>
+            </div>
           )}
           {selected?.kind === "local" && (
             <EndpointVerify
