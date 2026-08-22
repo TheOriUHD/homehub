@@ -452,6 +452,9 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
       <div className="border-edge bg-surface shadow-1 focus-within:border-accent rounded-xl border transition-colors">
         <textarea
           ref={composerRef}
+          // The wrapper above owns the focus indication; without this the
+          // global :focus-visible ring draws a second box around the field.
+          data-focus-ring="none"
           rows={1}
           value={draft}
           placeholder={t("assistant.placeholder")}
