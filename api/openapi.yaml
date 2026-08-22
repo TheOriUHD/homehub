@@ -7495,6 +7495,10 @@ components:
           description: >-
             The Auto rule that chose this model (e.g. "asks why"). Absent when the
             user pinned a model themselves.
+        durationMs:
+          type: integer
+          format: int64
+          description: Wall-clock time to produce the answer, across every model round and tool call.
 
     AssistantStep:
       type: object

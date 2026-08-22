@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/TheOriUHD/homehub/internal/store"
 )
@@ -225,6 +226,9 @@ func (s *Service) runLoop(
 	parentID int64,
 	emit func(Event),
 ) error {
+	// Wall clock for the whole turn: every model round and every tool call
+	// inside it, which is what the reader experienced as "the response".
+	started := time.Now()
 	defs := s.Toolbox.Defs()
 	var steps []StepInfo
 	var pending []PendingAction
@@ -286,6 +290,7 @@ func (s *Service) runLoop(
 		InputTokens:  total.InputTokens,
 		OutputTokens: total.OutputTokens,
 		Route:        access.Route,
+		DurationMs:   time.Since(started).Milliseconds(),
 	}
 	msgID, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation,
 		"assistant", final, trace, &parentID, usage)
@@ -322,6 +327,7 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 		return "", nil, err
 	}
 
+	started := time.Now()
 	defs := s.Toolbox.Defs()
 	var steps []StepInfo
 	var reply Reply
@@ -359,7 +365,10 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 	if len(steps) > 0 {
 		trace, _ = json.Marshal(steps)
 	}
-	usage := &store.AssistantUsage{Model: cfg.Model, InputTokens: total.InputTokens, OutputTokens: total.OutputTokens}
+	usage := &store.AssistantUsage{
+		Model: cfg.Model, InputTokens: total.InputTokens, OutputTokens: total.OutputTokens,
+		DurationMs: time.Since(started).Milliseconds(),
+	}
 	if _, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation,
 		"assistant", final, trace, &userID, usage); err != nil {
 		return "", steps, err

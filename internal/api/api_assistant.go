@@ -351,6 +351,9 @@ func assistantUsage(row store.AssistantMessage) *AssistantUsage {
 	if row.Route != nil && *row.Route != "" {
 		out.Route = row.Route
 	}
+	if row.DurationMs != nil && *row.DurationMs > 0 {
+		out.DurationMs = row.DurationMs
+	}
 	if cost, ok := assistant.EstimateCost(row.Model, assistant.Usage{
 		InputTokens:  *row.InputTokens,
 		OutputTokens: *row.OutputTokens,

@@ -4890,6 +4890,11 @@ export interface components {
             costUsd?: number;
             /** @description The Auto rule that chose this model (e.g. "asks why"). Absent when the user pinned a model themselves. */
             route?: string;
+            /**
+             * Format: int64
+             * @description Wall-clock time to produce the answer, across every model round and tool call.
+             */
+            durationMs?: number;
         };
         AssistantStep: {
             tool: string;
