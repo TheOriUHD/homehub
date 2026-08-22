@@ -120,3 +120,61 @@ func TestNoticeSystemFramesSignalsAsData(t *testing.T) {
 		}
 	}
 }
+
+// A Telegram thread is not a chat: HomeHub pushes alerts into it unprompted,
+// so it can open with an assistant message and carry several in a row.
+// Providers reject both, and losing the alerts to satisfy them would defeat
+// the point — you could no longer ask about one.
+func TestNormalizeTurnsMakesProactiveThreadsSendable(t *testing.T) {
+	// Two alerts arrive before the owner has said anything, then they reply.
+	turns := normalizeTurns([]Turn{
+		{Role: "assistant", Text: "The Sovol Zero has been offline for 25 minutes."},
+		{Role: "assistant", Text: "TrueNAS has been unreachable for four minutes."},
+		{Role: "user", Text: "what caused that?"},
+	})
+
+	if turns[0].Role != "user" {
+		t.Fatalf("history must start with a user turn, got %q", turns[0].Role)
+	}
+	for i := 1; i < len(turns); i++ {
+		if turns[i].Role == turns[i-1].Role {
+			t.Fatalf("consecutive %q turns survived normalization", turns[i].Role)
+		}
+	}
+	for _, alert := range []string{"Sovol Zero", "TrueNAS"} {
+		if !strings.Contains(turns[0].Text, alert) {
+			t.Errorf("%q was dropped — the reply can no longer be about it", alert)
+		}
+	}
+	if !strings.Contains(turns[0].Text, "what caused that?") {
+		t.Error("the owner's own words must survive the fold")
+	}
+}
+
+// Mid-conversation alerts merge rather than breaking alternation.
+func TestNormalizeTurnsMergesRunsInPlace(t *testing.T) {
+	turns := normalizeTurns([]Turn{
+		{Role: "user", Text: "how is everything?"},
+		{Role: "assistant", Text: "All quiet."},
+		{Role: "assistant", Text: "The printer just went offline."},
+		{Role: "user", Text: "since when?"},
+	})
+	if len(turns) != 3 {
+		t.Fatalf("expected 3 turns after merging, got %d", len(turns))
+	}
+	if !strings.Contains(turns[1].Text, "All quiet") || !strings.Contains(turns[1].Text, "printer") {
+		t.Errorf("merge lost content: %q", turns[1].Text)
+	}
+}
+
+// Tool-call turns carry structure that must never be flattened into text.
+func TestNormalizeTurnsLeavesToolTurnsAlone(t *testing.T) {
+	turns := normalizeTurns([]Turn{
+		{Role: "user", Text: "check the nas"},
+		{Role: "assistant", Text: "looking", Calls: []ToolCall{{ID: "a", Name: "list_systems"}}},
+		{Role: "assistant", Text: "still looking", Calls: []ToolCall{{ID: "b", Name: "list_alerts"}}},
+	})
+	if len(turns) != 3 {
+		t.Fatalf("tool turns must not merge, got %d turns", len(turns))
+	}
+}

@@ -328,10 +328,15 @@ func Run(ctx context.Context) error {
 			if !decided {
 				text = telegramSignalText(sig, event)
 			}
-			tgBot.Broadcast(nctx, text, func(userID uuid.UUID) bool {
+			reached := tgBot.Broadcast(nctx, text, func(userID uuid.UUID) bool {
 				hidden, err := st.SignalsHiddenForUser(nctx, userID)
 				return err == nil && !hidden
 			})
+			// Put it in each recipient's thread so replying to it works:
+			// "what caused that?" needs the alert to be in the conversation.
+			for _, userID := range reached {
+				apiServer.RememberSentNotice(nctx, userID, text)
+			}
 			apiServer.RecordSignalNotice(nctx, sig, event)
 		}()
 	})
