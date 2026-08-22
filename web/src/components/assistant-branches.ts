@@ -6,6 +6,16 @@ import type { AssistantStep } from "./assistant-chat";
  * server stores every branch; this module picks the ONE path the reader sees.
  */
 
+/** What producing one answer cost. Absent on questions, and on answers
+ *  written before usage was recorded. */
+export type MessageUsage = {
+  model: string;
+  modelLabel?: string;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd?: number;
+};
+
 export type ChatMessage = {
   id: number;
   parentId?: number | null;
@@ -13,8 +23,38 @@ export type ChatMessage = {
   content: string;
   tools?: string[];
   steps?: AssistantStep[];
+  usage?: MessageUsage;
   ts: string;
 };
+
+/** compactTokens renders a token count the way a reader scans it: exact while
+ *  small, then one decimal of k or M. 420 → "420", 8151 → "8.2k". */
+export function compactTokens(n: number): string {
+  // A trailing ".0" is noise — "142k" reads better than "142.0k".
+  const scaled = (v: number, unit: string) => v.toFixed(1).replace(/\.0$/, "") + unit;
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return scaled(n / 1000, "k");
+  return scaled(n / 1_000_000, "M");
+}
+
+/** formatUsd keeps three decimals where fractions of a cent still matter, and
+ *  refuses to render a real cost as "$0.000". */
+export function formatUsd(v: number): string {
+  if (v > 0 && v < 0.001) return "<$0.001";
+  return "$" + v.toFixed(v < 1 ? 3 : 2);
+}
+
+/** The one-line summary shown in the info tooltip:
+ *  "Haiku 4.5 · 8.2k input · 420 output · $0.010" */
+export function usageLine(usage: MessageUsage): string {
+  const parts = [
+    usage.modelLabel || usage.model,
+    compactTokens(usage.inputTokens) + " input",
+    compactTokens(usage.outputTokens) + " output",
+  ];
+  if (usage.costUsd != null) parts.push(formatUsd(usage.costUsd));
+  return parts.join(" · ");
+}
 
 /** One message on the visible path, plus the branch controls it needs. */
 export type PathEntry = {

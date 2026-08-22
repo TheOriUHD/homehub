@@ -54,6 +54,10 @@ type gemResponse struct {
 	Candidates []struct {
 		Content gemContent `json:"content"`
 	} `json:"candidates"`
+	UsageMetadata struct {
+		PromptTokenCount     int64 `json:"promptTokenCount"`
+		CandidatesTokenCount int64 `json:"candidatesTokenCount"`
+	} `json:"usageMetadata"`
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error"`
@@ -168,6 +172,10 @@ func (p *GeminiProvider) Chat(ctx context.Context, model, system string, turns [
 	}
 
 	var out Reply
+	out.Usage = Usage{
+		InputTokens:  parsed.UsageMetadata.PromptTokenCount,
+		OutputTokens: parsed.UsageMetadata.CandidatesTokenCount,
+	}
 	callIdx := 0
 	for _, part := range parsed.Candidates[0].Content.Parts {
 		if part.Text != "" {

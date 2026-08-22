@@ -3047,6 +3047,10 @@
       "showOutput": "Show output ({{count}} line)",
       "showOutput_other": "Show output ({{count}} lines)",
       "hideOutput": "Hide output"
+    },
+    "usage": {
+      "label": "Tokens and cost",
+      "estimate": "Estimated from list prices"
     }
   },
   "tools": {

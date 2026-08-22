@@ -124,7 +124,7 @@ type TurnInput struct {
 func (s *Service) RunTurnStream(ctx context.Context, provider Provider, cfg Config, access Access, in TurnInput, emit func(Event)) error {
 	parent := in.Parent
 	if text := strings.TrimSpace(in.Text); text != "" {
-		id, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation, "user", text, nil, parent)
+		id, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation, "user", text, nil, parent, nil)
 		if err != nil {
 			return err
 		}
@@ -230,11 +230,15 @@ func (s *Service) runLoop(
 	var pending []PendingAction
 	var reply Reply
 	var err error
+	// A turn is several model calls when tools are involved; the figure shown
+	// against the answer is the whole turn, not just the round that spoke.
+	var total Usage
 	for round := 0; ; round++ {
 		reply, err = provider.Chat(ctx, cfg.Model, systemPrompt(access.DisplayName), turns, defs)
 		if err != nil {
 			return err
 		}
+		total.Add(reply.Usage)
 		last := len(reply.Calls) == 0 || round >= maxToolRounds
 		if txt := strings.TrimSpace(reply.Text); txt != "" {
 			emit(Event{Type: "text", Text: txt, Final: last})
@@ -277,7 +281,13 @@ func (s *Service) runLoop(
 	if len(steps) > 0 {
 		trace, _ = json.Marshal(steps)
 	}
-	msgID, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation, "assistant", final, trace, &parentID)
+	usage := &store.AssistantUsage{
+		Model:        cfg.Model,
+		InputTokens:  total.InputTokens,
+		OutputTokens: total.OutputTokens,
+	}
+	msgID, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation,
+		"assistant", final, trace, &parentID, usage)
 	if err != nil {
 		return err
 	}
@@ -306,7 +316,7 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 	if n := len(history); n > 0 {
 		parent = &history[n-1].ID
 	}
-	userID, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation, "user", text, nil, parent)
+	userID, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation, "user", text, nil, parent, nil)
 	if err != nil {
 		return "", nil, err
 	}
@@ -314,11 +324,13 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 	defs := s.Toolbox.Defs()
 	var steps []StepInfo
 	var reply Reply
+	var total Usage
 	for round := 0; ; round++ {
 		reply, err = provider.Chat(ctx, cfg.Model, systemPrompt(access.DisplayName), turns, defs)
 		if err != nil {
 			return "", steps, err
 		}
+		total.Add(reply.Usage)
 		if len(reply.Calls) == 0 || round >= maxToolRounds {
 			break
 		}
@@ -346,7 +358,9 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 	if len(steps) > 0 {
 		trace, _ = json.Marshal(steps)
 	}
-	if _, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation, "assistant", final, trace, &userID); err != nil {
+	usage := &store.AssistantUsage{Model: cfg.Model, InputTokens: total.InputTokens, OutputTokens: total.OutputTokens}
+	if _, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation,
+		"assistant", final, trace, &userID, usage); err != nil {
 		return "", steps, err
 	}
 	return final, steps, nil

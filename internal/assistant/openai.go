@@ -64,6 +64,10 @@ type oaResponse struct {
 			ToolCalls []oaToolCall `json:"tool_calls"`
 		} `json:"message"`
 	} `json:"choices"`
+	Usage struct {
+		PromptTokens     int64 `json:"prompt_tokens"`
+		CompletionTokens int64 `json:"completion_tokens"`
+	} `json:"usage"`
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error"`
@@ -139,6 +143,10 @@ func (p *OpenAIProvider) Chat(ctx context.Context, model, system string, turns [
 	}
 
 	var out Reply
+	out.Usage = Usage{
+		InputTokens:  parsed.Usage.PromptTokens,
+		OutputTokens: parsed.Usage.CompletionTokens,
+	}
 	msg := parsed.Choices[0].Message
 	if msg.Content != nil {
 		out.Text = *msg.Content

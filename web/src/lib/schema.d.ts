@@ -4871,6 +4871,19 @@ export interface components {
             defaultBaseUrl?: string;
             modelHint?: string;
         };
+        /** @description What producing one answer cost, summed across every round of that turn's tool loop. costUsd is an ESTIMATE from published list prices — cached input and promotional rates bill lower — and is absent for models with no known price. */
+        AssistantUsage: {
+            /** @description The model id that produced the answer. */
+            model: string;
+            /** @description Its display name */
+            modelLabel?: string;
+            /** Format: int64 */
+            inputTokens: number;
+            /** Format: int64 */
+            outputTokens: number;
+            /** Format: double */
+            costUsd?: number;
+        };
         AssistantStep: {
             tool: string;
             input?: {
@@ -15089,6 +15102,7 @@ export interface operations {
                         content: string;
                         tools?: string[];
                         steps?: components["schemas"]["AssistantStep"][];
+                        usage?: components["schemas"]["AssistantUsage"];
                         /** Format: date-time */
                         ts: string;
                     }[];

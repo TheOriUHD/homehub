@@ -43,6 +43,21 @@ type Turn struct {
 type Reply struct {
 	Text  string
 	Calls []ToolCall
+	Usage Usage
+}
+
+// Usage is what one model call consumed. A turn sums it across every round
+// of the tool loop, so the figure shown against an answer is the whole cost
+// of producing it, not just the last round.
+type Usage struct {
+	InputTokens  int64 `json:"inputTokens"`
+	OutputTokens int64 `json:"outputTokens"`
+}
+
+// Add accumulates another call's usage.
+func (u *Usage) Add(other Usage) {
+	u.InputTokens += other.InputTokens
+	u.OutputTokens += other.OutputTokens
 }
 
 // Provider speaks to one LLM API. Implementations are stateless; the

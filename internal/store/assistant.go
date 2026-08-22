@@ -24,10 +24,16 @@ type AssistantMessage struct {
 	Role         string          `db:"role"`
 	Content      string          `db:"content"`
 	ToolTrace    json.RawMessage `db:"tool_trace"`
-	CreatedAt    time.Time       `db:"created_at"`
+	// What producing this message cost. Model is "" and the token counts are
+	// nil on user messages and on rows written before usage was recorded.
+	Model        string    `db:"model"`
+	InputTokens  *int64    `db:"input_tokens"`
+	OutputTokens *int64    `db:"output_tokens"`
+	CreatedAt    time.Time `db:"created_at"`
 }
 
-const assistantCols = `id, parent_id, user_id, channel, conversation, role, content, tool_trace, created_at`
+const assistantCols = `id, parent_id, user_id, channel, conversation, role, content, tool_trace,
+	model, input_tokens, output_tokens, created_at`
 
 // ListAssistantMessages returns the newest `limit` messages of one channel's
 // conversation, in chronological order — EVERY branch, not one path. The
@@ -54,27 +60,44 @@ func (s *Store) AssistantThread(ctx context.Context, userID uuid.UUID, leafID in
 			select `+assistantCols+`
 			from assistant_messages where id = $1 and user_id = $2
 			union all
-			select m.id, m.parent_id, m.user_id, m.channel, m.conversation, m.role, m.content, m.tool_trace, m.created_at
+			select m.id, m.parent_id, m.user_id, m.channel, m.conversation, m.role, m.content, m.tool_trace,
+				m.model, m.input_tokens, m.output_tokens, m.created_at
 			from assistant_messages m join chain c on m.id = c.parent_id
 		)
 		select * from (select * from chain order by id desc limit $3) nearest order by id asc`,
 		leafID, userID, limit))
 }
 
+// AssistantUsage is what one answer cost to produce.
+type AssistantUsage struct {
+	Model        string
+	InputTokens  int64
+	OutputTokens int64
+}
+
 // AddAssistantMessage appends a message under `parentID` (nil for a thread's
 // first message) and returns its id, which becomes the next message's parent.
+// `usage` is nil for user messages.
 func (s *Store) AddAssistantMessage(
 	ctx context.Context,
 	userID uuid.UUID,
 	channel, conversation, role, content string,
 	toolTrace json.RawMessage,
 	parentID *int64,
+	usage *AssistantUsage,
 ) (int64, error) {
+	var model string
+	var in, out *int64
+	if usage != nil {
+		model = usage.Model
+		in, out = &usage.InputTokens, &usage.OutputTokens
+	}
 	var id int64
 	err := s.pool.QueryRow(ctx, `
-		insert into assistant_messages (user_id, channel, conversation, role, content, tool_trace, parent_id)
-		values ($1, $2, $3, $4, $5, $6, $7) returning id`,
-		userID, channel, conversation, role, content, toolTrace, parentID).Scan(&id)
+		insert into assistant_messages
+			(user_id, channel, conversation, role, content, tool_trace, parent_id, model, input_tokens, output_tokens)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
+		userID, channel, conversation, role, content, toolTrace, parentID, model, in, out).Scan(&id)
 	return id, err
 }
 

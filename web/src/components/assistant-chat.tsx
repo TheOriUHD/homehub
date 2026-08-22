@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm";
 import {
   Box,
   Check,
+  Info,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -38,6 +39,7 @@ import { PageLoader } from "@/ui/misc";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { Slider } from "@/ui/slider";
 import { Switch } from "@/ui/switch";
+import { Tooltip } from "@/ui/tooltip";
 import { useToast } from "@/ui/toast";
 import { AssistantModelPicker, loadModelChoice } from "./assistant-model-picker";
 import {
@@ -48,6 +50,7 @@ import {
   saveChoices,
   saveOutcomes,
   ROOT,
+  usageLine,
   type ActionOutcome,
   type ChatMessage,
   type OutcomeMap,
@@ -633,6 +636,7 @@ function MessageActions({
       {entry.siblings.length > 1 && (
         <BranchSwitcher entry={entry} busy={busy} onPick={onPickBranch} />
       )}
+      {entry.msg.usage && <UsageInfo usage={entry.msg.usage} />}
       <div className="flex items-center gap-0.5 opacity-100 transition-opacity focus-within:opacity-100 group-hover/msg:opacity-100 [@media(hover:hover)]:opacity-0">
         <IconAction label={copied ? t("assistant.actions.copied") : t("assistant.actions.copy")} onClick={copy}>
           {copied ? <Check className="text-success size-3.5" /> : <Copy className="size-3.5" />}
@@ -658,6 +662,36 @@ function MessageActions({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * The cost receipt: an info dot that reveals what the answer took to produce.
+ * Always visible rather than hover-revealed like the actions, since it is a
+ * property of the message; the numbers themselves stay behind the hover so a
+ * transcript doesn't turn into an invoice.
+ */
+function UsageInfo({ usage }: { usage: NonNullable<ChatMessage["usage"]> }) {
+  const { t } = useTranslation();
+  return (
+    <Tooltip
+      label={
+        <span className="flex flex-col gap-0.5">
+          <span className="tabular-nums">{usageLine(usage)}</span>
+          {usage.costUsd != null && (
+            <span className="opacity-70">{t("assistant.usage.estimate")}</span>
+          )}
+        </span>
+      }
+    >
+      <button
+        type="button"
+        aria-label={t("assistant.usage.label")}
+        className="text-fg-subtle hover:text-fg cursor-help rounded-md p-1 transition-colors"
+      >
+        <Info className="size-3.5" />
+      </button>
+    </Tooltip>
   );
 }
 
