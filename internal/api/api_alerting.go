@@ -35,7 +35,9 @@ func (s *Server) ListMetricSeries(ctx context.Context, _ ListMetricSeriesRequest
 		if !s.can(ctx, id, info.Resource, rbac.LevelView) {
 			continue
 		}
-		out = append(out, MetricSeriesInfo{Resource: info.Resource, Metric: info.Metric, Unit: info.Unit})
+		entry := MetricSeriesInfo{Resource: info.Resource, Metric: info.Metric, Unit: info.Unit}
+		entry.LastSeen = info.LastSeen
+		out = append(out, entry)
 	}
 	return ListMetricSeries200JSONResponse(out), nil
 }

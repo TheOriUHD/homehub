@@ -5004,6 +5004,11 @@ export interface components {
             resource: string;
             metric: string;
             unit: string;
+            /**
+             * Format: date-time
+             * @description Newest recorded point, across raw samples and rollups. A series whose integration was removed keeps its catalog row and stops recording; absent means it never recorded anything.
+             */
+            lastSeen?: string | null;
         };
         AlertRule: {
             /** Format: uuid */

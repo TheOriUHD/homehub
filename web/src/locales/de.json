@@ -2117,7 +2117,13 @@
       "stateAt": "Zustand um {{time}}",
       "unpin": "Lösen",
       "addAlert": "Alarm aus dieser Serie erstellen"
-    }
+    },
+    "stale": "zuletzt {{since}}",
+    "staleNever": "nie aufgezeichnet",
+    "staleDays_one": "vor {{count}} Tag",
+    "staleDays_other": "vor {{count}} Tagen",
+    "staleHours_one": "vor {{count}} Stunde",
+    "staleHours_other": "vor {{count}} Stunden"
   },
   "alerts": {
     "title": "Alarme",

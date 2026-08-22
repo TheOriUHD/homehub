@@ -280,8 +280,25 @@ function UnitPlot({
           grid: { stroke: theme.grid, width: 1 },
           ticks: { show: false },
           font: "11px Inter Variable, sans-serif",
-          size: 52,
-          values: (_u, ticks) => ticks.map((t) => formatMetricValue(unit, t)),
+          // Fixed 52px clipped anything longer than about seven characters —
+          // "12.5 Mbps", "1,234 MB", "20.7 GB" all ran out of the frame.
+          // Size the gutter to the widest label uPlot is about to draw.
+          size: (_u, values) => {
+            const widest = (values ?? []).reduce((n, v) => Math.max(n, String(v ?? "").length), 0);
+            return Math.min(96, Math.max(52, widest * 6.5 + 14));
+          },
+          // Formatting can collapse distinct ticks onto the same text — a
+          // per-minute axis spanning 0..0.07 rounds every tick to "0/min".
+          // Draw each label once; the gridlines still mark every tick.
+          values: (_u, ticks) => {
+            let previous: string | null = null;
+            return ticks.map((t) => {
+              const label = formatMetricValue(unit, t);
+              if (label === previous) return "";
+              previous = label;
+              return label;
+            });
+          },
         },
       ],
       series: plotSeries,
@@ -426,7 +443,9 @@ function UnitPlot({
         <div ref={containerRef} />
         <div
           ref={tooltipRef}
-          className="bg-fg text-bg pointer-events-none absolute -top-1 z-10 min-w-32 -translate-x-1/2 space-y-0.5 rounded-md px-2.5 py-1.5 text-[11px] whitespace-nowrap opacity-0 transition-opacity duration-100"
+          // Inside the plot, not above it: -top-1 put the box over the card
+          // header and outside the chart's frame.
+          className="bg-overlay text-fg border-edge pointer-events-none absolute top-2 z-10 min-w-32 -translate-x-1/2 space-y-0.5 rounded-md border px-2.5 py-1.5 text-[11px] whitespace-nowrap opacity-0 shadow-2 transition-opacity duration-100"
         />
         {markerPos.map((m) => (
           <Tooltip key={`${m.ts}-${m.left}`} label={m.label}>
