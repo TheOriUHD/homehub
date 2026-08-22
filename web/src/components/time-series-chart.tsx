@@ -110,7 +110,14 @@ export function TimeSeriesChart({
           gradient.addColorStop(1, withAlpha(theme.accent, 0));
           return gradient;
         },
-        points: { show: false },
+        // A line needs two points to draw anything, so a series with only a
+        // handful of samples in view renders as blank canvas while the
+        // tooltip cheerfully reports its values. Show markers when the data
+        // is sparse; dense series stay clean lines.
+        points: {
+          show: (_u: uPlot, _si: number, idx0: number, idx1: number) => idx1 - idx0 < 30,
+          size: 5,
+        },
       },
     ];
     if (data.length > 2) {
@@ -118,7 +125,14 @@ export function TimeSeriesChart({
         stroke: theme.capacity,
         width: 1,
         dash: [4, 4],
-        points: { show: false },
+        // A line needs two points to draw anything, so a series with only a
+        // handful of samples in view renders as blank canvas while the
+        // tooltip cheerfully reports its values. Show markers when the data
+        // is sparse; dense series stay clean lines.
+        points: {
+          show: (_u: uPlot, _si: number, idx0: number, idx1: number) => idx1 - idx0 < 30,
+          size: 5,
+        },
       });
     }
 
