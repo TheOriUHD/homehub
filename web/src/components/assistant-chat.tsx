@@ -33,12 +33,13 @@ import { cn } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { ConfirmDialog } from "@/ui/confirm";
-import { Input, Textarea } from "@/ui/input";
+import { Textarea } from "@/ui/input";
 import { PageLoader } from "@/ui/misc";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { Slider } from "@/ui/slider";
 import { Switch } from "@/ui/switch";
 import { useToast } from "@/ui/toast";
+import { AssistantModelPicker, loadModelChoice } from "./assistant-model-picker";
 import {
   branchKey,
   buildPath,
@@ -189,7 +190,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ ...body, conversation }),
+          body: JSON.stringify({ ...body, conversation, model: loadModelChoice() }),
           signal: controller.signal,
         });
         if (!res.ok || !res.body) {
@@ -409,8 +410,12 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
         <div ref={bottomRef} />
       </div>
 
-      <div className="flex items-end gap-2">
-        <Input
+      {/* One composer surface — the field on top, controls beneath — so the
+          model switcher sits with the send button instead of floating loose
+          on the page. The border tracks focus as if it were a single input. */}
+      <div className="border-edge bg-surface shadow-1 focus-within:border-accent focus-within:ring-ring/30 rounded-xl border transition-colors focus-within:ring-2">
+        <textarea
+          rows={1}
           value={draft}
           placeholder={t("assistant.placeholder")}
           onChange={(e) => setDraft(e.target.value)}
@@ -420,26 +425,40 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
               submit();
             }
           }}
+          // Grows with the text to a few lines, then scrolls — a one-line
+          // field for a paragraph-long question is its own small misery.
+          className="text-fg placeholder:text-fg-subtle max-h-40 min-h-9 w-full resize-none bg-transparent px-3 pt-2.5 text-sm focus:outline-none"
         />
-        {streaming ? (
-          <Button variant="secondary" onClick={cancelSend} aria-label={t("assistant.cancel")}>
-            <Square className="size-3.5 fill-current" />
-          </Button>
-        ) : (
-          <Button
-            variant="primary"
-            disabled={!draft.trim()}
-            onClick={submit}
-            aria-label={t("assistant.send")}
-          >
-            <Send className="size-4" />
-          </Button>
-        )}
-        {path.length > 0 && (
-          <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)} aria-label={t("assistant.clear")}>
-            <Eraser className="size-4" />
-          </Button>
-        )}
+        <div className="flex items-center justify-between gap-2 px-2 pb-2">
+          <AssistantModelPicker compact={variant === "widget"} />
+          <div className="flex items-center gap-1">
+            {path.length > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setConfirmClear(true)}
+                aria-label={t("assistant.clear")}
+              >
+                <Eraser className="size-4" />
+              </Button>
+            )}
+            {streaming ? (
+              <Button size="sm" variant="secondary" onClick={cancelSend} aria-label={t("assistant.cancel")}>
+                <Square className="size-3.5 fill-current" />
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={!draft.trim()}
+                onClick={submit}
+                aria-label={t("assistant.send")}
+              >
+                <Send className="size-4" />
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
       <ConfirmDialog

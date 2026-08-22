@@ -2946,7 +2946,16 @@
     "enableHint": "Turns the assistant on for everyone. Each user only ever sees what their own permissions allow.",
     "provider": "AI provider",
     "providerHint": "Cloud APIs or a model running on your own hardware — anything OpenAI-compatible works.",
-    "model": "Model",
+    "model": {
+      "switch": "Switch model",
+      "pick": "Pick a model",
+      "premiumBadge": "Costlier",
+      "ultraBadge": "Priciest",
+      "confirmTitle": "Switch to {{model}}?",
+      "confirmBody": "New messages in this conversation will be answered by {{model}} until you switch back. The thread and its history stay exactly as they are.",
+      "confirmAction": "Use {{model}}",
+      "confirmWait": "Read the warning… {{seconds}}s"
+    },
     "modelHint": "The model name your provider expects.",
     "apiKey": "API key",
     "apiKeyHint": "Stored encrypted in the vault, never shown again.",

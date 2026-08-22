@@ -62,3 +62,41 @@ func TestOutcomePromptMarksFailures(t *testing.T) {
 		t.Error("a failed action must be reported as failed, not silently summarised")
 	}
 }
+
+// The picker posts a model id from the browser. Accepting it unchecked would
+// let anyone aim the instance's API key at any model the vendor sells.
+func TestResolveModelOnlyAcceptsTheCatalog(t *testing.T) {
+	for _, bad := range []string{"claude-opus-4-1", "gpt-4", "", "../etc/passwd", "claude-fable-5-turbo"} {
+		if _, ok := ResolveModel("anthropic", bad); ok {
+			t.Errorf("accepted %q, which is not in the Anthropic catalog", bad)
+		}
+	}
+	// A model belonging to a DIFFERENT provider must not pass either.
+	if _, ok := ResolveModel("anthropic", "gpt-5.6-sol"); ok {
+		t.Error("accepted an OpenAI model for the Anthropic provider")
+	}
+	for _, good := range []string{"claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5", "claude-fable-5"} {
+		if id, ok := ResolveModel("anthropic", good); !ok || id != good {
+			t.Errorf("rejected catalog model %q", good)
+		}
+	}
+	// The dated snapshot already in this instance's settings must resolve to
+	// its catalog row rather than reading as an unknown model.
+	if id, ok := ResolveModel("anthropic", "claude-haiku-4-5-20251001"); !ok || id != "claude-haiku-4-5" {
+		t.Errorf("pinned Haiku snapshot did not resolve: %q %v", id, ok)
+	}
+	// Providers with no catalog keep their free-text field; nothing resolves.
+	if _, ok := ResolveModel("ollama", "qwen3:8b"); ok {
+		t.Error("a catalog-less provider must not resolve picker models")
+	}
+}
+
+// Gated models must carry the text the confirmation shows; a gate with no
+// stated cost is just an extra click.
+func TestGatedModelsExplainTheirCost(t *testing.T) {
+	for _, m := range append(append([]ModelInfo{}, AnthropicModels...), OpenAIModels...) {
+		if m.Tier != TierStandard && m.CostNote == "" {
+			t.Errorf("%s is gated but says nothing about what it costs", m.ID)
+		}
+	}
+}

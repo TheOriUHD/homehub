@@ -2946,7 +2946,16 @@
     "enableHint": "Schaltet den Assistenten für alle ein. Jeder Benutzer sieht immer nur, was seine eigenen Berechtigungen erlauben.",
     "provider": "KI-Provider",
     "providerHint": "Cloud-APIs oder ein Modell auf deiner eigenen Hardware — alles OpenAI-kompatible funktioniert.",
-    "model": "Modell",
+    "model": {
+      "switch": "Modell wechseln",
+      "pick": "Modell wählen",
+      "premiumBadge": "Teurer",
+      "ultraBadge": "Am teuersten",
+      "confirmTitle": "Zu {{model}} wechseln?",
+      "confirmBody": "Neue Nachrichten in dieser Unterhaltung beantwortet {{model}}, bis du zurückwechselst. Der Verlauf bleibt unverändert.",
+      "confirmAction": "{{model}} verwenden",
+      "confirmWait": "Warnung lesen… {{seconds}}s"
+    },
     "modelHint": "Der Modellname, den dein Provider erwartet.",
     "apiKey": "API-Schlüssel",
     "apiKeyHint": "Verschlüsselt im Tresor gespeichert, wird nie wieder angezeigt.",

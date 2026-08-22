@@ -16,10 +16,19 @@ import (
 	"github.com/TheOriUHD/homehub/internal/rbac"
 )
 
-// assistantRuntime resolves the configured provider + a Service for one turn,
-// or a (code, message) pair when the assistant isn't usable.
-func (s *Server) assistantRuntime(ctx context.Context, id *httpctx.Identity) (*assistant.Service, assistant.Provider, assistant.Config, string, string) {
+// assistantRuntime resolves the provider for one turn. `pick` is an optional
+// per-turn model chosen in the chat's model switcher: it only ever selects
+// from the provider's own catalog, so a browser cannot point the API key at
+// an arbitrary model, and it never touches the instance-wide default.
+func (s *Server) assistantRuntime(ctx context.Context, id *httpctx.Identity, pick string) (*assistant.Service, assistant.Provider, assistant.Config, string, string) {
 	enabled, providerName, model, baseURL := s.settings.Assistant(ctx)
+	if pick != "" {
+		resolved, ok := assistant.ResolveModel(providerName, pick)
+		if !ok {
+			return nil, nil, assistant.Config{}, "unknown_model", "that model is not offered by the configured provider"
+		}
+		model = resolved
+	}
 	if !enabled {
 		return nil, nil, assistant.Config{}, "assistant_disabled", "the assistant is not enabled"
 	}
@@ -92,6 +101,7 @@ func (s *Server) HandleAssistantChatStream(w http.ResponseWriter, r *http.Reques
 		Conversation string `json:"conversation"`
 		ParentID     *int64 `json:"parentId"`
 		Regenerate   bool   `json:"regenerate"`
+		Model        string `json:"model"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body); err != nil {
 		http.Error(w, `{"type":"error","message":"bad request"}`, http.StatusBadRequest)
@@ -125,7 +135,7 @@ func (s *Server) HandleAssistantChatStream(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id)
+	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id, strings.TrimSpace(body.Model))
 	if code != "" {
 		write(assistant.Event{Type: "error", Message: emsg})
 		return
@@ -157,6 +167,7 @@ type applyActionsBody struct {
 	// continuation hangs off it, so the resumed answer stays on the branch
 	// the user was reading.
 	ParentID *int64 `json:"parentId"`
+	Model    string `json:"model"`
 }
 
 // HandleAssistantApply executes the write actions the user approved and then
@@ -214,7 +225,7 @@ func (s *Server) HandleAssistantApply(w http.ResponseWriter, r *http.Request) {
 		write(assistant.Event{Type: "done"})
 		return
 	}
-	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id)
+	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id, strings.TrimSpace(body.Model))
 	if code != "" {
 		write(assistant.Event{Type: "error", Message: emsg})
 		return
