@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
@@ -7,16 +7,24 @@ import remarkGfm from "remark-gfm";
 import {
   Box,
   Check,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
   Eraser,
   Gamepad2,
   Lightbulb,
   Loader2,
+  Pencil,
   Pickaxe,
+  RotateCcw,
   Send,
   Server,
   Square,
   ShieldCheck,
   Sparkles,
+  Terminal,
+  Volume2,
+  VolumeX,
   Wrench,
   X,
 } from "lucide-react";
@@ -25,20 +33,37 @@ import { cn } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { ConfirmDialog } from "@/ui/confirm";
-import { Input } from "@/ui/input";
+import { Input, Textarea } from "@/ui/input";
 import { PageLoader } from "@/ui/misc";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { Slider } from "@/ui/slider";
 import { Switch } from "@/ui/switch";
 import { useToast } from "@/ui/toast";
+import {
+  branchKey,
+  buildPath,
+  loadChoices,
+  loadOutcomes,
+  saveChoices,
+  saveOutcomes,
+  ROOT,
+  type ActionOutcome,
+  type ChatMessage,
+  type OutcomeMap,
+  type PathEntry,
+} from "./assistant-branches";
 
 /**
- * The shared assistant conversation — one rolling thread per user, shown
+ * The shared assistant conversation — one thread per app session, shown
  * identically on the /assistant page and in the floating widget (both ride
  * the same query key, so they stay in sync). Assistant messages render
  * markdown, and every action the model took becomes a live chip: a light
  * it touched opens instant controls, a container it restarted shows its
  * lifecycle buttons. The chat is the receipt AND the remote.
+ *
+ * The thread is a TREE. Editing a question or retrying an answer forks a
+ * branch rather than destroying what was there, and the reader cycles between
+ * branches with the ‹ n/m › control on the message where they diverge.
  */
 
 export type AssistantStep = {
@@ -47,27 +72,33 @@ export type AssistantStep = {
   isError?: boolean;
 };
 
-type HistoryItem = {
-  id: number;
-  role: "user" | "assistant";
-  content: string;
-  tools?: string[];
-  steps?: AssistantStep[];
-  ts: string;
-  pending?: boolean;
-};
-
 type ToolStep = { name: string; running: boolean; isError?: boolean };
 type PendingAction = { kind: string; summary: string; params: unknown };
-type Live = { userText: string; segments: string[]; tools: ToolStep[]; error?: string };
+
+/** The in-progress turn. userText is null while regenerating, where the
+ *  question is already in the transcript and must not be echoed twice. */
+type Live = {
+  userText: string | null;
+  segments: string[];
+  tools: ToolStep[];
+  outcomes: ActionOutcome[];
+  error?: string;
+};
+
 type StreamEvent = {
-  type: "text" | "tool" | "tool_result" | "confirm" | "done" | "error";
+  type: "user" | "text" | "tool" | "tool_result" | "confirm" | "action_result" | "done" | "error";
   text?: string;
   tool?: string;
   isError?: boolean;
   actions?: PendingAction[];
   message?: string;
+  messageId?: number;
+  outcome?: ActionOutcome;
 };
+
+/** What the model queued, and the message it hangs off so the resumed answer
+ *  lands on the branch the user is reading. */
+type Pending = { actions: PendingAction[]; parentId: number | null };
 
 /** Friendly label for a tool name in the live spinner chips. */
 const toolLabel = (name: string) => name.replace(/_/g, " ");
@@ -102,27 +133,54 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
       unwrap(await api.GET("/assistant/history", { params: { query: { conversation } } })),
   });
 
-  // Streaming turn: interim text, tool spinners, a confirmation card for
-  // write actions. `live` is the in-progress assistant bubble; `pending` is
-  // the write actions awaiting the user's approval after a turn finishes.
+  const [choice, setChoice] = useState<Record<number, number>>(() => loadChoices(conversation));
+  const chooseBranch = useCallback(
+    (parent: number, child: number) =>
+      setChoice((prev) => {
+        const next = { ...prev, [parent]: child };
+        saveChoices(conversation, next);
+        return next;
+      }),
+    [conversation],
+  );
+
+  // Raw command output for the answers that reported on it, so the receipt
+  // stays one click away after the turn ends.
+  const [outcomes, setOutcomes] = useState<OutcomeMap>(() => loadOutcomes(conversation));
+
   const [live, setLive] = useState<Live | null>(null);
-  const [pending, setPending] = useState<PendingAction[] | null>(null);
-  const [applying, setApplying] = useState(false);
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
   const streaming = live !== null;
 
-  const sendStream = useCallback(
-    async (message: string) => {
+  const items = useMemo(
+    () => ((history.data as ChatMessage[] | undefined) ?? []),
+    [history.data],
+  );
+  const path = useMemo(() => buildPath(items, choice), [items, choice]);
+  const knownIds = useMemo(() => new Set(items.map((m) => m.id)), [items]);
+  const leafId = path.length > 0 ? path[path.length - 1].msg.id : null;
+
+  /**
+   * runStream drives one NDJSON turn — a new message, an edit branch, a
+   * retry, or the continuation after approving actions — into the live
+   * bubble. `body` decides which; `showUser` is the question to echo while it
+   * runs (null when the transcript already shows it).
+   */
+  const runStream = useCallback(
+    async (url: string, body: Record<string, unknown>, showUser: string | null) => {
       setPending(null);
       const controller = new AbortController();
       abortRef.current = controller;
-      setLive({ userText: message, segments: [], tools: [] });
-      let confirmActions: PendingAction[] | null = null;
+      setLive({ userText: showUser, segments: [], tools: [], outcomes: [] });
+      let confirm: Pending | null = null;
+      const ran: ActionOutcome[] = [];
       try {
-        const res = await fetch("/api/assistant/chat/stream", {
+        const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ message, conversation }),
+          body: JSON.stringify({ ...body, conversation }),
           signal: controller.signal,
         });
         if (!res.ok || !res.body) {
@@ -142,11 +200,29 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
             if (!line.trim()) continue;
             let e: StreamEvent;
             try {
-              e = JSON.parse(line);
+              e = JSON.parse(line) as StreamEvent;
             } catch {
               continue;
             }
-            if (e.type === "confirm") confirmActions = e.actions ?? null;
+            // Follow the branch this turn just created, so the reader lands on
+            // the new answer rather than on the one it forked away from.
+            if ((e.type === "user" || e.type === "done") && e.messageId) {
+              const parent = e.type === "user" ? (body.parentId as number | null) : null;
+              if (e.type === "user") chooseBranch(parent ?? ROOT, e.messageId);
+              else if (body.regenerate) chooseBranch(body.parentId as number, e.messageId);
+            }
+            if (e.type === "action_result" && e.outcome) ran.push(e.outcome);
+            if (e.type === "done" && e.messageId && ran.length > 0) {
+              const id = e.messageId;
+              setOutcomes((prev) => {
+                const next = { ...prev, [id]: ran };
+                saveOutcomes(conversation, next);
+                return next;
+              });
+            }
+            if (e.type === "confirm") {
+              confirm = { actions: e.actions ?? [], parentId: e.messageId ?? null };
+            }
             setLive((prev) => {
               if (!prev) return prev;
               switch (e.type) {
@@ -164,6 +240,8 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
                   }
                   return { ...prev, tools };
                 }
+                case "action_result":
+                  return e.outcome ? { ...prev, outcomes: [...prev.outcomes, e.outcome] } : prev;
                 case "error":
                   return { ...prev, error: e.message };
                 default:
@@ -173,7 +251,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
           }
         }
         await queryClient.invalidateQueries({ queryKey: ["assistant", "history"] });
-        if (confirmActions && confirmActions.length > 0) setPending(confirmActions);
+        if (confirm && confirm.actions.length > 0) setPending(confirm);
       } catch (err) {
         if (!(err instanceof DOMException && err.name === "AbortError")) {
           toast("error", t("assistant.failed"), err instanceof Error ? err.message : t("common.unknownError"));
@@ -184,33 +262,51 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
         setLive(null);
       }
     },
-    [queryClient, t, toast],
+    [chooseBranch, conversation, queryClient, t, toast],
   );
 
   const cancelSend = useCallback(() => abortRef.current?.abort(), []);
 
-  const applyActions = useCallback(async () => {
+  const send = useCallback(
+    (message: string, parentId: number | null) =>
+      void runStream("/api/assistant/chat/stream", { message, parentId }, message),
+    [runStream],
+  );
+
+  /** Retry re-answers the SAME question: a sibling of the answer it replaces,
+   *  reachable again through the branch switcher. */
+  const retry = useCallback(
+    (entry: PathEntry) => {
+      const parent = entry.msg.parentId;
+      if (parent == null) return;
+      void runStream("/api/assistant/chat/stream", { parentId: parent, regenerate: true }, null);
+    },
+    [runStream],
+  );
+
+  /** Editing a question forks from the same point the original hung off. */
+  const submitEdit = useCallback(
+    (entry: PathEntry, text: string) => {
+      setEditing(null);
+      void runStream(
+        "/api/assistant/chat/stream",
+        { message: text, parentId: entry.msg.parentId ?? null },
+        text,
+      );
+    },
+    [runStream],
+  );
+
+  /** Approving resumes the paused turn: the actions run, then the model gets
+   *  their output and finishes the answer it was in the middle of. */
+  const applyActions = useCallback(() => {
     if (!pending) return;
-    setApplying(true);
-    try {
-      const res = await fetch("/api/assistant/actions/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ actions: pending, conversation }),
-      });
-      if (!res.ok) {
-        toast("error", t("assistant.failed"));
-        return;
-      }
-      await queryClient.invalidateQueries({ queryKey: ["assistant", "history"] });
-      setPending(null);
-    } catch {
-      toast("error", t("assistant.failed"));
-    } finally {
-      setApplying(false);
-    }
-  }, [pending, conversation, queryClient, t, toast]);
+    void runStream(
+      "/api/assistant/actions/apply",
+      { actions: pending.actions, parentId: pending.parentId },
+      null,
+    );
+  }, [pending, runStream]);
 
   const clear = useMutation({
     mutationFn: async () => {
@@ -218,21 +314,23 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
     },
     onSuccess: () => {
       setConfirmClear(false);
+      setChoice({});
+      saveChoices(conversation, {});
+      setOutcomes({});
+      saveOutcomes(conversation, {});
       void queryClient.invalidateQueries({ queryKey: ["assistant", "history"] });
     },
   });
 
-  const items: HistoryItem[] = [...((history.data as HistoryItem[] | undefined) ?? [])];
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [items.length, live, pending]);
+  }, [path.length, live, pending]);
 
   const submit = () => {
     const message = draft.trim();
     if (!message || streaming) return;
     setDraft("");
-    void sendStream(message);
+    send(message, leafId);
   };
 
   return (
@@ -244,30 +342,45 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
         )}
       >
         {history.isLoading && <PageLoader className="py-10" />}
-        {!history.isLoading && items.length === 0 && (
+        {!history.isLoading && path.length === 0 && !live && (
           <div className="text-fg-muted flex h-full flex-col items-center justify-center gap-1 py-10 text-center text-sm">
             <Sparkles className="text-fg-subtle mb-1 size-5" />
             {t("assistant.emptyHint")}
             <span className="text-fg-subtle text-[12.5px]">{t("assistant.emptyExamples")}</span>
           </div>
         )}
-        {items.map((item) => (
-          <MessageBubble key={item.id} item={item} compact={variant === "widget"} />
+        {path.map((entry) => (
+          <Fragment key={entry.msg.id}>
+            {(outcomes[entry.msg.id] ?? []).map((o, i) => (
+              <ActionOutcomeCard key={i} outcome={o} />
+            ))}
+            <MessageBubble
+              entry={entry}
+              compact={variant === "widget"}
+              busy={streaming}
+              editing={editing === entry.msg.id}
+              onEdit={() => setEditing(entry.msg.id)}
+              onCancelEdit={() => setEditing(null)}
+              onSubmitEdit={(text) => submitEdit(entry, text)}
+              onRetry={() => retry(entry)}
+              onPickBranch={(childId) => chooseBranch(branchKey(entry.msg, knownIds), childId)}
+            />
+          </Fragment>
         ))}
         {live && (
           <>
-            <MessageBubble
-              key="live-user"
-              item={{ id: -1, role: "user", content: live.userText, ts: "" }}
-              compact={variant === "widget"}
-            />
+            {live.userText !== null && (
+              <SimpleBubble role="user" content={live.userText} />
+            )}
+            {live.outcomes.map((o, i) => (
+              <ActionOutcomeCard key={i} outcome={o} />
+            ))}
             <StreamingBubble live={live} />
           </>
         )}
         {pending && !live && (
           <ConfirmCard
-            actions={pending}
-            applying={applying}
+            actions={pending.actions}
             onApprove={applyActions}
             onCancel={() => setPending(null)}
           />
@@ -301,7 +414,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
             <Send className="size-4" />
           </Button>
         )}
-        {items.length > 0 && (
+        {path.length > 0 && (
           <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)} aria-label={t("assistant.clear")}>
             <Eraser className="size-4" />
           </Button>
@@ -323,9 +436,10 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
 
 /* ---- message rendering ------------------------------------------------------ */
 
-function MessageBubble({ item, compact }: { item: HistoryItem; compact?: boolean }) {
-  const { t } = useTranslation();
-  const isUser = item.role === "user";
+/** A bubble with no history behind it — the question echoed while its turn
+ *  is still running, before the stored row exists. */
+function SimpleBubble({ role, content }: { role: "user" | "assistant"; content: string }) {
+  const isUser = role === "user";
   return (
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
       <div
@@ -334,20 +448,290 @@ function MessageBubble({ item, compact }: { item: HistoryItem; compact?: boolean
           isUser ? "bg-accent text-accent-fg" : "bg-bg-subtle text-fg",
         )}
       >
-        {item.pending ? (
-          <span className="text-fg-muted flex items-center gap-2 text-[13px]">
-            <Sparkles className="size-3.5 animate-pulse" />
-            {t("assistant.thinking")}
-          </span>
-        ) : isUser ? (
+        <p className="whitespace-pre-wrap">{content}</p>
+      </div>
+    </div>
+  );
+}
+
+function MessageBubble({
+  entry,
+  compact,
+  busy,
+  editing,
+  onEdit,
+  onCancelEdit,
+  onSubmitEdit,
+  onRetry,
+  onPickBranch,
+}: {
+  entry: PathEntry;
+  compact?: boolean;
+  busy: boolean;
+  editing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSubmitEdit: (text: string) => void;
+  onRetry: () => void;
+  onPickBranch: (childId: number) => void;
+}) {
+  const item = entry.msg;
+  const isUser = item.role === "user";
+
+  if (editing) {
+    return <EditBubble initial={item.content} onCancel={onCancelEdit} onSubmit={onSubmitEdit} />;
+  }
+
+  return (
+    <div className={cn("group/msg flex flex-col gap-1", isUser ? "items-end" : "items-start")}>
+      <div
+        className={cn(
+          "max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm",
+          isUser ? "bg-accent text-accent-fg" : "bg-bg-subtle text-fg",
+        )}
+      >
+        {isUser ? (
           <p className="whitespace-pre-wrap">{item.content}</p>
         ) : (
           <AssistantMarkdown content={item.content} />
         )}
-        {!isUser && !item.pending && <ActionChips steps={item.steps ?? []} compact={compact} />}
+        {!isUser && <ActionChips steps={item.steps ?? []} compact={compact} />}
+      </div>
+      <MessageActions
+        entry={entry}
+        busy={busy}
+        onEdit={onEdit}
+        onRetry={onRetry}
+        onPickBranch={onPickBranch}
+      />
+    </div>
+  );
+}
+
+/** The edit-in-place form: submitting forks a new branch from the same point
+ *  the original question hung off, leaving the old one reachable. */
+function EditBubble({
+  initial,
+  onCancel,
+  onSubmit,
+}: {
+  initial: string;
+  onCancel: () => void;
+  onSubmit: (text: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [text, setText] = useState(initial);
+  const submit = () => {
+    const trimmed = text.trim();
+    if (trimmed) onSubmit(trimmed);
+  };
+  return (
+    <div className="flex justify-end">
+      <div className="border-accent/50 bg-surface w-full max-w-[85%] rounded-xl border p-2.5">
+        <Textarea
+          autoFocus
+          rows={3}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              submit();
+            }
+            if (e.key === "Escape") onCancel();
+          }}
+        />
+        <div className="mt-2 flex justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={onCancel}>
+            {t("common.cancel")}
+          </Button>
+          <Button size="sm" variant="primary" disabled={!text.trim()} onClick={submit}>
+            {t("assistant.actions.saveEdit")}
+          </Button>
+        </div>
       </div>
     </div>
   );
+}
+
+/**
+ * The per-message controls. They stay faint until the message is hovered or
+ * focused, so a long transcript doesn't read as a wall of buttons — except
+ * the branch switcher, which is state, not an action, and is always legible.
+ */
+function MessageActions({
+  entry,
+  busy,
+  onEdit,
+  onRetry,
+  onPickBranch,
+}: {
+  entry: PathEntry;
+  busy: boolean;
+  onEdit: () => void;
+  onRetry: () => void;
+  onPickBranch: (childId: number) => void;
+}) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const isUser = entry.msg.role === "user";
+  const speech = useSpeech();
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(entry.msg.content);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      toast("error", t("assistant.actions.copyFailed"));
+    }
+  };
+
+  return (
+    <div className={cn("flex items-center gap-0.5", isUser ? "flex-row-reverse" : "flex-row")}>
+      {entry.siblings.length > 1 && (
+        <BranchSwitcher entry={entry} busy={busy} onPick={onPickBranch} />
+      )}
+      <div className="flex items-center gap-0.5 opacity-100 transition-opacity focus-within:opacity-100 group-hover/msg:opacity-100 [@media(hover:hover)]:opacity-0">
+        <IconAction label={copied ? t("assistant.actions.copied") : t("assistant.actions.copy")} onClick={copy}>
+          {copied ? <Check className="text-success size-3.5" /> : <Copy className="size-3.5" />}
+        </IconAction>
+        {isUser ? (
+          <IconAction label={t("assistant.actions.edit")} onClick={onEdit} disabled={busy}>
+            <Pencil className="size-3.5" />
+          </IconAction>
+        ) : (
+          <>
+            <IconAction label={t("assistant.actions.retry")} onClick={onRetry} disabled={busy}>
+              <RotateCcw className="size-3.5" />
+            </IconAction>
+            {speech.supported && (
+              <IconAction
+                label={speech.speaking ? t("assistant.actions.stopSpeaking") : t("assistant.actions.speak")}
+                onClick={() => (speech.speaking ? speech.stop() : speech.speak(entry.msg.content))}
+              >
+                {speech.speaking ? <VolumeX className="text-accent size-3.5" /> : <Volume2 className="size-3.5" />}
+              </IconAction>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function IconAction({
+  label,
+  onClick,
+  disabled,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="text-fg-subtle hover:text-fg hover:bg-surface-hover cursor-pointer rounded-md p-1 transition-colors disabled:pointer-events-none disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}
+
+/** ‹ 2/3 › — moves between the alternative answers or questions that fork at
+ *  this point in the conversation. */
+function BranchSwitcher({
+  entry,
+  busy,
+  onPick,
+}: {
+  entry: PathEntry;
+  busy: boolean;
+  onPick: (childId: number) => void;
+}) {
+  const { t } = useTranslation();
+  const at = entry.index;
+  const total = entry.siblings.length;
+  return (
+    <span className="text-fg-subtle flex items-center gap-0.5 text-[11px] tabular-nums">
+      <button
+        type="button"
+        aria-label={t("assistant.actions.prevBranch")}
+        disabled={busy || at === 0}
+        onClick={() => onPick(entry.siblings[at - 1])}
+        className="hover:text-fg cursor-pointer rounded p-0.5 transition-colors disabled:pointer-events-none disabled:opacity-30"
+      >
+        <ChevronLeft className="size-3.5" />
+      </button>
+      {at + 1}/{total}
+      <button
+        type="button"
+        aria-label={t("assistant.actions.nextBranch")}
+        disabled={busy || at === total - 1}
+        onClick={() => onPick(entry.siblings[at + 1])}
+        className="hover:text-fg cursor-pointer rounded p-0.5 transition-colors disabled:pointer-events-none disabled:opacity-30"
+      >
+        <ChevronRight className="size-3.5" />
+      </button>
+    </span>
+  );
+}
+
+/**
+ * useSpeech wraps the browser's speech synthesis. It reads the message as
+ * PROSE: fenced code, inline code and markdown punctuation are stripped, since
+ * a wall of shell output read aloud character by character is useless.
+ */
+function useSpeech() {
+  const [speaking, setSpeaking] = useState(false);
+  const supported = typeof window !== "undefined" && "speechSynthesis" in window;
+
+  // A page navigated away from mid-sentence would otherwise keep talking.
+  useEffect(() => () => { if (supported) window.speechSynthesis.cancel(); }, [supported]);
+
+  const stop = useCallback(() => {
+    if (!supported) return;
+    window.speechSynthesis.cancel();
+    setSpeaking(false);
+  }, [supported]);
+
+  const speak = useCallback(
+    (markdown: string) => {
+      if (!supported) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(speechText(markdown));
+      utterance.onend = () => setSpeaking(false);
+      utterance.onerror = () => setSpeaking(false);
+      setSpeaking(true);
+      window.speechSynthesis.speak(utterance);
+    },
+    [supported],
+  );
+
+  return { supported, speaking, speak, stop };
+}
+
+/** speechText reduces a markdown answer to what is worth hearing. */
+export function speechText(markdown: string): string {
+  return markdown
+    .replace(/```[\s\S]*?```/g, " (code block) ")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s*[#>]+\s*/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/[*_~|]/g, "")
+    .replace(/\n{2,}/g, ". ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** The in-progress assistant bubble: interim text as it streams, a spinner
@@ -398,16 +782,56 @@ function StreamingBubble({ live }: { live: Live }) {
   );
 }
 
-/** The write-action confirmation gate: nothing was changed yet — the user
- * approves (or cancels) the actions the assistant queued. */
+/**
+ * What an approved action actually did. The raw output belongs in a terminal
+ * frame, not in the prose — the model quotes the lines that matter in its
+ * answer, and this stays available underneath, collapsed by default.
+ */
+function ActionOutcomeCard({ outcome }: { outcome: ActionOutcome }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const lines = outcome.output ? outcome.output.split("\n").length : 0;
+  return (
+    <div className="flex justify-start">
+      <div className="border-edge bg-surface max-w-[85%] min-w-0 rounded-xl border px-3.5 py-2.5">
+        <p className="text-fg flex items-center gap-2 text-[12.5px] font-medium">
+          {outcome.failed ? (
+            <X className="text-danger size-3.5 shrink-0" />
+          ) : (
+            <Check className="text-success size-3.5 shrink-0" />
+          )}
+          <Terminal className="text-fg-subtle size-3.5 shrink-0" />
+          <span className="min-w-0 truncate">{outcome.summary}</span>
+        </p>
+        {outcome.output && (
+          <>
+            <button
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              className="text-fg-subtle hover:text-fg mt-1.5 cursor-pointer text-[11.5px] underline underline-offset-2"
+            >
+              {open ? t("assistant.actions.hideOutput") : t("assistant.actions.showOutput", { count: lines })}
+            </button>
+            {open && (
+              <pre className="bg-bg border-edge text-fg-muted mt-1.5 max-h-72 overflow-auto rounded-md border px-3 py-2 font-mono text-[12px] whitespace-pre">
+                {outcome.output}
+              </pre>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The write-action confirmation gate: nothing has changed yet. Approving
+ *  runs the actions and resumes the answer they were queued for. */
 function ConfirmCard({
   actions,
-  applying,
   onApprove,
   onCancel,
 }: {
   actions: PendingAction[];
-  applying: boolean;
   onApprove: () => void;
   onCancel: () => void;
 }) {
@@ -420,16 +844,16 @@ function ConfirmCard({
           {actions.map((a, i) => (
             <li key={i} className="text-fg-muted flex items-start gap-1.5 text-[12.5px]">
               <span className="bg-accent mt-1.5 size-1.5 shrink-0 rounded-full" />
-              {a.summary}
+              <span className="min-w-0 break-words">{a.summary}</span>
             </li>
           ))}
         </ul>
         <div className="flex gap-2">
-          <Button size="sm" variant="primary" loading={applying} onClick={onApprove}>
+          <Button size="sm" variant="primary" onClick={onApprove}>
             <Check className="size-3.5" />
             {t("assistant.approve")}
           </Button>
-          <Button size="sm" variant="ghost" disabled={applying} onClick={onCancel}>
+          <Button size="sm" variant="ghost" onClick={onCancel}>
             {t("common.cancel")}
           </Button>
         </div>
@@ -442,7 +866,7 @@ function ConfirmCard({
  * styled with design tokens, no raw HTML ever. */
 function AssistantMarkdown({ content }: { content: string }) {
   return (
-    <div className="space-y-2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+    <div className="min-w-0 space-y-2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -465,14 +889,14 @@ function AssistantMarkdown({ content }: { content: string }) {
           code: ({ className, children }) => {
             const block = /language-/.test(className ?? "");
             return block ? (
-              <code className="block font-mono text-[12.5px]">{children}</code>
+              <code className="block font-mono text-[12.5px] whitespace-pre">{children}</code>
             ) : (
               <code className="bg-bg rounded px-1 py-0.5 font-mono text-[12.5px]">{children}</code>
             );
           },
           pre: (props) => (
             <pre
-              className="bg-bg border-edge overflow-x-auto rounded-md border px-3 py-2 text-[12.5px]"
+              className="bg-bg border-edge max-h-96 overflow-auto rounded-md border px-3 py-2 text-[12.5px]"
               {...props}
             />
           ),

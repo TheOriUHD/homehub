@@ -2951,7 +2951,7 @@
     "apiKey": "API-Schlüssel",
     "apiKeyHint": "Verschlüsselt im Tresor gespeichert, wird nie wieder angezeigt.",
     "apiKeySetHint": "Ein Schlüssel ist gespeichert. Gib einen neuen ein, um ihn zu ersetzen, oder lass das Feld leer, um ihn zu behalten.",
-    "scopeNote": "Der Assistent hat derzeit nur Lese-Werkzeuge: Systeme, Alarme, Metriken, Benachrichtigungen und (mit Berechtigung) das Audit-Log. Er kann nichts verändern.",
+    "scopeNote": "Der Assistent liest deine Systeme und kann sie steuern — Home-Assistant-Geräte, Container- und Gast-Lebenszyklus, DNS-Blocking, Kalendereinträge und Befehle auf registrierten SSH-Hosts. Alles Destruktive wird zuerst vorgeschlagen und läuft erst nach deiner Freigabe. Jedes Tool läuft mit den Rechten des jeweiligen Nutzers und wird protokolliert.",
     "saved": "Assistent-Einstellungen gespeichert",
     "chatTitle": "Unterhaltung",
     "clear": "Leeren",
@@ -3023,7 +3023,22 @@
     },
     "working": "Arbeite…",
     "confirmTitle": "Diese Änderungen bestätigen?",
-    "approve": "Bestätigen"
+    "approve": "Bestätigen",
+    "actions": {
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "copyFailed": "Konnte nicht in die Zwischenablage kopieren",
+      "edit": "Bearbeiten",
+      "saveEdit": "Senden",
+      "retry": "Erneut versuchen",
+      "speak": "Vorlesen",
+      "stopSpeaking": "Vorlesen stoppen",
+      "prevBranch": "Vorherige Version",
+      "nextBranch": "Nächste Version",
+      "showOutput": "Ausgabe zeigen ({{count}} Zeile)",
+      "showOutput_other": "Ausgabe zeigen ({{count}} Zeilen)",
+      "hideOutput": "Ausgabe verbergen"
+    }
   },
   "tools": {
     "title": "Werkzeuge",

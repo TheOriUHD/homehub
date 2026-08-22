@@ -4609,7 +4609,7 @@ export interface paths {
         };
         /**
          * The caller's conversation history
-         * @description Web-channel history only — the Telegram bridge keeps a fully separate thread. Scoped to the given per-app-session conversation id.
+         * @description Web-channel history only — the Telegram bridge keeps a fully separate thread. Scoped to the given per-app-session conversation id. Returns EVERY branch of the conversation tree; parentId links each message to the one it follows, and the client walks one path through it (editing a question or retrying an answer creates a sibling branch).
          */
         get: operations["getAssistantHistory"];
         put?: never;
@@ -15061,6 +15061,11 @@ export interface operations {
                     "application/json": {
                         /** Format: int64 */
                         id: number;
+                        /**
+                         * Format: int64
+                         * @description The message this one follows; absent for a thread's first message.
+                         */
+                        parentId?: number | null;
                         /** @enum {string} */
                         role: "user" | "assistant";
                         content: string;

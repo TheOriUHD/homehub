@@ -274,17 +274,19 @@ func (s *Server) GetAssistantHistory(ctx context.Context, req GetAssistantHistor
 	out := GetAssistantHistory200JSONResponse{}
 	for _, row := range rows {
 		item := struct {
-			Content string                                     `json:"content"`
-			Id      int64                                      `json:"id"`
-			Role    GetAssistantHistory200JSONResponseBodyRole `json:"role"`
-			Steps   *[]AssistantStep                           `json:"steps,omitempty"`
-			Tools   *[]string                                  `json:"tools,omitempty"`
-			Ts      time.Time                                  `json:"ts"`
+			Content  string                                     `json:"content"`
+			Id       int64                                      `json:"id"`
+			ParentId *int64                                     `json:"parentId,omitempty"`
+			Role     GetAssistantHistory200JSONResponseBodyRole `json:"role"`
+			Steps    *[]AssistantStep                           `json:"steps,omitempty"`
+			Tools    *[]string                                  `json:"tools,omitempty"`
+			Ts       time.Time                                  `json:"ts"`
 		}{
-			Content: row.Content,
-			Id:      row.ID,
-			Role:    GetAssistantHistory200JSONResponseBodyRole(row.Role),
-			Ts:      row.CreatedAt,
+			Content:  row.Content,
+			Id:       row.ID,
+			ParentId: row.ParentID,
+			Role:     GetAssistantHistory200JSONResponseBodyRole(row.Role),
+			Ts:       row.CreatedAt,
 		}
 		if names := toolNamesFromTrace(row.ToolTrace); len(names) > 0 {
 			item.Tools = &names
