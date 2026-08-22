@@ -713,6 +713,9 @@ function UsageInfo({ usage }: { usage: NonNullable<ChatMessage["usage"]> }) {
   const { t } = useTranslation();
   return (
     <Tooltip
+      // Opens downward: the actions row sits under the message, so a bubble
+      // above it covers the answer you just read.
+      side="bottom"
       // One line, sized to its content, on a surface that belongs to the
       // current theme rather than the inverted chip short labels use.
       className="bg-overlay text-fg border-edge max-w-none border font-normal whitespace-nowrap"
