@@ -215,7 +215,53 @@ func (s *Service) threadTurns(ctx context.Context, access Access, leafID int64) 
 	for _, msg := range history {
 		turns = append(turns, Turn{Role: msg.Role, Text: msg.Content})
 	}
-	return turns, nil
+	return normalizeTurns(turns), nil
+}
+
+// normalizeTurns makes stored history safe to send to any provider.
+//
+// A chat thread alternates by construction, but a Telegram thread does not:
+// HomeHub pushes alerts into it unprompted, so it can open with an assistant
+// message and carry several in a row. Providers disagree about that — some
+// reject a conversation that does not begin with a user turn, some reject two
+// turns of the same role — so it is folded once here rather than three times
+// in the engines.
+//
+// Nothing is dropped: consecutive turns merge, and a leading run of
+// notifications is carried into the first user turn as quoted context, which
+// is what makes "what caused that?" answerable.
+func normalizeTurns(turns []Turn) []Turn {
+	merged := make([]Turn, 0, len(turns))
+	for _, turn := range turns {
+		if n := len(merged); n > 0 && merged[n-1].Role == turn.Role &&
+			len(turn.Calls) == 0 && len(turn.Results) == 0 &&
+			len(merged[n-1].Calls) == 0 && len(merged[n-1].Results) == 0 {
+			merged[n-1].Text = strings.TrimSpace(merged[n-1].Text + "\n\n" + turn.Text)
+			continue
+		}
+		merged = append(merged, turn)
+	}
+
+	// Fold any leading assistant turns into the first user message.
+	lead := 0
+	for lead < len(merged) && merged[lead].Role == "assistant" {
+		lead++
+	}
+	if lead == 0 || lead >= len(merged) {
+		return merged
+	}
+	var sent []string
+	for _, turn := range merged[:lead] {
+		if t := strings.TrimSpace(turn.Text); t != "" {
+			sent = append(sent, t)
+		}
+	}
+	rest := append([]Turn(nil), merged[lead:]...)
+	if len(sent) > 0 {
+		rest[0].Text = "[HomeHub had already sent me these alerts:\n" +
+			strings.Join(sent, "\n") + "]\n\n" + rest[0].Text
+	}
+	return rest
 }
 
 // runLoop is the shared tool loop behind both a fresh turn and a resumed one:
@@ -326,7 +372,7 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 	for _, msg := range history {
 		turns = append(turns, Turn{Role: msg.Role, Text: msg.Content})
 	}
-	turns = append(turns, Turn{Role: "user", Text: text})
+	turns = append(normalizeTurns(turns), Turn{Role: "user", Text: text})
 
 	var parent *int64
 	if n := len(history); n > 0 {

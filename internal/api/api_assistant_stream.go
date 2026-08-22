@@ -469,6 +469,25 @@ func (s *Server) NarrateSignal(ctx context.Context, sig store.Signal, event stri
 	return notice.Text, true
 }
 
+// RememberSentNotice appends a delivered notification to a user's Telegram
+// assistant thread. Without this the bot has no idea what "that alert" refers
+// to when they reply to one — the message went out over a different path than
+// the conversation, and left no trace in it.
+func (s *Server) RememberSentNotice(ctx context.Context, userID uuid.UUID, text string) {
+	history, err := s.store.ListAssistantMessages(ctx, userID, store.AssistantChannelTelegram, "", 1)
+	if err != nil {
+		return
+	}
+	var parent *int64
+	if len(history) > 0 {
+		parent = &history[len(history)-1].ID
+	}
+	if _, err := s.store.AddAssistantMessage(ctx, userID, store.AssistantChannelTelegram, "",
+		"assistant", text, nil, parent, nil); err != nil {
+		s.logger.Warn("could not record a sent notification", "user", userID, "error", err)
+	}
+}
+
 // RecordSignalNotice remembers that a condition was reported, and forgets it
 // once it recovers so the next occurrence reads as news.
 func (s *Server) RecordSignalNotice(ctx context.Context, sig store.Signal, event string) {

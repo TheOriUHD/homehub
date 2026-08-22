@@ -471,28 +471,35 @@ func (b *Bot) NotifyLinked(ctx context.Context, chatID int64, userTag string) {
 // check. Used for pushed notifications (e.g. firing signals); a no-op while
 // the bridge is disabled or unconfigured. Failures are logged per chat and
 // never abort the rest.
-func (b *Bot) Broadcast(ctx context.Context, text string, allow func(userID uuid.UUID) bool) {
+// Broadcast sends one message to every linked chat the allow function
+// accepts, and returns the users it actually reached — the caller records the
+// message in each of their assistant threads so it can be discussed later.
+func (b *Bot) Broadcast(ctx context.Context, text string, allow func(userID uuid.UUID) bool) []uuid.UUID {
 	if b.EnabledFn != nil && !b.EnabledFn(ctx) {
-		return
+		return nil
 	}
 	token := ""
 	if b.TokenFn != nil {
 		token = b.TokenFn(ctx)
 	}
 	if token == "" {
-		return
+		return nil
 	}
 	chats, err := b.Store.ListTelegramChats(ctx)
 	if err != nil {
 		b.Logger.Warn("telegram broadcast: list chats", "error", err)
-		return
+		return nil
 	}
+	var reached []uuid.UUID
 	for _, chat := range chats {
 		if allow != nil && !allow(chat.UserID) {
 			continue
 		}
 		if err := b.sendParsed(ctx, token, chat.ChatID, text, ""); err != nil {
 			b.Logger.Warn("telegram broadcast: send", "chat", chat.ChatID, "error", err)
+			continue
 		}
+		reached = append(reached, chat.UserID)
 	}
+	return reached
 }
