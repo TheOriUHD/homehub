@@ -15,6 +15,36 @@ type ProviderInfo struct {
 	DefaultModel   string `json:"defaultModel"`
 	DefaultBaseURL string `json:"defaultBaseUrl,omitempty"`
 	ModelHint      string `json:"modelHint,omitempty"`
+	// Models is the curated switch-on-the-fly menu. Empty means the provider
+	// has no fixed catalog (local runtimes, OpenRouter's thousands of paths):
+	// those keep the free-text model field and no picker.
+	Models []ModelInfo `json:"models,omitempty"`
+}
+
+// Cost tiers gate the picker. They describe SPEND, not capability — a model
+// is gated because picking it by accident is expensive, and the confirmation
+// text names the multiple so the number is never a vague "this costs more".
+const (
+	// TierStandard needs no confirmation.
+	TierStandard = ""
+	// TierPremium asks once before switching.
+	TierPremium = "premium"
+	// TierUltra asks and makes you wait, so the price registers.
+	TierUltra = "ultra"
+)
+
+// ModelInfo is one entry in a provider's model picker.
+type ModelInfo struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Blurb string `json:"blurb"`
+	Tier  string `json:"tier,omitempty"`
+	// CostNote is the warning body for a gated model, phrased as a ratio
+	// against the model below it — ratios age far better than dollar figures.
+	CostNote string `json:"costNote,omitempty"`
+	// Aliases are other ids that mean this model, so a pinned dated snapshot
+	// already in the settings still lights up its own row in the picker.
+	Aliases []string `json:"aliases,omitempty"`
 }
 
 // Providers is the registry, in display order: cloud APIs first, then
@@ -22,9 +52,11 @@ type ProviderInfo struct {
 // runtime's documented endpoint.
 var Providers = []ProviderInfo{
 	{ID: "anthropic", Label: "Anthropic", Kind: "cloud", Engine: "anthropic", RequiresKey: true,
-		DefaultModel: "claude-sonnet-5", ModelHint: "e.g. claude-sonnet-5, claude-opus-5"},
+		DefaultModel: "claude-sonnet-5", ModelHint: "e.g. claude-sonnet-5, claude-opus-5",
+		Models: AnthropicModels},
 	{ID: "openai", Label: "OpenAI", Kind: "cloud", Engine: "openai", RequiresKey: true,
-		DefaultModel: "gpt-5", DefaultBaseURL: "https://api.openai.com/v1", ModelHint: "e.g. gpt-5, gpt-5-mini"},
+		DefaultModel: "gpt-5.6-terra", DefaultBaseURL: "https://api.openai.com/v1",
+		ModelHint: "e.g. gpt-5.6-terra, gpt-5.6-sol", Models: OpenAIModels},
 	{ID: "google", Label: "Google Gemini", Kind: "cloud", Engine: "gemini", RequiresKey: true,
 		DefaultModel: "gemini-2.5-flash", ModelHint: "e.g. gemini-2.5-pro, gemini-2.5-flash"},
 	{ID: "mistral", Label: "Mistral", Kind: "cloud", Engine: "openai", RequiresKey: true,
@@ -61,6 +93,47 @@ var Providers = []ProviderInfo{
 	{ID: "custom", Label: "Custom (OpenAI-compatible)", Kind: "local", Engine: "openai", RequiresKey: false,
 		DefaultModel: "", DefaultBaseURL: "http://127.0.0.1:8000/v1",
 		ModelHint: "whatever your endpoint serves"},
+}
+
+// AnthropicModels is the Claude picker, cheapest first. Only Haiku carries a
+// dated snapshot id; the 5-family ids are complete as written.
+var AnthropicModels = []ModelInfo{
+	{ID: "claude-haiku-4-5", Label: "Haiku 4.5", Blurb: "Fastest and cheapest. Fine for lookups and status questions.",
+		Aliases: []string{"claude-haiku-4-5-20251001"}},
+	{ID: "claude-sonnet-5", Label: "Sonnet 5", Blurb: "The balanced default — strong reasoning at a moderate price."},
+	{ID: "claude-opus-5", Label: "Opus 5", Blurb: "Deeper reasoning for hard diagnosis.", Tier: TierPremium,
+		CostNote: "About 2.5× the price of Sonnet 5 per token."},
+	{ID: "claude-fable-5", Label: "Fable 5", Blurb: "The most capable model, for the hardest problems.", Tier: TierUltra,
+		CostNote: "Twice the price of Opus 5 — about 5× Sonnet 5 — per token."},
+}
+
+// OpenAIModels is the GPT picker, cheapest first.
+var OpenAIModels = []ModelInfo{
+	{ID: "gpt-5.6-luna", Label: "GPT-5.6 Luna", Blurb: "Cost-optimised. Fine for lookups and status questions."},
+	{ID: "gpt-5.6-terra", Label: "GPT-5.6 Terra", Blurb: "The balanced default — intelligence against cost."},
+	{ID: "gpt-5.6-sol", Label: "GPT-5.6 Sol", Blurb: "Frontier model for complex professional work.", Tier: TierPremium,
+		CostNote: "About 2.5× the price of Terra per token."},
+}
+
+// ResolveModel accepts a model only when the configured provider actually
+// offers it. A picker choice arrives from the browser, so an unchecked string
+// would let anyone point the key at any model the vendor sells.
+func ResolveModel(providerID, model string) (string, bool) {
+	info := ProviderByID(providerID)
+	if info == nil {
+		return "", false
+	}
+	for _, m := range info.Models {
+		if m.ID == model {
+			return m.ID, true
+		}
+		for _, alias := range m.Aliases {
+			if alias == model {
+				return m.ID, true
+			}
+		}
+	}
+	return "", false
 }
 
 // ProviderByID looks a provider up, or nil.

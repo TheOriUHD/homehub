@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { EmptyState, ErrorState } from "@/ui/states";
 import { Switch } from "@/ui/switch";
 import { useToast } from "@/ui/toast";
+import { useAssistantModels } from "@/components/assistant-model-picker";
 
 /**
  * The assistant: chat over the LLM tool loop. Every tool call runs under
@@ -26,6 +27,7 @@ export function AssistantPage() {
   const { t } = useTranslation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [telegramOpen, setTelegramOpen] = useState(false);
+  const { active: activeModel } = useAssistantModels();
 
   const state = useQuery({
     queryKey: ["assistant"],
@@ -56,7 +58,9 @@ export function AssistantPage() {
           <p className="text-fg-muted text-sm">
             {info.enabled
               ? t("assistant.subtitle", {
-                  model: info.model,
+                  // The header names the model actually answering, which the
+                  // composer's switcher may have moved off the instance default.
+                  model: activeModel?.label ?? info.model,
                   provider: info.providers.find((p) => p.id === info.provider)?.label ?? info.provider,
                 })
               : t("assistant.disabledSubtitle")}

@@ -6722,17 +6722,7 @@ paths:
                   providers:
                     type: array
                     description: The selectable provider catalog with per-provider defaults.
-                    items:
-                      type: object
-                      required: [id, label, kind, requiresKey, defaultModel]
-                      properties:
-                        id: { type: string }
-                        label: { type: string }
-                        kind: { type: string, enum: [cloud, local] }
-                        requiresKey: { type: boolean }
-                        defaultModel: { type: string }
-                        defaultBaseUrl: { type: string }
-                        modelHint: { type: string }
+                    items: { $ref: "#/components/schemas/AssistantProvider" }
 
   /telegram/settings:
     get:
@@ -7427,6 +7417,42 @@ components:
               name: { type: string }
               status: { type: string, enum: [connected, degraded, unreachable] }
               lastError: { type: string, nullable: true }
+
+    AssistantModel:
+      type: object
+      description: One entry in a provider's switch-on-the-fly model menu.
+      required: [id, label, blurb]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        blurb: { type: string }
+        tier:
+          type: string
+          enum: [premium, ultra]
+          description: Spend gate — premium confirms once, ultra confirms after a forced pause.
+        costNote: { type: string, description: What the confirmation tells the user it costs. }
+        aliases:
+          type: array
+          items: { type: string }
+          description: Other ids meaning this model, e.g. a pinned dated snapshot.
+
+    AssistantProvider:
+      type: object
+      required: [id, label, kind, requiresKey, defaultModel]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        kind: { type: string, enum: [cloud, local] }
+        requiresKey: { type: boolean }
+        defaultModel: { type: string }
+        models:
+          type: array
+          description: >-
+            The curated menu, cheapest first. Absent when the provider has no fixed
+            catalog (local runtimes, OpenRouter), where the model stays free text.
+          items: { $ref: "#/components/schemas/AssistantModel" }
+        defaultBaseUrl: { type: string }
+        modelHint: { type: string }
 
     AssistantStep:
       type: object

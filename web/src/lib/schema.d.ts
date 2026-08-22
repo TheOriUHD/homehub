@@ -4844,6 +4844,33 @@ export interface components {
                 lastError?: string | null;
             }[];
         };
+        /** @description One entry in a provider's switch-on-the-fly model menu. */
+        AssistantModel: {
+            id: string;
+            label: string;
+            blurb: string;
+            /**
+             * @description Spend gate — premium confirms once, ultra confirms after a forced pause.
+             * @enum {string}
+             */
+            tier?: "premium" | "ultra";
+            /** @description What the confirmation tells the user it costs. */
+            costNote?: string;
+            /** @description Other ids meaning this model, e.g. a pinned dated snapshot. */
+            aliases?: string[];
+        };
+        AssistantProvider: {
+            id: string;
+            label: string;
+            /** @enum {string} */
+            kind: "cloud" | "local";
+            requiresKey: boolean;
+            defaultModel: string;
+            /** @description The curated menu, cheapest first. Absent when the provider has no fixed catalog (local runtimes, OpenRouter), where the model stays free text. */
+            models?: components["schemas"]["AssistantModel"][];
+            defaultBaseUrl?: string;
+            modelHint?: string;
+        };
         AssistantStep: {
             tool: string;
             input?: {
@@ -14786,16 +14813,7 @@ export interface operations {
                         keysSet: string[];
                         canConfigure: boolean;
                         /** @description The selectable provider catalog with per-provider defaults. */
-                        providers: {
-                            id: string;
-                            label: string;
-                            /** @enum {string} */
-                            kind: "cloud" | "local";
-                            requiresKey: boolean;
-                            defaultModel: string;
-                            defaultBaseUrl?: string;
-                            modelHint?: string;
-                        }[];
+                        providers: components["schemas"]["AssistantProvider"][];
                     };
                 };
             };

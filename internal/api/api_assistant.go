@@ -66,18 +66,10 @@ func (s *Server) GetAssistant(ctx context.Context, _ GetAssistantRequestObject) 
 		CanConfigure: s.can(ctx, id, ResSettings, rbac.LevelConfigure),
 	}
 	for _, info := range assistant.Providers {
-		entry := struct {
-			DefaultBaseUrl *string                                      `json:"defaultBaseUrl,omitempty"`
-			DefaultModel   string                                       `json:"defaultModel"`
-			Id             string                                       `json:"id"`
-			Kind           GetAssistant200JSONResponseBodyProvidersKind `json:"kind"`
-			Label          string                                       `json:"label"`
-			ModelHint      *string                                      `json:"modelHint,omitempty"`
-			RequiresKey    bool                                         `json:"requiresKey"`
-		}{
+		entry := AssistantProvider{
 			DefaultModel: info.DefaultModel,
 			Id:           info.ID,
-			Kind:         GetAssistant200JSONResponseBodyProvidersKind(info.Kind),
+			Kind:         AssistantProviderKind(info.Kind),
 			Label:        info.Label,
 			RequiresKey:  info.RequiresKey,
 		}
@@ -88,6 +80,26 @@ func (s *Server) GetAssistant(ctx context.Context, _ GetAssistantRequestObject) 
 		if info.ModelHint != "" {
 			h := info.ModelHint
 			entry.ModelHint = &h
+		}
+		if len(info.Models) > 0 {
+			models := make([]AssistantModel, 0, len(info.Models))
+			for _, m := range info.Models {
+				model := AssistantModel{Id: m.ID, Label: m.Label, Blurb: m.Blurb}
+				if m.Tier != "" {
+					tier := AssistantModelTier(m.Tier)
+					model.Tier = &tier
+				}
+				if m.CostNote != "" {
+					note := m.CostNote
+					model.CostNote = &note
+				}
+				if len(m.Aliases) > 0 {
+					aliases := m.Aliases
+					model.Aliases = &aliases
+				}
+				models = append(models, model)
+			}
+			entry.Models = &models
 		}
 		out.Providers = append(out.Providers, entry)
 	}
@@ -211,7 +223,8 @@ func (s *Server) AssistantChat(ctx context.Context, req AssistantChatRequestObje
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id)
+	// No picker on this path — the Telegram bridge runs the instance default.
+	svc, provider, cfg, code, emsg := s.assistantRuntime(ctx, id, "")
 	if code != "" {
 		return AssistantChat409JSONResponse(errBody(code, emsg)), nil
 	}
