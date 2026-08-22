@@ -56,8 +56,16 @@ no ports open on the Minecraft side. Live console with scrollback all the
 way to server start, instant command execution, online players, and
 TPS/tick-time/heap history. The companion reconnects on its own.
 
+**Also connected natively** — CubeCoders AMP game panel, Caddy reverse proxy
+(with optional Cloudflare zone linking), Tailscale, the Aperture NVR, Klipper
+3D printers over Moonraker, and PatchPilot, an agentless update manager for a
+Linux fleet.
+
 More integrations land as vertical slices — each ships complete or not at
 all.
+
+**[docs/FEATURES.md](docs/FEATURES.md) is the complete feature reference** —
+every module, every platform feature, in detail.
 
 ## Platform
 
@@ -69,6 +77,33 @@ page graphs any recorded series across systems on one timeline.
 edge-triggered firing/resolved notifications, and delivery to webhook, email,
 ntfy, Gotify, Telegram, or Discord channels — all configured at runtime.
 Per-user routing decides which events reach which channels.
+
+**Signals** — one stream of everything HomeHub's monitors currently see across
+every system: failures, warnings, notable events, and green "recovered on its
+own" notes, each carrying its deep payload (a failed update run brings its
+per-host errors and log tails along). Dismissable, groupable, and pushed to
+Telegram as conditions appear and clear.
+
+**Assistant** — chat over any OpenAI-compatible provider, cloud or local, that
+answers from live tools rather than training data. Every tool call runs under
+the asking user's own permissions, and each answer names the tools behind it.
+Destructive actions need confirmation; SSH commands additionally pass a
+classifier that refuses catastrophic ones outright. Reachable from a Telegram
+chat linked to a HomeHub account.
+
+**SSH hosts** — one registry of every machine HomeHub can reach over SSH,
+entered once and selected everywhere else. One-click keypair generation
+installs and verifies the key for you. Proxmox guest consoles, Minecraft,
+Docker-over-SSH, and the assistant all dial from it.
+
+**Utilities** — a workspace (folders, uploads, downloads) with a text editor
+and full-page markdown documents the assistant can read, a universal file
+converter across images, camera raw, video, audio, tables and documents, and
+twenty small tools from subnet math to EXIF stripping.
+
+**Calendar** — month and week views over local calendars, two-way CalDAV,
+subscribed ICS feeds, and trash-pickup schedules, with recurring events that
+ask how far an edit should reach.
 
 **Backups** — scheduled application backups (`pg_dump` of the full state)
 to local disk, SMB shares, NFS exports, or S3-compatible storage, with
