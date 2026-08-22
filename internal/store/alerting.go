@@ -187,13 +187,26 @@ func (s *Store) UpsertNotificationPref(ctx context.Context, pref *NotificationPr
 
 type MetricSeriesInfo struct {
 	Resource string `db:"resource"`
-	Metric   string `db:"metric"`
-	Unit     string `db:"unit"`
+	Metric string `db:"metric"`
+	Unit   string `db:"unit"`
+	// LastSeen is the newest sample or rollup this series has, nil when it
+	// has neither. A series whose integration was removed keeps its catalog
+	// row and stops receiving points; without this the picker offers it as if
+	// it were live.
+	LastSeen *time.Time `db:"last_seen"`
 }
 
 func (s *Store) ListMetricSeries(ctx context.Context) ([]MetricSeriesInfo, error) {
-	return scanMany[MetricSeriesInfo](s.pool.Query(ctx,
-		`select resource, metric, unit from metric_series order by resource, metric`))
+	// Rollups outlive raw samples under retention, so the newest of the two
+	// is the real answer to "when did this last record anything".
+	return scanMany[MetricSeriesInfo](s.pool.Query(ctx, `
+		select s.resource, s.metric, s.unit,
+		       greatest(
+		           (select max(ts) from metric_samples where series_id = s.id),
+		           (select max(ts) from metric_rollups where series_id = s.id)
+		       ) as last_seen
+		from metric_series s
+		order by s.resource, s.metric`))
 }
 
 // RecentSamples returns raw samples for one series in a trailing window,

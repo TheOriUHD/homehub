@@ -7616,6 +7616,14 @@ components:
         resource: { type: string }
         metric: { type: string }
         unit: { type: string }
+        lastSeen:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Newest recorded point, across raw samples and rollups. A series whose
+            integration was removed keeps its catalog row and stops recording;
+            absent means it never recorded anything.
 
     AlertRule:
       type: object

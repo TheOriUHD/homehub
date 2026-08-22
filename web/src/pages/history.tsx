@@ -193,6 +193,16 @@ export function HistoryPage() {
     [selected, seriesResults, groupLabelByPrefix],
   );
 
+  /** How long ago a series stopped recording, or "" while it is still live. */
+  const staleSince = (lastSeen: string | null | undefined): string => {
+    if (!lastSeen) return t("history.staleNever");
+    const age = Date.now() - new Date(lastSeen).getTime();
+    if (age < 6 * 60 * 60 * 1000) return "";
+    const days = Math.floor(age / 86_400_000);
+    if (days >= 1) return t("history.staleDays", { count: days });
+    return t("history.staleHours", { count: Math.floor(age / 3_600_000) });
+  };
+
   const toggleSeries = (info: MetricSeriesInfo) => {
     const key = seriesKey(info.resource, info.metric);
     const exists = selected.some((s) => seriesKey(s.resource, s.metric) === key);
@@ -256,15 +266,25 @@ export function HistoryPage() {
                     const key = seriesKey(info.resource, info.metric);
                     const sel = selected.find((s) => seriesKey(s.resource, s.metric) === key);
                     const rest = subResource(info.resource);
+                    const stale = staleSince(info.lastSeen);
                     return (
                       <div key={key} className="flex items-center gap-2">
                         <Checkbox
                           checked={sel !== undefined}
                           onCheckedChange={() => toggleSeries(info)}
                           label={
-                            <span className="font-mono text-xs">
+                            <span className={cn("font-mono text-xs", stale && "text-fg-subtle")}>
                               {rest ? `${rest} · ` : ""}
                               {info.metric}
+                              {stale && (
+                                // A removed integration keeps its catalog rows
+                                // and stops recording. Without this the picker
+                                // offers dead series as if they were live, and
+                                // choosing one just draws an empty chart.
+                                <span className="text-fg-subtle ml-1.5 font-sans not-italic">
+                                  · {t("history.stale", { since: stale })}
+                                </span>
+                              )}
                             </span>
                           }
                         />

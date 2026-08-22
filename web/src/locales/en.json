@@ -2117,7 +2117,13 @@
       "stateAt": "State at {{time}}",
       "unpin": "Unpin",
       "addAlert": "Add alert from this series"
-    }
+    },
+    "stale": "last {{since}}",
+    "staleNever": "never recorded",
+    "staleDays_one": "{{count}} day ago",
+    "staleDays_other": "{{count}} days ago",
+    "staleHours_one": "{{count}} hour ago",
+    "staleHours_other": "{{count}} hours ago"
   },
   "alerts": {
     "title": "Alerts",
