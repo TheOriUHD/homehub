@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import { cn } from "@/lib/utils";
-import { formatMetricValue } from "@/lib/metrics";
+import { chartYRange, formatMetricValue } from "@/lib/metrics";
 import { Tooltip } from "@/ui/tooltip";
 
 export type MultiSeriesPoint = { ts: number; value: number };
@@ -265,10 +265,7 @@ function UnitPlot({
         points: { size: 6 },
       },
       scales: {
-        y:
-          unit === "fraction"
-            ? { range: [0, 1] }
-            : { range: (_u, _min, max) => [0, Math.max(max * 1.1, 1)] },
+        y: { range: (_u, min, max) => chartYRange(unit, min, max) },
       },
       axes: [
         {
