@@ -7,9 +7,12 @@ export const TooltipProvider = TooltipPrimitive.Provider;
 export function Tooltip({
   label,
   className,
+  side = "top",
   children,
 }: {
   label: ReactNode;
+  /** Which side of the trigger the bubble opens on. */
+  side?: "top" | "bottom" | "left" | "right";
   /** Overrides for the bubble — width caps, wrapping, or a themed surface
    *  instead of the default inverted chip. */
   className?: string;
@@ -20,6 +23,7 @@ export function Tooltip({
       <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Content
+          side={side}
           sideOffset={6}
           className={cn(
             "bg-fg text-bg z-50 max-w-72 rounded-md px-2.5 py-1.5 text-xs font-medium shadow-2",
