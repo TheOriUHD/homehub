@@ -83,6 +83,8 @@ export const DialogClose = DialogPrimitive.Close;
 export function DialogContent({
   title,
   description,
+  icon,
+  centered,
   children,
   footer,
   wide,
@@ -90,6 +92,15 @@ export function DialogContent({
 }: {
   title: string;
   description?: ReactNode;
+  /** A badge above the title. Only rendered in the centered layout. */
+  icon?: ReactNode;
+  /**
+   * Centered layout: icon, title and description stack down the middle and the
+   * footer buttons share the width evenly. For short, high-stakes decisions
+   * (confirm a cost, confirm a deletion) where the whole dialog is the
+   * message; ordinary form dialogs keep the default left-aligned header.
+   */
+  centered?: boolean;
   children?: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
@@ -122,27 +133,59 @@ export function DialogContent({
           className,
         )}
       >
-        <div className="flex items-start justify-between gap-4 px-5 pt-4 pb-1">
-          <div>
-            <DialogPrimitive.Title className="text-fg text-[15px] font-semibold">
-              {title}
-            </DialogPrimitive.Title>
-            {description && (
-              <DialogPrimitive.Description className="text-fg-muted mt-1 text-[13px]">
-                {description}
-              </DialogPrimitive.Description>
-            )}
+        {centered ? (
+          <>
+            {/* Out of the flow so the title stays optically centred. */}
+            <DialogPrimitive.Close
+              aria-label={t("common.close")}
+              className="interactive-muted absolute top-3 right-3 flex size-7 cursor-pointer items-center justify-center"
+            >
+              <X className="size-4" />
+            </DialogPrimitive.Close>
+            <div className="flex flex-col items-center gap-2 px-6 pt-7 text-center">
+              {icon}
+              <DialogPrimitive.Title className="text-fg text-base font-semibold">
+                {title}
+              </DialogPrimitive.Title>
+              {description && (
+                <DialogPrimitive.Description className="text-fg-muted max-w-xs text-[13px] leading-relaxed">
+                  {description}
+                </DialogPrimitive.Description>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex items-start justify-between gap-4 px-5 pt-4 pb-1">
+            <div>
+              <DialogPrimitive.Title className="text-fg text-[15px] font-semibold">
+                {title}
+              </DialogPrimitive.Title>
+              {description && (
+                <DialogPrimitive.Description className="text-fg-muted mt-1 text-[13px]">
+                  {description}
+                </DialogPrimitive.Description>
+              )}
+            </div>
+            <DialogPrimitive.Close
+              aria-label={t("common.close")}
+              className="interactive-muted -mr-1 flex size-7 shrink-0 cursor-pointer items-center justify-center"
+            >
+              <X className="size-4" />
+            </DialogPrimitive.Close>
           </div>
-          <DialogPrimitive.Close
-            aria-label={t("common.close")}
-            className="interactive-muted -mr-1 flex size-7 shrink-0 cursor-pointer items-center justify-center"
-          >
-            <X className="size-4" />
-          </DialogPrimitive.Close>
-        </div>
-        {children && <div className="px-5 py-4">{children}</div>}
+        )}
+        {children && <div className={cn("px-5 py-4", centered && "px-6 pt-4 pb-0")}>{children}</div>}
         {footer && (
-          <div className="border-edge flex justify-end gap-2 border-t px-5 py-3.5">{footer}</div>
+          <div
+            className={cn(
+              "border-edge flex justify-end gap-2 border-t px-5 py-3.5",
+              // No divider: the centered layout reads as one card, and the
+              // buttons split the width so neither is the obvious default.
+              centered && "grid grid-cols-2 border-t-0 px-6 pt-4 pb-5 [&>*]:w-full",
+            )}
+          >
+            {footer}
+          </div>
         )}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>

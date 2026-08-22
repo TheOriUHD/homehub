@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, Sparkles, TriangleAlert, Zap } from "lucide-react";
@@ -42,12 +42,28 @@ export function loadModelChoice(): string {
   }
 }
 
+/**
+ * The choice is one value shared by every component that shows it — the
+ * picker in the composer and the model name in the page header. Holding it in
+ * component state gave each its own copy, so switching models in the composer
+ * left the header naming the old one until a reload.
+ */
+let current = loadModelChoice();
+const listeners = new Set<() => void>();
+
+function subscribe(fn: () => void) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
 function saveModelChoice(id: string) {
+  current = id;
   try {
     sessionStorage.setItem(STORAGE_KEY, id);
   } catch {
     /* private mode — the choice lasts for this view only */
   }
+  for (const fn of listeners) fn();
 }
 
 /** useAssistantModels resolves the catalog and the model in effect right now. */
@@ -57,7 +73,7 @@ export function useAssistantModels() {
     queryFn: async () => unwrap(await api.GET("/assistant")),
     staleTime: 60_000,
   });
-  const [chosen, setChosen] = useState<string>(() => loadModelChoice());
+  const chosen = useSyncExternalStore(subscribe, () => current);
 
   const provider = settings.data?.providers?.find((p) => p.id === settings.data?.provider);
   const models = useMemo(() => (provider?.models ?? []) as AssistantModel[], [provider]);
@@ -72,15 +88,11 @@ export function useAssistantModels() {
   // A stored choice from another provider must not silently keep applying.
   useEffect(() => {
     if (chosen && models.length > 0 && !models.some((m) => matches(m, chosen))) {
-      setChosen("");
       saveModelChoice("");
     }
   }, [chosen, models]);
 
-  const select = (id: string) => {
-    setChosen(id);
-    saveModelChoice(id);
-  };
+  const select = useCallback((id: string) => saveModelChoice(id), []);
 
   return { models, active, select, ready: models.length > 0 };
 }
@@ -203,40 +215,43 @@ function CostGateDialog({
   return (
     <Dialog open onOpenChange={(next) => !next && onCancel()}>
       <DialogContent
+        centered
         title={t("assistant.model.confirmTitle", { model: model.label })}
-        description={
-          <span className="flex flex-col gap-2">
-            <span
-              className={cn(
-                "flex items-start gap-2 rounded-lg px-3 py-2 text-[13px]",
-                ultra ? "bg-danger-soft text-danger-soft-fg" : "bg-warning-soft text-warning-soft-fg",
-              )}
-            >
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-              <span>{model.costNote}</span>
-            </span>
-            <span className="text-fg-muted text-[13px]">
-              {t("assistant.model.confirmBody", { model: model.label })}
-            </span>
+        description={t("assistant.model.confirmBody", { model: model.label })}
+        icon={
+          <span
+            className={cn(
+              "flex size-11 items-center justify-center rounded-full",
+              ultra ? "bg-danger-soft text-danger-soft-fg" : "bg-warning-soft text-warning-soft-fg",
+            )}
+          >
+            <TriangleAlert className="size-5" />
           </span>
         }
         footer={
           <>
-            <Button variant="ghost" onClick={onCancel}>
+            <Button variant="secondary" onClick={onCancel}>
               {t("common.cancel")}
             </Button>
-            <Button
-              variant={ultra ? "danger" : "primary"}
-              disabled={remaining > 0}
-              onClick={onConfirm}
-            >
+            <Button variant={ultra ? "danger" : "primary"} disabled={remaining > 0} onClick={onConfirm}>
               {remaining > 0
                 ? t("assistant.model.confirmWait", { seconds: remaining })
                 : t("assistant.model.confirmAction", { model: model.label })}
             </Button>
           </>
         }
-      />
+      >
+        {/* The number is the whole point of the dialog, so it gets its own
+            line rather than being folded into the prose. */}
+        <p
+          className={cn(
+            "rounded-lg px-3 py-2 text-center text-[13px] font-medium",
+            ultra ? "bg-danger-soft text-danger-soft-fg" : "bg-warning-soft text-warning-soft-fg",
+          )}
+        >
+          {model.costNote}
+        </p>
+      </DialogContent>
     </Dialog>
   );
 }
