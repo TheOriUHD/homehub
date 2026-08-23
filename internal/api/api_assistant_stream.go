@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -414,6 +415,13 @@ func selfCallResult(code int, body []byte) error {
 
 // ---- outbound notifications ---------------------------------------------------
 
+// minNoticeInterval is the floor between two pushes about the same condition.
+// The narrator is asked to hold repeats back and usually does, but a model's
+// judgement is not a rate limiter: anything that flaps — a bouncing
+// connection, a sensor on a threshold — could otherwise produce a message
+// every sweep. This cap is deterministic and runs before the model is asked.
+const minNoticeInterval = 30 * time.Minute
+
 // NarrateSignal turns one signal transition into the message the owner
 // actually receives. It reports (text, decided): decided is false when no
 // model could answer, and the caller falls back to the templated text; an
@@ -454,6 +462,18 @@ func (s *Server) NarrateSignal(ctx context.Context, sig store.Signal, event stri
 		in.TimesNotified = notice.SentCount
 		in.LastNotified = &notice.LastSentAt
 		in.LastSeverity = notice.LastSeverity
+
+		// Deterministic floor, checked before the model is asked: a repeat
+		// inside the window is dropped unless it genuinely got worse. A
+		// recovery counts as a repeat too — "it's back" a minute after "it's
+		// down" is the flap, not news.
+		since := time.Since(notice.LastSentAt)
+		worse := severityRank(sig.Severity) > severityRank(notice.LastSeverity)
+		if since < minNoticeInterval && !worse {
+			s.logger.Info("notification rate limited",
+				"signal", sig.Key, "event", event, "since", since.Truncate(time.Second))
+			return "", true
+		}
 	}
 
 	notice, err := assistant.WriteNotice(ctx, provider, model, in)
@@ -467,6 +487,21 @@ func (s *Server) NarrateSignal(ctx context.Context, sig store.Signal, event stri
 		return "", true
 	}
 	return notice.Text, true
+}
+
+// severityRank orders severities so a genuine escalation can pass the rate
+// limit that an unchanged repeat cannot.
+func severityRank(sev string) int {
+	switch sev {
+	case "critical":
+		return 3
+	case "warning":
+		return 2
+	case "info":
+		return 1
+	default:
+		return 0
+	}
 }
 
 // RememberSentNotice appends a delivered notification to a user's Telegram
@@ -488,12 +523,17 @@ func (s *Server) RememberSentNotice(ctx context.Context, userID uuid.UUID, text 
 	}
 }
 
-// RecordSignalNotice remembers that a condition was reported, and forgets it
-// once it recovers so the next occurrence reads as news.
+// RecordSignalNotice remembers that a condition was reported.
+//
+// Recoveries are recorded too, rather than clearing the record. Clearing was
+// the flaw behind a day of alternating "it is down" / "it is back" messages:
+// every all-clear reset the history, so the next firing looked like a first
+// report and sailed past both the rate limit and the narrator's judgement.
+// The record now ages out on its own instead.
 func (s *Server) RecordSignalNotice(ctx context.Context, sig store.Signal, event string) {
+	severity := sig.Severity
 	if event == "recovered" {
-		_ = s.store.ClearSignalNotice(ctx, sig.Key)
-		return
+		severity = "recovered"
 	}
-	_ = s.store.RecordSignalNotice(ctx, sig.Key, sig.Severity)
+	_ = s.store.RecordSignalNotice(ctx, sig.Key, severity)
 }

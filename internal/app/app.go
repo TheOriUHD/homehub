@@ -516,6 +516,13 @@ func registerMaintenance(engine *jobs.Engine, st *store.Store, logger *slog.Logg
 		} else if n > 0 {
 			logger.Info("pruned assistant messages", "count", n)
 		}
+		// Reporting history ages out so a fault that returns months later is
+		// announced as news, rather than being mistaken for a repeat.
+		if n, err := st.PruneSignalNotices(ctx, 14*24*time.Hour); err != nil {
+			return fmt.Errorf("prune signal notices: %w", err)
+		} else if n > 0 {
+			logger.Info("pruned signal notices", "count", n)
+		}
 		if n, err := st.PruneNotifications(ctx, 30*24*time.Hour); err != nil {
 			return fmt.Errorf("prune notifications: %w", err)
 		} else if n > 0 {

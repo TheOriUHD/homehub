@@ -31,7 +31,7 @@ type Deps struct {
 
 // RegisterBuiltins wires every built-in collector into the service.
 func RegisterBuiltins(s *Service, d Deps) {
-	s.Register(&integrationStatusCollector{d})
+	s.Register(&integrationStatusCollector{Deps: d})
 	s.Register(&truenasAlertCollector{d})
 	s.Register(&haBatteryCollector{d})
 	s.Register(&patchpilotCollector{d})
@@ -66,19 +66,47 @@ func srcID(id uuid.UUID) *uuid.UUID { return &id }
 // integrationStatusCollector turns every instance's connection state into a
 // signal: unreachable is critical, degraded is a warning, and both flip to
 // green the moment the instance reports connected again.
-type integrationStatusCollector struct{ Deps }
+// heldFault is a fault kept open while its integration looks healthy again,
+// until the recovery has lasted long enough to believe.
+type heldFault struct {
+	obs     Observation
+	lastBad time.Time
+}
+
+type integrationStatusCollector struct {
+	Deps
+	mu     sync.Mutex
+	faults map[uuid.UUID]heldFault
+}
 
 func (c *integrationStatusCollector) Name() string            { return "integrations" }
 func (c *integrationStatusCollector) Interval() time.Duration { return time.Minute }
+
+// Connections bounce. A reconnecting integration flips unreachable → connected
+// → unreachable within a minute or two, and reported raw that becomes a
+// signal that fires, auto-resolves and fires again — every cycle a pair of
+// pushes. So the state has to hold before it counts:
+//
+//   - a fault must persist for alertDwell before it is reported at all, which
+//     drops every short blip on the floor;
+//   - once reported, it keeps being reported through brief recoveries until
+//     the connection has held for recoveryDwell, so a flapping link stays ONE
+//     open condition instead of a stream of new ones.
+const (
+	alertDwell    = 3 * time.Minute
+	recoveryDwell = 15 * time.Minute
+)
 
 func (c *integrationStatusCollector) Collect(ctx context.Context) ([]Observation, error) {
 	rows, err := c.Store.ListIntegrations(ctx)
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now()
 	var out []Observation
 	for _, r := range rows {
 		if !r.Enabled {
+			c.forget(r.ID)
 			continue
 		}
 		var sev string
@@ -88,13 +116,24 @@ func (c *integrationStatusCollector) Collect(ctx context.Context) ([]Observation
 		case "degraded":
 			sev = SevWarning
 		default:
+			// Healthy right now — but hold a recently-reported fault open
+			// until the recovery has actually stuck, so a bouncing link does
+			// not produce an all-clear it will contradict a minute later.
+			if held, ok := c.heldFault(r.ID, now); ok {
+				out = append(out, held)
+			}
+			continue
+		}
+		// A fault younger than the dwell has not earned an interruption yet;
+		// most of them are gone before the next sweep.
+		if now.Sub(r.StatusChangedAt) < alertDwell {
 			continue
 		}
 		msg := r.StatusMessage
 		if msg == "" {
 			msg = r.Status
 		}
-		out = append(out, Observation{
+		obs := Observation{
 			Key:          "integ:" + r.ID.String() + ":status",
 			Severity:     sev,
 			Title:        fmt.Sprintf("%s is %s", r.Name, r.Status),
@@ -105,9 +144,43 @@ func (c *integrationStatusCollector) Collect(ctx context.Context) ([]Observation
 			AutoResolve:  true,
 			ResolveTitle: fmt.Sprintf("%s is back to normal", r.Name),
 			ResolveBody:  "The connection recovered on its own.",
-		})
+		}
+		c.remember(r.ID, obs, now)
+		out = append(out, obs)
 	}
 	return out, nil
+}
+
+// remember records the fault so a brief recovery can be ridden out.
+func (c *integrationStatusCollector) remember(id uuid.UUID, obs Observation, now time.Time) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.faults == nil {
+		c.faults = map[uuid.UUID]heldFault{}
+	}
+	c.faults[id] = heldFault{obs: obs, lastBad: now}
+}
+
+// heldFault reports a fault that should stay open despite the integration
+// currently looking healthy, and expires it once the recovery has held.
+func (c *integrationStatusCollector) heldFault(id uuid.UUID, now time.Time) (Observation, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	held, ok := c.faults[id]
+	if !ok {
+		return Observation{}, false
+	}
+	if now.Sub(held.lastBad) >= recoveryDwell {
+		delete(c.faults, id)
+		return Observation{}, false
+	}
+	return held.obs, true
+}
+
+func (c *integrationStatusCollector) forget(id uuid.UUID) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.faults, id)
 }
 
 // ---- TrueNAS alerts ---------------------------------------------------------

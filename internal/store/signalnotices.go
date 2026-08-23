@@ -39,9 +39,13 @@ func (s *Store) RecordSignalNotice(ctx context.Context, key, severity string) er
 	return err
 }
 
-// ClearSignalNotice forgets a condition once it recovers, so the next
-// occurrence is announced as news rather than as a repeat.
-func (s *Store) ClearSignalNotice(ctx context.Context, key string) error {
-	_, err := s.pool.Exec(ctx, `delete from signal_notices where key = $1`, key)
-	return err
+// PruneSignalNotices drops records for conditions nobody has heard about in a
+// long while, so a fault that returns months later is announced as news.
+// Recoveries deliberately do NOT clear a record: clearing on the all-clear is
+// what let a flapping connection re-announce itself every few minutes, each
+// firing looking like the first.
+func (s *Store) PruneSignalNotices(ctx context.Context, olderThan time.Duration) (int64, error) {
+	tag, err := s.pool.Exec(ctx,
+		`delete from signal_notices where last_sent_at < now() - $1::interval`, olderThan.String())
+	return tag.RowsAffected(), err
 }
