@@ -132,6 +132,16 @@ Velocity, Fabric, and Forge builds — downloaded from inside the app and paired
 with a 6-digit code. The server dials outward, so nothing needs opening on the
 Minecraft side, and the companion reconnects on its own.
 
+Game versions: one Paper/Spigot jar covers 1.13 through 26.x, and one Velocity
+jar covers 3.3 through 4.x. Fabric and Forge get one jar per version family,
+because an intermediary-mapped mod only runs on the versions it was remapped
+against, Forge's event bus and Mojang's names both shifted inside 1.21, and
+the 26.x line dropped obfuscation altogether. Fabric: 1.20 – 1.20.1,
+1.20.2 – 1.20.4, 1.21 – 1.21.1, 1.21.2 – 1.21.4, 1.21.5 – 1.21.8,
+1.21.9 – 1.21.10, 1.21.11, 26.1.x, 26.2.x. Forge: 1.21 – 1.21.1,
+1.21.2 – 1.21.4, 1.21.5, 1.21.6 – 1.21.8, 1.21.9 – 1.21.10, 1.21.11, 26.1.x,
+26.2.x. The setup page shows the versions as a picker.
+
 A network holds a proxy and its subservers under one roof. Live console with
 scrollback all the way back to server start, instant command execution, the
 online player list, and TPS / tick-time / heap history. Per-server offline

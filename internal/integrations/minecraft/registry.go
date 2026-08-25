@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -248,6 +249,7 @@ func (r *Registry) HandleAgent(w http.ResponseWriter, req *http.Request, clientI
 		return
 	}
 
+	first.McVersion = gameVersion(first.McVersion)
 	if err := r.store.TouchMinecraftServer(ctx, server.ID,
 		first.ServerName, first.Loader, first.McVersion, first.Companion, clientIP); err != nil {
 		r.logger.Error("recording companion metadata", "error", err)
@@ -298,6 +300,15 @@ func (r *Registry) HandleAgent(w http.ResponseWriter, req *http.Request, clientI
 	r.logger.Info("companion disconnected", "network", server.IntegrationID, "serverId", server.ID, "server", first.ServerName)
 	r.Publish(server.IntegrationID, serverResource(server.IntegrationID, server.ID), "companion-changed", map[string]any{"serverId": server.ID.String()})
 	r.StatusChanged(server.IntegrationID)
+}
+
+// buildSuffix is what Paper's Bukkit version string carries after the game
+// version since 26.x ("26.2.build.2622"). Companions from before the fix
+// send it verbatim; the game version is what the UI shows.
+var buildSuffix = regexp.MustCompile(`\.build\.\d+$`)
+
+func gameVersion(reported string) string {
+	return buildSuffix.ReplaceAllString(strings.TrimSpace(reported), "")
 }
 
 // pair redeems a 6-digit code, creates the server row, and issues its

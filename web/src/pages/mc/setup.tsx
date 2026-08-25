@@ -29,6 +29,19 @@ import { loaderLabel, mcOverviewKey, mcResource, useMcOverview } from "./shared"
  * Pairing and companion installation. Configure-gated: the module hides the
  * tab, and a direct URL bounces back to the console.
  */
+type DownloadEntry = { loader: string; file: string; sizeBytes: number; mcVersions: string; minecraft?: string };
+
+/** The manifest lists one row per jar; the UI wants one card per loader. */
+function groupDownloads(entries: DownloadEntry[]): { loader: string; entries: DownloadEntry[] }[] {
+  const groups: { loader: string; entries: DownloadEntry[] }[] = [];
+  for (const d of entries) {
+    const g = groups.find((x) => x.loader === d.loader);
+    if (g) g.entries.push(d);
+    else groups.push({ loader: d.loader, entries: [d] });
+  }
+  return groups;
+}
+
 export function McSetupPage() {
   const { t } = useTranslation();
   const { instanceId } = useParams({ from: "/shell/mc/$instanceId/setup" });
@@ -185,29 +198,53 @@ export function McSetupPage() {
               </p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {(downloads.data ?? []).map((d) => (
-                  <a
-                    key={`${d.loader}-${d.file}`}
-                    href={`/api/mc/downloads/${encodeURIComponent(d.file)}`}
-                    download
-                    className={cn(
-                      "border-edge bg-surface hover:bg-surface-hover flex items-center gap-2.5 rounded-md border px-3 py-2 shadow-1 transition-colors",
-
-                    )}
+                {groupDownloads(downloads.data ?? []).map((group) => (
+                  <div
+                    key={group.loader}
+                    className="border-edge bg-surface flex items-start gap-2.5 rounded-md border px-3 py-2 shadow-1"
                   >
-                    <Download className="text-fg-subtle size-4 shrink-0" />
+                    <Download className="text-fg-subtle mt-0.5 size-4 shrink-0" />
                     <span>
                       <span className="text-fg block text-[13px] font-semibold">
-                        {loaderLabel(d.loader)}
+                        {loaderLabel(group.loader)}
                       </span>
-                      <span className="text-fg-subtle block text-xs">
-                        {t("mc.setup.downloadMeta", {
-                          versions: d.mcVersions,
-                          size: formatBytes(d.sizeBytes),
-                        })}
-                      </span>
+                      {group.entries.length === 1 ? (
+                        <a
+                          href={`/api/mc/downloads/${encodeURIComponent(group.entries[0].file)}`}
+                          download
+                          className="text-fg-subtle hover:text-fg block text-xs underline-offset-2 hover:underline"
+                        >
+                          {t("mc.setup.downloadMeta", {
+                            versions: group.entries[0].mcVersions,
+                            size: formatBytes(group.entries[0].sizeBytes),
+                          })}
+                        </a>
+                      ) : (
+                        // Loaders that need one jar per game version: the
+                        // chips are the versions, newest first, so the
+                        // choice reads like a version picker.
+                        <>
+                          <span className="text-fg-subtle block text-xs">{t("mc.setup.pickVersion")}</span>
+                          <span className="mt-1.5 flex flex-wrap gap-1">
+                            {group.entries.map((d) => (
+                              <a
+                                key={d.file}
+                                href={`/api/mc/downloads/${encodeURIComponent(d.file)}`}
+                                download
+                                title={t("mc.setup.downloadMeta", {
+                                  versions: d.mcVersions,
+                                  size: formatBytes(d.sizeBytes),
+                                })}
+                                className="border-edge bg-bg hover:bg-surface-hover text-fg rounded border px-1.5 py-0.5 font-mono text-[11px] transition-colors"
+                              >
+                                {d.mcVersions}
+                              </a>
+                            ))}
+                          </span>
+                        </>
+                      )}
                     </span>
-                  </a>
+                  </div>
                 ))}
               </div>
             )}

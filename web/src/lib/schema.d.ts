@@ -5983,7 +5983,9 @@ export interface components {
             file: string;
             /** Format: int64 */
             sizeBytes: number;
-            /** @description Human-readable supported range, e.g. "1.16.5 – 1.21.x" */
+            /** @description The game version this jar was built against, e.g. "26.2". Set for loaders that need one jar per version family (Fabric, Forge); absent when one jar covers every version the loader runs. */
+            minecraft?: string;
+            /** @description Human-readable supported range, e.g. "1.21.5 – 1.21.8" */
             mcVersions: string;
         };
         ApertureCamera: {
