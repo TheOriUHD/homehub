@@ -2,7 +2,7 @@
 // reports downstream servers instead of TPS/MSPT.
 plugins {
     id 'java'
-    id 'com.gradleup.shadow' version '8.3.5'
+    id 'com.gradleup.shadow'
 }
 
 repositories {

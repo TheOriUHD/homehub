@@ -6,11 +6,11 @@ import dev.homehub.companion.core.CompanionConfig;
 import dev.homehub.companion.core.ConsoleLine;
 import dev.homehub.companion.core.PlayerInfo;
 import dev.homehub.companion.core.StatusSnapshot;
+import dev.homehub.companion.fabric.compat.Mc;
 import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.GameType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -208,9 +208,9 @@ public final class HomeHubCompanionFabric implements DedicatedServerModInitializ
         Set<String> names = new HashSet<>();
         boolean heldChanged = false;
         for (ServerPlayer p : srv.getPlayerList().getPlayers()) {
-            names.add(p.getGameProfile().name());
+            names.add(Mc.profileName(p));
             try {
-                Integer held = p.getInventory().getSelectedSlot();
+                Integer held = Mc.selectedSlot(p);
                 if (!held.equals(lastHeldSlots.put(p.getUUID(), held))) heldChanged = true;
             } catch (Throwable ignored) {}
         }
@@ -248,7 +248,7 @@ public final class HomeHubCompanionFabric implements DedicatedServerModInitializ
         if (c == null || !c.isConnected()) return;
         List<PlayerInfo> players = new ArrayList<>();
         for (ServerPlayer p : srv.getPlayerList().getPlayers()) {
-            PlayerInfo pi = new PlayerInfo(p.getGameProfile().name(), p.getUUID().toString());
+            PlayerInfo pi = new PlayerInfo(Mc.profileName(p), p.getUUID().toString());
             enrich(pi, p);
             players.add(pi);
         }
@@ -258,11 +258,11 @@ public final class HomeHubCompanionFabric implements DedicatedServerModInitializ
     /** Fill the cheap live fields on the streaming player entry (server thread). */
     private static void enrich(PlayerInfo pi, ServerPlayer p) {
         try {
-            GameType gm = p.gameMode();
-            if (gm != null) pi.gameMode = gm.getName();
+            String gm = Mc.gameMode(p);
+            if (gm != null) pi.gameMode = gm;
         } catch (Throwable ignored) {}
         try {
-            pi.world = p.level().dimension().identifier().toString();
+            pi.world = Mc.dimension(p);
             pi.hasPos = true;
             pi.x = FabricPlayerDetailBuilder.round2(p.getX());
             pi.y = FabricPlayerDetailBuilder.round2(p.getY());
@@ -273,14 +273,14 @@ public final class HomeHubCompanionFabric implements DedicatedServerModInitializ
             pi.maxHealth = FabricPlayerDetailBuilder.round1(p.getMaxHealth());
         } catch (Throwable ignored) {}
         try { pi.food = p.getFoodData().getFoodLevel(); } catch (Throwable ignored) {}
-        try { pi.heldSlot = p.getInventory().getSelectedSlot(); } catch (Throwable ignored) {}
+        try { pi.heldSlot = Mc.selectedSlot(p); } catch (Throwable ignored) {}
         try { pi.level = p.experienceLevel; } catch (Throwable ignored) {}
-        try { if (p.connection != null) pi.pingMs = p.connection.latency(); } catch (Throwable ignored) {}
+        try { pi.pingMs = Mc.latency(p); } catch (Throwable ignored) {}
     }
 
     private static ServerPlayer findPlayer(MinecraftServer s, String uuid) {
         for (ServerPlayer p : s.getPlayerList().getPlayers()) {
-            if (p.getUUID().toString().equals(uuid) || p.getGameProfile().name().equals(uuid)) return p;
+            if (p.getUUID().toString().equals(uuid) || Mc.profileName(p).equals(uuid)) return p;
         }
         return null;
     }

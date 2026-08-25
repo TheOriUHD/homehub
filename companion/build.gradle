@@ -9,18 +9,54 @@
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
+plugins {
+    id 'com.gradleup.shadow' version '9.6.1' apply false
+}
+
 tasks.register('forgeBuild', Exec) {
     dependsOn ':core:jar' // forge's build consumes core/build/libs/core-<v>.jar
     workingDir file('forge')
     // The forge build carries its own Gradle wrapper: ForgeGradle 7 (required
-    // by Forge 1.21.9+) needs Gradle 9.3+, newer than this root build's Gradle.
+    // by Forge 1.21.9+) needs Gradle 9.5+, and its targets compile for Java 25.
     commandLine file('forge/gradlew').absolutePath, 'build', '--console=plain'
 }
 
+// Every game version a loader jar is built for, newest first. Paper and
+// Velocity ship one jar each — the Bukkit API and the proxy API are stable
+// enough that reflection covers the differences — while Fabric and Forge
+// need one jar per version family (fabric/targets, forge/targets).
+def fabricTargets = file('fabric/targets').listFiles().findAll { it.isDirectory() }*.name
+def forgeTargets = file('forge/targets').listFiles().findAll { it.isDirectory() }*.name
+
+// The human-readable range each target jar claims, matching the dependency
+// range baked into its fabric.mod.json / mods.toml. Anything not listed is
+// described by its own version.
+def fabricRanges = [
+    '1.20.1': '1.20 – 1.20.1', '1.20.4': '1.20.2 – 1.20.4', '1.21.1': '1.21 – 1.21.1', '1.21.4': '1.21.2 – 1.21.4',
+    '1.21.8': '1.21.5 – 1.21.8', '1.21.10': '1.21.9 – 1.21.10', '1.21.11': '1.21.11',
+    '26.1.2': '26.1.x', '26.2': '26.2.x',
+]
+def forgeRanges = [
+    '1.21.1': '1.21 – 1.21.1', '1.21.4': '1.21.2 – 1.21.4', '1.21.5': '1.21.5', '1.21.8': '1.21.6 – 1.21.8',
+    '1.21.10': '1.21.9 – 1.21.10', '1.21.11': '1.21.11', '26.1.2': '26.1.x', '26.2': '26.2.x',
+]
+
+// Sort "26.2" after "1.21.11": compare as numeric tuples.
+def byVersionDesc = { a, b ->
+    def ta = a.tokenize('.')*.toInteger(), tb = b.tokenize('.')*.toInteger()
+    for (int i = 0; i < Math.max(ta.size(), tb.size()); i++) {
+        def x = i < ta.size() ? ta[i] : 0, y = i < tb.size() ? tb[i] : 0
+        if (x != y) return y <=> x
+    }
+    0
+}
+
 tasks.register('dist') {
-    dependsOn ':paper:shadowJar', ':velocity:shadowJar', ':fabric:remapJar', 'forgeBuild'
+    dependsOn ':paper:shadowJar', ':velocity:shadowJar', 'forgeBuild'
+    fabricTargets.each { dependsOn ":fabric-${it}:build" }
     def distDir = file('dist')
     doLast {
+        distDir.deleteDir()
         distDir.mkdirs()
 
         def stage = { File built, String jarName ->
@@ -29,27 +65,29 @@ tasks.register('dist') {
             println "dist: ${new File(distDir, jarName)}"
         }
 
+        def entries = []
         def paperJar = "homehub-companion-paper-${project.version}.jar"
         def velocityJar = "homehub-companion-velocity-${project.version}.jar"
-        def fabricJar = "homehub-companion-fabric-${project.version}.jar"
-        def forgeJar = "homehub-companion-forge-${project.version}.jar"
-
         stage(project(':paper').tasks.named('shadowJar').get().archiveFile.get().asFile, paperJar)
         stage(project(':velocity').tasks.named('shadowJar').get().archiveFile.get().asFile, velocityJar)
-        stage(project(':fabric').tasks.named('remapJar').get().archiveFile.get().asFile, fabricJar)
-        stage(file("forge/build/libs/${forgeJar}"), forgeJar)
+        // One jar serves both Paper and Spigot; the manifest lists both loaders
+        // pointing at the same file.
+        ['paper', 'spigot'].each { entries << [loader: it, file: paperJar, minecraft: '', mcVersions: '1.13 – 26.x'] }
+        entries << [loader: 'velocity', file: velocityJar, minecraft: '', mcVersions: 'Velocity 3.3 – 4.x']
 
-        // One jar serves both Paper and Spigot (1.16.5+); the manifest lists
-        // both loaders pointing at the same file.
+        fabricTargets.sort(byVersionDesc).each { mc ->
+            def jarName = "homehub-companion-fabric-${project.version}-mc${mc}.jar"
+            stage(project(":fabric-${mc}").ext.modJarTask.get().archiveFile.get().asFile, jarName)
+            entries << [loader: 'fabric', file: jarName, minecraft: mc, mcVersions: fabricRanges[mc] ?: mc]
+        }
+        forgeTargets.sort(byVersionDesc).each { mc ->
+            def jarName = "homehub-companion-forge-${project.version}-mc${mc}.jar"
+            stage(file("forge/targets/${mc}/build/libs/${jarName}"), jarName)
+            entries << [loader: 'forge', file: jarName, minecraft: mc, mcVersions: forgeRanges[mc] ?: mc]
+        }
+
         def manifest = new File(distDir, 'manifest.json')
-        manifest.setText(
-            '[\n' +
-            "  {\"loader\":\"paper\",\"file\":\"${paperJar}\",\"mcVersions\":\"1.16.5 – 1.21.x\"},\n" +
-            "  {\"loader\":\"spigot\",\"file\":\"${paperJar}\",\"mcVersions\":\"1.16.5 – 1.21.x\"},\n" +
-            "  {\"loader\":\"velocity\",\"file\":\"${velocityJar}\",\"mcVersions\":\"Velocity 3.3+\"},\n" +
-            "  {\"loader\":\"fabric\",\"file\":\"${fabricJar}\",\"mcVersions\":\"1.21.x\"},\n" +
-            "  {\"loader\":\"forge\",\"file\":\"${forgeJar}\",\"mcVersions\":\"1.21.x\"}\n" +
-            ']\n', 'UTF-8')
+        manifest.setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(entries)) + '\n', 'UTF-8')
         println "dist: ${manifest}"
     }
 }

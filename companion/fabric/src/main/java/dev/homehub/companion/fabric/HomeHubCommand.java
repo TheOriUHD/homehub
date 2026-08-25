@@ -5,9 +5,9 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import dev.homehub.companion.core.CompanionClient;
+import dev.homehub.companion.fabric.compat.Mc;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.permissions.Permissions;
 
 import java.io.IOException;
 
@@ -21,7 +21,7 @@ public final class HomeHubCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 LiteralArgumentBuilder.<CommandSourceStack>literal("homehub")
-                        .requires(src -> src.permissions().hasPermission(Permissions.COMMANDS_ADMIN))
+                        .requires(Mc::isAdmin)
                         .then(LiteralArgumentBuilder.<CommandSourceStack>literal("pair")
                                 .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument("url", StringArgumentType.string())
                                         .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument("code", StringArgumentType.string())

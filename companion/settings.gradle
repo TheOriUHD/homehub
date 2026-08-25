@@ -5,11 +5,24 @@ pluginManagement {
     }
 }
 
+// Toolchains: the 26.x targets compile for Java 25, which the host may not
+// have; foojay downloads a matching JDK into ~/.gradle/jdks on demand.
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
 rootProject.name = 'homehub-companion'
 
 include 'core'
 include 'paper'
 include 'velocity'
-include 'fabric'
+
+// One Fabric project per game version: an intermediary-mapped jar only runs
+// on the versions whose member names it was remapped against, and 26.x has
+// no intermediary at all. Each target lives in fabric/targets/<mc>/.
+file('fabric/targets').listFiles().findAll { it.isDirectory() }.sort().each { dir ->
+    include ":fabric-${dir.name}"
+    project(":fabric-${dir.name}").projectDir = dir
+}
 // forge/ is a standalone Gradle build (ForgeGradle rewires too much of the
 // build to share a multi-project with loom); the root dist task drives it.

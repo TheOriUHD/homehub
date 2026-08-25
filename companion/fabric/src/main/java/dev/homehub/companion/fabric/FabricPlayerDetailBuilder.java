@@ -2,49 +2,46 @@ package dev.homehub.companion.fabric;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import net.minecraft.core.Holder;
-import net.minecraft.core.component.DataComponents;
+import dev.homehub.companion.fabric.compat.Mc;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.ServerStatsCounter;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.food.FoodData;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
-import net.minecraft.world.level.GameType;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * The Fabric equivalent of Paper's PlayerDetailBuilder: a full live snapshot
  * for one player as JSON — position, vitals, gamemode, effects, the whole
  * inventory (hotbar/main/armor/offhand with counts, custom names, enchants),
- * ender chest, and a curated statistics set. Compiled against Mojang 1.21.11
- * mappings; loom remaps to the runtime namespace, so we use direct member
- * calls (never reflection by name — that would look up unmapped strings).
- * Every section is guarded so one version-sensitive call can't blank the doc.
- * Runs on the server thread.
+ * ender chest, and a curated statistics set. Compiled against Mojang
+ * mappings once per game version; loom remaps to the runtime namespace, so
+ * we use direct member calls (never reflection by name — that would look up
+ * unmapped strings). Whatever Mojang renamed between versions goes through
+ * {@link Mc}, the per-era shim. Every section is guarded so one
+ * version-sensitive call can't blank the doc. Runs on the server thread.
  */
 final class FabricPlayerDetailBuilder {
 
     static JsonObject build(ServerPlayer p) {
         JsonObject o = new JsonObject();
-        o.addProperty("name", p.getGameProfile().name());
+        o.addProperty("name", Mc.profileName(p));
         o.addProperty("uuid", p.getUUID().toString());
 
         try {
-            GameType gm = p.gameMode();
-            if (gm != null) o.addProperty("gameMode", gm.getName());
+            String gm = Mc.gameMode(p);
+            if (gm != null) o.addProperty("gameMode", gm);
         } catch (Throwable ignored) {}
 
         // position
         try {
             JsonObject pos = new JsonObject();
-            try { pos.addProperty("world", p.level().dimension().identifier().toString()); } catch (Throwable ignored) {}
+            try { pos.addProperty("world", Mc.dimension(p)); } catch (Throwable ignored) {}
             pos.addProperty("x", round2(p.getX()));
             pos.addProperty("y", round2(p.getY()));
             pos.addProperty("z", round2(p.getZ()));
@@ -71,7 +68,8 @@ final class FabricPlayerDetailBuilder {
                 v.addProperty("maximumAir", p.getMaxAirSupply());
             } catch (Throwable ignored) {}
             try {
-                if (p.connection != null) v.addProperty("pingMs", p.connection.latency());
+                Integer ping = Mc.latency(p);
+                if (ping != null) v.addProperty("pingMs", ping);
             } catch (Throwable ignored) {}
             o.add("vitals", v);
         } catch (Throwable ignored) {}
@@ -81,7 +79,7 @@ final class FabricPlayerDetailBuilder {
             JsonArray effects = new JsonArray();
             for (MobEffectInstance e : p.getActiveEffects()) {
                 JsonObject je = new JsonObject();
-                je.addProperty("type", stripNs(e.getEffect().getRegisteredName()));
+                je.addProperty("type", stripNs(Mc.effectId(e)));
                 je.addProperty("amplifier", e.getAmplifier());
                 je.addProperty("durationTicks", e.getDuration());
                 effects.add(je);
@@ -91,13 +89,12 @@ final class FabricPlayerDetailBuilder {
 
         // inventory
         try {
-            Inventory inv = p.getInventory();
             JsonObject invObj = new JsonObject();
-            try { invObj.addProperty("heldSlot", inv.getSelectedSlot()); } catch (Throwable ignored) {}
+            try { invObj.addProperty("heldSlot", Mc.selectedSlot(p)); } catch (Throwable ignored) {}
 
             JsonArray items = new JsonArray();
             try {
-                java.util.List<ItemStack> main = inv.getNonEquipmentItems();
+                List<ItemStack> main = Mc.mainItems(p);
                 for (int i = 0; i < main.size(); i++) {
                     JsonObject item = item(main.get(i));
                     if (item != null) {
@@ -171,22 +168,16 @@ final class FabricPlayerDetailBuilder {
         o.addProperty("count", stack.getCount());
         // custom name (only when the item actually carries one)
         try {
-            Component cn = stack.getComponents().get(DataComponents.CUSTOM_NAME);
-            if (cn != null) {
-                String s = cn.getString();
-                if (s != null && !s.isEmpty()) o.addProperty("name", s);
-            }
+            String name = Mc.customName(stack);
+            if (name != null && !name.isEmpty()) o.addProperty("name", name);
         } catch (Throwable ignored) {}
         // enchantments
         try {
-            ItemEnchantments ench = stack.getEnchantments();
-            if (ench != null && !ench.isEmpty()) {
-                JsonObject je = new JsonObject();
-                for (Object2IntMap.Entry<Holder<Enchantment>> e : ench.entrySet()) {
-                    je.addProperty(stripNs(e.getKey().getRegisteredName()), e.getIntValue());
-                }
-                if (je.size() > 0) o.add("enchants", je);
+            JsonObject je = new JsonObject();
+            for (Map.Entry<String, Integer> e : Mc.enchantments(stack).entrySet()) {
+                je.addProperty(stripNs(e.getKey()), e.getValue());
             }
+            if (je.size() > 0) o.add("enchants", je);
         } catch (Throwable ignored) {}
         return o;
     }
@@ -196,10 +187,11 @@ final class FabricPlayerDetailBuilder {
         if (item != null) parent.add(key, item);
     }
 
-    private static void stat(JsonObject out, ServerStatsCounter sc, String key,
-                             net.minecraft.resources.Identifier custom, double scale) {
+    // The id type is ResourceLocation up to 1.21.10 and Identifier after;
+    // the shim casts, so this signature can stay era-neutral.
+    private static void stat(JsonObject out, ServerStatsCounter sc, String key, Object custom, double scale) {
         try {
-            int raw = sc.getValue(Stats.CUSTOM.get(custom));
+            int raw = Mc.customStat(sc, custom);
             if (scale == 1.0) out.addProperty(key, (long) raw);
             else out.addProperty(key, round1(raw * scale));
         } catch (Throwable ignored) {}

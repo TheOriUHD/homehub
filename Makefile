@@ -11,9 +11,10 @@ generate:
 build-web:
 	cd web && npm ci && npm run build
 
-## Minecraft companion plugin jars (requires JDK 21 + Gradle)
+## Minecraft companion plugin jars (JDK 21 on the host; the wrapper fetches
+## Gradle, and the 26.x targets' Java 25 arrives through the toolchain resolver)
 build-companion:
-	cd companion && gradle --no-daemon dist
+	cd companion && ./gradlew --no-daemon --console=plain -q dist
 
 ## caddy-reader helper binaries (amd64/arm64/armv7) + installer into helper/dist,
 ## embedded into the server by the "helper" build tag. helper/caddy-reader is its

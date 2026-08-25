@@ -1,7 +1,7 @@
 {
   "required": true,
   "package": "dev.homehub.companion.fabric.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_${mixinJava}",
   "mixins": [
     "CommandsMixin",
     "MinecraftServerMixin"
