@@ -452,17 +452,6 @@ function UnitPlot({
 
     const plot = new uPlot(options, data, el);
     plotRef.current = plot;
-    // Diagnostic handle: window.__hhPlots lists every live chart with the
-    // data and scales it actually holds, so a broken chart can be inspected
-    // from the console instead of guessed at from a screenshot.
-    const registry = ((window as unknown as { __hhPlots?: unknown[] }).__hhPlots ??= []);
-    registry.push({
-      unit,
-      points: data[0].length,
-      xs: [data[0][0], data[0][data[0].length - 1]],
-      scales: () => ({ x: { ...plot.scales.x }, y: { ...plot.scales.y } }),
-      plot,
-    });
 
     const resize = new ResizeObserver(() => {
       plot.setSize({ width: el.clientWidth, height });
