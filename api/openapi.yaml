@@ -8834,9 +8834,15 @@ components:
         loader: { type: string }
         file: { type: string }
         sizeBytes: { type: integer, format: int64 }
+        minecraft:
+          type: string
+          description: >-
+            The game version this jar was built against, e.g. "26.2". Set for
+            loaders that need one jar per version family (Fabric, Forge);
+            absent when one jar covers every version the loader runs.
         mcVersions:
           type: string
-          description: Human-readable supported range, e.g. "1.16.5 – 1.21.x"
+          description: Human-readable supported range, e.g. "1.21.5 – 1.21.8"
 
     ApertureCamera:
       type: object

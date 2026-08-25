@@ -1990,6 +1990,7 @@
       "instructionsIntro": "Four steps and the console lights up.",
       "step1": "Download the companion for your loader",
       "downloadMeta": "{{versions}} · {{size}}",
+      "pickVersion": "One jar per game version — pick yours:",
       "step2": "Drop the jar into the server's plugins/ folder (mods/ on Fabric and Forge)",
       "step3": "Point it at this HomeHub",
       "step3Body": "Either create homehub-companion.properties next to the server jar with the contents below, or run the pair command straight from the server console.",

@@ -1990,6 +1990,7 @@
       "instructionsIntro": "Vier Schritte, und die Konsole leuchtet auf.",
       "step1": "Lade den Companion für deinen Loader herunter",
       "downloadMeta": "{{versions}} · {{size}}",
+      "pickVersion": "Eine Jar pro Spielversion — wähl deine:",
       "step2": "Lege die Jar in den plugins/-Ordner des Servers (mods/ bei Fabric und Forge)",
       "step3": "Zeig ihm den Weg zu diesem HomeHub",
       "step3Body": "Lege entweder homehub-companion.properties mit dem Inhalt unten neben die Server-Jar, oder führe den Pair-Befehl direkt in der Serverkonsole aus.",

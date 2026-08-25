@@ -730,6 +730,7 @@ func (s *Server) McCommand(ctx context.Context, req McCommandRequestObject) (McC
 type companionManifest []struct {
 	Loader     string `json:"loader"`
 	File       string `json:"file"`
+	Minecraft  string `json:"minecraft"`
 	McVersions string `json:"mcVersions"`
 }
 
@@ -756,12 +757,17 @@ func (s *Server) McDownloads(ctx context.Context, _ McDownloadsRequestObject) (M
 		if err != nil {
 			continue
 		}
-		out = append(out, McDownload{
+		d := McDownload{
 			Loader:     entry.Loader,
 			File:       entry.File,
 			SizeBytes:  info.Size(),
 			McVersions: entry.McVersions,
-		})
+		}
+		if entry.Minecraft != "" {
+			mc := entry.Minecraft
+			d.Minecraft = &mc
+		}
+		out = append(out, d)
 	}
 	return McDownloads200JSONResponse(out), nil
 }
