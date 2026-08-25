@@ -147,6 +147,16 @@ func (s *Store) LatestSignalByKey(ctx context.Context, key string) (*Signal, err
 		`select `+signalCols+` from signals where key = $1 order by id desc limit 1`, key))
 }
 
+// HasLiveSignal reports whether a key is firing right now. GetLiveSignal is
+// the reconciler's view and also returns a resolved row (one undismissed row
+// per key is reused across firings); this is the plain question.
+func (s *Store) HasLiveSignal(ctx context.Context, key string) (bool, error) {
+	var live bool
+	err := s.pool.QueryRow(ctx,
+		`select exists (select 1 from signals where key = $1 and resolved_at is null and dismissed_at is null)`, key).Scan(&live)
+	return live, err
+}
+
 func (s *Store) GetLiveSignal(ctx context.Context, key string) (*Signal, error) {
 	return scanOne[Signal](s.pool.Query(ctx,
 		`select `+signalCols+` from signals where key = $1 and dismissed_at is null`, key))
