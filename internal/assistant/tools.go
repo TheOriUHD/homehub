@@ -936,10 +936,10 @@ func (tb *Toolbox) sentNotifications(ctx context.Context, access Access, input j
 	out := make([]sent, 0, len(rows))
 	for _, r := range rows {
 		state := "no longer tracked"
-		if live, lerr := tb.Store.GetLiveSignal(ctx, r.Key); lerr == nil && live != nil {
-			state = fmt.Sprintf("still firing (%s) since %s", live.Severity, live.FirstSeen.Local().Format("Mon 2 Jan 15:04"))
-		} else if last, lerr := tb.Store.LatestSignalByKey(ctx, r.Key); lerr == nil && last != nil {
-			if last.ResolvedAt != nil {
+		if last, lerr := tb.Store.LatestSignalByKey(ctx, r.Key); lerr == nil && last != nil {
+			if last.ResolvedAt == nil && last.DismissedAt == nil {
+				state = fmt.Sprintf("still firing (%s) since %s", last.Severity, last.FirstSeen.Local().Format("Mon 2 Jan 15:04"))
+			} else if last.ResolvedAt != nil {
 				state = "cleared " + last.ResolvedAt.Local().Format("Mon 2 Jan 15:04")
 			} else if last.DismissedAt != nil {
 				state = "dismissed by the user " + last.DismissedAt.Local().Format("Mon 2 Jan 15:04")

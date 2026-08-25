@@ -105,7 +105,7 @@ func (s *Server) FlushRecoveries(ctx context.Context) {
 	for _, notice := range due {
 		// The fault came back and cleared again inside the hold, or is live
 		// right now: either way "it's back" would be false.
-		if live, _ := s.store.GetLiveSignal(ctx, notice.Key); live != nil {
+		if live, err := s.store.HasLiveSignal(ctx, notice.Key); err != nil || live {
 			s.logger.Info("recovery dropped at flush — the condition is live again", "signal", notice.Key)
 			continue
 		}
