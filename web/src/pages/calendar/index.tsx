@@ -71,8 +71,10 @@ export function CalendarPage() {
         <span className="bg-accent-soft text-accent-soft-fg flex size-9 items-center justify-center rounded-xl">
           <CalendarDays className="size-4.5" />
         </span>
-        <h1 className="text-fg text-lg font-semibold tracking-tight capitalize">{monthTitle}</h1>
-        <div className="ml-2 flex items-center gap-0.5">
+        {/* Navigation before the title: the title's width changes with the
+            month name, and anything after it would shift under a finger
+            that is clicking through the year. */}
+        <div className="flex items-center gap-0.5">
           <Button size="sm" variant="ghost" onClick={() => step(-1)} aria-label={t("calendar.prev")}>
             <ChevronLeft className="size-4" />
           </Button>
@@ -83,6 +85,7 @@ export function CalendarPage() {
             <ChevronRight className="size-4" />
           </Button>
         </div>
+        <h1 className="text-fg ml-1 text-lg font-semibold tracking-tight capitalize">{monthTitle}</h1>
 
         <span className="flex-1" />
 
