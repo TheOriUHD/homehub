@@ -93,3 +93,18 @@ export function PageLoader({ className }: { className?: string }) {
     </div>
   );
 }
+
+/** A value meant to be copied whole — a URL, a config snippet — with its button. */
+export function CopyBlock({ label, value }: { label?: string; value: string }) {
+  return (
+    <div>
+      {label && <p className="text-fg-subtle mb-1 font-mono text-xs">{label}</p>}
+      <div className="bg-bg-subtle border-edge flex items-start justify-between gap-2 rounded-md border px-3 py-2">
+        <pre className="text-fg min-w-0 flex-1 overflow-x-auto font-mono text-[12.5px] whitespace-pre select-all">
+          {value}
+        </pre>
+        <CopyButton value={value} />
+      </div>
+    </div>
+  );
+}

@@ -6419,6 +6419,47 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Calendar" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /calendars/{id}/feed:
+    get:
+      operationId: getCalendarFeed
+      summary: Whether the calendar is published as a subscription feed, and its URL
+      tags: [calendar]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Feed state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CalendarFeed" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: publishCalendarFeed
+      summary: Publish the calendar as an iCalendar subscription URL (or rotate the URL)
+      description: >-
+        The URL is the whole credential: anyone holding it can read the
+        calendar, which is what lets a phone, Google Calendar or Home Assistant
+        subscribe without an account. Calling again replaces the token, so the
+        old URL stops working.
+      tags: [calendar]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Published
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CalendarFeed" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: unpublishCalendarFeed
+      summary: Stop publishing; the URL stops working at once
+      tags: [calendar]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Unpublished }
+        "404": { $ref: "#/components/responses/NotFound" }
   /calendar/events:
     get:
       operationId: listCalendarEvents
@@ -8711,6 +8752,18 @@ components:
         lastSyncedAt: { type: string, format: date-time }
         syncError: { type: string }
         settings: { description: "Kind-specific settings" }
+        createdAt: { type: string, format: date-time }
+    CalendarFeed:
+      type: object
+      required: [published]
+      properties:
+        published: { type: boolean }
+        url:
+          type: string
+          description: >-
+            The subscription URL, absolute when the app URL is configured and
+            a path otherwise (the client prefixes its own origin). Absent when
+            not published.
         createdAt: { type: string, format: date-time }
     CalendarEventInput:
       type: object
