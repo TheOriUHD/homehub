@@ -54,6 +54,10 @@ func Handler(deps Deps) http.Handler {
 	if deps.Helper != nil {
 		registerHelperRoutes(r, deps.Helper)
 	}
+	// Published calendars: the token in the URL is the credential, so this
+	// sits outside /api and its session middleware — a phone's calendar app
+	// cannot log in.
+	r.Get("/calendar/feed/{token}", deps.API.HandleCalendarFeed)
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = io.WriteString(w, "ok")

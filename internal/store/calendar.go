@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -218,4 +219,54 @@ func (s *Store) DeleteCalendarEventsByHref(ctx context.Context, calendarID uuid.
 	_, err := s.pool.Exec(ctx,
 		`delete from calendar_events where calendar_id=$1 and href=$2`, calendarID, href)
 	return err
+}
+
+// CalendarFeed is a calendar published as an iCalendar subscription URL.
+type CalendarFeed struct {
+	CalendarID uuid.UUID  `db:"calendar_id"`
+	Token      string     `db:"token"`
+	CreatedBy  *uuid.UUID `db:"created_by"`
+	CreatedAt  time.Time  `db:"created_at"`
+}
+
+// GetCalendarFeed returns the calendar's feed, or nil when it is not
+// published.
+func (s *Store) GetCalendarFeed(ctx context.Context, calendarID uuid.UUID) (*CalendarFeed, error) {
+	row, err := scanOne[CalendarFeed](s.pool.Query(ctx,
+		`select calendar_id, token, created_by, created_at from calendar_feeds where calendar_id = $1`, calendarID))
+	if errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
+	return row, err
+}
+
+// GetCalendarFeedByToken resolves a subscription URL's token.
+func (s *Store) GetCalendarFeedByToken(ctx context.Context, token string) (*CalendarFeed, error) {
+	return scanOne[CalendarFeed](s.pool.Query(ctx,
+		`select calendar_id, token, created_by, created_at from calendar_feeds where token = $1`, token))
+}
+
+// SetCalendarFeed publishes a calendar under a token, replacing any previous
+// one — rotation and first publication are the same write.
+func (s *Store) SetCalendarFeed(ctx context.Context, calendarID uuid.UUID, token string, by uuid.UUID) (*CalendarFeed, error) {
+	return scanOne[CalendarFeed](s.pool.Query(ctx, `
+		insert into calendar_feeds (calendar_id, token, created_by)
+		values ($1, $2, $3)
+		on conflict (calendar_id) do update set token = excluded.token, created_by = excluded.created_by, created_at = now()
+		returning calendar_id, token, created_by, created_at`, calendarID, token, by))
+}
+
+// DeleteCalendarFeed unpublishes; the old URL stops working at once.
+func (s *Store) DeleteCalendarFeed(ctx context.Context, calendarID uuid.UUID) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `delete from calendar_feeds where calendar_id = $1`, calendarID)
+	return tag.RowsAffected() > 0, err
+}
+
+// ListCalendarEvents returns every stored row of one calendar — masters with
+// their rules and the overrides — which is what a subscriber's own client
+// expands.
+func (s *Store) ListCalendarEvents(ctx context.Context, calendarID uuid.UUID) ([]CalendarEvent, error) {
+	return scanMany[CalendarEvent](s.pool.Query(ctx, `
+		select `+calEventCols+` from calendar_events
+		where calendar_id = $1 order by starts_at, recurrence_id nulls first`, calendarID))
 }

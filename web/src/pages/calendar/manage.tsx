@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { CloudDownload, FolderSync, Globe, HardDrive, Pencil, Plus, RefreshCw, Trash2, Recycle } from "lucide-react";
+import { CloudDownload, FolderSync, Globe, HardDrive, Pencil, Plus, RefreshCw, Trash2, Recycle, Rss } from "lucide-react";
 import { api, isApiError, unwrap } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
+import { CopyBlock } from "@/ui/misc";
 import { ConfirmDialog } from "@/ui/confirm";
 import { Dialog, DialogContent } from "@/ui/dialog";
 import { Field } from "@/ui/field";
@@ -34,6 +35,7 @@ export function ManageCalendarsDialog({
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Calendar | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Calendar | null>(null);
+  const [sharing, setSharing] = useState<Calendar | null>(null);
 
   const sync = useMutation({
     mutationFn: async (id: string) =>
@@ -106,6 +108,14 @@ export function ManageCalendarsDialog({
                   )}
                   <button
                     type="button"
+                    onClick={() => setSharing(c)}
+                    className="text-fg-subtle hover:text-fg rounded-md p-1.5"
+                    title={t("calendar.manage.feedTitle")}
+                  >
+                    <Rss className="size-4" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setEditing(c)}
                     className="text-fg-subtle hover:text-fg rounded-md p-1.5"
                     title={t("common.edit")}
@@ -128,6 +138,7 @@ export function ManageCalendarsDialog({
 
         {adding && <AddCalendarDialog onClose={() => setAdding(false)} />}
         {editing && <EditCalendarDialog calendar={editing} onClose={() => setEditing(null)} />}
+        {sharing && <FeedDialog calendar={sharing} onClose={() => setSharing(null)} />}
         <ConfirmDialog
           open={confirmDelete !== null}
           onOpenChange={(o) => !o && setConfirmDelete(null)}
@@ -137,6 +148,79 @@ export function ManageCalendarsDialog({
           loading={remove.isPending}
           onConfirm={() => confirmDelete && remove.mutate(confirmDelete.id)}
         />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Publishing a calendar outward: one subscription URL any iCalendar client
+ * can poll. The URL is the credential, so the dialog treats it like one —
+ * rotate replaces it, stop kills it at once.
+ */
+function FeedDialog({ calendar, onClose }: { calendar: Calendar; onClose: () => void }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const feed = useQuery({
+    queryKey: ["calendar", "feed", calendar.id],
+    queryFn: async () => unwrap(await api.GET("/calendars/{id}/feed", { params: { path: { id: calendar.id } } })),
+  });
+  const publish = useMutation({
+    mutationFn: async () =>
+      unwrap(await api.POST("/calendars/{id}/feed", { params: { path: { id: calendar.id } } })),
+    onSuccess: () => feed.refetch(),
+    onError: (e) => toast("error", isApiError(e) ? e.message : t("common.unknownError")),
+  });
+  const unpublish = useMutation({
+    mutationFn: async () =>
+      unwrap(await api.DELETE("/calendars/{id}/feed", { params: { path: { id: calendar.id } } })),
+    onSuccess: () => feed.refetch(),
+    onError: (e) => toast("error", isApiError(e) ? e.message : t("common.unknownError")),
+  });
+  // A path-only URL means no app URL is configured; the browser's origin is
+  // the best guess at where subscribers will reach this HomeHub.
+  const url = feed.data?.url ? (feed.data.url.startsWith("/") ? window.location.origin + feed.data.url : feed.data.url) : "";
+  const busy = publish.isPending || unpublish.isPending;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent
+        title={t("calendar.manage.feedTitle")}
+        className="max-w-lg"
+        footer={
+          <>
+            {feed.data?.published ? (
+              <>
+                <Button variant="secondary" size="sm" disabled={busy} onClick={() => publish.mutate()}>
+                  {t("calendar.manage.feedRotate")}
+                </Button>
+                <Button variant="danger" size="sm" disabled={busy} onClick={() => unpublish.mutate()}>
+                  {t("calendar.manage.feedStop")}
+                </Button>
+              </>
+            ) : (
+              <Button variant="primary" size="sm" disabled={busy || feed.isLoading} onClick={() => publish.mutate()}>
+                {t("calendar.manage.feedPublish")}
+              </Button>
+            )}
+            <span className="flex-1" />
+            <Button variant="secondary" onClick={onClose}>
+              {t("common.done")}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-fg-muted text-[13px]">{t("calendar.manage.feedIntro", { name: calendar.name })}</p>
+          {feed.data?.published && url ? (
+            <>
+              <CopyBlock label={t("calendar.manage.feedUrl")} value={url} />
+              <p className="text-fg-subtle text-[12px]">{t("calendar.manage.feedHint")}</p>
+            </>
+          ) : (
+            <p className="text-fg-subtle text-[12px]">{t("calendar.manage.feedOff")}</p>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

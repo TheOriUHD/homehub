@@ -2,7 +2,13 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"github.com/go-chi/chi/v5"
+	"net/http"
+	"strings"
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -348,4 +354,129 @@ func (s *Server) DeleteCalendarEvent(ctx context.Context, req DeleteCalendarEven
 		return DeleteCalendarEvent404JSONResponse{NotFoundJSONResponse(errBody("delete_failed", err.Error()))}, nil
 	}
 	return DeleteCalendarEvent204Response{}, nil
+}
+
+// ---- subscription feeds -----------------------------------------------------
+//
+// A calendar published outward: one long random token in a URL that any
+// iCalendar client can subscribe to — phones, Google Calendar, Home
+// Assistant's remote calendar. The token is the whole credential, so the
+// route is unauthenticated by design and lives outside /api.
+
+// feedRefresh is the polling hint written into the feed. Clients treat it as
+// a suggestion; most phones poll on their own schedule regardless.
+const feedRefresh = 15 * time.Minute
+
+func (s *Server) feedURL(ctx context.Context, token string) string {
+	path := "/calendar/feed/" + token + ".ics"
+	if base := s.settings.AppURL(ctx); base != "" {
+		return base + path
+	}
+	return path
+}
+
+func (s *Server) toAPICalendarFeed(ctx context.Context, feed *store.CalendarFeed) CalendarFeed {
+	if feed == nil {
+		return CalendarFeed{Published: false}
+	}
+	url := s.feedURL(ctx, feed.Token)
+	created := feed.CreatedAt
+	return CalendarFeed{Published: true, Url: &url, CreatedAt: &created}
+}
+
+func (s *Server) GetCalendarFeed(ctx context.Context, req GetCalendarFeedRequestObject) (GetCalendarFeedResponseObject, error) {
+	if httpctx.IdentityFrom(ctx) == nil {
+		return nil, ErrUnauthenticated
+	}
+	if _, err := s.store.GetCalendar(ctx, req.Id); err != nil {
+		return GetCalendarFeed404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such calendar"))}, nil
+	}
+	feed, err := s.store.GetCalendarFeed(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	return GetCalendarFeed200JSONResponse(s.toAPICalendarFeed(ctx, feed)), nil
+}
+
+func (s *Server) PublishCalendarFeed(ctx context.Context, req PublishCalendarFeedRequestObject) (PublishCalendarFeedResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	if _, err := s.store.GetCalendar(ctx, req.Id); err != nil {
+		return PublishCalendarFeed404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such calendar"))}, nil
+	}
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return nil, err
+	}
+	feed, err := s.store.SetCalendarFeed(ctx, req.Id, base64.RawURLEncoding.EncodeToString(raw), id.User.ID)
+	if err != nil {
+		return nil, err
+	}
+	return PublishCalendarFeed200JSONResponse(s.toAPICalendarFeed(ctx, feed)), nil
+}
+
+func (s *Server) UnpublishCalendarFeed(ctx context.Context, req UnpublishCalendarFeedRequestObject) (UnpublishCalendarFeedResponseObject, error) {
+	if httpctx.IdentityFrom(ctx) == nil {
+		return nil, ErrUnauthenticated
+	}
+	if _, err := s.store.GetCalendar(ctx, req.Id); err != nil {
+		return UnpublishCalendarFeed404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such calendar"))}, nil
+	}
+	if _, err := s.store.DeleteCalendarFeed(ctx, req.Id); err != nil {
+		return nil, err
+	}
+	return UnpublishCalendarFeed204Response{}, nil
+}
+
+// HandleCalendarFeed serves GET /calendar/feed/{token}.ics. No session: the
+// token is the credential. A wrong token is a 404 like any other missing
+// path, so the route does not confirm which tokens exist.
+func (s *Server) HandleCalendarFeed(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSuffix(chi.URLParam(r, "token"), ".ics")
+	if token == "" || len(token) > 128 {
+		http.NotFound(w, r)
+		return
+	}
+	ctx := r.Context()
+	feed, err := s.store.GetCalendarFeedByToken(ctx, token)
+	if err != nil || feed == nil {
+		http.NotFound(w, r)
+		return
+	}
+	cal, err := s.store.GetCalendar(ctx, feed.CalendarID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	rows, err := s.store.ListCalendarEvents(ctx, cal.ID)
+	if err != nil {
+		http.Error(w, "calendar unavailable", http.StatusInternalServerError)
+		return
+	}
+	// Subscribers poll; an unchanged calendar answers 304 from the newest
+	// change it holds, without re-encoding anything.
+	newest := cal.UpdatedAt
+	for _, row := range rows {
+		if row.UpdatedAt.After(newest) {
+			newest = row.UpdatedAt
+		}
+	}
+	etag := fmt.Sprintf(`"%d-%d"`, newest.UnixNano(), len(rows))
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	body, err := calendar.BuildFeed(cal.Name, rows, feedRefresh)
+	if err != nil {
+		http.Error(w, "calendar unavailable", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/calendar; charset=utf-8")
+	w.Header().Set("Content-Disposition", `inline; filename="calendar.ics"`)
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Last-Modified", newest.UTC().Format(http.TimeFormat))
+	_, _ = w.Write(body)
 }

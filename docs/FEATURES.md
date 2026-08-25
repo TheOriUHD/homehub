@@ -275,6 +275,13 @@ Recurring events support daily, weekly, biweekly, monthly, yearly, and custom
 rules — and editing one asks how far the change should reach: this event only,
 this and all following (splitting the series), or every occurrence.
 
+Any calendar can be **published** as an iCalendar subscription: one long
+random token in a URL (`/calendar/feed/<token>.ics`, no login — the link is
+the key) that phones, Google or Apple Calendar, Thunderbird and Home
+Assistant's remote calendar can subscribe to. Masters go out with their rules
+and overrides, so the subscriber's client expands recurrence itself; the feed
+answers 304 while nothing has changed. Rotate replaces the link, stop kills it.
+
 ## Utilities
 
 A workbench with a persistent sidebar: the big apps pinned on top, then

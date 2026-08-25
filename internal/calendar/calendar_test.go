@@ -1,6 +1,7 @@
 package calendar
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -113,3 +114,36 @@ func TestSetRRuleUntil(t *testing.T) {
 		t.Fatalf("got %q want %q", got, want)
 	}
 }
+
+// A feed is what a subscriber's client parses: it must round-trip through
+// the same decoder, carry the calendar name, and keep rules and overrides
+// as rules and overrides rather than pre-expanded copies.
+func TestBuildFeedRoundTrips(t *testing.T) {
+	calID := uuid.New()
+	start := time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)
+	rows := []store.CalendarEvent{
+		{CalendarID: calID, UID: "weekly@homehub", Title: "Bins out", StartsAt: start, EndsAt: start.Add(30 * time.Minute), RRule: "FREQ=WEEKLY;BYDAY=TU"},
+		{CalendarID: calID, UID: "weekly@homehub", Title: "Bins out (moved)", StartsAt: start.AddDate(0, 0, 8), EndsAt: start.AddDate(0, 0, 8).Add(30 * time.Minute),
+			RecurrenceID: ptrTime(start.AddDate(0, 0, 7))},
+		{CalendarID: calID, UID: "holiday@homehub", Title: "Holiday", StartsAt: time.Date(2026, 10, 3, 0, 0, 0, 0, time.UTC), EndsAt: time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC), AllDay: true},
+	}
+	body, err := BuildFeed("Haus", rows, 15*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	for _, want := range []string{"X-WR-CALNAME:Haus", "REFRESH-INTERVAL;VALUE=DURATION:PT15M", "RRULE:FREQ=WEEKLY;BYDAY=TU", "RECURRENCE-ID:20260908T080000Z", "DTSTART;VALUE=DATE:20261003"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("feed lacks %q:\n%s", want, text)
+		}
+	}
+	back, err := ParseICS(calID, body, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(back) != 3 {
+		t.Fatalf("expected the 3 rows back, got %d", len(back))
+	}
+}
+
+func ptrTime(t time.Time) *time.Time { return &t }

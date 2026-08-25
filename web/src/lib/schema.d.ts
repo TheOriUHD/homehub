@@ -4253,6 +4253,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/calendars/{id}/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the calendar is published as a subscription feed, and its URL */
+        get: operations["getCalendarFeed"];
+        put?: never;
+        /**
+         * Publish the calendar as an iCalendar subscription URL (or rotate the URL)
+         * @description The URL is the whole credential: anyone holding it can read the calendar, which is what lets a phone, Google Calendar or Home Assistant subscribe without an account. Calling again replaces the token, so the old URL stops working.
+         */
+        post: operations["publishCalendarFeed"];
+        /** Stop publishing; the URL stops working at once */
+        delete: operations["unpublishCalendarFeed"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/calendar/events": {
         parameters: {
             query?: never;
@@ -5863,6 +5885,13 @@ export interface components {
             settings?: unknown;
             /** Format: date-time */
             createdAt: string;
+        };
+        CalendarFeed: {
+            published: boolean;
+            /** @description The subscription URL, absolute when the app URL is configured and a path otherwise (the client prefixes its own origin). Absent when not published. */
+            url?: string;
+            /** Format: date-time */
+            createdAt?: string;
         };
         CalendarEventInput: {
             title: string;
@@ -14411,6 +14440,73 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Calendar"];
                 };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCalendarFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Feed state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarFeed"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    publishCalendarFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarFeed"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    unpublishCalendarFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unpublished */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             404: components["responses"]["NotFound"];
         };

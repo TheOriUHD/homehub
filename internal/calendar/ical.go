@@ -124,11 +124,60 @@ func parseICalTime(v string) (time.Time, error) {
 // BuildICS serializes one event (master + overrides) into an iCalendar
 // document for CalDAV round-trips.
 func BuildICS(master store.CalendarEvent, overrides []store.CalendarEvent) ([]byte, error) {
+	cal := newCalendar()
+	appendEvent(cal, master)
+	for _, o := range overrides {
+		appendEvent(cal, o)
+	}
+	return encode(cal)
+}
+
+// BuildFeed serializes a whole calendar for subscribers — every master with
+// its rule and every override, so the subscriber's own client does the
+// expanding, exactly as it would for any other published calendar. The
+// name rides along in X-WR-CALNAME (what phones show) and the refresh hint
+// tells polite clients how often to come back.
+func BuildFeed(name string, rows []store.CalendarEvent, refresh time.Duration) ([]byte, error) {
+	cal := newCalendar()
+	// Plain props rather than SetText: the encoder tags SetText values as
+	// VALUE=TEXT, which some subscribers show verbatim in the name.
+	plain := func(key, value string) {
+		p := ical.NewProp(key)
+		p.Value = value
+		cal.Props.Set(p)
+	}
+	plain("X-WR-CALNAME", name)
+	plain("CALSCALE", "GREGORIAN")
+	plain("METHOD", "PUBLISH")
+	iso := fmt.Sprintf("PT%dM", int(refresh.Minutes()))
+	refreshProp := ical.NewProp("REFRESH-INTERVAL")
+	refreshProp.Params.Set("VALUE", "DURATION") // mandatory on this property (RFC 7986)
+	refreshProp.Value = iso
+	cal.Props.Set(refreshProp)
+	plain("X-PUBLISHED-TTL", iso)
+	for _, row := range rows {
+		appendEvent(cal, row)
+	}
+	return encode(cal)
+}
+
+func newCalendar() *ical.Calendar {
 	cal := ical.NewCalendar()
 	cal.Props.SetText(ical.PropProductID, "-//HomeHub//Calendar//EN")
 	cal.Props.SetText(ical.PropVersion, "2.0")
+	return cal
+}
 
-	appendEvent := func(row store.CalendarEvent) {
+func encode(cal *ical.Calendar) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := ical.NewEncoder(&buf).Encode(cal); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func appendEvent(cal *ical.Calendar, row store.CalendarEvent) {
+	{
 		ev := ical.NewEvent()
 		ev.Props.SetText(ical.PropUID, row.UID)
 		ev.Props.SetDateTime(ical.PropDateTimeStamp, time.Now().UTC())
@@ -172,17 +221,6 @@ func BuildICS(master store.CalendarEvent, overrides []store.CalendarEvent) ([]by
 		}
 		cal.Children = append(cal.Children, ev.Component)
 	}
-
-	appendEvent(master)
-	for _, o := range overrides {
-		appendEvent(o)
-	}
-
-	var buf bytes.Buffer
-	if err := ical.NewEncoder(&buf).Encode(cal); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
 }
 
 // parseForPut re-decodes serialized ICS into the library's calendar type
