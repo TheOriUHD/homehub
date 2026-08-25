@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import { cn, formatBytes } from "@/lib/utils";
+import { chartYRange } from "@/lib/metrics";
 
 export type SeriesPoint = { ts: number; value: number };
 
@@ -146,7 +147,18 @@ export function TimeSeriesChart({
         points: { size: 6, fill: theme.accent },
       },
       scales: {
-        y: kind === "percent" ? { range: [0, 1] } : { range: (_u, _min, max) => [0, Math.max(max * 1.1, 1)] },
+        y: {
+          // Percentages own their axis, and byte and item counts read from
+          // zero — "how much of it" only makes sense against nothing. A
+          // reading is different: 21–23 °C or 228–240 V drawn from zero is a
+          // flat line with the entire variation hidden in a pixel.
+          range:
+            kind === "percent"
+              ? [0, 1]
+              : kind === "decimal"
+                ? (_u, min, max) => chartYRange("", min, max)
+                : (_u, _min, max) => [0, Math.max(max * 1.1, 1)],
+        },
       },
       axes: [
         {

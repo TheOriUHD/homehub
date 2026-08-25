@@ -144,10 +144,12 @@ function EntityHistory({ instanceId, entity }: { instanceId: string; entity: HaE
   );
 }
 
+// Everything Home Assistant reports that is not a share or a size is a
+// reading — °C, V, W, hPa, lx — which keeps its decimals and its own band.
 function chartKind(unit: string): ChartKind {
   if (unit === "fraction") return "percent";
   if (unit === "bytes") return "bytes";
-  return "count";
+  return "decimal";
 }
 
 function MetricChart({
