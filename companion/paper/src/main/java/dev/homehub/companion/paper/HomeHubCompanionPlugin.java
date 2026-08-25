@@ -26,7 +26,7 @@ import java.util.List;
 
 /**
  * Paper/Spigot adapter for the HomeHub companion. One jar serves both
- * platforms from 1.16.5 up; Paper-only APIs are reached via reflection.
+ * platforms from 1.13 up; Paper-only APIs are reached via reflection.
  */
 public final class HomeHubCompanionPlugin extends JavaPlugin implements Listener {
 
@@ -43,7 +43,7 @@ public final class HomeHubCompanionPlugin extends JavaPlugin implements Listener
     public void onEnable() {
         serverRoot = canonical(Bukkit.getWorldContainer());
         loader = detectLoader();
-        mcVersion = Bukkit.getBukkitVersion().split("-")[0];
+        mcVersion = minecraftVersion();
         serverName = serverRoot.getName().isEmpty() ? "minecraft" : serverRoot.getName();
         tickStats = new TickStats(Bukkit.getServer());
 
@@ -290,6 +290,19 @@ public final class HomeHubCompanionPlugin extends JavaPlugin implements Listener
     }
 
     // ---- helpers ---------------------------------------------------------
+
+    /**
+     * The game version as players know it. Paper's getMinecraftVersion() says
+     * "26.2"; the Bukkit version string in front of the same server reads
+     * "26.2.build.2622-R0.1-SNAPSHOT", so it is the fallback, trimmed.
+     */
+    private static String minecraftVersion() {
+        try {
+            Object v = Bukkit.class.getMethod("getMinecraftVersion").invoke(null);
+            if (v instanceof String && !((String) v).isEmpty()) return (String) v;
+        } catch (Throwable ignored) {}
+        return Bukkit.getBukkitVersion().split("-")[0].replaceAll("\\.build\\.\\d+$", "");
+    }
 
     private static String detectLoader() {
         String[] paperMarkers = {

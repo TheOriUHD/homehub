@@ -1,7 +1,7 @@
 name: HomeHubCompanion
 version: '${version}'
 main: dev.homehub.companion.paper.HomeHubCompanionPlugin
-api-version: '1.16'
+api-version: '1.13'
 description: Connects this server to HomeHub for console, players, metrics, and remote commands.
 author: HomeHub
 commands:
