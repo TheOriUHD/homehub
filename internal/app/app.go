@@ -180,8 +180,15 @@ func Run(ctx context.Context) error {
 	// once a minute (each on its own cadence) and reconcile what they see.
 	signalsSvc := signals.NewService(st, hub.Publish, logger)
 	signals.RegisterBuiltins(signalsSvc, signals.Deps{Store: st, Manager: manager})
+	// All-clears that have held long enough go out with the sweep; the API
+	// server that announces them is built further down, so the job takes it
+	// through a hook.
+	var flushRecoveries func(context.Context)
 	jobEngine.Register("signals.sweep", func(ctx context.Context, _ json.RawMessage) error {
 		signalsSvc.Sweep(ctx)
+		if flushRecoveries != nil {
+			flushRecoveries(ctx)
+		}
 		_, _ = st.PruneSignals(ctx, 30*24*time.Hour)
 		return nil
 	})
@@ -308,38 +315,10 @@ func Run(ctx context.Context) error {
 
 	// Signals push to Telegram: warning/critical firings, escalations, and
 	// their recoveries go to every linked chat whose user has the signals
-	// surface visible. Runs detached so a slow Telegram API never stalls a
-	// collector sweep.
-	signalsSvc.SetNotifier(func(sig store.Signal, event string) {
-		go func() {
-			// The narrator gets its own budget: it is one small model call,
-			// and a slow provider must not hold a notification hostage.
-			nctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-			defer cancel()
-
-			// The model writes the message and may judge a repeat not worth
-			// sending. The templated text is the fallback for everything
-			// else — no model, no key, a bad answer — because a notification
-			// that reads plainly still beats one that never arrives.
-			text, decided := apiServer.NarrateSignal(nctx, sig, event)
-			if decided && text == "" {
-				return // held back deliberately
-			}
-			if !decided {
-				text = telegramSignalText(sig, event)
-			}
-			reached := tgBot.Broadcast(nctx, text, func(userID uuid.UUID) bool {
-				hidden, err := st.SignalsHiddenForUser(nctx, userID)
-				return err == nil && !hidden
-			})
-			// Put it in each recipient's thread so replying to it works:
-			// "what caused that?" needs the alert to be in the conversation.
-			for _, userID := range reached {
-				apiServer.RememberSentNotice(nctx, userID, text)
-			}
-			apiServer.RecordSignalNotice(nctx, sig, event)
-		}()
-	})
+	// surface visible. The gate, the narrator and the delivery live in the
+	// API server, which owns the bot and the model.
+	signalsSvc.SetNotifier(apiServer.HandleSignalEvent)
+	flushRecoveries = apiServer.FlushRecoveries
 	handler := httpserver.Handler(httpserver.Deps{
 		Logger:   logger,
 		Auth:     authSvc,
@@ -385,29 +364,6 @@ func Run(ctx context.Context) error {
 	stopJobs()
 	jobEngine.Wait()
 	return nil
-}
-
-// telegramSignalText renders one signal transition as a Telegram message.
-func telegramSignalText(sig store.Signal, event string) string {
-	icon := "⚠️"
-	switch {
-	case event == "recovered":
-		icon = "✅"
-	case sig.Severity == "critical":
-		icon = "🚨"
-	}
-	head := sig.Title
-	if event == "recovered" {
-		head = "Recovered: " + sig.Title
-	}
-	text := icon + " " + head
-	if sig.SourceName != "" {
-		text += "\n" + sig.SourceName
-	}
-	if sig.Body != "" && event != "recovered" {
-		text += "\n" + sig.Body
-	}
-	return text
 }
 
 // authorizeTopic maps WebSocket topics onto permission checks. Unknown
@@ -524,6 +480,11 @@ func registerMaintenance(engine *jobs.Engine, st *store.Store, logger *slog.Logg
 			return fmt.Errorf("prune signal notices: %w", err)
 		} else if n > 0 {
 			logger.Info("pruned signal notices", "count", n)
+		}
+		if n, err := st.PruneSentNotices(ctx, 30*24*time.Hour); err != nil {
+			return fmt.Errorf("prune sent notices: %w", err)
+		} else if n > 0 {
+			logger.Info("pruned sent notices", "count", n)
 		}
 		if n, err := st.PruneNotifications(ctx, 30*24*time.Hour); err != nil {
 			return fmt.Errorf("prune notifications: %w", err)

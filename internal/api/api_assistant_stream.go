@@ -8,14 +8,12 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
 	"homehub/internal/assistant"
 	"homehub/internal/httpctx"
 	"homehub/internal/rbac"
-	"homehub/internal/store"
 )
 
 // assistantRuntime resolves the provider for one turn. `pick` is an optional
@@ -414,126 +412,3 @@ func selfCallResult(code int, body []byte) error {
 }
 
 // ---- outbound notifications ---------------------------------------------------
-
-// minNoticeInterval is the floor between two pushes about the same condition.
-// The narrator is asked to hold repeats back and usually does, but a model's
-// judgement is not a rate limiter: anything that flaps — a bouncing
-// connection, a sensor on a threshold — could otherwise produce a message
-// every sweep. This cap is deterministic and runs before the model is asked.
-const minNoticeInterval = 30 * time.Minute
-
-// NarrateSignal turns one signal transition into the message the owner
-// actually receives. It reports (text, decided): decided is false when no
-// model could answer, and the caller falls back to the templated text; an
-// empty text with decided true means the narrator judged this repeat not
-// worth an interruption.
-//
-// Deliberately never fails loudly: a notification that reads awkwardly beats
-// one that never arrives.
-func (s *Server) NarrateSignal(ctx context.Context, sig store.Signal, event string) (string, bool) {
-	enabled, providerName, _, baseURL := s.settings.Assistant(ctx)
-	if !enabled {
-		return "", false
-	}
-	model := s.settings.AssistantNotifyModel(ctx)
-	if model == "" {
-		// Default to the provider's small lane rather than whatever the chat
-		// is pinned to — this runs unattended, once per condition.
-		basic, advanced := s.settings.AssistantAutoLanes(ctx)
-		model = assistant.LaneModel(providerName, assistant.LaneBasic, basic, advanced)
-	}
-	if model == "" {
-		return "", false
-	}
-	apiKey, _ := s.assistantKeyFor(ctx, providerName)
-	provider, err := assistant.NewProviderFor(assistant.Config{
-		Provider: providerName, Model: model, APIKey: apiKey, BaseURL: baseURL,
-	})
-	if err != nil {
-		return "", false
-	}
-
-	in := assistant.NoticeInput{
-		Event: event, Severity: sig.Severity, Title: sig.Title, Body: sig.Body,
-		SourceName: sig.SourceName, SourceType: sig.SourceType,
-		Count: sig.Count, FirstSeen: sig.FirstSeen, LastSeen: sig.LastSeen,
-	}
-	if notice, nerr := s.store.GetSignalNotice(ctx, sig.Key); nerr == nil && notice != nil {
-		in.TimesNotified = notice.SentCount
-		in.LastNotified = &notice.LastSentAt
-		in.LastSeverity = notice.LastSeverity
-
-		// Deterministic floor, checked before the model is asked: a repeat
-		// inside the window is dropped unless it genuinely got worse. A
-		// recovery counts as a repeat too — "it's back" a minute after "it's
-		// down" is the flap, not news.
-		since := time.Since(notice.LastSentAt)
-		worse := severityRank(sig.Severity) > severityRank(notice.LastSeverity)
-		if since < minNoticeInterval && !worse {
-			s.logger.Info("notification rate limited",
-				"signal", sig.Key, "event", event, "since", since.Truncate(time.Second))
-			return "", true
-		}
-	}
-
-	notice, err := assistant.WriteNotice(ctx, provider, model, in)
-	if err != nil {
-		s.logger.Warn("notification narrator failed, sending the plain text",
-			"signal", sig.Key, "error", err)
-		return "", false
-	}
-	if !notice.Send {
-		s.logger.Info("notification held back", "signal", sig.Key, "why", notice.Why)
-		return "", true
-	}
-	return notice.Text, true
-}
-
-// severityRank orders severities so a genuine escalation can pass the rate
-// limit that an unchanged repeat cannot.
-func severityRank(sev string) int {
-	switch sev {
-	case "critical":
-		return 3
-	case "warning":
-		return 2
-	case "info":
-		return 1
-	default:
-		return 0
-	}
-}
-
-// RememberSentNotice appends a delivered notification to a user's Telegram
-// assistant thread. Without this the bot has no idea what "that alert" refers
-// to when they reply to one — the message went out over a different path than
-// the conversation, and left no trace in it.
-func (s *Server) RememberSentNotice(ctx context.Context, userID uuid.UUID, text string) {
-	history, err := s.store.ListAssistantMessages(ctx, userID, store.AssistantChannelTelegram, "", 1)
-	if err != nil {
-		return
-	}
-	var parent *int64
-	if len(history) > 0 {
-		parent = &history[len(history)-1].ID
-	}
-	if _, err := s.store.AddAssistantMessage(ctx, userID, store.AssistantChannelTelegram, "",
-		"assistant", text, nil, parent, nil); err != nil {
-		s.logger.Warn("could not record a sent notification", "user", userID, "error", err)
-	}
-}
-
-// RecordSignalNotice remembers that a condition was reported.
-//
-// Recoveries are recorded too, rather than clearing the record. Clearing was
-// the flaw behind a day of alternating "it is down" / "it is back" messages:
-// every all-clear reset the history, so the next firing looked like a first
-// report and sailed past both the rate limit and the narrator's judgement.
-// The record now ages out on its own instead.
-func (s *Server) RecordSignalNotice(ctx context.Context, sig store.Signal, event string) {
-	severity := sig.Severity
-	if event == "recovered" {
-		severity = "recovered"
-	}
-	_ = s.store.RecordSignalNotice(ctx, sig.Key, severity)
-}

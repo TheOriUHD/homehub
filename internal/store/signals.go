@@ -134,6 +134,19 @@ func (s *Store) ResolveSuppressedSignal(ctx context.Context, key string) error {
 }
 
 // GetLiveSignal fetches the undismissed row for a key, if any.
+// GetSignalByID fetches one row, live or resolved.
+func (s *Store) GetSignalByID(ctx context.Context, id int64) (*Signal, error) {
+	return scanOne[Signal](s.pool.Query(ctx,
+		`select `+signalCols+` from signals where id = $1`, id))
+}
+
+// LatestSignalByKey returns the newest row for a key whatever its state — the
+// one a sent message was about, so its outcome can be reported.
+func (s *Store) LatestSignalByKey(ctx context.Context, key string) (*Signal, error) {
+	return scanOne[Signal](s.pool.Query(ctx,
+		`select `+signalCols+` from signals where key = $1 order by id desc limit 1`, key))
+}
+
 func (s *Store) GetLiveSignal(ctx context.Context, key string) (*Signal, error) {
 	return scanOne[Signal](s.pool.Query(ctx,
 		`select `+signalCols+` from signals where key = $1 and dismissed_at is null`, key))

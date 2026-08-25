@@ -182,3 +182,30 @@ func TestNormalizeTurnsLeavesToolTurnsAlone(t *testing.T) {
 		t.Fatalf("tool turns must not merge, got %d turns", len(turns))
 	}
 }
+
+func TestNoticePromptShowsWhatWasJustSent(t *testing.T) {
+	in := NoticeInput{Event: "new", Severity: "warning", Title: "AcardiaMC is degraded",
+		RecentlySent: []SentLine{{At: time.Now().Add(-2 * time.Minute), Text: "Minecraft server's gone offline, Sir."}}}
+	prompt := noticePrompt(in)
+	if !strings.Contains(prompt, "RECENTLY SENT") || !strings.Contains(prompt, "gone offline") {
+		t.Fatalf("recent messages missing from prompt:\n%s", prompt)
+	}
+	if !strings.Contains(noticeSystem, "RECENTLY SENT") {
+		t.Fatal("the system prompt must explain the section")
+	}
+}
+
+// A recovery goes out only after it has held, so its duration must come from
+// when it cleared — not from the moment the message is written.
+func TestNoticePromptMeasuresARecoveryFromWhenItCleared(t *testing.T) {
+	first := time.Now().Add(-70 * time.Minute)
+	cleared := time.Now().Add(-10 * time.Minute)
+	prompt := noticePrompt(NoticeInput{Event: "recovered", Severity: "warning", Title: "Printer is unreachable",
+		FirstSeen: first, ResolvedAt: &cleared, Count: 12})
+	if !strings.Contains(prompt, "was present for: 1 hours; cleared 10 minutes ago") {
+		t.Fatalf("duration should be first_seen to resolved_at:\n%s", prompt)
+	}
+	if strings.Contains(prompt, "ongoing for") {
+		t.Fatalf("a cleared condition is not ongoing:\n%s", prompt)
+	}
+}
