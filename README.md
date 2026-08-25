@@ -65,7 +65,9 @@ More integrations land as vertical slices — each ships complete or not at
 all.
 
 **[docs/FEATURES.md](docs/FEATURES.md) is the complete feature reference** —
-every module, every platform feature, in detail.
+every module, every platform feature, in detail. `docs/handoff-*.md` are
+session handoffs: what changed, what is still open, and the non-obvious
+traps in this codebase.
 
 ## Platform
 
