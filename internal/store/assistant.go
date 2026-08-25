@@ -143,11 +143,57 @@ func (s *Store) ClearAssistantMessages(ctx context.Context, userID uuid.UUID, ch
 	return err
 }
 
-// PruneAssistantMessages garbage-collects old web-channel rows: a closed
-// app's conversation id is never used again, so its rows are unreachable.
-func (s *Store) PruneAssistantMessages(ctx context.Context, olderThan time.Duration) (int64, error) {
-	tag, err := s.pool.Exec(ctx,
-		`delete from assistant_messages where channel = $1 and created_at < now() - $2::interval`,
+// PruneAssistantMessages garbage-collects rows nothing will read again.
+//
+// Web conversations are per-app-session: once one has been quiet for
+// olderThan, its id never comes back and the whole tree goes. The newest row
+// decides, not each row's own age — parent_id cascades on delete, so pruning
+// a conversation's root by its own timestamp would take every branch under
+// it, including the one written this morning.
+//
+// Telegram is one endless thread per user, read only as a linear window
+// (RunTurn), and alerts are appended to it around the clock. It keeps its
+// newest telegramKeep rows. Whatever survives with a pruned parent is
+// unhooked first, for the same cascade reason.
+func (s *Store) PruneAssistantMessages(ctx context.Context, olderThan time.Duration, telegramKeep int) (int64, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	web, err := tx.Exec(ctx, `
+		delete from assistant_messages m
+		using (
+			select user_id, conversation from assistant_messages
+			where channel = $1
+			group by user_id, conversation
+			having max(created_at) < now() - $2::interval
+		) quiet
+		where m.channel = $1 and m.user_id = quiet.user_id and m.conversation = quiet.conversation`,
 		AssistantChannelWeb, olderThan.String())
-	return tag.RowsAffected(), err
+	if err != nil {
+		return 0, err
+	}
+	const ranked = `
+		select id, row_number() over (partition by user_id, conversation order by id desc) as rn
+		from assistant_messages where channel = $1`
+	if _, err := tx.Exec(ctx, `
+		with ranked as (`+ranked+`)
+		update assistant_messages set parent_id = null
+		where parent_id in (select id from ranked where rn > $2)
+		  and id in (select id from ranked where rn <= $2)`,
+		AssistantChannelTelegram, telegramKeep); err != nil {
+		return 0, err
+	}
+	telegram, err := tx.Exec(ctx, `
+		with ranked as (`+ranked+`)
+		delete from assistant_messages where id in (select id from ranked where rn > $2)`,
+		AssistantChannelTelegram, telegramKeep)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return web.RowsAffected() + telegram.RowsAffected(), nil
 }

@@ -510,8 +510,10 @@ func registerMaintenance(engine *jobs.Engine, st *store.Store, logger *slog.Logg
 			logger.Info("pruned job history", "count", n)
 		}
 		// Web assistant conversations are per-app-session; a closed app's
-		// conversation id never returns, so its rows are unreachable.
-		if n, err := st.PruneAssistantMessages(ctx, 7*24*time.Hour); err != nil {
+		// conversation id never returns, so its rows are unreachable. The
+		// Telegram thread is read as a window of the newest 30 messages;
+		// 200 leaves room for that window to grow without a schema change.
+		if n, err := st.PruneAssistantMessages(ctx, 7*24*time.Hour, 200); err != nil {
 			return fmt.Errorf("prune assistant messages: %w", err)
 		} else if n > 0 {
 			logger.Info("pruned assistant messages", "count", n)
