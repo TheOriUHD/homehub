@@ -153,6 +153,25 @@ func (s *Service) RunMaintenance(ctx context.Context) error {
 			return err
 		}
 	}
-	return s.store.PruneMetrics(ctx, rawKeep, fiveMinKeep, hourKeep)
+	if err := s.store.PruneMetrics(ctx, rawKeep, fiveMinKeep, hourKeep); err != nil {
+		return err
+	}
+	return s.pruneOrphans(ctx)
 }
 
+// pruneOrphans drops the series of integrations that no longer exist and
+// forgets their cached ids, so a path that comes back gets a fresh row rather
+// than inserting against one that is gone.
+func (s *Service) pruneOrphans(ctx context.Context) error {
+	gone, err := s.store.PruneOrphanMetricSeries(ctx)
+	if err != nil || len(gone) == 0 {
+		return err
+	}
+	s.mu.Lock()
+	for _, ref := range gone {
+		delete(s.series, seriesKey{ref.Resource, ref.Metric})
+	}
+	s.mu.Unlock()
+	s.logger.Info("pruned orphaned metric series", "count", len(gone))
+	return nil
+}

@@ -5006,7 +5006,7 @@ export interface components {
             unit: string;
             /**
              * Format: date-time
-             * @description Newest recorded point, across raw samples and rollups. A series whose integration was removed keeps its catalog row and stops recording; absent means it never recorded anything.
+             * @description Newest recorded point, across raw samples and rollups. A series that stopped recording — a removed container, an entity that went quiet — keeps its row while its integration exists; absent means it never recorded anything.
              */
             lastSeen?: string | null;
         };
