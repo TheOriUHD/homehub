@@ -1,6 +1,6 @@
 // Standalone build: ForgeGradle rewires dependency resolution too aggressively
 // to share a multi-project with fabric-loom. The root `dist` task drives this
-// build and collects its jar.
+// build and collects its jars.
 pluginManagement {
     repositories {
         maven { url = 'https://maven.minecraftforge.net/' }
@@ -16,3 +16,10 @@ plugins {
 }
 
 rootProject.name = 'homehub-companion-forge'
+
+// One project per game version, each compiled against its own Forge; the
+// sources are shared. See targets/<mc>/gradle.properties for the knobs.
+file('targets').listFiles().findAll { it.isDirectory() }.sort().each { dir ->
+    include ":${dir.name}"
+    project(":${dir.name}").projectDir = dir
+}

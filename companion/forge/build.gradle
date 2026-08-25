@@ -1,60 +1,7 @@
-// Forge dedicated-server adapter. Forge 1.21.11 requires ForgeGradle 7 (the
-// FG6 era ended with 1.21.1-vintage userdev); since Forge 1.20.6 the runtime
-// uses official (mojmap) names, so the shaded jar needs no reobfuscation.
+// Forge dedicated-server adapter. Forge 1.21.9+ requires ForgeGradle 7; since
+// Forge 1.20.6 the runtime uses official (mojmap) names, so the shaded jar
+// needs no reobfuscation. Each targets/<mc>/ project applies FG and then
+// target.gradle, which wires the shared sources and packaging.
 plugins {
-    id 'java'
-    id 'net.minecraftforge.gradle' version '[7.0.3,8)'
-    id 'com.gradleup.shadow' version '9.6.1'
+    id 'com.gradleup.shadow' version '9.6.1' apply false
 }
-
-version = '0.1.0'
-group = 'dev.homehub.companion'
-
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
-
-minecraft {
-    mappings channel: 'official', version: '1.21.11'
-}
-
-repositories {
-    minecraft.mavenizer(it)
-    maven fg.forgeMaven
-    maven fg.minecraftLibsMaven
-    mavenCentral()
-}
-
-configurations {
-    shade
-    implementation.extendsFrom shade
-}
-
-dependencies {
-    implementation minecraft.dependency('net.minecraftforge:forge:1.21.11-61.2.0')
-    // The shared protocol core is a plain jar (this is a standalone build, so
-    // no project(':core') — the root dist task builds core first).
-    shade files('../core/build/libs/core-0.1.0.jar')
-    shade 'com.neovisionaries:nv-websocket-client:2.14'
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
-}
-
-processResources {
-    inputs.property 'version', project.version
-    filesMatching('META-INF/mods.toml') {
-        expand version: project.version
-    }
-}
-
-shadowJar {
-    configurations = [project.configurations.shade]
-    archiveBaseName = 'homehub-companion-forge'
-    archiveClassifier = ''
-    relocate 'com.neovisionaries.ws', 'dev.homehub.companion.shaded.ws'
-}
-
-jar {
-    enabled = false
-}
-build.dependsOn shadowJar

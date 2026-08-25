@@ -1,0 +1,68 @@
+// Shared configuration for every Forge target; knobs come from the target's
+// gradle.properties: mc, forgeVersion, javaRelease, compat (the era shim under
+// compat/), forgeMajor (the oldest Forge major the jar claims — mods.toml's
+// loader floor, so a jar built on 1.21.8's Forge 58 still loads on 1.21.6's
+// 56), mcRange (mods.toml minecraft range).
+apply plugin: 'java'
+apply plugin: 'com.gradleup.shadow'
+
+version = rootProject.file('../gradle.properties').withReader { r ->
+    def p = new Properties(); p.load(r); p.getProperty('version')
+}
+group = 'dev.homehub.companion'
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(javaRelease.toInteger())
+
+sourceSets.main {
+    java.srcDirs = [rootProject.file('src/main/java'), rootProject.file("compat/${compat}")]
+    resources.srcDirs = [rootProject.file('src/main/resources')]
+}
+
+minecraft {
+    mappings channel: 'official', version: mc
+}
+
+repositories {
+    minecraft.mavenizer(it)
+    maven fg.forgeMaven
+    maven fg.minecraftLibsMaven
+    mavenCentral()
+}
+
+configurations {
+    shade
+    implementation.extendsFrom shade
+}
+
+dependencies {
+    implementation minecraft.dependency("net.minecraftforge:forge:${mc}-${forgeVersion}")
+    // The shared protocol core is a plain jar (this is a standalone build, so
+    // no project(':core') — the root dist task builds core first).
+    shade rootProject.files("../core/build/libs/core-${version}.jar")
+    shade 'com.neovisionaries:nv-websocket-client:2.14'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+processResources {
+    inputs.property 'version', version
+    inputs.property 'forgeMajor', forgeMajor
+    inputs.property 'mcRange', mcRange
+    filesMatching('META-INF/mods.toml') {
+        expand version: version, forgeMajor: forgeMajor, mcRange: mcRange
+    }
+}
+
+shadowJar {
+    configurations = [project.configurations.shade]
+    archiveBaseName = 'homehub-companion-forge'
+    archiveClassifier = "mc${mc}"
+    relocate 'com.neovisionaries.ws', 'dev.homehub.companion.shaded.ws'
+}
+
+jar {
+    enabled = false
+}
+build.dependsOn shadowJar

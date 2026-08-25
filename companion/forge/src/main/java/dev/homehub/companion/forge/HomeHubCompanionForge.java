@@ -10,11 +10,11 @@ import dev.homehub.companion.core.CompanionConfig;
 import dev.homehub.companion.core.ConsoleLine;
 import dev.homehub.companion.core.PlayerInfo;
 import dev.homehub.companion.core.StatusSnapshot;
+import dev.homehub.companion.forge.compat.Mc;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.permissions.Permissions;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -38,7 +38,8 @@ import java.util.concurrent.TimeUnit;
  * on any other dist the constructor is a no-op. The server instance arrives
  * with ServerStartedEvent; a companion-owned timer hops onto the server
  * thread (server.execute) for every MC-facing read, mirroring the Paper
- * adapter's scheduler discipline.
+ * adapter's scheduler discipline. Compiled once per game version; whatever
+ * Forge or Mojang renamed between them goes through {@link Mc}.
  */
 @Mod("homehubcompanion")
 public final class HomeHubCompanionForge {
@@ -73,12 +74,8 @@ public final class HomeHubCompanionForge {
         });
         capture.attach();
 
-        // EventBus 7 (Forge 1.21.9+): every event exposes its own static BUS.
-        ServerStartedEvent.BUS.addListener(this::onServerStarted);
-        ServerStoppingEvent.BUS.addListener(this::onServerStopping);
-        RegisterCommandsEvent.BUS.addListener(this::onRegisterCommands);
-        PlayerEvent.PlayerLoggedInEvent.BUS.addListener(this::onPlayerLoggedIn);
-        PlayerEvent.PlayerLoggedOutEvent.BUS.addListener(this::onPlayerLoggedOut);
+        Mc.subscribe(this::onServerStarted, this::onServerStopping, this::onRegisterCommands,
+                this::onPlayerLoggedIn, this::onPlayerLoggedOut);
 
         maybeStartClient();
     }
@@ -123,7 +120,7 @@ public final class HomeHubCompanionForge {
         if (config.hasToken() || config.hasCode()) {
             CompanionClient c = new CompanionClient(config, new BridgeAdapter(),
                     serverRoot.getName().isEmpty() ? "minecraft" : serverRoot.getName(),
-                    LOADER, net.minecraft.SharedConstants.getCurrentVersion().name(), VERSION);
+                    LOADER, Mc.gameVersion(), VERSION);
             client = c;
             c.start();
         } else {
@@ -200,7 +197,7 @@ public final class HomeHubCompanionForge {
         Runtime rt = Runtime.getRuntime();
         double usedMb = round1((rt.totalMemory() - rt.freeMemory()) / 1048576.0);
         double maxMb = round1(rt.maxMemory() / 1048576.0);
-        double msptRaw = s.getAverageTickTimeNanos() / 1_000_000.0;
+        double msptRaw = Mc.averageTickMillis(s);
         Double mspt = msptRaw > 0 ? round2(msptRaw) : null;
         Double tps = mspt == null ? null : Math.min(round2(1000.0 / mspt), 20.0);
         c.sendStatus(new StatusSnapshot(tps, mspt,
@@ -213,7 +210,7 @@ public final class HomeHubCompanionForge {
         if (c == null || !c.isConnected()) return;
         List<PlayerInfo> players = new ArrayList<>();
         for (ServerPlayer p : s.getPlayerList().getPlayers()) {
-            players.add(new PlayerInfo(p.getGameProfile().name(), p.getUUID().toString()));
+            players.add(new PlayerInfo(Mc.profileName(p), p.getUUID().toString()));
         }
         c.sendPlayers(players);
     }
@@ -224,7 +221,7 @@ public final class HomeHubCompanionForge {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
         dispatcher.register(
                 LiteralArgumentBuilder.<CommandSourceStack>literal("homehub")
-                        .requires(src -> src.permissions().hasPermission(Permissions.COMMANDS_ADMIN))
+                        .requires(Mc::isAdmin)
                         .then(LiteralArgumentBuilder.<CommandSourceStack>literal("pair")
                                 .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument("url", StringArgumentType.string())
                                         .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument("code", StringArgumentType.string())

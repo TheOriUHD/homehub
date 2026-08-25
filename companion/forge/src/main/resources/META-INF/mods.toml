@@ -1,5 +1,5 @@
 modLoader="javafml"
-loaderVersion="[61,)"
+loaderVersion="[${forgeMajor},)"
 license="MIT"
 
 [[mods]]
@@ -13,13 +13,13 @@ displayTest="IGNORE_SERVER_VERSION"
 [[dependencies.homehubcompanion]]
 modId="forge"
 mandatory=true
-versionRange="[61,)"
+versionRange="[${forgeMajor},)"
 ordering="NONE"
 side="SERVER"
 
 [[dependencies.homehubcompanion]]
 modId="minecraft"
 mandatory=true
-versionRange="[1.21,)"
+versionRange="${mcRange}"
 ordering="NONE"
 side="SERVER"
