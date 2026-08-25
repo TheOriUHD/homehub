@@ -93,3 +93,23 @@ func (s *Store) PruneMetrics(ctx context.Context, rawKeep, fiveMinKeep, hourKeep
 		`delete from metric_rollups where bucket = '1h' and ts < now() - $1::interval`, hourKeep.String())
 	return err
 }
+
+// MetricSeriesRef names one catalog row.
+type MetricSeriesRef struct {
+	Resource string `db:"resource"`
+	Metric   string `db:"metric"`
+}
+
+// PruneOrphanMetricSeries drops the catalog rows of integrations that no
+// longer exist; their samples and rollups cascade. Every resource path is
+// "<type>/<integration id>/…", so a series is orphaned exactly when that id is
+// gone. A series that merely went quiet — a container that was removed, an
+// entity that stopped reporting — belongs to a live integration and stays,
+// dimmed in the History picker with its history still readable.
+func (s *Store) PruneOrphanMetricSeries(ctx context.Context) ([]MetricSeriesRef, error) {
+	return scanMany[MetricSeriesRef](s.pool.Query(ctx, `
+		delete from metric_series
+		where split_part(resource, '/', 2) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+		  and not exists (select 1 from integrations i where i.id::text = split_part(resource, '/', 2))
+		returning resource, metric`))
+}
