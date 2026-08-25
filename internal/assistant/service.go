@@ -49,7 +49,11 @@ func systemPrompt(access Access) System {
 	if channelOf(access) == store.AssistantChannelTelegram {
 		base += "\n\n" + telegramPersona
 	}
-	return System{Base: base, Context: "You are talking to " + access.DisplayName + "."}
+	// The clock sits in Context, after the cache breakpoint: Base stays
+	// byte-identical across turns while the model still knows what "two
+	// minutes ago" means.
+	return System{Base: base, Context: "You are talking to " + access.DisplayName + ". " +
+		"The time now is " + time.Now().Format("Mon 2 Jan 2006 15:04 MST") + "."}
 }
 
 // telegramPersona is the voice of the bridge. On the web the assistant sits
@@ -88,7 +92,10 @@ one is missing and stop. "I do not have that" outranks a confident guess every t
 figure that turns out to be invented costs you every figure that was not.
 
 You may be answering about an alert you pushed hours ago; treat those as things you said,
-and pick up where they left off without making them repeat the context.`
+and pick up where they left off without making them repeat the context. Your pushed alerts
+appear in this thread tagged with when they went out. For anything older than the thread
+shows, or to check whether what you reported still holds, call sent_notifications — never
+answer about an alert from memory when the tool can tell you its current state.`
 
 const systemBase = `You are the HomeHub assistant, built into a self-hosted homelab control plane.
 Use the tools to answer from live data — never invent numbers, names, or states.
@@ -260,6 +267,35 @@ func (s *Service) threadTurns(ctx context.Context, access Access, leafID int64) 
 	return normalizeTurns(turns), nil
 }
 
+// historyTurns turns stored messages into turns. A pushed alert is stamped
+// with when it went out: the thread is the only place the assistant sees its
+// own alerts, and "two minutes ago" is meaningless without a clock.
+func historyTurns(rows []store.AssistantMessage) []Turn {
+	turns := make([]Turn, 0, len(rows))
+	for _, msg := range rows {
+		text := msg.Content
+		if marker := noticeMarkerOf(msg.ToolTrace); marker != nil {
+			text = "[Alert you pushed " + msg.CreatedAt.Local().Format("Mon 2 Jan 15:04") + "] " + text
+		}
+		turns = append(turns, Turn{Role: msg.Role, Text: text})
+	}
+	return turns
+}
+
+// noticeMarkerOf reads the alert marker off a stored message, or nil when
+// the message is an ordinary reply (a tool trace is an array; a marker is
+// an object with noticeKey).
+func noticeMarkerOf(trace json.RawMessage) *NoticeMarker {
+	if len(trace) == 0 || trace[0] != '{' {
+		return nil
+	}
+	var m NoticeMarker
+	if err := json.Unmarshal(trace, &m); err != nil || m.Key == "" {
+		return nil
+	}
+	return &m
+}
+
 // normalizeTurns makes stored history safe to send to any provider.
 //
 // A chat thread alternates by construction, but a Telegram thread does not:
@@ -300,7 +336,7 @@ func normalizeTurns(turns []Turn) []Turn {
 	}
 	rest := append([]Turn(nil), merged[lead:]...)
 	if len(sent) > 0 {
-		rest[0].Text = "[HomeHub had already sent me these alerts:\n" +
+		rest[0].Text = "[Alerts you had pushed to me before this:\n" +
 			strings.Join(sent, "\n") + "]\n\n" + rest[0].Text
 	}
 	return rest
@@ -410,11 +446,7 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 	if err != nil {
 		return "", nil, err
 	}
-	turns := make([]Turn, 0, len(history)+1)
-	for _, msg := range history {
-		turns = append(turns, Turn{Role: msg.Role, Text: msg.Content})
-	}
-	turns = append(normalizeTurns(turns), Turn{Role: "user", Text: text})
+	turns := append(normalizeTurns(historyTurns(history)), Turn{Role: "user", Text: text})
 
 	var parent *int64
 	if n := len(history); n > 0 {

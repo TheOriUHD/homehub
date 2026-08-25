@@ -230,7 +230,13 @@ run brings its per-host errors and log tails right into the list.
 
 Dismissal is bulk-capable and asks for confirmation once anything worse than
 info is involved. New and escalated warnings and criticals, plus recoveries,
-push to Telegram.
+push to Telegram — written by a small model in the house's own voice, with the
+templated text as the fallback. Every transition passes a deterministic gate
+first: repeats inside thirty minutes are dropped unless they got worse, an
+all-clear waits ten quiet minutes and is withdrawn if the fault returns, and
+nothing is announced as recovered that was never reported down. The narrator
+also sees what was sent in the last half hour, so one fault reported under two
+names goes out once.
 
 ## History and metrics
 
@@ -368,6 +374,12 @@ permissions**.
 
 Telegram and web conversations are fully separate threads, and the web thread
 is scoped to one app session — closing the app resets it.
+
+The Telegram thread and the alerts pushed into the chat are one system: every
+sent alert is appended to the thread, stamped with when it went out, and kept
+in a log the assistant can query with `sent_notifications` — with each
+condition's standing right now — so "is that printer still down?" is answered
+from the record, not from memory.
 
 ## SSH host registry
 

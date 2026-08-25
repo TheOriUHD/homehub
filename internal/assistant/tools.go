@@ -174,6 +174,14 @@ func (tb *Toolbox) tools() []tool {
 		},
 		{
 			def: ToolDef{
+				Name:        "sent_notifications",
+				Description: "The alerts HomeHub pushed to the owner's phone (Telegram), newest first, each with whether its condition is still firing or has cleared. Use this whenever the user refers to an alert or to something you told them — 'that printer', 'the thing from earlier', 'is it still down' — instead of answering from memory.",
+				InputSchema: obj(`"hours":{"type":"integer","description":"How far back to look, default 48, max 720"},"contains":{"type":"string","description":"Only alerts mentioning this text (system name, word from the message)"},"limit":{"type":"integer","description":"Max entries, default 15, max 40"}`),
+			},
+			run: tb.sentNotifications,
+		},
+		{
+			def: ToolDef{
 				Name:        "recent_audit",
 				Description: "Recent audit-log entries: who did what, when. Requires audit permission.",
 				InputSchema: obj(`"limit":{"type":"integer","description":"Max entries, default 10, max 20"}`),
@@ -884,6 +892,65 @@ func (tb *Toolbox) listSignals(ctx context.Context, access Access, input json.Ra
 		}
 	}
 	return map[string]any{"signals": out, "totalLive": len(rows)}, nil
+}
+
+func (tb *Toolbox) sentNotifications(ctx context.Context, access Access, input json.RawMessage) (any, error) {
+	// Pushed alerts are the signals surface on a phone; if that is hidden for
+	// this account, the assistant must not read it out either.
+	if hidden, err := tb.Store.SignalsHiddenForUser(ctx, access.UserID); err == nil && hidden {
+		return map[string]any{"sent": []any{}, "note": "The signals stream is not available for your account."}, nil
+	}
+	var args struct {
+		Hours    int    `json:"hours"`
+		Contains string `json:"contains"`
+		Limit    int    `json:"limit"`
+	}
+	_ = json.Unmarshal(input, &args)
+	if args.Hours <= 0 {
+		args.Hours = 48
+	}
+	if args.Hours > 720 {
+		args.Hours = 720
+	}
+	if args.Limit <= 0 {
+		args.Limit = 15
+	}
+	if args.Limit > 40 {
+		args.Limit = 40
+	}
+	rows, err := tb.Store.ListSentNotices(ctx, time.Now().Add(-time.Duration(args.Hours)*time.Hour), strings.TrimSpace(args.Contains), args.Limit)
+	if err != nil {
+		return nil, err
+	}
+	type sent struct {
+		SentAt   string `json:"sentAt"`
+		Event    string `json:"event"`
+		Severity string `json:"severity"`
+		Source   string `json:"source,omitempty"`
+		Title    string `json:"title"`
+		Text     string `json:"text"`
+		// State is the condition's standing NOW, not when the message went
+		// out — the whole reason to look here rather than remember.
+		State string `json:"stateNow"`
+	}
+	out := make([]sent, 0, len(rows))
+	for _, r := range rows {
+		state := "no longer tracked"
+		if live, lerr := tb.Store.GetLiveSignal(ctx, r.Key); lerr == nil && live != nil {
+			state = fmt.Sprintf("still firing (%s) since %s", live.Severity, live.FirstSeen.Local().Format("Mon 2 Jan 15:04"))
+		} else if last, lerr := tb.Store.LatestSignalByKey(ctx, r.Key); lerr == nil && last != nil {
+			if last.ResolvedAt != nil {
+				state = "cleared " + last.ResolvedAt.Local().Format("Mon 2 Jan 15:04")
+			} else if last.DismissedAt != nil {
+				state = "dismissed by the user " + last.DismissedAt.Local().Format("Mon 2 Jan 15:04")
+			}
+		}
+		out = append(out, sent{
+			SentAt: r.SentAt.Local().Format("Mon 2 Jan 15:04"), Event: r.Event, Severity: r.Severity,
+			Source: r.SourceName, Title: r.Title, Text: r.Text, State: state,
+		})
+	}
+	return map[string]any{"sent": out, "note": "Times are local. stateNow is the condition's standing at this moment."}, nil
 }
 
 func (tb *Toolbox) myNotifications(ctx context.Context, access Access, input json.RawMessage) (any, error) {
