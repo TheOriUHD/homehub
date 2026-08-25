@@ -1,0 +1,4 @@
+plugins {
+    id 'net.minecraftforge.gradle' version '[7.0.3,8)'
+}
+apply from: rootProject.file('target.gradle')
