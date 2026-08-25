@@ -167,8 +167,9 @@ spec).
 
 ## Development
 
-Requirements: Go 1.25+, Node 20.19+, PostgreSQL 17; JDK 21 + Gradle for
-the Minecraft companion jars (`make build-companion`).
+Requirements: Go 1.25+, Node 20.19+, PostgreSQL 17; JDK 21 for the
+Minecraft companion jars (`make build-companion` — the Gradle wrapper fetches
+Gradle, and the 26.x targets' Java 25 arrives through the toolchain resolver).
 
 ```bash
 # terminal 1 — API on :8080

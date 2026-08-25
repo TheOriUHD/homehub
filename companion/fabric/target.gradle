@@ -1,0 +1,87 @@
+// Shared configuration for every Fabric target. Each targets/<mc>/ project
+// applies the right loom plugin (remapping for obfuscated versions up to
+// 1.21.11, plain for the unobfuscated 26.x line) and then this script, which
+// wires the shared sources, the per-era compat shim and the jar packaging.
+// The knobs live in the target's gradle.properties: mc, compat, javaRelease,
+// mcRange (the fabric.mod.json dependency range the jar claims).
+
+apply plugin: 'com.gradleup.shadow'
+
+def obfuscated = plugins.hasPlugin('net.fabricmc.fabric-loom-remap')
+
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    shade
+    implementation.extendsFrom shade
+}
+
+sourceSets.main {
+    java.srcDirs = [rootProject.file('fabric/src/main/java'), rootProject.file("fabric/compat/${compat}")]
+    resources.srcDirs = [rootProject.file('fabric/src/main/resources')]
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${mc}"
+    if (obfuscated) {
+        mappings loom.officialMojangMappings()
+        modImplementation 'net.fabricmc:fabric-loader:0.19.3'
+    } else {
+        // The non-remapping plugin has no mod* configurations to offer.
+        implementation 'net.fabricmc:fabric-loader:0.19.3'
+    }
+    shade project(':core')
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(javaRelease.toInteger())
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = javaRelease.toInteger()
+    options.encoding = 'UTF-8'
+}
+
+// Mixin's compatibility level is a floor, and the 1.20 line's Mixin does not
+// know Java 21 yet; everything newer runs happily at the 21 level.
+def mixinJava = javaRelease.toInteger() < 21 ? 17 : 21
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'mcRange', mcRange
+    inputs.property 'mixinJava', mixinJava
+    filesMatching('fabric.mod.json') {
+        expand version: project.version, mcRange: mcRange
+    }
+    filesMatching('homehubcompanion.mixins.json') {
+        expand mixinJava: mixinJava
+    }
+}
+
+shadowJar {
+    configurations = [project.configurations.shade]
+    relocate 'com.neovisionaries.ws', 'dev.homehub.companion.shaded.ws'
+}
+
+if (obfuscated) {
+    shadowJar { archiveClassifier = 'dev-shadow' }
+    remapJar {
+        dependsOn shadowJar
+        inputFile.set(shadowJar.archiveFile)
+        archiveBaseName = 'homehub-companion-fabric'
+        archiveClassifier = "mc${mc}"
+    }
+} else {
+    // Nothing to remap: the shaded jar is the mod.
+    shadowJar {
+        archiveBaseName = 'homehub-companion-fabric'
+        archiveClassifier = "mc${mc}"
+    }
+    jar { enabled = false }
+    build.dependsOn shadowJar
+}
+
+// The task the root dist collects, whichever packaging path applies.
+ext.modJarTask = obfuscated ? tasks.named('remapJar') : tasks.named('shadowJar')
