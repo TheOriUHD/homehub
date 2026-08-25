@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi/v5"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -369,10 +371,30 @@ const feedRefresh = 15 * time.Minute
 
 func (s *Server) feedURL(ctx context.Context, token string) string {
 	path := "/calendar/feed/" + token + ".ics"
-	if base := s.settings.AppURL(ctx); base != "" {
+	// The setup wizard defaults the app URL to whatever address the admin
+	// reached it on — often 127.0.0.1 — and a phone can never use that. Then
+	// the address this request came in on is the one subscribers can reach.
+	if base := s.settings.AppURL(ctx); base != "" && !loopbackURL(base) {
 		return base + path
 	}
+	if r := httpctx.Request(ctx); r != nil {
+		return requestOrigin(r) + path
+	}
 	return path
+}
+
+// loopbackURL reports whether a base URL points at the machine itself.
+func loopbackURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func (s *Server) toAPICalendarFeed(ctx context.Context, feed *store.CalendarFeed) CalendarFeed {
