@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
+
+	"github.com/TheOriUHD/homehub/internal/store"
 )
 
 // fakeProvider returns scripted replies in order.
@@ -68,5 +71,25 @@ func TestToolDefsHaveValidSchemas(t *testing.T) {
 		if parsed["type"] != "object" {
 			t.Errorf("tool %s schema root must be object", def.Name)
 		}
+	}
+}
+
+// A pushed alert in the Telegram thread carries the time it went out; an
+// ordinary reply does not.
+func TestHistoryTurnsStampPushedAlerts(t *testing.T) {
+	at := time.Date(2026, 8, 25, 14, 47, 0, 0, time.Local)
+	rows := []store.AssistantMessage{
+		{Role: "assistant", Content: "Printer's down, Sir.", CreatedAt: at,
+			ToolTrace: json.RawMessage(`{"noticeKey":"integ:x:status","noticeEvent":"new","noticeSeverity":"warning","noticeTitle":"Printer is unreachable"}`)},
+		{Role: "user", Content: "since when?", CreatedAt: at.Add(time.Minute)},
+		{Role: "assistant", Content: "About ten minutes, Sir.", CreatedAt: at.Add(2 * time.Minute),
+			ToolTrace: json.RawMessage(`[{"tool":"list_signals"}]`)},
+	}
+	turns := historyTurns(rows)
+	if want := "[Alert you pushed Tue 25 Aug 14:47] Printer's down, Sir."; turns[0].Text != want {
+		t.Fatalf("alert not stamped: %q", turns[0].Text)
+	}
+	if turns[2].Text != "About ten minutes, Sir." {
+		t.Fatalf("a reply with a tool trace must not be stamped: %q", turns[2].Text)
 	}
 }
