@@ -8,6 +8,7 @@
 # holds master.key — back it up; without it stored credentials are lost.
 [Unit]
 Description=HomeHub homelab control plane
+Documentation=https://github.com/theoriuhd/homehub
 After=network-online.target postgresql.service
 Wants=network-online.target
 Requires=postgresql.service
