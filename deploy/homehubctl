@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# homehubctl — day-to-day control of the HomeHub service from anywhere on the
+# host. Thin on purpose: every verb is one systemctl or journalctl call, so
+# there is nothing to learn and nothing to break. `deploy` is the exception —
+# it runs the Makefile's build-and-restart loop from the repo root, which is
+# the step that goes wrong when done by hand from the wrong directory.
+set -euo pipefail
+
+unit=homehub
+repo=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+
+usage() {
+	cat <<USAGE
+usage: homehubctl <command>
+
+  start      start the service
+  stop       stop it (it stays enabled and comes back on the next boot)
+  restart    stop and start
+  status     unit state and the last log lines
+  logs       follow the journal; extra args go to journalctl (e.g. -n 500)
+  deploy     make build + restart, from $repo
+  enable     start on boot (the installed default)
+  disable    do not start on boot; a running instance keeps running
+USAGE
+}
+
+cmd=${1:-}
+[[ $# -gt 0 ]] && shift
+case $cmd in
+start | stop | restart)
+	systemctl "$cmd" "$unit"
+	systemctl --no-pager --lines=0 status "$unit" || true
+	;;
+status) systemctl --no-pager status "$unit" || true ;;
+logs) exec journalctl -u "$unit" -n 100 -f "$@" ;;
+deploy) exec make -C "$repo" deploy ;;
+enable | disable)
+	systemctl "$cmd" "$unit"
+	systemctl is-enabled "$unit" || true
+	;;
+"" | -h | --help | help) usage ;;
+*)
+	echo "homehubctl: unknown command '$cmd'" >&2
+	usage >&2
+	exit 2
+	;;
+esac

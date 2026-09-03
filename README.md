@@ -144,6 +144,29 @@ for bootstrap concerns, and every one has a working default:
 the wrapping key lives in `HOMEHUB_MASTER_KEY` or `<data dir>/master.key` and
 is never written to the database. Without it, stored secrets are unrecoverable.
 
+### Run as a system service
+
+On a host that runs the binary directly instead of the container, install the
+systemd unit once, from the repo root:
+
+```bash
+make install-service
+```
+
+That copies `deploy/homehub.service` into place, enables it so HomeHub starts
+on every boot and restarts itself if it ever exits, starts it now, and links
+`homehubctl` into `/usr/local/bin`. From then on:
+
+```bash
+homehubctl start      # or stop, restart, status
+homehubctl logs       # follow the journal
+homehubctl deploy     # make build + restart: the whole update loop
+```
+
+Plain `systemctl start|stop|restart|status homehub` works too; the wrapper is
+the same calls with the repo path filled in. Adjust the unit's
+`HOMEHUB_DATABASE_URL` and paths for your install before the first run.
+
 ## Security model
 
 - Local accounts with argon2id hashing, per-IP and per-account rate limiting,

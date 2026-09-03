@@ -1,7 +1,10 @@
 SHELL := /bin/bash
 VERSION := $(shell cat VERSION)
 
-.PHONY: generate build build-web build-companion build-helper dev-api dev-web test lint image
+.PHONY: generate build build-web build-companion build-helper dev-api dev-web test lint image \
+	install-service deploy start stop restart status logs
+
+UNIT := homehub
 
 ## Regenerate API server interfaces and the typed frontend client from api/openapi.yaml
 generate:
@@ -51,3 +54,29 @@ test:
 
 image:
 	docker build -t homehub:$(VERSION) -t homehub:latest .
+
+## Install the systemd unit (starts on boot, restarts itself if it exits) and
+## the homehubctl wrapper, then start the service. Re-run after editing
+## deploy/homehub.service; systemd reloads the unit without a restart.
+install-service:
+	install -m 0644 deploy/homehub.service /etc/systemd/system/$(UNIT).service
+	ln -sfn $(CURDIR)/deploy/homehubctl /usr/local/bin/homehubctl
+	systemctl daemon-reload
+	systemctl enable --now $(UNIT)
+	systemctl --no-pager --lines=0 status $(UNIT)
+
+## Build and put the new binary live — the whole update loop in one target,
+## so it can never run from the wrong directory and restart the old binary.
+deploy: build
+	systemctl restart $(UNIT)
+	systemctl is-active $(UNIT)
+
+start stop restart:
+	systemctl $@ $(UNIT)
+	@systemctl --no-pager --lines=0 status $(UNIT) || true
+
+status:
+	@systemctl --no-pager status $(UNIT) || true
+
+logs:
+	journalctl -u $(UNIT) -n 100 -f
