@@ -277,6 +277,43 @@ func (s *Server) TestIntegration(ctx context.Context, req TestIntegrationRequest
 	return TestIntegration200JSONResponse(toAPITestResult(result)), nil
 }
 
+// ReloadIntegration drops a system's live connection and opens it again from
+// the stored row — the operator's way to get a stuck system moving without
+// editing it. Apply is the same path an edit takes, so the reconnect backoff
+// resets too: a system two minutes into a retry wait is back within seconds
+// if the upstream answers. Control-level, since nothing about the
+// configuration changes.
+func (s *Server) ReloadIntegration(ctx context.Context, req ReloadIntegrationRequestObject) (ReloadIntegrationResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	row, err := s.store.GetIntegration(ctx, req.Id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return ReloadIntegration404JSONResponse{notFoundErr("integration")}, nil
+		}
+		return nil, err
+	}
+	resource := row.Type + "/" + row.ID.String()
+	if !s.visibleUnder(ctx, id, resource) {
+		return ReloadIntegration404JSONResponse{notFoundErr("integration")}, nil
+	}
+	if !s.can(ctx, id, resource, rbac.LevelControl) {
+		return ReloadIntegration403JSONResponse{forbidden()}, nil
+	}
+	if !row.Enabled {
+		return ReloadIntegration409JSONResponse{ConflictJSONResponse(errBody("disabled", "this system is disabled — enable it to connect"))}, nil
+	}
+	// Apply stops the runner before it re-reads the row, and only relaunches
+	// when that read succeeds. A request cancelled in between would leave the
+	// system stopped until the next edit or restart, so the reload runs on a
+	// context the client cannot take away.
+	s.integrations.Apply(context.WithoutCancel(ctx), row.ID)
+	s.audit.Log(ctx, actorFor(id), "integration.reload", resource, "success", map[string]any{"name": row.Name})
+	return ReloadIntegration204Response{}, nil
+}
+
 func toAPIIntegration(row store.Integration) Integration {
 	return Integration{
 		Id:              row.ID,
