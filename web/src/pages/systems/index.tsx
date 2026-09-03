@@ -11,6 +11,7 @@ import {
   Plug,
   Power,
   RefreshCw,
+  RotateCw,
   Trash2,
   XCircle,
 } from "lucide-react";
@@ -91,6 +92,19 @@ export function SystemsPage() {
         }),
       ),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["integrations"] }),
+    onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
+  });
+
+  // Reload drops the connection and reopens it from the stored row, backoff
+  // reset — the answer to "it's stuck". The status dot tells the rest of the
+  // story live, so the toast only confirms the click.
+  const reload = useMutation({
+    mutationFn: async (row: Integration) =>
+      unwrap(await api.POST("/integrations/{id}/reload", { params: { path: { id: row.id } } })),
+    onSuccess: (_, row) => {
+      toast("success", t("systems.reloadStarted", { name: row.name }));
+      void queryClient.invalidateQueries({ queryKey: ["integrations"] });
+    },
     onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
   });
 
@@ -222,7 +236,9 @@ export function SystemsPage() {
                           canConfigure={canConfigure}
                           canDelete={canDelete}
                           testResult={testResults[row.id]}
+                          canControl={can(`${row.type}/${row.id}`, "control")}
                           onTest={() => test.mutate(row.id)}
+                          onReload={() => reload.mutate(row)}
                           onEdit={() => setEditing(row)}
                           onDelete={() => setDeleting(row)}
                           onToggle={() => toggle.mutate(row)}
@@ -342,18 +358,22 @@ function OpenModuleLink({ row }: { row: Integration }) {
 function SystemTile({
   row,
   canConfigure,
+  canControl,
   canDelete,
   testResult,
   onTest,
+  onReload,
   onEdit,
   onDelete,
   onToggle,
 }: {
   row: Integration;
   canConfigure: boolean;
+  canControl: boolean;
   canDelete: boolean;
   testResult?: TestConnectionResult;
   onTest: () => void;
+  onReload: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onToggle: () => void;
@@ -377,7 +397,7 @@ function SystemTile({
             {formatRelative(row.statusChangedAt)}
           </p>
         </div>
-        {(canConfigure || canDelete) && (
+        {(canConfigure || canDelete || (canControl && row.enabled)) && (
           <Dropdown>
             <DropdownTrigger asChild>
               <button
@@ -389,6 +409,12 @@ function SystemTile({
               </button>
             </DropdownTrigger>
             <DropdownContent align="end" className="w-44">
+              {canControl && row.enabled && (
+                <DropdownItem onSelect={onReload}>
+                  <RotateCw className="size-4" />
+                  {t("systems.reload")}
+                </DropdownItem>
+              )}
               {canConfigure && (
                 <>
                   <DropdownItem onSelect={onTest}>
@@ -407,7 +433,7 @@ function SystemTile({
               )}
               {canDelete && (
                 <>
-                  {canConfigure && <DropdownSeparator />}
+                  {(canConfigure || (canControl && row.enabled)) && <DropdownSeparator />}
                   <DropdownItem destructive onSelect={onDelete}>
                     <Trash2 className="size-4" />
                     {t("systems.remove")}

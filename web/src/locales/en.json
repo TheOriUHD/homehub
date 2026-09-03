@@ -667,6 +667,8 @@
     "testConnection": "Test connection",
     "testing": "Testing…",
     "testFirst": "Test the connection before saving.",
+    "reload": "Reload",
+    "reloadStarted": "Reconnecting {{name}}",
     "remove": "Remove",
     "enable": "Enable",
     "disable": "Disable",

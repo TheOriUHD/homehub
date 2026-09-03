@@ -472,7 +472,10 @@ recorded as denials rather than dropped silently.
 
 One page lists every connected system grouped by type, with health at a glance,
 add / edit / test / remove, and a link into each module. Adding a system is a
-guided form per type with test-before-save.
+guided form per type with test-before-save. **Reload** drops a system's live
+connection and opens it again from the stored configuration with the reconnect
+backoff reset — the way to get a stuck system moving without editing it, and
+the same path an edit takes.
 
 ## Application settings
 

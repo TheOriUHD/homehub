@@ -1260,6 +1260,28 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /integrations/{id}/reload:
+    post:
+      operationId: reloadIntegration
+      summary: Reconnect an integration now
+      description: >-
+        Drops the live connection and opens it again from the stored
+        configuration with the reconnect backoff reset — the way to get a
+        system unstuck without editing it. Progress arrives as status
+        transitions on the `integrations` WebSocket topic.
+      tags: [integrations]
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Reconnect started
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /proxmox/{id}/summary:
     get:
       operationId: pveSummary
