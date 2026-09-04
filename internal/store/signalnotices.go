@@ -17,9 +17,17 @@ type SignalNotice struct {
 	SentCount        int        `db:"sent_count"`
 	RecoveryDueAt    *time.Time `db:"recovery_due_at"`
 	RecoverySignalID *int64     `db:"recovery_signal_id"`
+	// The last fault reported, kept apart from the last message of any kind
+	// so a return after an all-clear is judged against what was reported.
+	LastFaultAt       *time.Time `db:"last_fault_at"`
+	LastFaultSeverity string     `db:"last_fault_severity"`
+	// Flaps counts fault→clear→fault cycles inside the flap window.
+	Flaps           int        `db:"flaps"`
+	FlapWindowStart *time.Time `db:"flap_window_start"`
 }
 
-const signalNoticeCols = `key, last_sent_at, last_severity, sent_count, recovery_due_at, recovery_signal_id`
+const signalNoticeCols = `key, last_sent_at, last_severity, sent_count, recovery_due_at, recovery_signal_id,
+	last_fault_at, last_fault_severity, flaps, flap_window_start`
 
 // GetSignalNotice returns what has already been said about a signal key, or
 // nil when nothing has. Not finding one is the normal first-time case, not an
@@ -62,13 +70,43 @@ func (s *Store) DueRecoveries(ctx context.Context) ([]SignalNotice, error) {
 }
 
 // RecordSignalNotice marks a condition as reported, now.
-func (s *Store) RecordSignalNotice(ctx context.Context, key, severity string) error {
+// RecordSignalNotice records that a message went out for a key. A fault
+// (anything but "recovered") also becomes the last fault on record, and if it
+// follows an all-clear inside flapWindow it counts as a flap — the window
+// starts at the first flap and resets once a fault arrives after a quiet
+// stretch longer than the window.
+func (s *Store) RecordSignalNotice(ctx context.Context, key, severity string, flapWindow time.Duration) error {
 	_, err := s.pool.Exec(ctx, `
-		insert into signal_notices (key, last_sent_at, last_severity, sent_count)
-		values ($1, now(), $2, 1)
-		on conflict (key) do update
-		set last_sent_at = now(), last_severity = $2, sent_count = signal_notices.sent_count + 1`,
-		key, severity)
+		insert into signal_notices (key, last_sent_at, last_severity, sent_count, last_fault_at, last_fault_severity, flaps, flap_window_start)
+		values ($1, now(), $2, 1,
+			case when $2 <> 'recovered' then now() end,
+			case when $2 <> 'recovered' then $2 else '' end,
+			0, null)
+		on conflict (key) do update set
+			last_sent_at = now(),
+			last_severity = $2,
+			sent_count = signal_notices.sent_count + 1,
+			last_fault_at = case when $2 <> 'recovered' then now() else signal_notices.last_fault_at end,
+			last_fault_severity = case when $2 <> 'recovered' then $2 else signal_notices.last_fault_severity end,
+			flaps = case
+				when $2 = 'recovered' then signal_notices.flaps
+				when signal_notices.last_severity = 'recovered'
+				 and signal_notices.last_fault_at is not null
+				 and signal_notices.last_fault_at > now() - $3::interval
+					then signal_notices.flaps + 1
+				when signal_notices.last_fault_at is null or signal_notices.last_fault_at <= now() - $3::interval
+					then 0
+				else signal_notices.flaps end,
+			flap_window_start = case
+				when $2 = 'recovered' then signal_notices.flap_window_start
+				when signal_notices.last_severity = 'recovered'
+				 and signal_notices.last_fault_at is not null
+				 and signal_notices.last_fault_at > now() - $3::interval
+					then coalesce(signal_notices.flap_window_start, now())
+				when signal_notices.last_fault_at is null or signal_notices.last_fault_at <= now() - $3::interval
+					then null
+				else signal_notices.flap_window_start end`,
+		key, severity, flapWindow.String())
 	return err
 }
 

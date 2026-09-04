@@ -31,7 +31,11 @@ type NoticeInput struct {
 	// Count is how many sweeps have seen this condition.
 	Count     int
 	FirstSeen time.Time
-	LastSeen  time.Time
+	// Flaps is how many times this fault has come back after an all-clear
+	// inside the flap window that began at FlapWindowStart; zero when steady.
+	Flaps           int
+	FlapWindowStart *time.Time
+	LastSeen        time.Time
 	// TimesNotified and LastNotified describe what the owner has already been
 	// told about this exact condition — the basis for holding one back.
 	TimesNotified int
@@ -171,6 +175,12 @@ func noticePrompt(in NoticeInput) string {
 			roughAge(in.ResolvedAt.Sub(in.FirstSeen)), roughAge(time.Since(*in.ResolvedAt)))
 	case !in.FirstSeen.IsZero():
 		fmt.Fprintf(&b, "ongoing for: %s (seen %d times)\n", roughAge(time.Since(in.FirstSeen)), in.Count)
+	}
+	if in.Flaps > 0 && in.FlapWindowStart != nil {
+		fmt.Fprintf(&b, "flapping: has come back %d times since its all-clear, over the last %s — say it is bouncing rather than newly down\n",
+			in.Flaps, roughAge(time.Since(*in.FlapWindowStart)))
+	}
+	switch {
 	}
 
 	b.WriteString("\nALREADY TOLD THE OWNER\n")

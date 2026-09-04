@@ -68,6 +68,7 @@ func (s *Server) RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, mess
 		},
 	}
 	access := s.assistantAccess(ctx, id)
+	access.ContextLines = s.recentNoticeLines(ctx)
 	// Telegram keeps its own thread — never the web UI's conversation.
 	access.Channel = store.AssistantChannelTelegram
 	reply, _, err := svc.RunTurn(ctx, provider, cfg, access, message)
