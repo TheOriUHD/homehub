@@ -70,7 +70,7 @@ const (
 // the key differs (a rebuilt host or a LAN man-in-the-middle). The observed
 // fingerprint is returned so onboarding can pin it on the first connection.
 // The local source IP is also recorded for later authorized_keys from= pinning.
-func dial(ctx context.Context, host string, port int, user string, auth []ssh.AuthMethod, expectedKey string) (*ssh.Client, string, string, error) {
+func dial(ctx context.Context, host string, port int, user string, auth []ssh.AuthMethod, expectedKey string, keyLogin bool) (*ssh.Client, string, string, error) {
 	if port == 0 {
 		port = 22
 	}
@@ -78,7 +78,7 @@ func dial(ctx context.Context, host string, port int, user string, auth []ssh.Au
 	d := net.Dialer{Timeout: 10 * time.Second}
 	tcp, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
-		return nil, "", "", fmt.Errorf("could not reach %s: %w", addr, err)
+		return nil, "", "", fmt.Errorf("Could not reach %s — %s", addr, netReason(err))
 	}
 	sourceIP := ""
 	if la, ok := tcp.LocalAddr().(*net.TCPAddr); ok {
@@ -102,27 +102,46 @@ func dial(ctx context.Context, host string, port int, user string, auth []ssh.Au
 		_ = tcp.Close()
 		if expectedKey != "" && observed != "" && observed != expectedKey {
 			return nil, sourceIP, observed, fmt.Errorf(
-				"host key changed — refusing to connect (pinned %s, now %s); if this host was rebuilt, remove and re-add it",
+				"Host key changed — refusing to connect (pinned %s, now %s); if this host was rebuilt, remove and re-add it",
 				expectedKey, observed)
 		}
-		return nil, sourceIP, observed, classifyDial(err)
+		return nil, sourceIP, observed, classifyDial(err, keyLogin)
 	}
 	return ssh.NewClient(sc, chans, reqs), sourceIP, observed, nil
 }
 
-func classifyDial(err error) error {
+// classifyDial turns the library's error into the sentence an operator can
+// act on. A refused key means something different from a refused password:
+// runs log in as the managed account with the fleet key, and the usual
+// reason that stops working is the key's source-address pin after HomeHub
+// moved — which "check the username and password" would send them chasing
+// in the wrong place.
+func classifyDial(err error, keyLogin bool) error {
 	msg := err.Error()
 	switch {
 	case strings.Contains(msg, "unable to authenticate"), strings.Contains(msg, "no supported methods"):
-		return fmt.Errorf("authentication failed — check the username and password")
+		if keyLogin {
+			return fmt.Errorf("Authentication failed — the fleet key was not accepted. Run Set up again on this host")
+		}
+		return fmt.Errorf("Authentication failed — check the username and password")
 	case strings.Contains(msg, "connection refused"):
-		return fmt.Errorf("connection refused — is SSH running on that port?")
+		return fmt.Errorf("Connection refused — is SSH running on that port?")
 	case strings.Contains(msg, "no such host"):
-		return fmt.Errorf("host not found — check the address")
+		return fmt.Errorf("Host not found — check the address")
 	case strings.Contains(msg, "i/o timeout"):
-		return fmt.Errorf("connection timed out — check the address and firewall")
+		return fmt.Errorf("Connection timed out — check the address and firewall")
 	}
 	return err
+}
+
+// netReason strips the "dial tcp addr: connect:" scaffolding from a net
+// error and keeps the part that means something: "no route to host".
+func netReason(err error) string {
+	msg := err.Error()
+	if i := strings.LastIndex(msg, ": "); i >= 0 {
+		return msg[i+2:]
+	}
+	return msg
 }
 
 // ConnectPassword opens a login session for onboarding with a password.
@@ -147,7 +166,7 @@ func ConnectPassword(ctx context.Context, host string, port int, cred Credential
 			return ans, nil
 		}))
 	}
-	client, sourceIP, hostKey, err := dial(ctx, host, port, cred.User, auth, expectedKey)
+	client, sourceIP, hostKey, err := dial(ctx, host, port, cred.User, auth, expectedKey, cred.Password == "")
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +182,7 @@ func ConnectKey(ctx context.Context, host string, port int, user, privateKeyPEM,
 	if err != nil {
 		return nil, fmt.Errorf("orchestrator key unparseable: %w", err)
 	}
-	client, sourceIP, hostKey, err := dial(ctx, host, port, user, []ssh.AuthMethod{ssh.PublicKeys(signer)}, expectedKey)
+	client, sourceIP, hostKey, err := dial(ctx, host, port, user, []ssh.AuthMethod{ssh.PublicKeys(signer)}, expectedKey, true)
 	if err != nil {
 		return nil, err
 	}

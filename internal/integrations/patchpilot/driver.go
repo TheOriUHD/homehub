@@ -52,16 +52,9 @@ func (c *Conn) Health(ctx context.Context) integration.Health {
 	if len(hosts) == 0 {
 		return integration.Health{Status: integration.StatusPending, Message: "no hosts added yet"}
 	}
-	pendingTotal, failed := 0, 0
-	for _, h := range hosts {
-		pendingTotal += h.UpdatesPending
-		if h.LastRunStatus == "failed" {
-			failed++
-		}
-	}
-	if failed > 0 {
-		return integration.Health{Status: integration.StatusDegraded, Message: "a recent run failed on a host"}
-	}
+	// A failed run is not a degraded fleet: the run signal already carries it,
+	// and marking the integration degraded on top of that reported the same
+	// fault twice — a second message that survived dismissing the first.
 	return integration.Health{Status: integration.StatusConnected}
 }
 

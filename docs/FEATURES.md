@@ -214,6 +214,14 @@ account, the fleet key with its source-address pin, and the sudoers rule are
 re-established after HomeHub's own address changed or a host was reinstalled,
 with the pinned host key verified rather than replaced.
 
+A fleet carries one signal about its **last run**: when the most recent run
+failed, the signal names the hosts and carries their errors and log tails;
+it flips to a green "last run succeeded" when the next run is clean, and a
+later failure surfaces again even after a dismissal. It sits at the top of
+the PatchPilot page with a Dismiss button, and dismissing it there clears it
+from the Signals page and the overview too. A failed run no longer marks the
+fleet degraded — that was the same fault reported twice.
+
 ---
 
 # Part 2 — The platform

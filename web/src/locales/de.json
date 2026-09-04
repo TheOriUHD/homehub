@@ -3428,6 +3428,11 @@
       "addressFromRegistry": "Die Adresse kommt aus dem Registry-Eintrag. Bearbeite den Eintrag, um den Host umzuziehen, oder wechsle hier auf manuelle Angaben.",
       "addressHint": "Der gemerkte Host-Schlüssel bleibt – eine neue Adresse muss also dieselbe Maschine sein.",
       "saved": "Host aktualisiert"
+    },
+    "lastRun": {
+      "dismiss": "Ausblenden",
+      "dismissed": "Ausgeblendet. Es kommt nur wieder, wenn ein weiterer Lauf fehlschlägt.",
+      "failedHosts": "Fehlgeschlagene Hosts"
     }
   },
   "signals": {
