@@ -205,8 +205,11 @@ only when that login cannot become root by itself. A bound host follows its
 registry entry from then on — change the address there and the next run dials
 the new one — while updates keep running as the dedicated least-privilege
 account with the fleet key. Entering a host by hand remains the fallback for
-machines outside the registry, and an existing host can be bound later. **Set
-up again** re-runs the bootstrap on a known host over that credential: the
+machines outside the registry, and an existing host can be bound later. **Edit**
+on any host reopens the same form as first-time setup — registry entry or
+manual address and port, name, auto-reboot — with the pinned host key kept, so
+a new address must still be the same machine. **Set up again** re-runs the
+bootstrap on a known host over that credential: the
 account, the fleet key with its source-address pin, and the sudoers rule are
 re-established after HomeHub's own address changed or a host was reinstalled,
 with the pinned host key verified rather than replaced.

@@ -7,6 +7,7 @@ import {
   ChevronDown,
   History,
   Loader2,
+  Pencil,
   Play,
   Power,
   RefreshCw,
@@ -31,6 +32,7 @@ import { Switch } from "@/ui/switch";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { useToast } from "@/ui/toast";
 import { CriticalRunConfirm } from "./critical";
+import { EditHostDialog } from "./edit-host";
 import {
   managerLabel,
   ppTopic,
@@ -65,6 +67,7 @@ export function PatchpilotHostDetailPage() {
   const deleteHost = useDeleteHost(instanceId);
   const bindHost = useBindHost(instanceId);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const [busy, setBusy] = useState<ActionKind | null>(null);
   const [confirm, setConfirm] = useState<null | "reboot" | "remove">(null);
@@ -274,7 +277,11 @@ export function PatchpilotHostDetailPage() {
               <RefreshCw className="size-3.5" />
               {t("patchpilot.hostDetail.rebootstrap")}
             </Button>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant="secondary" disabled={busyAny} onClick={() => setEditOpen(true)}>
+                <Pencil className="size-3.5" />
+                {t("patchpilot.hostDetail.edit")}
+              </Button>
               <Button
                 variant="danger-ghost"
                 disabled={busyAny || deleteHost.isPending}
@@ -403,6 +410,7 @@ export function PatchpilotHostDetailPage() {
         loading={deleteHost.isPending}
         onConfirm={doRemove}
       />
+      <EditHostDialog instanceId={instanceId} host={host} open={editOpen} onOpenChange={setEditOpen} />
       <RebootstrapDialog instanceId={instanceId} host={host} open={setupOpen} onOpenChange={setSetupOpen} />
       <CriticalRunConfirm
         open={runConfirm}

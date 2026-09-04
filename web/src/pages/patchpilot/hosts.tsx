@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, Check, Loader2, PackageOpen, Play, Plus, RotateCcw, ServerCog, X } from "lucide-react";
+import { AlertTriangle, Check, Loader2, PackageOpen, Pencil, Play, Plus, RotateCcw, ServerCog, X } from "lucide-react";
 import { isApiError, type PatchpilotDetectResult, type PatchpilotHost } from "@/lib/api";
 import { live } from "@/lib/ws";
 import { SSHHostPicker, useSSHHosts } from "@/pages/ssh-hosts";
@@ -30,6 +30,7 @@ import {
 } from "./shared";
 import { RunMonitor } from "./run-monitor";
 import { CriticalRunConfirm } from "./critical";
+import { EditHostDialog } from "./edit-host";
 import { MiniStat } from "@/components/mini-stat";
 
 /**
@@ -48,6 +49,7 @@ export function PatchpilotHostsPage() {
   const runFleet = useRunFleet(instanceId);
   const runs = usePatchpilotRuns(instanceId);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<PatchpilotHost | null>(null);
   const [confirmRunAll, setConfirmRunAll] = useState(false);
   // The run currently shown in the monitor window (null = closed).
   const [monitorRunId, setMonitorRunId] = useState<string | null>(null);
@@ -170,6 +172,7 @@ export function PatchpilotHostsPage() {
                 <TH>{t("patchpilot.hosts.col.updates")}</TH>
                 <TH>{t("patchpilot.hosts.col.lastRun")}</TH>
                 <TH>{t("patchpilot.hosts.col.status")}</TH>
+                <TH className="w-10" />
               </TR>
             </THead>
             <TBody>
@@ -183,6 +186,7 @@ export function PatchpilotHostsPage() {
                       params: { instanceId, hostId: host.id },
                     })
                   }
+                  onEdit={() => setEditing(host)}
                 />
               ))}
             </TBody>
@@ -191,6 +195,14 @@ export function PatchpilotHostsPage() {
       )}
 
       {adding && <AddHostDialog instanceId={instanceId} onClose={() => setAdding(false)} />}
+      {editing && (
+        <EditHostDialog
+          instanceId={instanceId}
+          host={editing}
+          open
+          onOpenChange={(open) => !open && setEditing(null)}
+        />
+      )}
       {monitorRunId && (
         <RunMonitor instanceId={instanceId} runId={monitorRunId} onClose={() => setMonitorRunId(null)} />
       )}
@@ -219,7 +231,15 @@ export function PatchpilotHostsPage() {
 
 /* ---- roster row ------------------------------------------------------------ */
 
-function HostRow({ host, onOpen }: { host: PatchpilotHost; onOpen: () => void }) {
+function HostRow({
+  host,
+  onOpen,
+  onEdit,
+}: {
+  host: PatchpilotHost;
+  onOpen: () => void;
+  onEdit: () => void;
+}) {
   const { t } = useTranslation();
 
   return (
@@ -265,6 +285,21 @@ function HostRow({ host, onOpen }: { host: PatchpilotHost; onOpen: () => void })
         ) : (
           <span className="text-fg-subtle text-[13px]">—</span>
         )}
+      </TD>
+      <TD className="text-right">
+        {/* The row itself opens the host; the pencil must not. */}
+        <button
+          type="button"
+          aria-label={t("patchpilot.hostDetail.edit")}
+          title={t("patchpilot.hostDetail.edit")}
+          className="text-fg-subtle hover:text-fg hover:bg-bg-subtle rounded-md p-1.5"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+        >
+          <Pencil className="size-4" />
+        </button>
       </TD>
     </TR>
   );

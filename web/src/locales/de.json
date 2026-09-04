@@ -3291,7 +3291,8 @@
       "rebootstrapTitle": "{{name}} neu einrichten",
       "rebootstrapIntro": "Installiert das patchpilot-Konto, den Flottenschlüssel mit seiner Quelladress-Sperre und die sudoers-Regel neu. Nötig, wenn sich HomeHubs Adresse geändert hat oder der Host neu aufgesetzt wurde.",
       "rebootstrapBound": "Meldet sich mit dem Registry-Eintrag {{name}} an.",
-      "rebootstrapDone": "Host neu eingerichtet"
+      "rebootstrapDone": "Host neu eingerichtet",
+      "edit": "Bearbeiten"
     },
     "schedules": {
       "title": "Zeitpläne",
@@ -3420,6 +3421,13 @@
       "skip": "Kritische überspringen",
       "skipNote": "{{count}} weiterer Host wird trotzdem aktualisiert.",
       "skipNote_other": "{{count}} weitere Hosts werden trotzdem aktualisiert."
+    },
+    "editHost": {
+      "title": "{{name}} bearbeiten",
+      "intro": "Dieselben Angaben wie beim Hinzufügen. Der Login fürs Neu-Einrichten wird dort abgefragt, nicht hier.",
+      "addressFromRegistry": "Die Adresse kommt aus dem Registry-Eintrag. Bearbeite den Eintrag, um den Host umzuziehen, oder wechsle hier auf manuelle Angaben.",
+      "addressHint": "Der gemerkte Host-Schlüssel bleibt – eine neue Adresse muss also dieselbe Maschine sein.",
+      "saved": "Host aktualisiert"
     }
   },
   "signals": {

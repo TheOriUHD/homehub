@@ -349,7 +349,24 @@ func (s *Server) PatchpilotUpdateHost(ctx context.Context, req PatchpilotUpdateH
 	b := req.Body
 	name := host.Name
 	if b.Name != nil && strings.TrimSpace(*b.Name) != "" {
-		name = *b.Name
+		name = strings.TrimSpace(*b.Name)
+	}
+	// The address is editable on a manual host only; a bound one follows its
+	// registry entry, and silently accepting a new address here would just
+	// be overwritten on the next connection.
+	if b.Hostname != nil || b.SshPort != nil {
+		if host.SSHHostID != nil {
+			return PatchpilotUpdateHost400JSONResponse{BadRequestJSONResponse(errBody("address_bound",
+				"this host takes its address from its registry entry — edit the entry, or unbind the host first"))}, nil
+		}
+		hostname := strings.TrimSpace(derefStr(b.Hostname, host.Hostname))
+		port := derefInt(b.SshPort, host.SSHPort)
+		if hostname == "" || port < 1 || port > 65535 {
+			return PatchpilotUpdateHost400JSONResponse{BadRequestJSONResponse(errBody("bad_input", "a hostname and a port between 1 and 65535 are required"))}, nil
+		}
+		if err := s.store.SetPatchpilotHostEndpoint(ctx, host.ID, hostname, port); err != nil {
+			return nil, err
+		}
 	}
 	updated, err := s.store.UpdatePatchpilotHost(ctx, host.ID, name,
 		derefBool(b.Enabled, host.Enabled), derefBool(b.AutoReboot, host.AutoReboot),
@@ -357,6 +374,7 @@ func (s *Server) PatchpilotUpdateHost(ctx context.Context, req PatchpilotUpdateH
 	if err != nil {
 		return nil, err
 	}
+	s.audit.Log(ctx, actorFor(id), "patchpilot.host.update", resource, "success", map[string]any{"host": updated.Name})
 	return PatchpilotUpdateHost200JSONResponse(s.apiHost(ctx, updated)), nil
 }
 

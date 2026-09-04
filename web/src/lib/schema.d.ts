@@ -2484,7 +2484,10 @@ export interface paths {
         };
         /** One host */
         get: operations["patchpilotHost"];
-        /** Update a host's mutable fields */
+        /**
+         * Update a host's mutable fields
+         * @description `hostname` and `sshPort` are accepted for a manual host only — a bound host takes its address from its registry entry (unbind it first, or edit the entry). The pinned host key stays, so a new address must still be the same machine.
+         */
         put: operations["patchpilotUpdateHost"];
         post?: never;
         /** Remove a host from the fleet */
@@ -11347,6 +11350,8 @@ export interface operations {
             content: {
                 "application/json": {
                     name?: string;
+                    hostname?: string;
+                    sshPort?: number;
                     enabled?: boolean;
                     autoReboot?: boolean;
                     critical?: boolean;
@@ -11364,6 +11369,7 @@ export interface operations {
                     "application/json": components["schemas"]["PatchpilotHost"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
