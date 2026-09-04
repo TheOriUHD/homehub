@@ -2710,6 +2710,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patchpilot/{id}/runs/{runId}/hosts/{hostId}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip one host in an in-progress run
+         * @description A queued host is never started; a host whose command is in flight has HomeHub stop waiting for it (the package manager on the host keeps running until it finishes). The run moves on to the next host either way. Requires control on the fleet.
+         */
+        post: operations["patchpilotSkipHost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patchpilot/{id}/schedules": {
         parameters: {
             query?: never;
@@ -11692,6 +11712,30 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Abort requested */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotSkipHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                runId: string;
+                hostId: components["parameters"]["patchpilotHostIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Skip requested */
             202: {
                 headers: {
                     [name: string]: unknown;

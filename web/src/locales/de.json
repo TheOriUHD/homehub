@@ -3402,7 +3402,9 @@
       "waiting": "Warte auf Ausgabe…",
       "abort": "Lauf abbrechen",
       "abortTitle": "Diesen Lauf abbrechen?",
-      "abortBody": "Der Host, der gerade aktualisiert wird, wird gestoppt, und die noch wartenden Hosts werden nicht gestartet. Bereits aktualisierte Hosts bleiben aktualisiert. Das kann nicht rückgängig gemacht werden."
+      "abortBody": "Der Host, der gerade aktualisiert wird, wird gestoppt, und die noch wartenden Hosts werden nicht gestartet. Bereits aktualisierte Hosts bleiben aktualisiert. Das kann nicht rückgängig gemacht werden.",
+      "skip": "Überspringen",
+      "skipped": "Host übersprungen – der Lauf macht mit dem nächsten weiter"
     },
     "critical": {
       "badge": "Kritisch",

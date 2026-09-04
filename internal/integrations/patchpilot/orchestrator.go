@@ -93,7 +93,53 @@ func (r *Registry) clearRunning(integrationID uuid.UUID) {
 func (r *Registry) forgetCancel(runID uuid.UUID) {
 	r.mu.Lock()
 	delete(r.cancels, runID)
+	delete(r.skips, runID)
+	delete(r.hostCancels, runID)
 	r.mu.Unlock()
+}
+
+// SkipHost takes one host out of an in-progress run: a queued host is never
+// started, a host whose command is in flight has HomeHub stop waiting for it,
+// and the run moves on to the next host either way. Returns ErrNoActiveRun
+// when the run is not executing here.
+func (r *Registry) SkipHost(runID, hostID uuid.UUID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.cancels[runID] == nil {
+		return ErrNoActiveRun{}
+	}
+	if r.skips[runID] == nil {
+		r.skips[runID] = map[uuid.UUID]bool{}
+	}
+	r.skips[runID][hostID] = true
+	if cancel := r.hostCancels[runID][hostID]; cancel != nil {
+		cancel()
+	}
+	return nil
+}
+
+func (r *Registry) skipped(runID, hostID uuid.UUID) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.skips[runID][hostID]
+}
+
+// hostContext derives the context one host's commands run under, registered
+// so SkipHost can end it, and returns the matching cleanup.
+func (r *Registry) hostContext(ctx context.Context, runID, hostID uuid.UUID) (context.Context, func()) {
+	hctx, cancel := context.WithCancel(ctx)
+	r.mu.Lock()
+	if r.hostCancels[runID] == nil {
+		r.hostCancels[runID] = map[uuid.UUID]context.CancelFunc{}
+	}
+	r.hostCancels[runID][hostID] = cancel
+	r.mu.Unlock()
+	return hctx, func() {
+		cancel()
+		r.mu.Lock()
+		delete(r.hostCancels[runID], hostID)
+		r.mu.Unlock()
+	}
 }
 
 // orderedHosts loads the requested hosts (or all enabled if none named) and
@@ -166,7 +212,9 @@ func (r *Registry) executeRun(ctx context.Context, run *store.PatchpilotRun, hos
 
 	var success, failed, skipped int
 	for i, h := range hosts {
-		outcome := r.executeHostRun(ctx, run, hostRuns[i], h, suppressReboot)
+		hctx, done := r.hostContext(ctx, run.ID, h.ID)
+		outcome := r.executeHostRun(hctx, run, hostRuns[i], h, suppressReboot)
+		done()
 		switch outcome {
 		case "success":
 			success++
@@ -204,12 +252,16 @@ func (r *Registry) executeHostRun(ctx context.Context, run *store.PatchpilotRun,
 	}
 	// Host bookkeeping survives an abort; only the SSH work below rides ctx.
 	bg := context.Background()
-	// If the run was aborted before this host started, mark it skipped (not
-	// failed) — it was never attempted.
-	if ctx.Err() != nil {
-		_ = r.store.FinishPatchpilotHostRun(bg, hr.ID, "skipped", nil, 0, false, "run aborted")
+	// A host the operator skipped, or one queued behind an abort, is marked
+	// skipped (not failed) — it was never attempted.
+	if r.skipped(run.ID, h.ID) || ctx.Err() != nil {
+		why := "Run aborted"
+		if r.skipped(run.ID, h.ID) {
+			why = "Skipped by operator"
+		}
+		_ = r.store.FinishPatchpilotHostRun(bg, hr.ID, "skipped", nil, 0, false, why)
 		_ = r.store.SetPatchpilotHostRunStatus(bg, h.ID, "skipped", time.Now())
-		r.hostEvent(run.IntegrationID, run.ID, hr.ID, h, "skipped", "run aborted")
+		r.hostEvent(run.IntegrationID, run.ID, hr.ID, h, "skipped", why)
 		return "skipped"
 	}
 	_ = r.store.StartPatchpilotHostRun(bg, hr.ID)
@@ -245,6 +297,13 @@ func (r *Registry) executeHostRun(ctx context.Context, run *store.PatchpilotRun,
 		// mid-configure would be the real damage. Say so, as its own outcome,
 		// so the host does not read as broken.
 		const keepsRunning = " — the package manager keeps running on the host until it finishes; the next run waits for it"
+		if r.skipped(run.ID, h.ID) {
+			msg := "Skipped by operator" + keepsRunning
+			_ = r.store.FinishPatchpilotHostRun(bg, hr.ID, "skipped", nil, 0, false, msg)
+			_ = r.store.SetPatchpilotHostRunStatus(bg, h.ID, "skipped", time.Now())
+			r.hostEvent(run.IntegrationID, run.ID, hr.ID, h, "skipped", msg)
+			return "skipped"
+		}
 		if ctx.Err() != nil {
 			msg := "Aborted by operator" + keepsRunning
 			_ = r.store.FinishPatchpilotHostRun(bg, hr.ID, "cancelled", nil, 0, false, msg)

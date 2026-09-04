@@ -671,6 +671,36 @@ func (s *Server) PatchpilotAbortRun(ctx context.Context, req PatchpilotAbortRunR
 	return PatchpilotAbortRun202Response{}, nil
 }
 
+// PatchpilotSkipHost takes one host out of a run that is executing here,
+// with the same permission an abort needs.
+func (s *Server) PatchpilotSkipHost(ctx context.Context, req PatchpilotSkipHostRequestObject) (PatchpilotSkipHostResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	fleetID, resource, err := s.ppFleet(ctx, id, req.Id)
+	if err != nil {
+		return PatchpilotSkipHost404JSONResponse{notFoundErr("fleet")}, nil
+	}
+	if !s.can(ctx, id, resource, rbac.LevelControl) {
+		s.deniedAudit(ctx, id, "patchpilot.host.skip", resource)
+		return PatchpilotSkipHost403JSONResponse{forbidden()}, nil
+	}
+	run, err := s.store.GetPatchpilotRun(ctx, uuid.UUID(req.RunId))
+	if err != nil || run.IntegrationID != fleetID {
+		return PatchpilotSkipHost404JSONResponse{notFoundErr("run")}, nil
+	}
+	host, _, err := s.ppHost(ctx, id, req.Id, uuid.UUID(req.HostId))
+	if err != nil {
+		return PatchpilotSkipHost404JSONResponse{notFoundErr("host")}, nil
+	}
+	if serr := s.patchpilot.SkipHost(run.ID, host.ID); serr != nil {
+		return PatchpilotSkipHost404JSONResponse{notFoundErr("run")}, nil // not executing here
+	}
+	s.audit.Log(ctx, actorFor(id), "patchpilot.host.skip", resource, "success", map[string]any{"runId": run.ID, "host": host.Name})
+	return PatchpilotSkipHost202Response{}, nil
+}
+
 func (s *Server) PatchpilotRuns(ctx context.Context, req PatchpilotRunsRequestObject) (PatchpilotRunsResponseObject, error) {
 	id := httpctx.IdentityFrom(ctx)
 	if id == nil {

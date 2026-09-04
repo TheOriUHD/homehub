@@ -40,15 +40,22 @@ type Registry struct {
 	mu      sync.Mutex
 	running map[uuid.UUID]bool               // integrationID → a run is executing
 	cancels map[uuid.UUID]context.CancelFunc // runID → cancel its execution
+	// Per run: the hosts an operator asked to skip, and a cancel for the host
+	// whose command is in flight, so a skip can end that one host's work
+	// without touching the rest of the run.
+	skips       map[uuid.UUID]map[uuid.UUID]bool
+	hostCancels map[uuid.UUID]map[uuid.UUID]context.CancelFunc
 }
 
 func NewRegistry(st *store.Store, v *vault.Vault, logger *slog.Logger) *Registry {
 	return &Registry{
-		store:   st,
-		vault:   v,
-		logger:  logger.With("component", "patchpilot"),
-		running: map[uuid.UUID]bool{},
-		cancels: map[uuid.UUID]context.CancelFunc{},
+		store:       st,
+		vault:       v,
+		logger:      logger.With("component", "patchpilot"),
+		running:     map[uuid.UUID]bool{},
+		cancels:     map[uuid.UUID]context.CancelFunc{},
+		skips:       map[uuid.UUID]map[uuid.UUID]bool{},
+		hostCancels: map[uuid.UUID]map[uuid.UUID]context.CancelFunc{},
 	}
 }
 
