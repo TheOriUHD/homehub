@@ -1,13 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, ChevronRight, Loader2, Pin, PinOff, ServerCog, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronRight, Loader2, Pin, PinOff, ServerCog, SkipForward, XCircle } from "lucide-react";
 import { live } from "@/lib/ws";
 import { cn } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent } from "@/ui/dialog";
 import type { PatchpilotHostRun } from "@/lib/api";
-import { ppTopic, runStatusTone, useAbortRun, usePatchpilotRunDetail } from "./shared";
+import { useToast } from "@/ui/toast";
+import { ppTopic, runStatusTone, useAbortRun, usePatchpilotRunDetail, useSkipHost } from "./shared";
 
 /**
  * RunMonitor is the live "watch the run" surface: a big window with the run's
@@ -27,6 +28,8 @@ export function RunMonitor({
 }) {
   const { t } = useTranslation();
   const abort = useAbortRun(instanceId);
+  const skip = useSkipHost(instanceId);
+  const toast = useToast();
   const [confirmAbort, setConfirmAbort] = useState(false);
 
   // Poll while running; a terminal run needs no polling.
@@ -133,6 +136,28 @@ export function RunMonitor({
                   {selected.errorSummary}
                 </span>
               )}
+              {run?.status === "running" &&
+                selected?.hostId &&
+                (selected.status === "pending" || selected.status === "running") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto shrink-0"
+                    loading={skip.isPending}
+                    onClick={() =>
+                      skip.mutate(
+                        { runId: run.id, hostId: selected.hostId! },
+                        {
+                          onSuccess: () => toast("success", t("patchpilot.monitor.skipped")),
+                          onError: (e) => toast("error", (e as { message?: string })?.message || t("common.unknownError")),
+                        },
+                      )
+                    }
+                  >
+                    <SkipForward className="size-3.5" />
+                    {t("patchpilot.monitor.skip")}
+                  </Button>
+                )}
               <div className="ml-auto">
                 {pinned ? (
                   <Button variant="ghost" size="sm" onClick={() => setPinned(null)}>

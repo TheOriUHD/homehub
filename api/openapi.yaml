@@ -4115,6 +4115,25 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /patchpilot/{id}/runs/{runId}/hosts/{hostId}/skip:
+    post:
+      operationId: patchpilotSkipHost
+      summary: Skip one host in an in-progress run
+      description: >-
+        A queued host is never started; a host whose command is in flight has
+        HomeHub stop waiting for it (the package manager on the host keeps
+        running until it finishes). The run moves on to the next host either
+        way. Requires control on the fleet.
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: "#/components/parameters/patchpilotHostIdParam" }
+      responses:
+        "202": { description: Skip requested }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /patchpilot/{id}/schedules:
     get:
       operationId: patchpilotSchedules

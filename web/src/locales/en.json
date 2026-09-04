@@ -3402,7 +3402,9 @@
       "waiting": "Waiting for output…",
       "abort": "Abort run",
       "abortTitle": "Abort this run?",
-      "abortBody": "The host updating right now is stopped, and the hosts still queued won't be started. Any host already updated stays updated. This can't be undone."
+      "abortBody": "The host updating right now is stopped, and the hosts still queued won't be started. Any host already updated stays updated. This can't be undone.",
+      "skip": "Skip",
+      "skipped": "Host skipped — the run moves on to the next one"
     },
     "critical": {
       "badge": "Critical",

@@ -288,6 +288,20 @@ export function useAbortRun(instanceId: string) {
   });
 }
 
+/** Take one host out of an in-progress run; the run continues with the rest. */
+export function useSkipHost(instanceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { runId: string; hostId: string }) =>
+      unwrap(
+        await api.POST("/patchpilot/{id}/runs/{runId}/hosts/{hostId}/skip", {
+          params: { path: { id: instanceId, runId: vars.runId, hostId: vars.hostId } },
+        }),
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["patchpilot", instanceId, "runs"] }),
+  });
+}
+
 export function useSaveSchedule(instanceId: string) {
   const qc = useQueryClient();
   return useMutation({

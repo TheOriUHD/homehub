@@ -227,7 +227,10 @@ the host, because interrupting dpkg mid-configure is the one way to leave a
 machine worse than it was. The host is recorded as cancelled, not failed, and
 apt in every later run waits up to ten minutes for a lock still held by that
 command or by unattended-upgrades instead of failing on the spot. A run that
-was in flight when HomeHub itself restarted is closed out at startup.
+was in flight when HomeHub itself restarted is closed out at startup. While a
+run is going, any host in it can be **skipped** from the run monitor: a queued
+host is never started, a host being worked on has HomeHub stop waiting for it,
+and the run moves on to the next host either way.
 
 ---
 
