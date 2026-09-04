@@ -4591,6 +4591,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/telegram/notice-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How monitored trouble reaches the phone */
+        get: operations["getNoticePolicy"];
+        /**
+         * Change the notification policy
+         * @description Requires configure on settings. Times are HH:MM in the policy's time zone.
+         */
+        put: operations["putNoticePolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/telegram/notice-policy/digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the digest now
+         * @description Flushes everything waiting into one message, schedule or not. Requires configure on settings.
+         */
+        post: operations["sendNoticeDigest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/telegram/link-code": {
         parameters: {
             query?: never;
@@ -6039,6 +6080,48 @@ export interface components {
             warning: number;
             critical: number;
             recovered: number;
+        };
+        NoticePolicy: {
+            /** @description Which severities interrupt at once; the rest wait for the digest. critical is always true. */
+            immediate: {
+                critical: boolean;
+                warning: boolean;
+                info: boolean;
+                /** @description All-clears of faults that were sent immediately; all-clears of digested faults always ride the digest. */
+                recovered: boolean;
+            };
+            quietHours: {
+                enabled: boolean;
+                /** @description HH:MM */
+                from: string;
+                /** @description HH:MM; may be earlier than from to wrap past midnight */
+                to: string;
+                /** @description Critical still interrupts during quiet hours */
+                criticalDuring: boolean;
+            };
+            digest: {
+                /** @enum {string} */
+                mode: "weekdays-weekends" | "per-day";
+                weekdays: string[];
+                weekends: string[];
+                /** @description Per-day lists keyed mon..sun, used in per-day mode */
+                days: {
+                    [key: string]: string[];
+                };
+            };
+            /** @description IANA zone every time in this policy is read in */
+            timezone: string;
+        };
+        NoticePolicyState: {
+            policy: components["schemas"]["NoticePolicy"];
+            /** @description Conditions waiting for the digest */
+            queued: number;
+            /** Format: date-time */
+            nextDigestAt?: string;
+            quietNow: boolean;
+            canConfigure: boolean;
+            /** @description The host's zone */
+            timezoneDefault: string;
         };
         TelegramSettings: {
             enabled: boolean;
@@ -15217,6 +15300,77 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getNoticePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policy and where the queue stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticePolicyState"];
+                };
+            };
+        };
+    };
+    putNoticePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoticePolicy"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticePolicyState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    sendNoticeDigest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What happened */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Whether a message went out (nothing waiting sends nothing) */
+                        sent: boolean;
+                        items: number;
+                    };
+                };
             };
             403: components["responses"]["Forbidden"];
         };

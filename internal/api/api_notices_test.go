@@ -43,7 +43,7 @@ func TestGateParksRecoveryInsteadOfAnnouncingIt(t *testing.T) {
 	now := time.Now()
 	st.notices["printer"] = &store.SignalNotice{Key: "printer", LastSentAt: now.Add(-2 * time.Hour), LastSeverity: "warning", SentCount: 1}
 
-	proceed, why := gateNotice(context.Background(), st, store.Signal{ID: 7, Key: "printer", Severity: "warning"}, "recovered", now)
+	proceed, why := gateProceeds(context.Background(), st, store.Signal{ID: 7, Key: "printer", Severity: "warning"}, "recovered", now)
 	if proceed {
 		t.Fatal("a recovery must never be announced straight away")
 	}
@@ -55,7 +55,7 @@ func TestGateParksRecoveryInsteadOfAnnouncingIt(t *testing.T) {
 
 func TestGateDropsRecoveryNobodyWasToldAbout(t *testing.T) {
 	st := newFakeNoticeStore()
-	proceed, why := gateNotice(context.Background(), st, store.Signal{Key: "printer", Severity: "warning"}, "recovered", time.Now())
+	proceed, why := gateProceeds(context.Background(), st, store.Signal{Key: "printer", Severity: "warning"}, "recovered", time.Now())
 	if proceed || len(st.scheduled) != 0 {
 		t.Fatalf("an all-clear for an unreported fault is not news: proceed=%v scheduled=%v why=%q", proceed, st.scheduled, why)
 	}
@@ -72,7 +72,7 @@ func TestGateWithdrawsRecoveryWhenTheFaultReturns(t *testing.T) {
 	sig := store.Signal{ID: 1, Key: "mc", Severity: "warning"}
 
 	gateNotice(context.Background(), st, sig, "recovered", now)
-	proceed, why := gateNotice(context.Background(), st, sig, "new", now.Add(3*time.Minute))
+	proceed, why := gateProceeds(context.Background(), st, sig, "new", now.Add(3*time.Minute))
 	if proceed {
 		t.Fatal("the fault returning inside the hold is the same outage continuing, not news")
 	}
@@ -88,11 +88,11 @@ func TestGateLetsAnEscalationThroughTheFloor(t *testing.T) {
 	st := newFakeNoticeStore()
 	now := time.Now()
 	st.notices["disk"] = &store.SignalNotice{Key: "disk", LastSentAt: now.Add(-5 * time.Minute), LastSeverity: "warning", SentCount: 1}
-	proceed, _ := gateNotice(context.Background(), st, store.Signal{Key: "disk", Severity: "critical"}, "escalated", now)
+	proceed, _ := gateProceeds(context.Background(), st, store.Signal{Key: "disk", Severity: "critical"}, "escalated", now)
 	if !proceed {
 		t.Fatal("getting worse is exactly the repeat worth an interruption")
 	}
-	proceed, _ = gateNotice(context.Background(), st, store.Signal{Key: "disk", Severity: "warning"}, "new", now)
+	proceed, _ = gateProceeds(context.Background(), st, store.Signal{Key: "disk", Severity: "warning"}, "new", now)
 	if proceed {
 		t.Fatal("an unchanged repeat five minutes later must be dropped")
 	}
@@ -100,13 +100,20 @@ func TestGateLetsAnEscalationThroughTheFloor(t *testing.T) {
 
 func TestGateFirstReportPasses(t *testing.T) {
 	st := newFakeNoticeStore()
-	proceed, _ := gateNotice(context.Background(), st, store.Signal{Key: "nas", Severity: "critical"}, "new", time.Now())
+	proceed, _ := gateProceeds(context.Background(), st, store.Signal{Key: "nas", Severity: "critical"}, "new", time.Now())
 	if !proceed {
 		t.Fatal("the first report of a condition must go out")
 	}
 }
 
 func ptrTime(t time.Time) *time.Time { return &t }
+
+// gateProceeds is the older tests' view: did the transition get through to
+// the policy?
+func gateProceeds(ctx context.Context, st noticeStore, sig store.Signal, event string, now time.Time) (bool, string) {
+	d, why := gateNotice(ctx, st, sig, event, now)
+	return d == gateSend, why
+}
 
 // A fault that comes back inside the flap window after its all-clear went
 // out is the same trouble: no worse than what was reported, it is left for
@@ -116,9 +123,9 @@ func TestGateLeavesAReturnAfterAllClearForTheDigest(t *testing.T) {
 	now := time.Now()
 	st.notices["k"] = &store.SignalNotice{Key: "k", LastSentAt: now.Add(-40 * time.Minute), LastSeverity: "recovered",
 		LastFaultAt: ptrTime(now.Add(-2 * time.Hour)), LastFaultSeverity: "warning"}
-	ok, why := gateNotice(context.Background(), st, store.Signal{Key: "k", Severity: "warning"}, "new", now)
-	if ok || !strings.Contains(why, "left for the digest") {
-		t.Fatalf("expected the return to be left for the digest, got ok=%v why=%q", ok, why)
+	d, why := gateNotice(context.Background(), st, store.Signal{Key: "k", Severity: "warning"}, "new", now)
+	if d != gateQueue || !strings.Contains(why, "left for the digest") {
+		t.Fatalf("expected the return to be left for the digest, got d=%v why=%q", d, why)
 	}
 }
 
@@ -129,8 +136,8 @@ func TestGateReturnWorseThanReportedPasses(t *testing.T) {
 	now := time.Now()
 	st.notices["k"] = &store.SignalNotice{Key: "k", LastSentAt: now.Add(-5 * time.Minute), LastSeverity: "recovered",
 		LastFaultAt: ptrTime(now.Add(-time.Hour)), LastFaultSeverity: "warning"}
-	ok, _ := gateNotice(context.Background(), st, store.Signal{Key: "k", Severity: "critical"}, "new", now)
-	if !ok {
+	d, _ := gateNotice(context.Background(), st, store.Signal{Key: "k", Severity: "critical"}, "new", now)
+	if d != gateSend {
 		t.Fatal("a return worse than the reported fault must pass")
 	}
 }
@@ -141,8 +148,8 @@ func TestGateReturnAfterQuietStretchIsNews(t *testing.T) {
 	now := time.Now()
 	st.notices["k"] = &store.SignalNotice{Key: "k", LastSentAt: now.Add(-7 * time.Hour), LastSeverity: "recovered",
 		LastFaultAt: ptrTime(now.Add(-9 * time.Hour)), LastFaultSeverity: "warning"}
-	ok, why := gateNotice(context.Background(), st, store.Signal{Key: "k", Severity: "warning"}, "new", now)
-	if !ok {
+	d, why := gateNotice(context.Background(), st, store.Signal{Key: "k", Severity: "warning"}, "new", now)
+	if d != gateSend {
 		t.Fatalf("a return after a quiet stretch must pass, got %q", why)
 	}
 }
@@ -153,14 +160,14 @@ func TestGateSilencesAFlappingKey(t *testing.T) {
 	now := time.Now()
 	st.notices["k"] = &store.SignalNotice{Key: "k", LastSentAt: now, LastSeverity: "warning",
 		LastFaultAt: ptrTime(now), LastFaultSeverity: "warning", Flaps: 2, FlapWindowStart: ptrTime(now.Add(-3 * time.Hour))}
-	if ok, why := gateNotice(context.Background(), st, store.Signal{Key: "k", Severity: "warning"}, "recovered", now.Add(time.Minute)); ok || !strings.Contains(why, "flapping") {
-		t.Fatalf("flapping all-clear should be left for the digest, got ok=%v why=%q", ok, why)
+	if d, why := gateNotice(context.Background(), st, store.Signal{Key: "k", Severity: "warning"}, "recovered", now.Add(time.Minute)); d != gateQueue || !strings.Contains(why, "flapping") {
+		t.Fatalf("flapping all-clear should be left for the digest, got d=%v why=%q", d, why)
 	}
 	if _, parked := st.scheduled["k"]; parked {
 		t.Fatal("a flapping key's all-clear must not be parked either")
 	}
 	st.notices["k"].LastSeverity = "recovered"
-	if ok, why := gateNotice(context.Background(), st, store.Signal{Key: "k", Severity: "warning"}, "new", now.Add(40*time.Minute)); ok || !strings.Contains(why, "flapping") {
-		t.Fatalf("flapping return should be left for the digest, got ok=%v why=%q", ok, why)
+	if d, why := gateNotice(context.Background(), st, store.Signal{Key: "k", Severity: "warning"}, "new", now.Add(40*time.Minute)); d != gateQueue || !strings.Contains(why, "flapping") {
+		t.Fatalf("flapping return should be left for the digest, got d=%v why=%q", d, why)
 	}
 }

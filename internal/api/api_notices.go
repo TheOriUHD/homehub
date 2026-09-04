@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"homehub/internal/assistant"
+	"homehub/internal/notices"
 	"homehub/internal/store"
 )
 
@@ -55,23 +56,35 @@ type noticeStore interface {
 	CancelRecovery(ctx context.Context, key string) (bool, error)
 }
 
+// gateDecision is what the deterministic gate makes of a transition before
+// any policy or model is consulted.
+type gateDecision int
+
+const (
+	gateDrop  gateDecision = iota // already told, or nothing to tell
+	gateQueue                     // real, but not worth an interruption: the digest
+	gateSend                      // may go on to the policy
+)
+
 // gateNotice decides whether a transition may go on to become a message right
-// now. It returns the reason when it may not, for the log.
-func gateNotice(ctx context.Context, st noticeStore, sig store.Signal, event string, now time.Time) (proceed bool, reason string) {
+// now, may wait for the digest, or is nothing new. It returns the reason for
+// the log.
+func gateNotice(ctx context.Context, st noticeStore, sig store.Signal, event string, now time.Time) (gateDecision, string) {
+	reason := ""
 	notice, _ := st.GetSignalNotice(ctx, sig.Key)
 	flapping := notice != nil && notice.Flaps > 0 && notice.FlapWindowStart != nil && now.Sub(*notice.FlapWindowStart) < flapWindow
 	if event == "recovered" {
 		// Nothing to recover from, as far as the owner knows.
 		if notice == nil || notice.LastSeverity == "recovered" {
-			return false, "never reported"
+			return gateDrop, "never reported"
 		}
 		if flapping {
-			return false, "flapping — the all-clear is left for the digest"
+			return gateQueue, "flapping — the all-clear is left for the digest"
 		}
 		if ok, err := st.ScheduleRecovery(ctx, sig.Key, sig.ID, now.Add(recoveryHold)); err != nil || !ok {
-			return false, "could not park the recovery"
+			return gateDrop, "could not park the recovery"
 		}
-		return false, "parked until the recovery has held"
+		return gateDrop, "parked until the recovery has held"
 	}
 	// The fault is back. If its all-clear was still waiting, the owner never
 	// heard it — from their side this is the same outage continuing, and the
@@ -80,7 +93,7 @@ func gateNotice(ctx context.Context, st noticeStore, sig store.Signal, event str
 		reason = "recovery withdrawn — the fault returned inside the hold; "
 	}
 	if notice == nil {
-		return true, ""
+		return gateSend, ""
 	}
 	// Judge against the last fault reported while it is still recent trouble;
 	// only after a quiet stretch longer than the window is a return news.
@@ -91,16 +104,16 @@ func gateNotice(ctx context.Context, st noticeStore, sig store.Signal, event str
 	}
 	worse := severityRank(sig.Severity) > severityRank(reported)
 	if flapping && !worse {
-		return false, reason + fmt.Sprintf("flapping — %d returns inside %s, left for the digest", notice.Flaps, flapWindow)
+		return gateQueue, reason + fmt.Sprintf("flapping — %d returns inside %s, left for the digest", notice.Flaps, flapWindow)
 	}
 	since := now.Sub(notice.LastSentAt)
 	if notice.LastSeverity == "recovered" && recentFault && !worse {
-		return false, reason + fmt.Sprintf("back %s after its all-clear, no worse than reported — left for the digest", since.Truncate(time.Second))
+		return gateQueue, reason + fmt.Sprintf("back %s after its all-clear, no worse than reported — left for the digest", since.Truncate(time.Second))
 	}
 	if since < minNoticeInterval && !worse {
-		return false, reason + fmt.Sprintf("repeat %s after the last message", since.Truncate(time.Second))
+		return gateDrop, reason + fmt.Sprintf("repeat %s after the last message", since.Truncate(time.Second))
 	}
-	return true, ""
+	return gateSend, ""
 }
 
 // HandleSignalEvent is the signals service's notifier. Runs detached so a
@@ -111,13 +124,69 @@ func (s *Server) HandleSignalEvent(sig store.Signal, event string) {
 		// a slow provider must not hold a notification hostage.
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 		defer cancel()
-		proceed, reason := gateNotice(ctx, s.store, sig, event, time.Now())
-		if !proceed {
+		now := time.Now()
+		// An all-clear for something waiting in the digest is answered there:
+		// the item turns into "came and went" rather than a second line.
+		if event == "recovered" {
+			if resolved, _ := s.store.ResolveQueuedNotice(ctx, sig.Key); resolved {
+				s.logger.Info("notification queued", "signal", sig.Key, "event", event, "why", "cleared while waiting for the digest")
+			}
+		}
+		decision, reason := gateNotice(ctx, s.store, sig, event, now)
+		switch decision {
+		case gateDrop:
 			s.logger.Info("notification gated", "signal", sig.Key, "event", event, "why", reason)
 			return
+		case gateQueue:
+			s.logger.Info("notification queued", "signal", sig.Key, "event", event, "why", reason)
+			s.enqueue(ctx, sig, event)
+			return
 		}
-		s.narrateAndDeliver(ctx, sig, event)
+		s.route(ctx, sig, event, now)
 	}()
+}
+
+// route sends a transition the gate let through where the owner's policy
+// says: to the phone now, or into the digest.
+func (s *Server) route(ctx context.Context, sig store.Signal, event string, now time.Time) {
+	policy := s.settings.NoticePolicy(ctx)
+	severity := sig.Severity
+	if event == "recovered" {
+		severity = "recovered"
+	}
+	if policy.RouteFor(severity, now) == notices.RouteImmediate {
+		s.narrateAndDeliver(ctx, sig, event)
+		return
+	}
+	why := "the policy sends " + severity + " with the digest"
+	if policy.InQuietHours(now) {
+		why = "quiet hours"
+	}
+	s.logger.Info("notification queued", "signal", sig.Key, "event", event, "why", why)
+	s.enqueue(ctx, sig, event)
+}
+
+// enqueue puts a transition into the digest. An all-clear with nothing
+// waiting for its key still earns a line — "it went down and came back" is
+// news the owner never heard — recorded as already cleared.
+func (s *Server) enqueue(ctx context.Context, sig store.Signal, event string) {
+	item := store.QueuedNotice{
+		Key: sig.Key, SignalID: &sig.ID, Event: event, Severity: sig.Severity, Title: sig.Title, Body: sig.Body,
+		SourceName: sig.SourceName, SourceType: sig.SourceType, Detail: sig.Detail,
+	}
+	if event == "recovered" {
+		if resolved, _ := s.store.ResolveQueuedNotice(ctx, sig.Key); resolved {
+			return
+		}
+		item.Severity = "recovered"
+	}
+	if _, err := s.store.EnqueueNotice(ctx, item); err != nil {
+		s.logger.Warn("could not queue a notification", "signal", sig.Key, "error", err)
+		return
+	}
+	if event == "recovered" {
+		_, _ = s.store.ResolveQueuedNotice(ctx, sig.Key)
+	}
 }
 
 // FlushRecoveries announces the all-clears whose hold is over. Wired to the
@@ -142,21 +211,113 @@ func (s *Server) FlushRecoveries(ctx context.Context) {
 		if err != nil || sig == nil {
 			continue
 		}
-		s.narrateAndDeliver(ctx, *sig, "recovered")
+		s.route(ctx, *sig, "recovered", time.Now())
 	}
+}
+
+// FlushDigest sends the digest when the schedule says so. Wired to the
+// once-a-minute signals sweep beside FlushRecoveries. The last check lives in
+// memory between ticks; the last digest actually sent is persisted, so after
+// a restart a slot that fell inside the gap is still honoured — bounded to
+// the last hour and a half, so an old timestamp cannot trigger a stale one.
+func (s *Server) FlushDigest(ctx context.Context) {
+	now := time.Now()
+	s.digestMu.Lock()
+	last := s.digestLastCheck
+	if last.IsZero() {
+		last = s.settings.NoticeDigestLast(ctx)
+		if floor := now.Add(-90 * time.Minute); last.Before(floor) {
+			last = floor
+		}
+	}
+	s.digestLastCheck = now
+	s.digestMu.Unlock()
+	if !s.settings.NoticePolicy(ctx).DigestDue(last, now) {
+		return
+	}
+	if sent, n := s.sendDigest(ctx, "digest"); sent {
+		s.logger.Info("digest sent", "items", n)
+	}
+}
+
+// SendDigestNow flushes the queue regardless of the schedule. Reports
+// whether anything went out and how many items it carried.
+func (s *Server) SendDigestNow(ctx context.Context) (bool, int) {
+	return s.sendDigest(ctx, "manual")
+}
+
+// sendDigest turns everything waiting into one message.
+func (s *Server) sendDigest(ctx context.Context, kind string) (bool, int) {
+	items, err := s.store.ListQueuedNotices(ctx)
+	if err != nil || len(items) == 0 {
+		return false, 0
+	}
+	in := assistant.DigestInput{Now: time.Now()}
+	ids := make([]int64, 0, len(items))
+	for _, q := range items {
+		ids = append(ids, q.ID)
+		in.Items = append(in.Items, queuedLine(q))
+	}
+	text := ""
+	if provider, model := s.noticeProvider(ctx); provider != nil {
+		if t, err := assistant.WriteDigest(ctx, provider, model, in); err == nil {
+			text = t
+		} else {
+			s.logger.Warn("digest narrator failed, sending the plain text", "error", err)
+		}
+	}
+	if text == "" {
+		text = assistant.TemplateDigest(in)
+	}
+	digest := store.Signal{Key: "digest", Severity: "info", Title: fmt.Sprintf("Digest of %d conditions", len(items)), SourceName: "HomeHub"}
+	s.deliverNotice(ctx, digest, "digest", text)
+	if err := s.store.FlushQueuedNotices(ctx, ids, kind); err != nil {
+		s.logger.Warn("could not mark the digest as sent", "error", err)
+	}
+	_ = s.settings.SetNoticeDigestLast(ctx, time.Now())
+	return true, len(items)
+}
+
+func queuedLine(q store.QueuedNotice) assistant.QueuedLine {
+	return assistant.QueuedLine{Severity: q.Severity, Title: q.Title, SourceName: q.SourceName,
+		QueuedAt: q.QueuedAt, Resolved: q.ResolvedAt != nil, Bounces: q.Bounces}
 }
 
 // narrateAndDeliver writes the message — by the model, or the template when
 // it cannot — and sends it. The gate has already been passed.
 func (s *Server) narrateAndDeliver(ctx context.Context, sig store.Signal, event string) {
-	text, decided := s.narrateSignal(ctx, sig, event)
+	// Whatever was waiting for the digest rides along: an interruption is
+	// the moment to mention the lesser things too, after the main news.
+	var queued []store.QueuedNotice
+	if items, err := s.store.ListQueuedNotices(ctx); err == nil {
+		for _, q := range items {
+			if q.Key != sig.Key {
+				queued = append(queued, q)
+			}
+		}
+	}
+	text, decided := s.narrateSignal(ctx, sig, event, queued)
 	if decided && text == "" {
 		return // held back deliberately
 	}
 	if !decided {
 		text = templateSignalText(sig, event)
+		if len(queued) > 0 {
+			in := assistant.DigestInput{Now: time.Now()}
+			for _, q := range queued {
+				in.Items = append(in.Items, queuedLine(q))
+			}
+			text += "\n\nAlso waiting:\n" + assistant.TemplateDigest(in)
+		}
 	}
 	s.deliverNotice(ctx, sig, event, text)
+	if len(queued) > 0 {
+		ids := make([]int64, 0, len(queued))
+		for _, q := range queued {
+			ids = append(ids, q.ID)
+		}
+		_ = s.store.FlushQueuedNotices(ctx, ids, "immediate")
+	}
 }
 
 // deliverNotice broadcasts to every linked chat whose user has the signals
@@ -197,29 +358,11 @@ func (s *Server) deliverNotice(ctx context.Context, sig store.Signal, event, tex
 //
 // Deliberately never fails loudly: a notification that reads awkwardly beats
 // one that never arrives.
-func (s *Server) narrateSignal(ctx context.Context, sig store.Signal, event string) (string, bool) {
-	enabled, providerName, _, baseURL := s.settings.Assistant(ctx)
-	if !enabled {
+func (s *Server) narrateSignal(ctx context.Context, sig store.Signal, event string, queued []store.QueuedNotice) (string, bool) {
+	provider, model := s.noticeProvider(ctx)
+	if provider == nil {
 		return "", false
 	}
-	model := s.settings.AssistantNotifyModel(ctx)
-	if model == "" {
-		// Default to the provider's small lane rather than whatever the chat
-		// is pinned to — this runs unattended, once per condition.
-		basic, advanced := s.settings.AssistantAutoLanes(ctx)
-		model = assistant.LaneModel(providerName, assistant.LaneBasic, basic, advanced)
-	}
-	if model == "" {
-		return "", false
-	}
-	apiKey, _ := s.assistantKeyFor(ctx, providerName)
-	provider, err := assistant.NewProviderFor(assistant.Config{
-		Provider: providerName, Model: model, APIKey: apiKey, BaseURL: baseURL,
-	})
-	if err != nil {
-		return "", false
-	}
-
 	in := assistant.NoticeInput{
 		Event: event, Severity: sig.Severity, Title: sig.Title, Body: sig.Body,
 		SourceName: sig.SourceName, SourceType: sig.SourceType,
@@ -243,6 +386,9 @@ func (s *Server) narrateSignal(ctx context.Context, sig store.Signal, event stri
 		}
 	}
 
+	for _, q := range queued {
+		in.Queued = append(in.Queued, queuedLine(q))
+	}
 	notice, err := assistant.WriteNotice(ctx, provider, model, in)
 	if err != nil {
 		s.logger.Warn("notification narrator failed, sending the plain text",
@@ -254,6 +400,30 @@ func (s *Server) narrateSignal(ctx context.Context, sig store.Signal, event stri
 		return "", true
 	}
 	return notice.Text, true
+}
+
+// noticeProvider is the small model that writes notifications: the
+// configured notify model, else the provider's basic lane. Nil when no model
+// can answer, and the caller uses the templated text.
+func (s *Server) noticeProvider(ctx context.Context) (assistant.Provider, string) {
+	enabled, providerName, _, baseURL := s.settings.Assistant(ctx)
+	if !enabled {
+		return nil, ""
+	}
+	model := s.settings.AssistantNotifyModel(ctx)
+	if model == "" {
+		basic, advanced := s.settings.AssistantAutoLanes(ctx)
+		model = assistant.LaneModel(providerName, assistant.LaneBasic, basic, advanced)
+	}
+	if model == "" {
+		return nil, ""
+	}
+	apiKey, _ := s.assistantKeyFor(ctx, providerName)
+	provider, err := assistant.NewProviderFor(assistant.Config{Provider: providerName, Model: model, APIKey: apiKey, BaseURL: baseURL})
+	if err != nil {
+		return nil, ""
+	}
+	return provider, model
 }
 
 // severityRank orders severities so a genuine escalation can pass the rate

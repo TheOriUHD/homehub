@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"homehub/internal/notices"
 	"net/url"
 	"strings"
 	"sync"
@@ -33,6 +34,8 @@ const (
 	// never be the expensive one someone picked for a hard question.
 	keyAssistantNotifyModel = "assistant_notify_model"
 	keyTelegramEnabled      = "telegram_enabled"
+	keyNoticePolicy         = "notice_policy"
+	keyNoticeDigestLast     = "notice_digest_last"
 
 	defaultSessionTTLHours = 720 // 30 days, rolling
 	defaultRawHours        = 48
@@ -250,4 +253,46 @@ func (s *Service) Telegram(ctx context.Context) (enabled bool) {
 // SetTelegram stores the Telegram bridge switch.
 func (s *Service) SetTelegram(ctx context.Context, enabled bool) error {
 	return s.store.SetSetting(ctx, keyTelegramEnabled, enabled)
+}
+
+// NoticePolicy is how monitored trouble reaches the phone. A stored policy
+// is filled up from the defaults so an older one keeps working after new
+// knobs appear.
+func (s *Service) NoticePolicy(ctx context.Context) notices.Policy {
+	p := notices.Default(notices.HostTimezone())
+	s.get(ctx, keyNoticePolicy, &p)
+	return p.Normalized()
+}
+
+// SetNoticePolicy stores a validated policy.
+func (s *Service) SetNoticePolicy(ctx context.Context, p notices.Policy) error {
+	p = p.Normalized()
+	if err := p.Validate(); err != nil {
+		return err
+	}
+	if err := s.store.SetSetting(ctx, keyNoticePolicy, p); err != nil {
+		return err
+	}
+	s.invalidate()
+	return nil
+}
+
+// NoticeDigestLast is when the digest schedule was last checked, so a
+// scheduled instant is sent once and never missed across a restart.
+func (s *Service) NoticeDigestLast(ctx context.Context) time.Time {
+	var raw string
+	s.get(ctx, keyNoticeDigestLast, &raw)
+	t, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
+func (s *Service) SetNoticeDigestLast(ctx context.Context, t time.Time) error {
+	if err := s.store.SetSetting(ctx, keyNoticeDigestLast, t.UTC().Format(time.RFC3339)); err != nil {
+		return err
+	}
+	s.invalidate()
+	return nil
 }

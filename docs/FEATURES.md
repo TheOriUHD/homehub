@@ -262,14 +262,33 @@ system, sort by recency or severity, and carry deep payloads — a failed update
 run brings its per-host errors and log tails right into the list.
 
 Dismissal is bulk-capable and asks for confirmation once anything worse than
-info is involved. New and escalated warnings and criticals, plus recoveries,
-push to Telegram — written by a small model in the house's own voice, with the
-templated text as the fallback. Every transition passes a deterministic gate
-first: repeats inside thirty minutes are dropped unless they got worse, an
-all-clear waits ten quiet minutes and is withdrawn if the fault returns, and
-nothing is announced as recovered that was never reported down. The narrator
-also sees what was sent in the last half hour, so one fault reported under two
-names goes out once.
+info is involved. Transitions push to Telegram — written by a small model in
+the house's own voice, with the templated text as the fallback — under a
+**notification policy** the owner sets (Assistant → Telegram → Notifications):
+
+- **What interrupts.** Critical always does. Warnings, info and recoveries each
+  either interrupt at once or wait for the digest. Recoveries that interrupt
+  are those of faults that were themselves sent at once; the all-clear of a
+  digested fault rides the digest as "came and went".
+- **Quiet hours**, with critical optionally still allowed through.
+- **Digest times**: one list for weekdays and one for weekends, or a list per
+  day, in the policy's time zone. Everything waiting goes out as one message,
+  worst first, systems grouped, bounces counted. An immediate message hands
+  over whatever was waiting in one sentence after the main news, so nothing
+  queued is lost when something big lands. A "Send digest now" button flushes
+  the queue on demand.
+
+Before the policy, a deterministic gate runs: repeats inside thirty minutes
+are dropped unless they got worse; an all-clear waits ten quiet minutes and is
+withdrawn if the fault returns; nothing is announced as recovered that was
+never reported down; a fault returning within six hours of its all-clear is
+judged against the fault that was reported rather than as an escalation, and
+goes to the digest; a condition that has bounced inside that window stops
+interrupting altogether. A signal that re-fires after clearing starts a fresh
+episode, so ages are those of the current outage. The narrator also sees what
+was sent in the last half hour, so one fault reported under two names goes
+out once, and every Telegram turn of the assistant carries the day's sent
+alerts in its context.
 
 ## History and metrics
 
