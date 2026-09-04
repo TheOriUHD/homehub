@@ -35,6 +35,10 @@ type Access struct {
 	// web channel to one app session; Telegram uses "".
 	Channel      string
 	Conversation string
+	// ContextLines ride in the per-user half of the system prompt, after the
+	// cache breakpoint: facts the surface wants the model to have without a
+	// tool call — on Telegram, what it sent the person recently.
+	ContextLines []string
 }
 
 // Toolbox executes tools against HomeHub's own services. Call performs an

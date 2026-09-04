@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,6 +34,14 @@ const minNoticeInterval = 30 * time.Minute
 // when a flapping fault looks healed. The hold here is persisted.
 const recoveryHold = 10 * time.Minute
 
+// flapWindow is how long after an all-clear a fault's return still counts as
+// the same trouble. Inside it the return is judged against the fault that was
+// reported — not against "recovered", which ranks below everything and made
+// every return an "escalation" that skipped the rate floor — and each such
+// return counts as a flap. A key that has flapped stops interrupting: its
+// returns and all-clears are left for the digest.
+const flapWindow = 6 * time.Hour
+
 // recentWindow is how far back the narrator is shown what else went out, so
 // one fault reported under two names (a network degraded because one of its
 // servers is offline, which was reported on its own) is not said twice.
@@ -50,10 +59,14 @@ type noticeStore interface {
 // now. It returns the reason when it may not, for the log.
 func gateNotice(ctx context.Context, st noticeStore, sig store.Signal, event string, now time.Time) (proceed bool, reason string) {
 	notice, _ := st.GetSignalNotice(ctx, sig.Key)
+	flapping := notice != nil && notice.Flaps > 0 && notice.FlapWindowStart != nil && now.Sub(*notice.FlapWindowStart) < flapWindow
 	if event == "recovered" {
 		// Nothing to recover from, as far as the owner knows.
 		if notice == nil || notice.LastSeverity == "recovered" {
 			return false, "never reported"
+		}
+		if flapping {
+			return false, "flapping — the all-clear is left for the digest"
 		}
 		if ok, err := st.ScheduleRecovery(ctx, sig.Key, sig.ID, now.Add(recoveryHold)); err != nil || !ok {
 			return false, "could not park the recovery"
@@ -69,8 +82,21 @@ func gateNotice(ctx context.Context, st noticeStore, sig store.Signal, event str
 	if notice == nil {
 		return true, ""
 	}
+	// Judge against the last fault reported while it is still recent trouble;
+	// only after a quiet stretch longer than the window is a return news.
+	reported := notice.LastSeverity
+	recentFault := notice.LastFaultAt != nil && now.Sub(*notice.LastFaultAt) < flapWindow
+	if recentFault && notice.LastFaultSeverity != "" {
+		reported = notice.LastFaultSeverity
+	}
+	worse := severityRank(sig.Severity) > severityRank(reported)
+	if flapping && !worse {
+		return false, reason + fmt.Sprintf("flapping — %d returns inside %s, left for the digest", notice.Flaps, flapWindow)
+	}
 	since := now.Sub(notice.LastSentAt)
-	worse := severityRank(sig.Severity) > severityRank(notice.LastSeverity)
+	if notice.LastSeverity == "recovered" && recentFault && !worse {
+		return false, reason + fmt.Sprintf("back %s after its all-clear, no worse than reported — left for the digest", since.Truncate(time.Second))
+	}
 	if since < minNoticeInterval && !worse {
 		return false, reason + fmt.Sprintf("repeat %s after the last message", since.Truncate(time.Second))
 	}
@@ -155,7 +181,7 @@ func (s *Server) deliverNotice(ctx context.Context, sig store.Signal, event, tex
 	// the flaw behind a day of alternating "it is down" / "it is back"
 	// messages: every all-clear reset the history, so the next firing looked
 	// like a first report. The record ages out on its own instead.
-	_ = s.store.RecordSignalNotice(ctx, sig.Key, severity)
+	_ = s.store.RecordSignalNotice(ctx, sig.Key, severity, flapWindow)
 	if err := s.store.LogSentNotice(ctx, store.SentNotice{
 		Key: sig.Key, Event: event, Severity: severity, Title: sig.Title,
 		SourceName: sig.SourceName, Text: text,
@@ -203,6 +229,10 @@ func (s *Server) narrateSignal(ctx context.Context, sig store.Signal, event stri
 		in.TimesNotified = notice.SentCount
 		in.LastNotified = &notice.LastSentAt
 		in.LastSeverity = notice.LastSeverity
+		if notice.Flaps > 0 && notice.FlapWindowStart != nil && time.Since(*notice.FlapWindowStart) < flapWindow {
+			in.Flaps = notice.Flaps
+			in.FlapWindowStart = notice.FlapWindowStart
+		}
 	}
 	if recent, rerr := s.store.ListSentNotices(ctx, time.Now().Add(-recentWindow), "", 8); rerr == nil {
 		for _, r := range recent {
@@ -263,6 +293,26 @@ func templateSignalText(sig store.Signal, event string) string {
 		text += "\n" + sig.Body
 	}
 	return text
+}
+
+// recentNoticeLines is what the Telegram assistant is told it sent lately,
+// in the system context of every turn: the thread keeps only the newest few
+// alerts in view, and "that printer alert" from this morning must still mean
+// something without a tool call.
+func (s *Server) recentNoticeLines(ctx context.Context) []string {
+	recent, err := s.store.ListSentNotices(ctx, time.Now().Add(-24*time.Hour), "", 12)
+	if err != nil || len(recent) == 0 {
+		return nil
+	}
+	lines := []string{"Alerts you pushed to this person in the last 24 hours, newest first (call sent_notifications for each one's standing now):"}
+	for _, r := range recent {
+		text := strings.TrimSpace(r.Text)
+		if len(text) > 140 {
+			text = text[:137] + "…"
+		}
+		lines = append(lines, "- "+r.SentAt.Local().Format("Mon 15:04")+" — "+text)
+	}
+	return lines
 }
 
 // rememberSentNotice appends a delivered notification to a user's Telegram

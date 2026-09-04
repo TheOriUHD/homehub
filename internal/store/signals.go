@@ -52,7 +52,12 @@ func (s *Store) UpsertSignal(ctx context.Context, sig Signal, recur bool) (*Sign
 			body        = excluded.body,
 			detail      = excluded.detail,
 			source_name = excluded.source_name,
-			count       = signals.count + case when $10 then 1 else 0 end,
+			-- A fault returning after it had cleared is a new episode: its age
+			-- and its occurrence count start again, or the narrator reports a
+			-- twelve-day outage for something that came back an hour ago.
+			count       = case when signals.severity = 'recovered' then 1
+			                   else signals.count + case when $10 then 1 else 0 end end,
+			first_seen  = case when signals.severity = 'recovered' then now() else signals.first_seen end,
 			last_seen   = case when $10
 				or signals.severity is distinct from excluded.severity
 				or signals.title    is distinct from excluded.title

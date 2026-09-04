@@ -286,7 +286,14 @@ func (s *Service) reconcileObservation(ctx context.Context, collector string, o 
 	// those are handled by the auto-resolve path).
 	if severityRank(row.Severity) >= severityRank(SevWarning) &&
 		(prev == nil || severityRank(row.Severity) > severityRank(prev.Severity)) {
-		s.pushNotify(row, map[bool]string{true: "new", false: "escalated"}[prev == nil])
+		// A fault returning after its all-clear is a new episode, not an
+		// escalation: "escalated" tells the narrator it got worse since it
+		// was reported, and a return is not that.
+		event := "escalated"
+		if prev == nil || prev.Severity == SevRecovered {
+			event = "new"
+		}
+		s.pushNotify(row, event)
 	}
 	return prev == nil || prev.Severity != row.Severity
 }

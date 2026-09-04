@@ -52,8 +52,12 @@ func systemPrompt(access Access) System {
 	// The clock sits in Context, after the cache breakpoint: Base stays
 	// byte-identical across turns while the model still knows what "two
 	// minutes ago" means.
-	return System{Base: base, Context: "You are talking to " + access.DisplayName + ". " +
-		"The time now is " + time.Now().Format("Mon 2 Jan 2006 15:04 MST") + "."}
+	context := "You are talking to " + access.DisplayName + ". " +
+		"The time now is " + time.Now().Format("Mon 2 Jan 2006 15:04 MST") + "."
+	if len(access.ContextLines) > 0 {
+		context += "\n" + strings.Join(access.ContextLines, "\n")
+	}
+	return System{Base: base, Context: context}
 }
 
 // telegramPersona is the voice of the bridge. On the web the assistant sits
@@ -256,21 +260,26 @@ func outcomePrompt(outcomes []ActionOutcome) string {
 // threadTurns loads one path through the conversation tree — the message and
 // its ancestors — as provider turns.
 func (s *Service) threadTurns(ctx context.Context, access Access, leafID int64) ([]Turn, error) {
-	history, err := s.Store.AssistantThread(ctx, access.UserID, leafID, historyWindow)
+	history, err := s.Store.AssistantThread(ctx, access.UserID, leafID, historyLimit(access))
 	if err != nil {
 		return nil, err
 	}
-	turns := make([]Turn, 0, len(history)+1)
-	for _, msg := range history {
-		turns = append(turns, Turn{Role: msg.Role, Text: msg.Content})
-	}
-	return normalizeTurns(turns), nil
+	return normalizeTurns(historyTurns(history)), nil
 }
+
+// alertRowsKept is how many pushed alerts stay in the history a turn sees.
+// Alerts are appended to the Telegram thread as they go out, and on a bad day
+// there are dozens: left uncapped they fill the whole window and the person's
+// own conversation scrolls out of the model's sight. The newest few stay for
+// "that alert" to mean something; the rest are summarised in the system
+// context and reachable through sent_notifications.
+const alertRowsKept = 6
 
 // historyTurns turns stored messages into turns. A pushed alert is stamped
 // with when it went out: the thread is the only place the assistant sees its
 // own alerts, and "two minutes ago" is meaningless without a clock.
 func historyTurns(rows []store.AssistantMessage) []Turn {
+	rows = capAlertRows(rows, alertRowsKept)
 	turns := make([]Turn, 0, len(rows))
 	for _, msg := range rows {
 		text := msg.Content
@@ -280,6 +289,39 @@ func historyTurns(rows []store.AssistantMessage) []Turn {
 		turns = append(turns, Turn{Role: msg.Role, Text: text})
 	}
 	return turns
+}
+
+// capAlertRows drops all but the newest keep alert rows, preserving order.
+func capAlertRows(rows []store.AssistantMessage, keep int) []store.AssistantMessage {
+	alerts := 0
+	for _, msg := range rows {
+		if noticeMarkerOf(msg.ToolTrace) != nil {
+			alerts++
+		}
+	}
+	if alerts <= keep {
+		return rows
+	}
+	drop := alerts - keep
+	out := make([]store.AssistantMessage, 0, len(rows)-drop)
+	for _, msg := range rows {
+		if drop > 0 && noticeMarkerOf(msg.ToolTrace) != nil {
+			drop--
+			continue
+		}
+		out = append(out, msg)
+	}
+	return out
+}
+
+// historyLimit is how many stored rows a turn loads before alerts are
+// capped: on Telegram, where alerts share the thread, enough that the
+// conversation itself still fills the window.
+func historyLimit(access Access) int {
+	if channelOf(access) == store.AssistantChannelTelegram {
+		return historyWindow * 3
+	}
+	return historyWindow
 }
 
 // noticeMarkerOf reads the alert marker off a stored message, or nil when
@@ -442,7 +484,7 @@ func (s *Service) runLoop(
 // That surface never branches, so each message simply chains onto the last.
 // Both sides of the exchange are persisted before returning.
 func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, access Access, text string) (string, []StepInfo, error) {
-	history, err := s.Store.ListAssistantMessages(ctx, access.UserID, channelOf(access), access.Conversation, historyWindow)
+	history, err := s.Store.ListAssistantMessages(ctx, access.UserID, channelOf(access), access.Conversation, historyLimit(access))
 	if err != nil {
 		return "", nil, err
 	}
