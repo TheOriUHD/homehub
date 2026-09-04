@@ -3857,6 +3857,11 @@ paths:
     put:
       operationId: patchpilotUpdateHost
       summary: Update a host's mutable fields
+      description: >-
+        `hostname` and `sshPort` are accepted for a manual host only — a bound
+        host takes its address from its registry entry (unbind it first, or
+        edit the entry). The pinned host key stays, so a new address must still
+        be the same machine.
       tags: [patchpilot]
       parameters:
         - { $ref: "#/components/parameters/idParam" }
@@ -3869,6 +3874,8 @@ paths:
               type: object
               properties:
                 name: { type: string }
+                hostname: { type: string }
+                sshPort: { type: integer, minimum: 1, maximum: 65535 }
                 enabled: { type: boolean }
                 autoReboot: { type: boolean }
                 critical: { type: boolean }
@@ -3879,6 +3886,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PatchpilotHost" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
     delete:
       operationId: patchpilotDeleteHost

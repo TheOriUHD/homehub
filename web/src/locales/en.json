@@ -3291,7 +3291,8 @@
       "rebootstrapTitle": "Set up {{name}} again",
       "rebootstrapIntro": "Reinstalls the patchpilot account, the fleet key with its source-address pin, and the sudoers rule. Needed after HomeHub's address changed or the host was reinstalled.",
       "rebootstrapBound": "Logs in with the registry entry {{name}}.",
-      "rebootstrapDone": "Host set up again"
+      "rebootstrapDone": "Host set up again",
+      "edit": "Edit"
     },
     "schedules": {
       "title": "Schedules",
@@ -3420,6 +3421,13 @@
       "skip": "Skip critical",
       "skipNote": "{{count}} other host will still be updated.",
       "skipNote_other": "{{count}} other hosts will still be updated."
+    },
+    "editHost": {
+      "title": "Edit {{name}}",
+      "intro": "The same details as when the host was added. The login used for setting up again is asked for there, not here.",
+      "addressFromRegistry": "The address comes from the registry entry. Edit the entry to move the host, or switch to manual details here.",
+      "addressHint": "The pinned host key stays, so a new address must still be the same machine.",
+      "saved": "Host updated"
     }
   },
   "signals": {
