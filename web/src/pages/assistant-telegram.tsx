@@ -8,6 +8,7 @@ import { Dialog, DialogContent } from "@/ui/dialog";
 import { Field } from "@/ui/field";
 import { Input } from "@/ui/input";
 import { Switch } from "@/ui/switch";
+import { NoticePolicyCard } from "./notice-policy";
 import { useToast } from "@/ui/toast";
 
 /**
@@ -195,6 +196,8 @@ export function TelegramDialog({ canConfigure, onClose }: { canConfigure: boolea
               </div>
             </div>
           </div>
+
+          <NoticePolicyCard canConfigure={canConfigure} />
 
           <p className="text-fg-subtle text-[12px]">{t("assistant.telegram.modes")}</p>
         </div>

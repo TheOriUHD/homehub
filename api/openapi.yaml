@@ -6911,6 +6911,55 @@ paths:
       responses:
         "204": { description: Saved }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /telegram/notice-policy:
+    get:
+      operationId: getNoticePolicy
+      summary: How monitored trouble reaches the phone
+      tags: [telegram]
+      responses:
+        "200":
+          description: The policy and where the queue stands
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NoticePolicyState" }
+    put:
+      operationId: putNoticePolicy
+      summary: Change the notification policy
+      description: Requires configure on settings. Times are HH:MM in the policy's time zone.
+      tags: [telegram]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NoticePolicy" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NoticePolicyState" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /telegram/notice-policy/digest:
+    post:
+      operationId: sendNoticeDigest
+      summary: Send the digest now
+      description: Flushes everything waiting into one message, schedule or not. Requires configure on settings.
+      tags: [telegram]
+      responses:
+        "200":
+          description: What happened
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sent, items]
+                properties:
+                  sent: { type: boolean, description: Whether a message went out (nothing waiting sends nothing) }
+                  items: { type: integer }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /telegram/link-code:
     post:
       operationId: telegramLinkCode
@@ -8924,6 +8973,51 @@ components:
         critical: { type: integer }
         recovered: { type: integer }
 
+    NoticePolicy:
+      type: object
+      required: [immediate, quietHours, digest, timezone]
+      properties:
+        immediate:
+          type: object
+          description: Which severities interrupt at once; the rest wait for the digest. critical is always true.
+          required: [critical, warning, info, recovered]
+          properties:
+            critical: { type: boolean }
+            warning: { type: boolean }
+            info: { type: boolean }
+            recovered:
+              type: boolean
+              description: All-clears of faults that were sent immediately; all-clears of digested faults always ride the digest.
+        quietHours:
+          type: object
+          required: [enabled, from, to, criticalDuring]
+          properties:
+            enabled: { type: boolean }
+            from: { type: string, description: "HH:MM" }
+            to: { type: string, description: "HH:MM; may be earlier than from to wrap past midnight" }
+            criticalDuring: { type: boolean, description: Critical still interrupts during quiet hours }
+        digest:
+          type: object
+          required: [mode, weekdays, weekends, days]
+          properties:
+            mode: { type: string, enum: [weekdays-weekends, per-day] }
+            weekdays: { type: array, items: { type: string } }
+            weekends: { type: array, items: { type: string } }
+            days:
+              type: object
+              description: Per-day lists keyed mon..sun, used in per-day mode
+              additionalProperties: { type: array, items: { type: string } }
+        timezone: { type: string, description: IANA zone every time in this policy is read in }
+    NoticePolicyState:
+      type: object
+      required: [policy, queued, quietNow, canConfigure, timezoneDefault]
+      properties:
+        policy: { $ref: "#/components/schemas/NoticePolicy" }
+        queued: { type: integer, description: Conditions waiting for the digest }
+        nextDigestAt: { type: string, format: date-time }
+        quietNow: { type: boolean }
+        canConfigure: { type: boolean }
+        timezoneDefault: { type: string, description: The host's zone, offered when none is set }
     TelegramSettings:
       type: object
       required: [enabled, tokenSet, canConfigure, chats]

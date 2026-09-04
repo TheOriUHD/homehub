@@ -69,18 +69,21 @@ type Server struct {
 	hub          *ws.Hub
 	vault        *vault.Vault
 	integrations *integration.Manager
-	metrics      *metrics.Service
-	telegram     *telegram.Bot
-	term         *term.Manager
-	backups      *backuppkg.Service
-	mc           *minecraft.Registry
-	patchpilot   *patchpilot.Registry
-	convert      *convert.Service
-	calendar     *calendar.Service
-	companion    fs.FS
-	dataDir      string
-	logger       *slog.Logger
-	started      time.Time
+	// digest bookkeeping: the last schedule check between minute ticks.
+	digestMu        sync.Mutex
+	digestLastCheck time.Time
+	metrics         *metrics.Service
+	telegram        *telegram.Bot
+	term            *term.Manager
+	backups         *backuppkg.Service
+	mc              *minecraft.Registry
+	patchpilot      *patchpilot.Registry
+	convert         *convert.Service
+	calendar        *calendar.Service
+	companion       fs.FS
+	dataDir         string
+	logger          *slog.Logger
+	started         time.Time
 
 	// self is the lazily built in-process API handler for SelfCall.
 	selfOnce sync.Once

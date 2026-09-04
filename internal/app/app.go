@@ -183,13 +183,17 @@ func Run(ctx context.Context) error {
 	// All-clears that have held long enough go out with the sweep; the API
 	// server that announces them is built further down, so the job takes it
 	// through a hook.
-	var flushRecoveries func(context.Context)
+	var flushRecoveries, flushDigest func(context.Context)
 	jobEngine.Register("signals.sweep", func(ctx context.Context, _ json.RawMessage) error {
 		signalsSvc.Sweep(ctx)
 		if flushRecoveries != nil {
 			flushRecoveries(ctx)
 		}
+		if flushDigest != nil {
+			flushDigest(ctx)
+		}
 		_, _ = st.PruneSignals(ctx, 30*24*time.Hour)
+		_, _ = st.PruneNoticeQueue(ctx, 30*24*time.Hour)
 		return nil
 	})
 
@@ -326,6 +330,7 @@ func Run(ctx context.Context) error {
 	// API server, which owns the bot and the model.
 	signalsSvc.SetNotifier(apiServer.HandleSignalEvent)
 	flushRecoveries = apiServer.FlushRecoveries
+	flushDigest = apiServer.FlushDigest
 	handler := httpserver.Handler(httpserver.Deps{
 		Logger:   logger,
 		Auth:     authSvc,
