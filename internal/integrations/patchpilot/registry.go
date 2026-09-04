@@ -37,9 +37,9 @@ type Registry struct {
 	// app wiring, same {event,data} envelope the manager uses).
 	Publish func(integrationID uuid.UUID, event string, data any)
 
-	mu       sync.Mutex
-	running  map[uuid.UUID]bool               // integrationID → a run is executing
-	cancels  map[uuid.UUID]context.CancelFunc // runID → cancel its execution
+	mu      sync.Mutex
+	running map[uuid.UUID]bool               // integrationID → a run is executing
+	cancels map[uuid.UUID]context.CancelFunc // runID → cancel its execution
 }
 
 func NewRegistry(st *store.Store, v *vault.Vault, logger *slog.Logger) *Registry {
@@ -100,7 +100,8 @@ func (r *Registry) connectHost(ctx context.Context, h *store.PatchpilotHost) (*S
 	if err != nil {
 		return nil, err
 	}
-	conn, err := ConnectKey(ctx, h.Hostname, h.SSHPort, h.SSHUser, kp.PrivatePEM, h.HostKey)
+	host, port := r.Endpoint(ctx, h)
+	conn, err := ConnectKey(ctx, host, port, h.SSHUser, kp.PrivatePEM, h.HostKey)
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +113,25 @@ func (r *Registry) connectHost(ctx context.Context, h *store.PatchpilotHost) (*S
 		}
 	}
 	return conn, nil
+}
+
+// Endpoint is where a host is dialed: the bound registry entry when there is
+// one, so an address edited in the registry applies on the very next
+// connection, else the snapshot taken at onboarding. A registry address that
+// moved is written back into the snapshot, so lists and a later unbind show
+// the current one rather than the one from onboarding day.
+func (r *Registry) Endpoint(ctx context.Context, h *store.PatchpilotHost) (string, int) {
+	if h.SSHHostID != nil {
+		if sh, err := r.store.GetSSHHost(ctx, *h.SSHHostID); err == nil {
+			if sh.Hostname != h.Hostname || sh.Port != h.SSHPort {
+				if perr := r.store.SetPatchpilotHostEndpoint(ctx, h.ID, sh.Hostname, sh.Port); perr == nil {
+					h.Hostname, h.SSHPort = sh.Hostname, sh.Port
+				}
+			}
+			return sh.Hostname, sh.Port
+		}
+	}
+	return h.Hostname, h.SSHPort
 }
 
 // resolvedPaths re-resolves absolute command paths for a host at run time —

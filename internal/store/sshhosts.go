@@ -68,15 +68,19 @@ func (s *Store) DeleteSSHHost(ctx context.Context, id uuid.UUID) error {
 // a registry host — shown before deletion so the impact is never a surprise.
 func (s *Store) CountSSHHostReferences(ctx context.Context, id uuid.UUID) (int, error) {
 	var n int
-	err := s.pool.QueryRow(ctx,
-		`select count(*) from ssh_credentials where host_id = $1`, id).Scan(&n)
+	err := s.pool.QueryRow(ctx, `
+		select (select count(*) from ssh_credentials where host_id = $1)
+		     + (select count(*) from patchpilot_hosts where ssh_host_id = $1)`, id).Scan(&n)
 	return n, err
 }
 
 // ListResourcesForSSHHost names the resources bound to a host.
 func (s *Store) ListResourcesForSSHHost(ctx context.Context, id uuid.UUID) ([]string, error) {
-	rows, err := s.pool.Query(ctx,
-		`select resource from ssh_credentials where host_id = $1 order by resource`, id)
+	rows, err := s.pool.Query(ctx, `
+		select resource from ssh_credentials where host_id = $1
+		union all
+		select 'patchpilot/' || integration_id || '/host/' || id from patchpilot_hosts where ssh_host_id = $1
+		order by 1`, id)
 	if err != nil {
 		return nil, err
 	}

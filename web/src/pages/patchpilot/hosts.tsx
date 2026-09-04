@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AlertTriangle, Check, Loader2, PackageOpen, Play, Plus, RotateCcw, ServerCog, X } from "lucide-react";
 import { isApiError, type PatchpilotDetectResult, type PatchpilotHost } from "@/lib/api";
 import { live } from "@/lib/ws";
+import { SSHHostPicker, useSSHHosts } from "@/pages/ssh-hosts";
 import { formatRelative } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Button } from "@/ui/button";
@@ -281,6 +282,11 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
   const { t } = useTranslation();
   const toast = useToast();
 
+  // null = the details are typed by hand; otherwise the registry entry's
+  // address and stored login do the whole setup.
+  const [sshHostId, setSshHostId] = useState<string | null>(null);
+  const registryHosts = useSSHHosts();
+  const registryHost = registryHosts.data?.find((h) => h.id === sshHostId) ?? null;
   const [hostname, setHostname] = useState("");
   const [sshPort, setSshPort] = useState("22");
   const [sshUser, setSshUser] = useState("root");
@@ -318,13 +324,16 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
     if (result) setResult(null);
   };
 
-  const credentials = () => ({
-    hostname: hostname.trim(),
-    sshPort: Number(sshPort) || 22,
-    sshUser: sshUser.trim(),
-    password: password || undefined,
-    rootPassword: rootPassword || undefined,
-  });
+  const credentials = () =>
+    sshHostId
+      ? { sshHostId, password: password || undefined, rootPassword: rootPassword || undefined }
+      : {
+          hostname: hostname.trim(),
+          sshPort: Number(sshPort) || 22,
+          sshUser: sshUser.trim(),
+          password: password || undefined,
+          rootPassword: rootPassword || undefined,
+        };
 
   const runDetect = () => {
     setResult(null);
@@ -349,8 +358,11 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
   };
 
   const ok = detectOk(result);
-  const canDetect = hostname.trim() !== "" && sshUser.trim() !== "";
-  const canOnboard = ok && name.trim() !== "" && hostname.trim() !== "";
+  const canDetect = sshHostId ? true : hostname.trim() !== "" && sshUser.trim() !== "";
+  const canOnboard = ok && name.trim() !== "";
+  // With a registry key the wizard only asks for a password once detection
+  // says the login cannot become root by itself.
+  const askPasswords = !sshHostId || Boolean(result?.needsPassword);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -383,6 +395,35 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
         }
       >
         <div className="space-y-4">
+          <Field label={t("patchpilot.addHost.source")} hint={t("patchpilot.addHost.sourceHint")}>
+            {() => (
+              <SSHHostPicker
+                value={sshHostId}
+                onChange={(id) => {
+                  const picked = registryHosts.data?.find((h) => h.id === id) ?? null;
+                  if (picked && (name.trim() === "" || name === registryHost?.name)) setName(picked.name);
+                  setSshHostId(id);
+                  setPassword("");
+                  setRootPassword("");
+                  resetDetection();
+                }}
+              />
+            )}
+          </Field>
+
+          {registryHost && (
+            <p className="text-fg-muted font-mono text-[12.5px]">
+              {registryHost.username}@{registryHost.hostname}:{registryHost.port}
+              <span className="text-fg-subtle">
+                {" · "}
+                {registryHost.authType === "key"
+                  ? t("patchpilot.addHost.authKey")
+                  : t("patchpilot.addHost.authPassword")}
+              </span>
+            </p>
+          )}
+
+          {!sshHostId && (
           <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">
             <Field label={t("patchpilot.addHost.hostname")}>
               {(p) => (
@@ -415,7 +456,9 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
               )}
             </Field>
           </div>
+          )}
 
+          {!sshHostId && (
           <Field label={t("patchpilot.addHost.user")} hint={t("patchpilot.addHost.userHint")}>
             {(p) => (
               <Input
@@ -431,9 +474,14 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
               />
             )}
           </Field>
+          )}
 
+          {askPasswords && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={t("patchpilot.addHost.password")} hint={t("patchpilot.addHost.passwordHint")}>
+            <Field
+              label={sshHostId ? t("patchpilot.addHost.sudoPassword") : t("patchpilot.addHost.password")}
+              hint={sshHostId ? t("patchpilot.addHost.sudoPasswordHint") : t("patchpilot.addHost.passwordHint")}
+            >
               {(p) => (
                 <Input
                   {...p}
@@ -466,6 +514,7 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
               )}
             </Field>
           </div>
+          )}
 
           {result && <DetectResultNote result={result} />}
 
@@ -474,7 +523,7 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
               {(p) => (
                 <Input
                   {...p}
-                  placeholder={result?.hostname || hostname}
+                  placeholder={result?.hostname || registryHost?.name || hostname}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />

@@ -3815,6 +3815,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PatchpilotDetectResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   /patchpilot/{id}/hosts/onboard:
@@ -3889,6 +3890,59 @@ paths:
       responses:
         "204": { description: Deleted }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /patchpilot/{id}/hosts/{hostId}/binding:
+    put:
+      operationId: patchpilotBindHost
+      summary: Bind a host to an SSH registry entry, or unbind it
+      description: >-
+        A bound host is dialed at the registry entry's address from the next
+        connection on, and bootstrap re-runs use the entry's credential. Runs
+        keep using the dedicated patchpilot account and the fleet key.
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { $ref: "#/components/parameters/patchpilotHostIdParam" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchpilotHostBinding" }
+      responses:
+        "200":
+          description: Updated host
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotHost" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /patchpilot/{id}/hosts/{hostId}/rebootstrap:
+    post:
+      operationId: patchpilotRebootstrapHost
+      summary: Run the bootstrap again on a known host (streams steps over WS)
+      description: >-
+        Re-establishes the managed account, the fleet key with its source-address
+        pin, and the sudoers rule — the repair after HomeHub's address changed or
+        a host was reinstalled. The pinned host key is verified, never replaced.
+      tags: [patchpilot]
+      parameters:
+        - { $ref: "#/components/parameters/idParam" }
+        - { $ref: "#/components/parameters/patchpilotHostIdParam" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchpilotRebootstrapInput" }
+      responses:
+        "200":
+          description: Host set up again
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatchpilotHost" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/UpstreamError" }
 
   /patchpilot/{id}/hosts/{hostId}/dry-run:
     post:
@@ -9724,10 +9778,27 @@ components:
         lastCheckedAt: { type: string, format: date-time, nullable: true }
         lastRunStatus: { type: string }
         lastRunAt: { type: string, format: date-time, nullable: true }
+        sshHostId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >-
+            The SSH registry entry this host is bound to. Its address is used for
+            every connection and its credential for bootstrap re-runs; null for a
+            host that was entered by hand.
+        sshHostName:
+          type: string
+          description: Display name of the bound registry entry, when bound.
     PatchpilotHostCredential:
       type: object
-      required: [hostname, sshUser]
+      description: >-
+        How to log in for detection and bootstrap. Either `sshHostId` (the
+        registry entry's address and stored key or password are used) or
+        `hostname` + `sshUser` + `password` by hand. With a registry key,
+        `password` is the sudo password, asked for only when detection reports
+        `needsPassword`.
       properties:
+        sshHostId: { type: string, format: uuid }
         hostname: { type: string }
         sshPort: { type: integer }
         sshUser: { type: string }
@@ -9735,9 +9806,12 @@ components:
         rootPassword: { type: string }
     PatchpilotOnboardInput:
       type: object
-      required: [name, hostname, sshUser]
+      description: >-
+        PatchpilotHostCredential plus the host's fleet settings. `name` defaults
+        to the registry entry's name when bound.
       properties:
         name: { type: string }
+        sshHostId: { type: string, format: uuid }
         hostname: { type: string }
         sshPort: { type: integer }
         sshUser: { type: string }
@@ -9745,6 +9819,25 @@ components:
         rootPassword: { type: string }
         notes: { type: string }
         autoReboot: { type: boolean }
+    PatchpilotHostBinding:
+      type: object
+      required: [sshHostId]
+      properties:
+        sshHostId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Registry entry to bind to; null unbinds and keeps the current address as a manual host.
+    PatchpilotRebootstrapInput:
+      type: object
+      description: >-
+        Credentials for a bootstrap re-run. A bound host needs nothing (the
+        registry credential is used; `password` is then the sudo password if
+        detection asks for one); a manual host needs `sshUser` + `password`.
+      properties:
+        sshUser: { type: string }
+        password: { type: string }
+        rootPassword: { type: string }
     PatchpilotDetectResult:
       type: object
       required: [reachable, message]

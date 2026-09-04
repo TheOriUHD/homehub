@@ -16,6 +16,7 @@ type PatchpilotHost struct {
 	Hostname       string     `db:"hostname"`
 	SSHPort        int        `db:"ssh_port"`
 	SSHUser        string     `db:"ssh_user"`
+	SSHHostID      *uuid.UUID `db:"ssh_host_id"` // bound registry entry; nil = manual host
 	HostType       string     `db:"host_type"`
 	HostKey        string     `db:"host_key"`
 	PackageManager string     `db:"package_manager"`
@@ -37,7 +38,8 @@ type PatchpilotHost struct {
 
 const ppHostCols = `id, integration_id, name, hostname, ssh_port, ssh_user, host_type, host_key,
 	package_manager, os_pretty, arch, is_proxmox, critical, enabled, auto_reboot, notes,
-	updates_pending, reboot_required, last_checked_at, last_run_status, last_run_at, created_at, updated_at`
+	updates_pending, reboot_required, last_checked_at, last_run_status, last_run_at, created_at, updated_at,
+	ssh_host_id`
 
 func (s *Store) ListPatchpilotHosts(ctx context.Context, integrationID uuid.UUID) ([]PatchpilotHost, error) {
 	return scanMany[PatchpilotHost](s.pool.Query(ctx,
@@ -53,11 +55,39 @@ func (s *Store) CreatePatchpilotHost(ctx context.Context, h PatchpilotHost) (*Pa
 	return scanOne[PatchpilotHost](s.pool.Query(ctx, `
 		insert into patchpilot_hosts
 			(integration_id, name, hostname, ssh_port, ssh_user, host_type, host_key, package_manager,
-			 os_pretty, arch, is_proxmox, enabled, auto_reboot, notes)
-		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+			 os_pretty, arch, is_proxmox, enabled, auto_reboot, notes, ssh_host_id)
+		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 		returning `+ppHostCols,
 		h.IntegrationID, h.Name, h.Hostname, h.SSHPort, h.SSHUser, h.HostType, h.HostKey, h.PackageManager,
-		h.OSPretty, h.Arch, h.IsProxmox, h.Enabled, h.AutoReboot, h.Notes))
+		h.OSPretty, h.Arch, h.IsProxmox, h.Enabled, h.AutoReboot, h.Notes, h.SSHHostID))
+}
+
+// SetPatchpilotHostBinding points a host at a registry entry, or clears the
+// binding (nil) so the host goes back to its address snapshot.
+func (s *Store) SetPatchpilotHostBinding(ctx context.Context, id uuid.UUID, sshHostID *uuid.UUID) (*PatchpilotHost, error) {
+	return scanOne[PatchpilotHost](s.pool.Query(ctx, `
+		update patchpilot_hosts set ssh_host_id = $2, updated_at = now()
+		where id = $1
+		returning `+ppHostCols, id, sshHostID))
+}
+
+// SetPatchpilotHostEndpoint refreshes the address snapshot of a bound host from
+// its registry entry, so lists and a later unbind show the current address.
+func (s *Store) SetPatchpilotHostEndpoint(ctx context.Context, id uuid.UUID, hostname string, port int) error {
+	_, err := s.pool.Exec(ctx, `
+		update patchpilot_hosts set hostname = $2, ssh_port = $3, updated_at = now()
+		where id = $1`, id, hostname, port)
+	return err
+}
+
+// SetPatchpilotHostFacts records what a bootstrap re-run found on a host the
+// fleet already knows: the pinned key and the OS / package-manager facts.
+func (s *Store) SetPatchpilotHostFacts(ctx context.Context, id uuid.UUID, hostKey, packageManager, osPretty, arch string, isProxmox bool) error {
+	_, err := s.pool.Exec(ctx, `
+		update patchpilot_hosts
+		set host_key = $2, package_manager = $3, os_pretty = $4, arch = $5, is_proxmox = $6, updated_at = now()
+		where id = $1`, id, hostKey, packageManager, osPretty, arch, isProxmox)
+	return err
 }
 
 // SetPatchpilotHostKey pins (or re-pins) a host's SSH host-key fingerprint.

@@ -3253,7 +3253,13 @@
       "manualKeyTitle": "Install the key manually instead",
       "onboarded": "Host added",
       "autoReboot": "Auto-reboot after updates",
-      "autoRebootHint": "If an update needs a reboot, reboot this host automatically once it's done."
+      "autoRebootHint": "If an update needs a reboot, reboot this host automatically once it's done.",
+      "source": "SSH host",
+      "sourceHint": "Pick a host from the SSH registry and its stored login does the setup. Enter details by hand only for a machine that isn't in the registry.",
+      "authKey": "SSH key",
+      "authPassword": "password",
+      "sudoPassword": "Sudo password",
+      "sudoPasswordHint": "The registry login can't become root on its own. Used once, never stored."
     },
     "hostDetail": {
       "back": "All hosts",
@@ -3274,7 +3280,18 @@
       "history": "Recent runs",
       "noHistory": "No runs yet.",
       "updatesAvailable": "{{count}} update(s) available",
-      "dryRunUpToDate": "No updates available."
+      "dryRunUpToDate": "No updates available.",
+      "boundTo": "Registry: {{name}}",
+      "manualHost": "Entered by hand",
+      "binding": "SSH registry host",
+      "bindingHint": "Address and login come from the registry entry; updates still run as the patchpilot account with the fleet key.",
+      "bound": "Bound to {{name}}",
+      "unbound": "Binding removed",
+      "rebootstrap": "Set up again",
+      "rebootstrapTitle": "Set up {{name}} again",
+      "rebootstrapIntro": "Reinstalls the patchpilot account, the fleet key with its source-address pin, and the sudoers rule. Needed after HomeHub's address changed or the host was reinstalled.",
+      "rebootstrapBound": "Logs in with the registry entry {{name}}.",
+      "rebootstrapDone": "Host set up again"
     },
     "schedules": {
       "title": "Schedules",

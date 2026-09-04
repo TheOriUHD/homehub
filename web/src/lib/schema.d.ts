@@ -2494,6 +2494,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patchpilot/{id}/hosts/{hostId}/binding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Bind a host to an SSH registry entry, or unbind it
+         * @description A bound host is dialed at the registry entry's address from the next connection on, and bootstrap re-runs use the entry's credential. Runs keep using the dedicated patchpilot account and the fleet key.
+         */
+        put: operations["patchpilotBindHost"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patchpilot/{id}/hosts/{hostId}/rebootstrap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run the bootstrap again on a known host (streams steps over WS)
+         * @description Re-establishes the managed account, the fleet key with its source-address pin, and the sudoers rule — the repair after HomeHub's address changed or a host was reinstalled. The pinned host key is verified, never replaced.
+         */
+        post: operations["patchpilotRebootstrapHost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patchpilot/{id}/hosts/{hostId}/dry-run": {
         parameters: {
             query?: never;
@@ -6624,23 +6664,49 @@ export interface components {
             lastRunStatus?: string;
             /** Format: date-time */
             lastRunAt?: string | null;
+            /**
+             * Format: uuid
+             * @description The SSH registry entry this host is bound to. Its address is used for every connection and its credential for bootstrap re-runs; null for a host that was entered by hand.
+             */
+            sshHostId?: string | null;
+            /** @description Display name of the bound registry entry, when bound. */
+            sshHostName?: string;
         };
+        /** @description How to log in for detection and bootstrap. Either `sshHostId` (the registry entry's address and stored key or password are used) or `hostname` + `sshUser` + `password` by hand. With a registry key, `password` is the sudo password, asked for only when detection reports `needsPassword`. */
         PatchpilotHostCredential: {
-            hostname: string;
+            /** Format: uuid */
+            sshHostId?: string;
+            hostname?: string;
             sshPort?: number;
-            sshUser: string;
+            sshUser?: string;
             password?: string;
             rootPassword?: string;
         };
+        /** @description PatchpilotHostCredential plus the host's fleet settings. `name` defaults to the registry entry's name when bound. */
         PatchpilotOnboardInput: {
-            name: string;
-            hostname: string;
+            name?: string;
+            /** Format: uuid */
+            sshHostId?: string;
+            hostname?: string;
             sshPort?: number;
-            sshUser: string;
+            sshUser?: string;
             password?: string;
             rootPassword?: string;
             notes?: string;
             autoReboot?: boolean;
+        };
+        PatchpilotHostBinding: {
+            /**
+             * Format: uuid
+             * @description Registry entry to bind to; null unbinds and keeps the current address as a manual host.
+             */
+            sshHostId: string | null;
+        };
+        /** @description Credentials for a bootstrap re-run. A bound host needs nothing (the registry credential is used; `password` is then the sudo password if detection asks for one); a manual host needs `sshUser` + `password`. */
+        PatchpilotRebootstrapInput: {
+            sshUser?: string;
+            password?: string;
+            rootPassword?: string;
         };
         PatchpilotDetectResult: {
             reachable: boolean;
@@ -11210,6 +11276,7 @@ export interface operations {
                     "application/json": components["schemas"]["PatchpilotDetectResult"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -11320,6 +11387,65 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotBindHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                hostId: components["parameters"]["patchpilotHostIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchpilotHostBinding"];
+            };
+        };
+        responses: {
+            /** @description Updated host */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotHost"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchpilotRebootstrapHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idParam"];
+                hostId: components["parameters"]["patchpilotHostIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchpilotRebootstrapInput"];
+            };
+        };
+        responses: {
+            /** @description Host set up again */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatchpilotHost"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["UpstreamError"];
         };
     };
     patchpilotDryRun: {
