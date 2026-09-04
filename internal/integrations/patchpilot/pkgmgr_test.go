@@ -1,6 +1,9 @@
 package patchpilot
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestAptSecurityMirrorInjection locks in that the Ubuntu security-mirror
 // workaround is wired into the apt commands (and only those) — the fix for
@@ -55,4 +58,48 @@ func count(s, sub string) int {
 		}
 	}
 	return n
+}
+
+// Every apt invocation that takes a lock waits for it rather than failing on
+// the spot — the run of a host whose previous run was aborted mid-upgrade
+// otherwise fails with exit 100 until that apt-get finishes on its own.
+func TestAptCommandsWaitForTheLock(t *testing.T) {
+	paths := map[string]string{"apt-get": "/usr/bin/apt-get", "apt": "/usr/bin/apt"}
+	for _, cmd := range []string{UpdateCommand(MgrApt, paths, "sudo -n "), DryRunCommand(MgrApt, paths, "sudo -n ")} {
+		for _, verb := range []string{" update", " dist-upgrade"} {
+			i := strings.Index(cmd, verb)
+			if i < 0 {
+				t.Fatalf("expected %q in %q", verb, cmd)
+			}
+			if !strings.Contains(cmd[:i], "DPkg::Lock::Timeout=600") {
+				t.Fatalf("%q runs without the lock timeout: %q", verb, cmd)
+			}
+		}
+	}
+	if up := UpdateCommand(MgrApt, paths, "sudo -n "); !strings.Contains(up, "DPkg::Lock::Timeout=600 -y autoremove") {
+		t.Fatalf("autoremove runs without the lock timeout: %q", up)
+	}
+}
+
+// The cache lock is waited for by us, before every apt step, because apt
+// itself only waits for dpkg's lock.
+func TestAptStepsWaitForTheCacheLockFirst(t *testing.T) {
+	paths := map[string]string{"apt-get": "/usr/bin/apt-get", "apt": "/usr/bin/apt"}
+	up := UpdateCommand(MgrApt, paths, "sudo -n ")
+	if !strings.Contains(up, "pp_wait_apt() {") || !strings.Contains(up, "pp_apt_locked() {") {
+		t.Fatalf("update command lacks the wait helper: %q", up)
+	}
+	for _, step := range []string{"pp_wait_apt && sudo -n /usr/bin/apt-get $PP_SRCOPT", "pp_wait_apt && DEBIAN_FRONTEND=noninteractive", "pp_wait_apt && sudo -n /usr/bin/apt-get -o DPkg::Lock::Timeout=600 -y autoremove"} {
+		if !strings.Contains(up, step) {
+			t.Fatalf("missing %q in %q", step, up)
+		}
+	}
+	dry := DryRunCommand(MgrApt, paths, "sudo -n ")
+	if strings.Count(dry, "pp_wait_apt;") != 2 || !strings.Contains(dry, "pp_wait_apt() {") {
+		t.Fatalf("dry-run should wait before update and before the simulation: %q", dry)
+	}
+	// The probe reads the kernel's lock table; it must not run apt at all.
+	if !strings.Contains(up, "/proc/locks") || strings.Contains(up, "Timeout=0 check") {
+		t.Fatalf("the lock probe should read /proc/locks, not run apt: %q", up)
+	}
 }

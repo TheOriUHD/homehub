@@ -325,12 +325,12 @@ func (s *Store) FinishPatchpilotRun(ctx context.Context, id uuid.UUID, status, s
 // failed at startup — a crash mid-run must not block future runs forever.
 func (s *Store) RecoverPatchpilotRuns(ctx context.Context) error {
 	if _, err := s.pool.Exec(ctx, `
-		update patchpilot_host_runs set status='failed', error_summary='interrupted by restart', finished_at=now()
+		update patchpilot_host_runs set status='failed', error_summary='Interrupted by a HomeHub restart — the package manager may have kept running on the host', finished_at=now()
 		where status in ('pending','running')`); err != nil {
 		return err
 	}
 	_, err := s.pool.Exec(ctx, `
-		update patchpilot_runs set status='failed', summary='interrupted by restart', finished_at=now()
+		update patchpilot_runs set status='failed', summary='Interrupted by a HomeHub restart — the package manager may have kept running on the host', finished_at=now()
 		where status='running'`)
 	return err
 }
