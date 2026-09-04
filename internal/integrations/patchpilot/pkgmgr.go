@@ -106,6 +106,33 @@ func path(paths map[string]string, name string) string {
 // genuinely IPv6-only host is the rare exception.
 const aptAcquire = " -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o Acquire::ForceIPv4=true"
 
+// aptLock makes apt wait for a lock another apt or dpkg holds instead of
+// exiting 100 on the spot. The holder is usually unattended-upgrades, or the
+// apt-get of a run that was aborted — aborting stops HomeHub waiting, it does
+// not kill the remote command, because killing dpkg mid-configure is the one
+// way to leave a host worse than it was. Ten minutes covers a large upgrade;
+// apt older than 1.9.11 ignores the option and behaves as before.
+const aptLock = " -o DPkg::Lock::Timeout=600"
+
+// aptLockWait is a shell preamble defining pp_wait_apt, run before every apt
+// step. DPkg::Lock::Timeout only covers dpkg's own lock; the cache lock on
+// /var/lib/apt/lists that `apt-get update` takes first still fails on the
+// spot (apt 2.6 answers "Could not get lock" and exits 100 at once), and that
+// is the lock a still-running apt-get from an aborted run holds. apt offers
+// no side-effect-free way to ask, so we read the kernel's own ledger:
+// /proc/locks lists every POSIX lock by device and inode, is readable by
+// anyone, and needs nothing beyond stat and grep, which every Debian and
+// Ubuntu has. We wait while any of apt's or dpkg's lock files is write-locked,
+// up to ten minutes, saying so once in the log, then let the real command
+// report whatever is still wrong.
+func aptLockWait() string {
+	// stat's %D is the filesystem device (st_dev) in hex — %t/%T would be the
+	// device-node numbers of a special file, which is not what the lock table
+	// keys on. The major/minor split follows glibc's dev_t encoding.
+	return `pp_apt_locked() { for f in /var/lib/apt/lists/lock /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock; do [ -e "$f" ] || continue; set -- $(stat -c "%D %i" "$f" 2>/dev/null) || continue; d=$((0x$1)); k=$(printf "%02x:%02x:%s" $(( (d >> 8) & 4095 | (d >> 32) & ~4095 )) $(( d & 255 | (d >> 12) & ~255 )) $2); grep -q "WRITE *[0-9]* $k " /proc/locks && return 0; done; return 1; }; ` +
+		`pp_wait_apt() { i=0; while pp_apt_locked; do i=$((i+1)); if [ "$i" -eq 1 ]; then echo "[patchpilot] another package manager process holds the apt lock - waiting for it to finish"; fi; if [ "$i" -ge 60 ]; then echo "[patchpilot] gave up waiting for the apt lock after 10 minutes"; return 0; fi; sleep 10; done; return 0; }; `
+}
+
 // aptSecurityMirror is a shell preamble (run in the same sh invocation, before
 // the apt command) that works around security.ubuntu.com being Cloudflare-
 // fronted and unreachable on some networks. The symptom is specific and nasty:
@@ -165,9 +192,9 @@ func UpdateCommand(mgr string, paths map[string]string, sudo string) string {
 	case MgrApt, MgrAptProxmox:
 		// $PP_SRCOPT (set by aptSecurityMirror) reroutes a Cloudflare-blackholed
 		// security.ubuntu.com to the host's working mirror; empty otherwise.
-		return aptSecurityMirror + fmt.Sprintf(
-			"%s%s $PP_SRCOPT%s update && DEBIAN_FRONTEND=noninteractive %s%s $PP_SRCOPT%s -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade && %s%s -y autoremove",
-			sudo, aptGet, aptAcquire, sudo, aptGet, aptAcquire, sudo, aptGet)
+		return aptLockWait() + aptSecurityMirror + fmt.Sprintf(
+			"pp_wait_apt && %s%s $PP_SRCOPT%s%s update && pp_wait_apt && DEBIAN_FRONTEND=noninteractive %s%s $PP_SRCOPT%s%s -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade && pp_wait_apt && %s%s%s -y autoremove",
+			sudo, aptGet, aptAcquire, aptLock, sudo, aptGet, aptAcquire, aptLock, sudo, aptGet, aptLock)
 	case MgrDNF:
 		return sudo + path(paths, "dnf") + " -y upgrade"
 	case MgrPacman:
@@ -187,7 +214,7 @@ func DryRunCommand(mgr string, paths map[string]string, sudo string) string {
 	case MgrApt, MgrAptProxmox:
 		aptGet := path(paths, "apt-get")
 		apt := path(paths, "apt")
-		return aptSecurityMirror + fmt.Sprintf("%s%s $PP_SRCOPT"+aptAcquire+" update >/dev/null 2>&1; %s%s $PP_SRCOPT -s dist-upgrade; %s%s $PP_SRCOPT list --upgradable 2>/dev/null",
+		return aptLockWait() + aptSecurityMirror + fmt.Sprintf("pp_wait_apt; %s%s $PP_SRCOPT"+aptAcquire+aptLock+" update >/dev/null 2>&1; pp_wait_apt; %s%s $PP_SRCOPT"+aptLock+" -s dist-upgrade; %s%s $PP_SRCOPT list --upgradable 2>/dev/null",
 			sudo, aptGet, sudo, aptGet, sudo, apt)
 	case MgrDNF:
 		// check-update exits 100 when updates exist — not an error.

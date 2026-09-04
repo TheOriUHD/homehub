@@ -30,6 +30,8 @@ export function runStatusTone(status: string): "success" | "warning" | "danger" 
       return "warning";
     case "failed":
       return "danger";
+    case "cancelled":
+      return "warning";
     default:
       return "neutral";
   }

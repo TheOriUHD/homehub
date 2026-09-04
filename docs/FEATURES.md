@@ -222,6 +222,13 @@ the PatchPilot page with a Dismiss button, and dismissing it there clears it
 from the Signals page and the overview too. A failed run no longer marks the
 fleet degraded — that was the same fault reported twice.
 
+Aborting a run stops HomeHub waiting; it never kills the package manager on
+the host, because interrupting dpkg mid-configure is the one way to leave a
+machine worse than it was. The host is recorded as cancelled, not failed, and
+apt in every later run waits up to ten minutes for a lock still held by that
+command or by unattended-upgrades instead of failing on the spot. A run that
+was in flight when HomeHub itself restarted is closed out at startup.
+
 ---
 
 # Part 2 — The platform

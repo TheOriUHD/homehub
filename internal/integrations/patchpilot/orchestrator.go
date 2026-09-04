@@ -188,7 +188,7 @@ func (r *Registry) executeRun(ctx context.Context, run *store.PatchpilotRun, hos
 	// An operator abort cancels ctx mid-run — surface that plainly instead of a
 	// generic "failed", so the history reads honestly.
 	if ctx.Err() != nil {
-		status = "failed"
+		status = "cancelled"
 		summary = fmt.Sprintf("Aborted by operator — %d succeeded, %d before abort", success, failed+skipped)
 	}
 	_ = r.store.FinishPatchpilotRun(bg, run.ID, status, summary)
@@ -240,6 +240,21 @@ func (r *Registry) executeHostRun(ctx context.Context, run *store.PatchpilotRun,
 		r.appendLog(rctx, run, hr.ID, h, chunk)
 	})
 	if serr != nil {
+		// An abort or the deadline ends HomeHub's wait, not the command: the
+		// package manager keeps running on the host, and killing dpkg
+		// mid-configure would be the real damage. Say so, as its own outcome,
+		// so the host does not read as broken.
+		const keepsRunning = " — the package manager keeps running on the host until it finishes; the next run waits for it"
+		if ctx.Err() != nil {
+			msg := "Aborted by operator" + keepsRunning
+			_ = r.store.FinishPatchpilotHostRun(bg, hr.ID, "cancelled", nil, 0, false, msg)
+			_ = r.store.SetPatchpilotHostRunStatus(bg, h.ID, "cancelled", time.Now())
+			r.hostEvent(run.IntegrationID, run.ID, hr.ID, h, "cancelled", msg)
+			return "cancelled"
+		}
+		if rctx.Err() != nil {
+			return fail("Timed out after 30 minutes" + keepsRunning)
+		}
 		return fail("Update stream error: " + serr.Error())
 	}
 	if code != 0 {

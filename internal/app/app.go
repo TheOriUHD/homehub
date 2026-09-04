@@ -228,6 +228,13 @@ func Run(ctx context.Context) error {
 		},
 	})
 
+	// A PatchPilot run that was in flight when the last process stopped is
+	// still "running" in the history; close it out so it reads honestly and
+	// cannot look like a run that never ends.
+	if err := st.RecoverPatchpilotRuns(ctx); err != nil {
+		logger.Error("recovering interrupted patchpilot runs failed", "error", err)
+	}
+
 	backupSvc := backup.NewService(st, v, cfg.DatabaseURL, cfg.DataDir, logger)
 	if n, err := st.SweepStaleBackupRuns(ctx); err != nil {
 		logger.Error("sweeping stale backup runs failed", "error", err)
