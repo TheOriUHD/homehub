@@ -49,8 +49,11 @@ func (s *Server) ppHost(ctx context.Context, id *httpctx.Identity, instID, hostI
 
 // ---- mappers ----------------------------------------------------------------
 
-func toAPIPatchpilotHost(h *store.PatchpilotHost) PatchpilotHost {
-	return PatchpilotHost{
+// apiHost maps a host row for the API. A bound host shows the registry
+// entry's current address and name, so what the operator sees is what will
+// be dialed — not the snapshot from onboarding day.
+func (s *Server) apiHost(ctx context.Context, h *store.PatchpilotHost) PatchpilotHost {
+	out := PatchpilotHost{
 		Id:             h.ID,
 		Name:           h.Name,
 		Hostname:       h.Hostname,
@@ -71,6 +74,82 @@ func toAPIPatchpilotHost(h *store.PatchpilotHost) PatchpilotHost {
 		LastRunStatus:  strPtr(h.LastRunStatus),
 		LastRunAt:      h.LastRunAt,
 	}
+	if h.SSHHostID != nil {
+		sid := openapi_types.UUID(*h.SSHHostID)
+		out.SshHostId = &sid
+		if sh, err := s.store.GetSSHHost(ctx, *h.SSHHostID); err == nil {
+			out.Hostname, out.SshPort = sh.Hostname, sh.Port
+			out.SshHostName = strPtr(sh.Name)
+		}
+	}
+	return out
+}
+
+// ppLogin is what onboarding dials: a registry entry, or the fields typed by
+// hand. sshHostID and sshHostName carry the binding into the created row.
+type ppLogin struct {
+	host        string
+	port        int
+	cred        patchpilot.Credential
+	sshHostID   *uuid.UUID
+	sshHostName string
+}
+
+var (
+	errSSHHostHidden = errors.New("SSH host not found")
+	errPPBadLogin    = errors.New("pick a registry host, or enter a hostname and SSH username")
+)
+
+// ppLoginFromRegistry builds the login from a registry entry the caller may
+// use — control on that host, the same as opening a terminal on it, since
+// the bootstrap runs commands as that login. A stored key logs in and the
+// password typed in the wizard, if any, is the sudo password; a stored
+// password serves both purposes, as a typed one does on a manual host.
+func (s *Server) ppLoginFromRegistry(ctx context.Context, id *httpctx.Identity, hostID uuid.UUID, typedPassword string) (*ppLogin, error) {
+	sh, err := s.store.GetSSHHost(ctx, hostID)
+	if err != nil {
+		return nil, errSSHHostHidden
+	}
+	if !s.can(ctx, id, ResSSHHosts, rbac.LevelControl) && !s.can(ctx, id, sshHostResource(hostID), rbac.LevelControl) {
+		return nil, errSSHHostHidden
+	}
+	secret, err := s.vault.Open(ctx, sshVaultScope, hostID.String())
+	if err != nil {
+		return nil, errors.New("the registry entry's stored secret is unreadable — re-enter its credentials")
+	}
+	cred := patchpilot.Credential{User: sh.Username, Password: typedPassword}
+	if sh.AuthType == "key" {
+		cred.Key = string(secret)
+	} else {
+		cred.Password = string(secret)
+	}
+	return &ppLogin{host: sh.Hostname, port: sh.Port, cred: cred, sshHostID: &sh.ID, sshHostName: sh.Name}, nil
+}
+
+// ppLoginFrom resolves the wizard's credential block either way.
+func (s *Server) ppLoginFrom(ctx context.Context, id *httpctx.Identity, sshHostID *openapi_types.UUID, hostname, sshUser *string, sshPort *int, password string) (*ppLogin, error) {
+	if sshHostID != nil {
+		return s.ppLoginFromRegistry(ctx, id, uuid.UUID(*sshHostID), password)
+	}
+	host, user := strings.TrimSpace(deref(hostname)), strings.TrimSpace(deref(sshUser))
+	if host == "" || user == "" {
+		return nil, errPPBadLogin
+	}
+	return &ppLogin{host: host, port: derefInt(sshPort, 22), cred: patchpilot.Credential{User: user, Password: password}}, nil
+}
+
+// bootstrapMessage is what the operator reads when a bootstrap fails: the
+// summary, and the guidance only when it adds something the summary did not
+// already say.
+func bootstrapMessage(err error) string {
+	var be *patchpilot.BootstrapError
+	if !errors.As(err, &be) {
+		return err.Error()
+	}
+	if be.Guidance == "" || strings.Contains(be.Summary, be.Guidance) {
+		return be.Summary
+	}
+	return be.Summary + " — " + be.Guidance
 }
 
 func toAPIPatchpilotRun(r *store.PatchpilotRun) PatchpilotRun {
@@ -144,7 +223,7 @@ func (s *Server) PatchpilotHosts(ctx context.Context, req PatchpilotHostsRequest
 	out := []PatchpilotHost{}
 	for i := range hosts {
 		if s.visibleUnder(ctx, id, root+"/host/"+hosts[i].ID.String()) {
-			out = append(out, toAPIPatchpilotHost(&hosts[i]))
+			out = append(out, s.apiHost(ctx, &hosts[i]))
 		}
 	}
 	return PatchpilotHosts200JSONResponse(out), nil
@@ -159,7 +238,7 @@ func (s *Server) PatchpilotHost(ctx context.Context, req PatchpilotHostRequestOb
 	if err != nil {
 		return PatchpilotHost404JSONResponse{notFoundErr("host")}, nil
 	}
-	return PatchpilotHost200JSONResponse(toAPIPatchpilotHost(host)), nil
+	return PatchpilotHost200JSONResponse(s.apiHost(ctx, host)), nil
 }
 
 func (s *Server) PatchpilotDetect(ctx context.Context, req PatchpilotDetectRequestObject) (PatchpilotDetectResponseObject, error) {
@@ -175,8 +254,14 @@ func (s *Server) PatchpilotDetect(ctx context.Context, req PatchpilotDetectReque
 		return PatchpilotDetect404JSONResponse{notFoundErr("fleet")}, nil
 	}
 	b := req.Body
-	cred := patchpilot.Credential{User: b.SshUser, Password: deref(b.Password)}
-	res, err := s.patchpilot.Detect(ctx, b.Hostname, derefInt(b.SshPort, 22), cred, deref(b.RootPassword))
+	login, lerr := s.ppLoginFrom(ctx, id, b.SshHostId, b.Hostname, b.SshUser, b.SshPort, deref(b.Password))
+	switch {
+	case errors.Is(lerr, errSSHHostHidden):
+		return PatchpilotDetect404JSONResponse{notFoundErr("SSH host")}, nil
+	case lerr != nil:
+		return PatchpilotDetect400JSONResponse{BadRequestJSONResponse(errBody("bad_input", lerr.Error()))}, nil
+	}
+	res, err := s.patchpilot.Detect(ctx, login.host, login.port, login.cred, deref(b.RootPassword))
 	if err != nil {
 		return nil, err
 	}
@@ -213,30 +298,40 @@ func (s *Server) PatchpilotOnboard(ctx context.Context, req PatchpilotOnboardReq
 		return PatchpilotOnboard404JSONResponse{notFoundErr("fleet")}, nil
 	}
 	b := req.Body
-	if strings.TrimSpace(b.Name) == "" || strings.TrimSpace(b.Hostname) == "" {
-		return PatchpilotOnboard400JSONResponse{BadRequestJSONResponse(errBody("bad_input", "a name and hostname are required"))}, nil
+	login, lerr := s.ppLoginFrom(ctx, id, b.SshHostId, b.Hostname, b.SshUser, b.SshPort, deref(b.Password))
+	switch {
+	case errors.Is(lerr, errSSHHostHidden):
+		return PatchpilotOnboard404JSONResponse{notFoundErr("SSH host")}, nil
+	case lerr != nil:
+		return PatchpilotOnboard400JSONResponse{BadRequestJSONResponse(errBody("bad_input", lerr.Error()))}, nil
+	}
+	// A bound host is named after its registry entry unless the wizard says
+	// otherwise; a manual one has to be named.
+	name := strings.TrimSpace(deref(b.Name))
+	if name == "" {
+		name = login.sshHostName
+	}
+	if name == "" {
+		return PatchpilotOnboard400JSONResponse{BadRequestJSONResponse(errBody("bad_input", "a name is required"))}, nil
 	}
 	in := patchpilot.CommitInput{
-		Host:         b.Hostname,
-		Port:         derefInt(b.SshPort, 22),
-		Cred:         patchpilot.Credential{User: b.SshUser, Password: deref(b.Password)},
+		Host:         login.host,
+		Port:         login.port,
+		Cred:         login.cred,
 		RootPassword: deref(b.RootPassword),
-		Name:         b.Name,
+		Name:         name,
 		Notes:        deref(b.Notes),
 		AutoReboot:   derefBool(b.AutoReboot, true),
+		SSHHostID:    login.sshHostID,
 	}
 	host, err := s.patchpilot.Onboard(ctx, fleetID, in, func(patchpilot.BootstrapStep) {})
 	if err != nil {
-		msg := err.Error()
-		var be *patchpilot.BootstrapError
-		if errors.As(err, &be) {
-			msg = be.Summary + " — " + be.Guidance
-		}
+		msg := bootstrapMessage(err)
 		return PatchpilotOnboard502JSONResponse{UpstreamErrorJSONResponse(errBody("bootstrap_failed", msg))}, nil
 	}
 	s.audit.Log(ctx, actorFor(id), "patchpilot.host.onboard", resource, "success", map[string]any{"host": host.Name})
 	s.integrations.Kick(fleetID)
-	return PatchpilotOnboard201JSONResponse(toAPIPatchpilotHost(host)), nil
+	return PatchpilotOnboard201JSONResponse(s.apiHost(ctx, host)), nil
 }
 
 func (s *Server) PatchpilotUpdateHost(ctx context.Context, req PatchpilotUpdateHostRequestObject) (PatchpilotUpdateHostResponseObject, error) {
@@ -262,7 +357,7 @@ func (s *Server) PatchpilotUpdateHost(ctx context.Context, req PatchpilotUpdateH
 	if err != nil {
 		return nil, err
 	}
-	return PatchpilotUpdateHost200JSONResponse(toAPIPatchpilotHost(updated)), nil
+	return PatchpilotUpdateHost200JSONResponse(s.apiHost(ctx, updated)), nil
 }
 
 func (s *Server) PatchpilotDeleteHost(ctx context.Context, req PatchpilotDeleteHostRequestObject) (PatchpilotDeleteHostResponseObject, error) {
@@ -282,6 +377,94 @@ func (s *Server) PatchpilotDeleteHost(ctx context.Context, req PatchpilotDeleteH
 	}
 	s.audit.Log(ctx, actorFor(id), "patchpilot.host.delete", resource, "success", map[string]any{"host": host.Name})
 	return PatchpilotDeleteHost204Response{}, nil
+}
+
+// PatchpilotBindHost points a host at a registry entry, or unbinds it. The
+// address is pulled in right away so the row never shows a stale one.
+func (s *Server) PatchpilotBindHost(ctx context.Context, req PatchpilotBindHostRequestObject) (PatchpilotBindHostResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	host, resource, err := s.ppHost(ctx, id, req.Id, uuid.UUID(req.HostId))
+	if err != nil {
+		return PatchpilotBindHost404JSONResponse{notFoundErr("host")}, nil
+	}
+	if !s.can(ctx, id, resource, rbac.LevelConfigure) {
+		return PatchpilotBindHost404JSONResponse{notFoundErr("host")}, nil
+	}
+	var target *uuid.UUID
+	if req.Body.SshHostId != nil {
+		sid := uuid.UUID(*req.Body.SshHostId)
+		if _, err := s.store.GetSSHHost(ctx, sid); err != nil {
+			return PatchpilotBindHost404JSONResponse{notFoundErr("SSH host")}, nil
+		}
+		// Binding lets the fleet dial this entry and, on a re-run, log in as
+		// it — the same permission as opening a terminal on it.
+		if !s.can(ctx, id, ResSSHHosts, rbac.LevelControl) && !s.can(ctx, id, sshHostResource(sid), rbac.LevelControl) {
+			return PatchpilotBindHost404JSONResponse{notFoundErr("SSH host")}, nil
+		}
+		target = &sid
+	}
+	updated, err := s.store.SetPatchpilotHostBinding(ctx, host.ID, target)
+	if err != nil {
+		return nil, err
+	}
+	s.patchpilot.Endpoint(ctx, updated)
+	details := map[string]any{"host": host.Name, "sshHostId": nil}
+	if target != nil {
+		details["sshHostId"] = target.String()
+	}
+	s.audit.Log(ctx, actorFor(id), "patchpilot.host.bind", resource, "success", details)
+	return PatchpilotBindHost200JSONResponse(s.apiHost(ctx, updated)), nil
+}
+
+// PatchpilotRebootstrapHost runs the bootstrap again on a known host: with
+// the bound registry entry's credential, or with a login typed for the
+// occasion on a manual host.
+func (s *Server) PatchpilotRebootstrapHost(ctx context.Context, req PatchpilotRebootstrapHostRequestObject) (PatchpilotRebootstrapHostResponseObject, error) {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
+		return nil, ErrUnauthenticated
+	}
+	host, resource, err := s.ppHost(ctx, id, req.Id, uuid.UUID(req.HostId))
+	if err != nil {
+		return PatchpilotRebootstrapHost404JSONResponse{notFoundErr("host")}, nil
+	}
+	if !s.can(ctx, id, resource, rbac.LevelConfigure) {
+		s.deniedAudit(ctx, id, "patchpilot.host.rebootstrap", resource)
+		return PatchpilotRebootstrapHost404JSONResponse{notFoundErr("host")}, nil
+	}
+	b := req.Body
+	var login *ppLogin
+	if host.SSHHostID != nil {
+		l, lerr := s.ppLoginFromRegistry(ctx, id, *host.SSHHostID, deref(b.Password))
+		switch {
+		case errors.Is(lerr, errSSHHostHidden):
+			return PatchpilotRebootstrapHost404JSONResponse{notFoundErr("SSH host")}, nil
+		case lerr != nil:
+			return PatchpilotRebootstrapHost400JSONResponse{BadRequestJSONResponse(errBody("bad_input", lerr.Error()))}, nil
+		}
+		login = l
+	} else {
+		user := strings.TrimSpace(deref(b.SshUser))
+		if user == "" || deref(b.Password) == "" {
+			return PatchpilotRebootstrapHost400JSONResponse{BadRequestJSONResponse(errBody("bad_input",
+				"a login user and password are needed for a host that is not bound to the registry"))}, nil
+		}
+		login = &ppLogin{host: host.Hostname, port: host.SSHPort, cred: patchpilot.Credential{User: user, Password: deref(b.Password)}}
+	}
+	if err := s.patchpilot.Rebootstrap(ctx, host, login.host, login.port, login.cred, deref(b.RootPassword), func(patchpilot.BootstrapStep) {}); err != nil {
+		msg := bootstrapMessage(err)
+		return PatchpilotRebootstrapHost502JSONResponse{UpstreamErrorJSONResponse(errBody("bootstrap_failed", msg))}, nil
+	}
+	s.audit.Log(ctx, actorFor(id), "patchpilot.host.rebootstrap", resource, "success", map[string]any{"host": host.Name})
+	s.integrations.Kick(host.IntegrationID)
+	fresh, err := s.store.GetPatchpilotHost(ctx, host.ID)
+	if err != nil {
+		return nil, err
+	}
+	return PatchpilotRebootstrapHost200JSONResponse(s.apiHost(ctx, fresh)), nil
 }
 
 func (s *Server) PatchpilotDryRun(ctx context.Context, req PatchpilotDryRunRequestObject) (PatchpilotDryRunResponseObject, error) {

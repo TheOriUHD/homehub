@@ -143,9 +143,10 @@ export function usePatchpilotPublicKey(instanceId: string) {
 export function useDetectHost(instanceId: string) {
   return useMutation({
     mutationFn: async (body: {
-      hostname: string;
+      sshHostId?: string;
+      hostname?: string;
       sshPort?: number;
-      sshUser: string;
+      sshUser?: string;
       password?: string;
       rootPassword?: string;
     }): Promise<PatchpilotDetectResult> =>
@@ -157,10 +158,11 @@ export function useOnboardHost(instanceId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: {
-      name: string;
-      hostname: string;
+      name?: string;
+      sshHostId?: string;
+      hostname?: string;
       sshPort?: number;
-      sshUser: string;
+      sshUser?: string;
       password?: string;
       rootPassword?: string;
       notes?: string;
@@ -198,6 +200,39 @@ export function useUpdateHost(instanceId: string) {
     mutationFn: async (vars: { hostId: string; body: { name?: string; enabled?: boolean; autoReboot?: boolean; critical?: boolean; notes?: string } }) =>
       unwrap(
         await api.PUT("/patchpilot/{id}/hosts/{hostId}", {
+          params: { path: { id: instanceId, hostId: vars.hostId } },
+          body: vars.body,
+        }),
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["patchpilot", instanceId] }),
+  });
+}
+
+/** Bind a host to a registry entry (null unbinds); the address follows it from then on. */
+export function useBindHost(instanceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { hostId: string; sshHostId: string | null }) =>
+      unwrap(
+        await api.PUT("/patchpilot/{id}/hosts/{hostId}/binding", {
+          params: { path: { id: instanceId, hostId: vars.hostId } },
+          body: { sshHostId: vars.sshHostId },
+        }),
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["patchpilot", instanceId] }),
+  });
+}
+
+/** Run the bootstrap again on a known host; steps stream on the fleet topic meanwhile. */
+export function useRebootstrapHost(instanceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      hostId: string;
+      body: { sshUser?: string; password?: string; rootPassword?: string };
+    }): Promise<PatchpilotHost> =>
+      unwrap(
+        await api.POST("/patchpilot/{id}/hosts/{hostId}/rebootstrap", {
           params: { path: { id: instanceId, hostId: vars.hostId } },
           body: vars.body,
         }),

@@ -1,15 +1,30 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronDown, History, Play, Power, Search, Trash2, Wrench } from "lucide-react";
-import type { PatchpilotDryRunResult, PatchpilotHostRun } from "@/lib/api";
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  History,
+  Loader2,
+  Play,
+  Power,
+  RefreshCw,
+  Search,
+  Trash2,
+  Wrench,
+  X,
+} from "lucide-react";
+import type { PatchpilotDryRunResult, PatchpilotHost, PatchpilotHostRun } from "@/lib/api";
+import { live } from "@/lib/ws";
+import { SSHHostPicker } from "@/pages/ssh-hosts";
 import { cn, formatRelative } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card, CardBody, CardHeader } from "@/ui/card";
 import { Dialog, DialogContent } from "@/ui/dialog";
 import { Field } from "@/ui/field";
-import { Textarea } from "@/ui/input";
+import { Input, Textarea } from "@/ui/input";
 import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { Switch } from "@/ui/switch";
@@ -18,11 +33,14 @@ import { useToast } from "@/ui/toast";
 import { CriticalRunConfirm } from "./critical";
 import {
   managerLabel,
+  ppTopic,
   runStatusTone,
+  useBindHost,
   useDeleteHost,
   useHostAction,
   usePatchpilotHost,
   usePatchpilotHostRuns,
+  useRebootstrapHost,
   useUpdateHost,
 } from "./shared";
 
@@ -45,6 +63,8 @@ export function PatchpilotHostDetailPage() {
   const action = useHostAction(instanceId);
   const updateHost = useUpdateHost(instanceId);
   const deleteHost = useDeleteHost(instanceId);
+  const bindHost = useBindHost(instanceId);
+  const [setupOpen, setSetupOpen] = useState(false);
 
   const [busy, setBusy] = useState<ActionKind | null>(null);
   const [confirm, setConfirm] = useState<null | "reboot" | "remove">(null);
@@ -190,6 +210,11 @@ export function PatchpilotHostDetailPage() {
               {host.hostname}:{host.sshPort}
             </span>
             {!host.enabled && <Badge tone="neutral">{t("patchpilot.hosts.disabled")}</Badge>}
+            {host.sshHostId ? (
+              <Badge tone="info">{t("patchpilot.hostDetail.boundTo", { name: host.sshHostName ?? "" })}</Badge>
+            ) : (
+              <Badge tone="neutral">{t("patchpilot.hostDetail.manualHost")}</Badge>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
@@ -245,6 +270,10 @@ export function PatchpilotHostDetailPage() {
               <Wrench className="size-3.5" />
               {t("patchpilot.hostDetail.repair")}
             </Button>
+            <Button variant="ghost" disabled={busyAny} onClick={() => setSetupOpen(true)}>
+              <RefreshCw className="size-3.5" />
+              {t("patchpilot.hostDetail.rebootstrap")}
+            </Button>
             <div className="ml-auto">
               <Button
                 variant="danger-ghost"
@@ -291,6 +320,28 @@ export function PatchpilotHostDetailPage() {
             checked={host.critical}
             onCheckedChange={(v) => patch({ critical: v })}
           />
+          <Field label={t("patchpilot.hostDetail.binding")} hint={t("patchpilot.hostDetail.bindingHint")}>
+            {() => (
+              <SSHHostPicker
+                value={host.sshHostId ?? null}
+                onChange={(id) =>
+                  bindHost.mutate(
+                    { hostId, sshHostId: id },
+                    {
+                      onSuccess: (h) =>
+                        toast(
+                          "success",
+                          id
+                            ? t("patchpilot.hostDetail.bound", { name: h.sshHostName ?? "" })
+                            : t("patchpilot.hostDetail.unbound"),
+                        ),
+                      onError: (e) => toast("error", errMsg(e)),
+                    },
+                  )
+                }
+              />
+            )}
+          </Field>
           <Field label={t("patchpilot.hostDetail.notes")}>
             {(fieldProps) => (
               <Textarea
@@ -352,6 +403,7 @@ export function PatchpilotHostDetailPage() {
         loading={deleteHost.isPending}
         onConfirm={doRemove}
       />
+      <RebootstrapDialog instanceId={instanceId} host={host} open={setupOpen} onOpenChange={setSetupOpen} />
       <CriticalRunConfirm
         open={runConfirm}
         onOpenChange={setRunConfirm}
@@ -363,6 +415,164 @@ export function PatchpilotHostDetailPage() {
         }}
       />
     </div>
+  );
+}
+
+/**
+ * Run the bootstrap again. A bound host logs in with its registry entry and
+ * only asks for a sudo password when that login cannot become root alone; a
+ * manual host needs a login typed for the occasion. Steps stream on the
+ * fleet topic while the dialog is open.
+ */
+function RebootstrapDialog({
+  instanceId,
+  host,
+  open,
+  onOpenChange,
+}: {
+  instanceId: string;
+  host: PatchpilotHost;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const rebootstrap = useRebootstrapHost(instanceId);
+  const errMsg = (e: unknown): string => {
+    const m = (e as { message?: unknown } | null | undefined)?.message;
+    return typeof m === "string" && m ? m : t("common.unknownError");
+  };
+  const [sshUser, setSshUser] = useState("root");
+  const [password, setPassword] = useState("");
+  const [rootPassword, setRootPassword] = useState("");
+  const [steps, setSteps] = useState<{ step: string; status: string; message: string }[]>([]);
+  const bound = Boolean(host.sshHostId);
+
+  useEffect(() => {
+    if (!open) return;
+    setSteps([]);
+    return live.subscribe(ppTopic(instanceId), (payload) => {
+      const frame = payload as
+        | { event?: string; data?: { step: string; status: string; message: string } }
+        | undefined;
+      if (frame?.event !== "bootstrap.step" || !frame.data) return;
+      const incoming = frame.data;
+      setSteps((prev) => {
+        const idx = prev.findIndex((s) => s.step === incoming.step);
+        const next = prev.slice();
+        if (idx >= 0) next[idx] = incoming;
+        else next.push(incoming);
+        return next;
+      });
+    });
+  }, [instanceId, open]);
+
+  const run = () =>
+    rebootstrap.mutate(
+      {
+        hostId: host.id,
+        body: bound
+          ? { password: password || undefined, rootPassword: rootPassword || undefined }
+          : { sshUser: sshUser.trim(), password, rootPassword: rootPassword || undefined },
+      },
+      {
+        onSuccess: () => {
+          toast("success", t("patchpilot.hostDetail.rebootstrapDone"));
+          onOpenChange(false);
+        },
+        onError: (e) => toast("error", errMsg(e)),
+      },
+    );
+  const canRun = bound || (sshUser.trim() !== "" && password !== "");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        title={t("patchpilot.hostDetail.rebootstrapTitle", { name: host.name })}
+        description={t("patchpilot.hostDetail.rebootstrapIntro")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="primary" disabled={!canRun} loading={rebootstrap.isPending} onClick={run}>
+              {t("patchpilot.hostDetail.rebootstrap")}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {bound ? (
+            <p className="text-fg-muted text-[13px]">
+              {t("patchpilot.hostDetail.rebootstrapBound", { name: host.sshHostName ?? "" })}
+            </p>
+          ) : (
+            <Field label={t("patchpilot.addHost.user")} hint={t("patchpilot.addHost.userHint")}>
+              {(p) => (
+                <Input
+                  {...p}
+                  spellCheck={false}
+                  autoComplete="off"
+                  value={sshUser}
+                  onChange={(e) => setSshUser(e.target.value)}
+                />
+              )}
+            </Field>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label={bound ? t("patchpilot.addHost.sudoPassword") : t("patchpilot.addHost.password")}
+              hint={bound ? t("patchpilot.addHost.sudoPasswordHint") : t("patchpilot.addHost.passwordHint")}
+              optional={bound ? t("common.optional") : undefined}
+            >
+              {(p) => (
+                <Input
+                  {...p}
+                  type="password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              )}
+            </Field>
+            <Field
+              label={t("patchpilot.addHost.rootPassword")}
+              hint={t("patchpilot.addHost.rootPasswordHint")}
+              optional={t("common.optional")}
+            >
+              {(p) => (
+                <Input
+                  {...p}
+                  type="password"
+                  autoComplete="new-password"
+                  value={rootPassword}
+                  onChange={(e) => setRootPassword(e.target.value)}
+                />
+              )}
+            </Field>
+          </div>
+          {steps.length > 0 && (
+            <div className="border-edge space-y-2 rounded-lg border p-3">
+              <p className="text-fg text-[13px] font-medium">{t("patchpilot.addHost.steps")}</p>
+              <ul className="space-y-1.5">
+                {steps.map((s, i) => (
+                  <li key={`${s.step}-${i}`} className="flex items-start gap-2 text-[13px]">
+                    {s.status === "ok" ? (
+                      <Check className="text-success mt-0.5 size-4 shrink-0" />
+                    ) : s.status === "error" ? (
+                      <X className="text-danger mt-0.5 size-4 shrink-0" />
+                    ) : (
+                      <Loader2 className="text-fg-muted mt-0.5 size-4 shrink-0 animate-spin" />
+                    )}
+                    <span className="text-fg-muted">{s.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

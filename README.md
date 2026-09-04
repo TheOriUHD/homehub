@@ -67,7 +67,8 @@ all.
 **[docs/FEATURES.md](docs/FEATURES.md) is the complete feature reference** —
 every module, every platform feature, in detail. `docs/handoff-*.md` are
 session handoffs: what changed, what is still open, and the non-obvious
-traps in this codebase.
+traps in this codebase. The newest one is self-contained and is where an
+agent or contributor picking the project up should start.
 
 ## Platform
 

@@ -3253,7 +3253,13 @@
       "manualKeyTitle": "Schlüssel stattdessen manuell installieren",
       "onboarded": "Host hinzugefügt",
       "autoReboot": "Nach Updates automatisch neu starten",
-      "autoRebootHint": "Wenn ein Update einen Neustart braucht, wird dieser Host danach automatisch neu gestartet."
+      "autoRebootHint": "Wenn ein Update einen Neustart braucht, wird dieser Host danach automatisch neu gestartet.",
+      "source": "SSH-Host",
+      "sourceHint": "Wähle einen Host aus der SSH-Registry – sein gespeicherter Login richtet alles ein. Nur für Maschinen, die nicht in der Registry stehen, gibst du die Daten von Hand ein.",
+      "authKey": "SSH-Schlüssel",
+      "authPassword": "Passwort",
+      "sudoPassword": "Sudo-Passwort",
+      "sudoPasswordHint": "Der Registry-Login kann nicht allein root werden. Wird einmal benutzt, nie gespeichert."
     },
     "hostDetail": {
       "back": "Alle Hosts",
@@ -3274,7 +3280,18 @@
       "history": "Letzte Läufe",
       "noHistory": "Noch keine Läufe.",
       "updatesAvailable": "{{count}} Update(s) verfügbar",
-      "dryRunUpToDate": "Keine Updates verfügbar."
+      "dryRunUpToDate": "Keine Updates verfügbar.",
+      "boundTo": "Registry: {{name}}",
+      "manualHost": "Von Hand eingetragen",
+      "binding": "SSH-Registry-Host",
+      "bindingHint": "Adresse und Login kommen aus dem Registry-Eintrag; Updates laufen weiterhin als patchpilot-Konto mit dem Flottenschlüssel.",
+      "bound": "Mit {{name}} verknüpft",
+      "unbound": "Verknüpfung entfernt",
+      "rebootstrap": "Neu einrichten",
+      "rebootstrapTitle": "{{name}} neu einrichten",
+      "rebootstrapIntro": "Installiert das patchpilot-Konto, den Flottenschlüssel mit seiner Quelladress-Sperre und die sudoers-Regel neu. Nötig, wenn sich HomeHubs Adresse geändert hat oder der Host neu aufgesetzt wurde.",
+      "rebootstrapBound": "Meldet sich mit dem Registry-Eintrag {{name}} an.",
+      "rebootstrapDone": "Host neu eingerichtet"
     },
     "schedules": {
       "title": "Zeitpläne",

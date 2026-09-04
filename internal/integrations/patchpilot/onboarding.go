@@ -102,7 +102,9 @@ func (r *Registry) Detect(ctx context.Context, host string, port int, cred Crede
 	return res, nil
 }
 
-// CommitInput names a host once bootstrap succeeds.
+// CommitInput names a host once bootstrap succeeds. SSHHostID records the
+// registry entry whose credential did the bootstrap, so the host's address
+// follows that entry from now on.
 type CommitInput struct {
 	Host         string
 	Port         int
@@ -111,15 +113,13 @@ type CommitInput struct {
 	Name         string
 	Notes        string
 	AutoReboot   bool
+	SSHHostID    *uuid.UUID
 }
 
 // Onboard runs the full bootstrap for one host and persists it, streaming
 // step events to the fleet topic. On success it returns the created host.
 func (r *Registry) Onboard(ctx context.Context, integrationID uuid.UUID, in CommitInput, emit func(BootstrapStep)) (*store.PatchpilotHost, error) {
-	step := func(s BootstrapStep) {
-		emit(s)
-		r.publish(integrationID, "bootstrap.step", s)
-	}
+	step := r.stepEmitter(integrationID, emit)
 
 	conn, err := ConnectPassword(ctx, in.Host, in.Port, in.Cred, "")
 	if err != nil {
@@ -130,57 +130,10 @@ func (r *Registry) Onboard(ctx context.Context, integrationID uuid.UUID, in Comm
 	// and every later connection is verified against it.
 	pinnedKey := conn.HostKey()
 
-	step(BootstrapStep{Step: "detect", Status: "running", Message: "Inspecting the host"})
-	facts, err := Detect(ctx, conn)
-	if err != nil {
-		return nil, bootErr("detection_probe", "the detection probe failed", err.Error(), "")
-	}
-	if refusal := StandardRefusal(facts); refusal != "" {
-		return nil, bootErr("unknown", refusal, "use the matching native integration instead", "")
-	}
-	// ResolveEscalation verifies elevation works and leaves conn configured
-	// with the mode/password that succeeded (sudo→su fallback included).
-	mode, blocker := ResolveEscalation(ctx, conn, facts, in.Cred.Password, in.RootPassword)
-	if blocker != "" {
-		return nil, bootErr("permission_denied", blocker, "supply a login with sudo rights, or root's password", "")
-	}
-	_ = mode
-	step(BootstrapStep{Step: "detect", Status: "ok", Message: facts.OSPretty + " · " + ManagerDisplayName(facts.PackageManager)})
-
-	kp, err := r.KeyPairFor(ctx, integrationID)
+	facts, err := r.bootstrapOver(ctx, integrationID, conn, in.Host, in.Port, in.Cred.Password, in.RootPassword, step)
 	if err != nil {
 		return nil, err
 	}
-
-	result, berr := BootstrapStandard(ctx, conn, facts, kp.PublicKey, step)
-	if berr != nil {
-		if be, ok := berr.(*BootstrapError); ok {
-			r.logger.Warn("patchpilot bootstrap failed", "host", in.Host, "code", be.Code,
-				"summary", be.Summary, "output", truncate(be.Output, 800))
-			step(BootstrapStep{Step: "error", Status: "error", Message: be.Summary + " — " + be.Guidance, Code: be.Code})
-		}
-		return nil, berr
-	}
-
-	// Verify the key + NOPASSWD sudoers over a fresh managed-account session,
-	// with a short backoff — sshd needs a moment after the account is made.
-	step(BootstrapStep{Step: "verify", Status: "running", Message: "Verifying passwordless access"})
-	var keyConn *SSHConn
-	for i, delay := range []time.Duration{500, 1000, 1500, 2000, 3000} {
-		time.Sleep(delay * time.Millisecond)
-		keyConn, err = ConnectKey(ctx, in.Host, in.Port, ManagedUser, kp.PrivatePEM, pinnedKey)
-		if err == nil {
-			break
-		}
-		if i == 4 {
-			return nil, bootErr("patchpilot_reconnect_failed", "could not reconnect as the patchpilot account", err.Error(), "")
-		}
-	}
-	defer keyConn.Close()
-	if verr := VerifyManagedAccess(ctx, keyConn, facts.PackageManager, result.Paths); verr != nil {
-		return nil, verr
-	}
-	step(BootstrapStep{Step: "verify", Status: "ok", Message: "Passwordless updates confirmed"})
 
 	// Persist the host.
 	host, err := r.store.CreatePatchpilotHost(ctx, store.PatchpilotHost{
@@ -189,6 +142,7 @@ func (r *Registry) Onboard(ctx context.Context, integrationID uuid.UUID, in Comm
 		Hostname:       in.Host,
 		SSHPort:        in.Port,
 		SSHUser:        ManagedUser,
+		SSHHostID:      in.SSHHostID,
 		HostType:       "standard",
 		HostKey:        pinnedKey,
 		PackageManager: facts.PackageManager,
@@ -205,6 +159,111 @@ func (r *Registry) Onboard(ctx context.Context, integrationID uuid.UUID, in Comm
 	step(BootstrapStep{Step: "complete", Status: "ok", Message: "Host onboarded"})
 	r.publish(integrationID, "hosts-changed", map[string]any{"hostId": host.ID})
 	return host, nil
+}
+
+// Rebootstrap runs the bootstrap again on a host the fleet already knows,
+// over a fresh login credential: the bound registry entry's, or one supplied
+// for the occasion. It is the repair for everything the first bootstrap
+// established — the managed account, the key with its from= source pin, the
+// sudoers rule — after HomeHub's own address changed, a host was reinstalled
+// around its data, or someone cleaned up "unknown" accounts. The pinned host
+// key is verified, not replaced: a host that presents a different key is
+// refused, exactly as a run would refuse it.
+func (r *Registry) Rebootstrap(ctx context.Context, h *store.PatchpilotHost, host string, port int, cred Credential, rootPassword string, emit func(BootstrapStep)) error {
+	step := r.stepEmitter(h.IntegrationID, emit)
+
+	conn, err := ConnectPassword(ctx, host, port, cred, h.HostKey)
+	if err != nil {
+		return bootErr("ssh_connection", "could not connect to the host", err.Error(), "")
+	}
+	defer conn.Close()
+
+	facts, err := r.bootstrapOver(ctx, h.IntegrationID, conn, host, port, cred.Password, rootPassword, step)
+	if err != nil {
+		return err
+	}
+	if err := r.store.SetPatchpilotHostFacts(ctx, h.ID, conn.HostKey(), facts.PackageManager, facts.OSPretty, facts.Arch, facts.IsProxmox); err != nil {
+		return err
+	}
+	if host != h.Hostname || port != h.SSHPort {
+		if err := r.store.SetPatchpilotHostEndpoint(ctx, h.ID, host, port); err != nil {
+			return err
+		}
+	}
+	step(BootstrapStep{Step: "complete", Status: "ok", Message: "Host set up again"})
+	r.publish(h.IntegrationID, "hosts-changed", map[string]any{"hostId": h.ID})
+	return nil
+}
+
+// stepEmitter fans a bootstrap step out to the caller and the fleet topic.
+func (r *Registry) stepEmitter(integrationID uuid.UUID, emit func(BootstrapStep)) func(BootstrapStep) {
+	return func(s BootstrapStep) {
+		emit(s)
+		r.publish(integrationID, "bootstrap.step", s)
+	}
+}
+
+// bootstrapOver is the part of onboarding that happens on the wire: detect,
+// prove elevation, install the managed account, then prove the fleet key
+// works over a fresh session as that account. Shared by first onboarding and
+// a re-run; the caller decides what to persist.
+func (r *Registry) bootstrapOver(ctx context.Context, integrationID uuid.UUID, conn *SSHConn, host string, port int, loginPassword, rootPassword string, step func(BootstrapStep)) (*HostFacts, error) {
+	pinnedKey := conn.HostKey()
+
+	step(BootstrapStep{Step: "detect", Status: "running", Message: "Inspecting the host"})
+	facts, err := Detect(ctx, conn)
+	if err != nil {
+		return nil, bootErr("detection_probe", "the detection probe failed", err.Error(), "")
+	}
+	if refusal := StandardRefusal(facts); refusal != "" {
+		return nil, bootErr("unknown", refusal, "use the matching native integration instead", "")
+	}
+	// ResolveEscalation verifies elevation works and leaves conn configured
+	// with the mode/password that succeeded (sudo→su fallback included).
+	// The blocker already tells the operator what to supply, so it travels
+	// as the summary on its own.
+	mode, blocker := ResolveEscalation(ctx, conn, facts, loginPassword, rootPassword)
+	if blocker != "" {
+		return nil, bootErr("permission_denied", blocker, "", "")
+	}
+	_ = mode
+	step(BootstrapStep{Step: "detect", Status: "ok", Message: facts.OSPretty + " · " + ManagerDisplayName(facts.PackageManager)})
+
+	kp, err := r.KeyPairFor(ctx, integrationID)
+	if err != nil {
+		return nil, err
+	}
+
+	result, berr := BootstrapStandard(ctx, conn, facts, kp.PublicKey, step)
+	if berr != nil {
+		if be, ok := berr.(*BootstrapError); ok {
+			r.logger.Warn("patchpilot bootstrap failed", "host", host, "code", be.Code,
+				"summary", be.Summary, "output", truncate(be.Output, 800))
+			step(BootstrapStep{Step: "error", Status: "error", Message: be.Summary + " — " + be.Guidance, Code: be.Code})
+		}
+		return nil, berr
+	}
+
+	// Verify the key + NOPASSWD sudoers over a fresh managed-account session,
+	// with a short backoff — sshd needs a moment after the account is made.
+	step(BootstrapStep{Step: "verify", Status: "running", Message: "Verifying passwordless access"})
+	var keyConn *SSHConn
+	for i, delay := range []time.Duration{500, 1000, 1500, 2000, 3000} {
+		time.Sleep(delay * time.Millisecond)
+		keyConn, err = ConnectKey(ctx, host, port, ManagedUser, kp.PrivatePEM, pinnedKey)
+		if err == nil {
+			break
+		}
+		if i == 4 {
+			return nil, bootErr("patchpilot_reconnect_failed", "could not reconnect as the patchpilot account", err.Error(), "")
+		}
+	}
+	defer keyConn.Close()
+	if verr := VerifyManagedAccess(ctx, keyConn, facts.PackageManager, result.Paths); verr != nil {
+		return nil, verr
+	}
+	step(BootstrapStep{Step: "verify", Status: "ok", Message: "Passwordless updates confirmed"})
+	return facts, nil
 }
 
 // RepairSudoers rewrites the sudoers drop-in with the current whitelist, over
