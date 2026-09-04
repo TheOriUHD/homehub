@@ -189,7 +189,7 @@ func (r *Registry) executeRun(ctx context.Context, run *store.PatchpilotRun, hos
 	// generic "failed", so the history reads honestly.
 	if ctx.Err() != nil {
 		status = "failed"
-		summary = fmt.Sprintf("aborted by operator — %d succeeded, %d before abort", success, failed+skipped)
+		summary = fmt.Sprintf("Aborted by operator — %d succeeded, %d before abort", success, failed+skipped)
 	}
 	_ = r.store.FinishPatchpilotRun(bg, run.ID, status, summary)
 	r.publish(run.IntegrationID, "run.event", map[string]any{
@@ -227,7 +227,7 @@ func (r *Registry) executeHostRun(ctx context.Context, run *store.PatchpilotRun,
 
 	conn, err := r.connectHost(rctx, &h)
 	if err != nil {
-		return fail("connection failed: " + err.Error())
+		return fail(err.Error())
 	}
 	defer conn.Close()
 
@@ -240,10 +240,10 @@ func (r *Registry) executeHostRun(ctx context.Context, run *store.PatchpilotRun,
 		r.appendLog(rctx, run, hr.ID, h, chunk)
 	})
 	if serr != nil {
-		return fail("update stream error: " + serr.Error())
+		return fail("Update stream error: " + serr.Error())
 	}
 	if code != 0 {
-		return fail(fmt.Sprintf("package manager exited %d", code))
+		return fail(fmt.Sprintf("Package manager exited with code %d", code))
 	}
 
 	// Reboot detection. A host only reboots when it opted in (auto_reboot) and

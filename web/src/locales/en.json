@@ -3428,6 +3428,11 @@
       "addressFromRegistry": "The address comes from the registry entry. Edit the entry to move the host, or switch to manual details here.",
       "addressHint": "The pinned host key stays, so a new address must still be the same machine.",
       "saved": "Host updated"
+    },
+    "lastRun": {
+      "dismiss": "Dismiss",
+      "dismissed": "Dismissed. It comes back only if another run fails.",
+      "failedHosts": "Failed hosts"
     }
   },
   "signals": {

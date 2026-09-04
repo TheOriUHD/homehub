@@ -1,7 +1,12 @@
 import { Link, Outlet, useParams, useRouterState } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, ServerCog } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ServerCog, X } from "lucide-react";
+import { api, isApiError, unwrap } from "@/lib/api";
 import { useLiveInvalidate } from "@/lib/live";
+import { useSignals } from "@/pages/signals";
+import { Button } from "@/ui/button";
+import { useToast } from "@/ui/toast";
 import { statusTone } from "@/lib/systems";
 import { cn } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
@@ -86,6 +91,8 @@ export function PatchpilotModulePage() {
         </div>
       )}
 
+      <LastRunNotice instanceId={instanceId} />
+
       <nav className="border-edge no-scrollbar flex gap-1 overflow-x-auto overflow-y-hidden border-b">
         {tabs.map((tab) => {
           const active = tab.exact ? pathname === tab.to : pathname.startsWith(tab.to);
@@ -108,3 +115,82 @@ export function PatchpilotModulePage() {
     </div>
   );
 }
+
+/**
+ * LastRunNotice is the fleet's "last run" signal, shown where the runs are
+ * managed and dismissable right here. Dismissing acknowledges the signal
+ * itself, so it leaves the Signals page and the overview at the same time,
+ * and it only returns when a *later* run fails.
+ */
+function LastRunNotice({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const signals = useSignals();
+  useLiveInvalidate("signals", [["signals"]]);
+
+  const signal = (signals.data?.items ?? []).find((s) => {
+    const d = s.detail as { kind?: unknown } | null | undefined;
+    return s.collector === "patchpilot" && s.sourceId === instanceId && d?.kind === "last-run";
+  });
+
+  const dismiss = useMutation({
+    mutationFn: async (ids: number[]) => unwrap(await api.POST("/signals/dismiss", { body: { ids } })),
+    onSuccess: () => {
+      toast("success", t("patchpilot.lastRun.dismissed"));
+      void qc.invalidateQueries({ queryKey: ["signals"] });
+    },
+    onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
+  });
+
+  if (!signal) return null;
+  const recovered = signal.severity === "recovered";
+  const failed = ((signal.detail as { failedHosts?: unknown } | null)?.failedHosts ?? []) as {
+    host: string;
+    error: string;
+  }[];
+
+  return (
+    <div
+      className={
+        recovered
+          ? "bg-success-soft text-success-soft-fg rounded-lg px-4 py-3"
+          : "bg-danger-soft text-danger-soft-fg rounded-lg px-4 py-3"
+      }
+      role={recovered ? "status" : "alert"}
+    >
+      <div className="flex items-start gap-3">
+        {recovered ? (
+          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+        ) : (
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+        )}
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-[13.5px] font-semibold">{signal.title}</p>
+          <p className="text-[13px] opacity-90">{signal.body}</p>
+          {!recovered && failed.length > 0 && (
+            <ul className="mt-1.5 space-y-1 text-[12.5px]">
+              {failed.map((f) => (
+                <li key={f.host} className="flex flex-wrap gap-x-1.5">
+                  <span className="font-medium">{f.host}</span>
+                  <span className="opacity-90">— {f.error}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          loading={dismiss.isPending}
+          onClick={() => dismiss.mutate([signal.id])}
+          aria-label={t("patchpilot.lastRun.dismiss")}
+        >
+          <X className="size-3.5" />
+          {t("patchpilot.lastRun.dismiss")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+

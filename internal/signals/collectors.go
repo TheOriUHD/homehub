@@ -2,12 +2,14 @@ package signals
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/google/uuid"
@@ -366,6 +368,124 @@ func logTail(log string, lines int) []string {
 	return all
 }
 
+// lastRunObservation turns a fleet's most recent finished run into the one
+// signal about it: a failure names the hosts and carries their errors and
+// log tails (fleet-scoped key, so the next clean run resolves it); a clean
+// run that installed something is a one-shot note for two days; a clean run
+// that did nothing is not news.
+func lastRunObservation(inst store.Integration, last store.PatchpilotRun, hostRuns []store.PatchpilotHostRun) (Observation, bool) {
+	var failedHosts []map[string]any
+	var names []string
+	totalPkgs, okHosts := 0, 0
+	for _, hr := range hostRuns {
+		switch hr.Status {
+		case "failed":
+			names = append(names, hr.HostName)
+			failedHosts = append(failedHosts, map[string]any{
+				"host":    hr.HostName,
+				"error":   sentence(hr.ErrorSummary),
+				"log":     logTail(hr.Log, 25),
+				"exit":    hr.ExitCode,
+				"started": hr.StartedAt,
+			})
+		case "success":
+			okHosts++
+			totalPkgs += hr.PackagesUpgraded
+		}
+	}
+	src := Observation{SourceType: "patchpilot", SourceID: srcID(inst.ID), SourceName: inst.Name}
+	switch {
+	case last.Status == "failed" || len(failedHosts) > 0:
+		sev := SevWarning
+		if okHosts == 0 && len(failedHosts) > 0 {
+			sev = SevCritical // the whole run burned
+		}
+		var title string
+		switch {
+		case len(failedHosts) == 0:
+			title = "Last update run did not complete"
+		case len(failedHosts) == 1:
+			title = "Last update run failed on " + names[0]
+		case len(failedHosts) == len(hostRuns):
+			title = fmt.Sprintf("Last update run failed on all %d hosts", len(hostRuns))
+		default:
+			title = fmt.Sprintf("Last update run failed on %d of %d hosts", len(failedHosts), len(hostRuns))
+		}
+		body := fmt.Sprintf("%s run, %s: %s. Per-host errors and log tails are in the detail.",
+			sentence(last.Trigger), last.StartedAt.Local().Format("2 Jan 15:04"), strings.Join(names, ", "))
+		if len(failedHosts) == 0 {
+			body = fmt.Sprintf("%s run, %s: %s.", sentence(last.Trigger), last.StartedAt.Local().Format("2 Jan 15:04"),
+				firstNonEmpty(last.Summary, "the run did not complete"))
+		}
+		o := src
+		o.Key = "pp:" + inst.ID.String() + ":lastrun"
+		o.Severity = sev
+		o.Title = title
+		o.Body = body
+		o.Detail = map[string]any{
+			"kind":        "last-run",
+			"runId":       last.ID,
+			"trigger":     last.Trigger,
+			"startedAt":   last.StartedAt,
+			"failedHosts": failedHosts,
+			"okHosts":     okHosts,
+			"totalHosts":  len(hostRuns),
+		}
+		o.AutoResolve = true
+		o.ResolveTitle = "Last update run succeeded"
+		o.ResolveBody = "The most recent run finished without failures."
+		return o, true
+	case totalPkgs > 0 && last.FinishedAt != nil && time.Since(*last.FinishedAt) <= 48*time.Hour:
+		o := src
+		o.Key = "pp:" + inst.ID.String() + ":run:" + last.ID.String()
+		o.Severity = SevInfo
+		o.Title = fmt.Sprintf("Updates applied: %d packages across %d hosts", totalPkgs, okHosts)
+		o.Body = fmt.Sprintf("A %s update run finished cleanly.", last.Trigger)
+		o.Detail = map[string]any{"runId": last.ID, "trigger": last.Trigger, "packages": totalPkgs, "hosts": okHosts}
+		return o, true
+	}
+	return Observation{}, false
+}
+
+func firstNonEmpty(a, b string) string {
+	if strings.TrimSpace(a) != "" {
+		return a
+	}
+	return b
+}
+
+// lastRunChanged reports whether the last-run row on record — live, or
+// dismissed and still standing as the acknowledgement — is about a different
+// run than the one just observed. Only then is the observation a recurrence:
+// a newer failure the operator has not seen.
+func (c *patchpilotCollector) lastRunChanged(ctx context.Context, key string, runID uuid.UUID) bool {
+	row, _ := c.Store.GetLiveSignal(ctx, key)
+	if row == nil {
+		row, _ = c.Store.GetSuppressedSignal(ctx, key)
+	}
+	if row == nil {
+		return false
+	}
+	var d struct {
+		RunID uuid.UUID `json:"runId"`
+	}
+	if err := json.Unmarshal(row.Detail, &d); err != nil {
+		return true
+	}
+	return d.RunID != runID
+}
+
+// sentence capitalises the first letter, so texts assembled from lower-case
+// error strings read as sentences in the panel.
+func sentence(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	r[0] = unicode.ToUpper(r[0])
+	return string(r)
+}
+
 func (c *patchpilotCollector) Collect(ctx context.Context) ([]Observation, error) {
 	insts, err := c.instances(ctx, "patchpilot")
 	if err != nil {
@@ -373,74 +493,36 @@ func (c *patchpilotCollector) Collect(ctx context.Context) ([]Observation, error
 	}
 	var out []Observation
 	for _, inst := range insts {
+		// One signal per fleet about the most recent finished run, and only
+		// that one: a failed run three days ago is history the moment a newer
+		// run has happened. The key is fleet-scoped so a later success flips
+		// the same row to recovered instead of leaving a trail of one-shots;
+		// a *new* failed run after the operator dismissed the previous one
+		// recurs (a fresh row), a re-observation of the same failed run does
+		// not — the run id in the detail is how the two are told apart.
 		runs, rerr := c.Store.ListPatchpilotRuns(ctx, inst.ID, 15)
 		if rerr != nil {
 			continue
 		}
-		for _, run := range runs {
-			if run.FinishedAt == nil {
-				continue // still going
+		var last *store.PatchpilotRun
+		for i := range runs {
+			if runs[i].FinishedAt != nil {
+				last = &runs[i]
+				break
 			}
-			// Only recent history — old news shouldn't resurface after a
-			// dismissal-free week.
-			if time.Since(*run.FinishedAt) > 48*time.Hour {
-				continue
+		}
+		if last == nil {
+			continue
+		}
+		hostRuns, herr := c.Store.ListPatchpilotHostRuns(ctx, last.ID)
+		if herr != nil {
+			continue
+		}
+		if o, ok := lastRunObservation(inst, *last, hostRuns); ok {
+			if o.AutoResolve {
+				o.Recur = c.lastRunChanged(ctx, o.Key, last.ID)
 			}
-			hostRuns, herr := c.Store.ListPatchpilotHostRuns(ctx, run.ID)
-			if herr != nil {
-				continue
-			}
-			var failedHosts []map[string]any
-			totalPkgs, okHosts := 0, 0
-			for _, hr := range hostRuns {
-				switch hr.Status {
-				case "failed":
-					failedHosts = append(failedHosts, map[string]any{
-						"host":    hr.HostName,
-						"error":   hr.ErrorSummary,
-						"log":     logTail(hr.Log, 25),
-						"exit":    hr.ExitCode,
-						"started": hr.StartedAt,
-					})
-				case "success":
-					okHosts++
-					totalPkgs += hr.PackagesUpgraded
-				}
-			}
-			switch {
-			case run.Status == "failed" || len(failedHosts) > 0:
-				names := make([]string, 0, len(failedHosts))
-				for _, f := range failedHosts {
-					names = append(names, f["host"].(string))
-				}
-				sev := SevWarning
-				if okHosts == 0 && len(failedHosts) > 0 {
-					sev = SevCritical // the whole run burned
-				}
-				out = append(out, Observation{
-					Key:      "pp:" + inst.ID.String() + ":run:" + run.ID.String(),
-					Severity: sev,
-					Title:    fmt.Sprintf("Update run failed on %s", strings.Join(names, ", ")),
-					Body: fmt.Sprintf("%d of %d hosts failed (%s run). Open the detail for per-host errors and log tails.",
-						len(failedHosts), len(hostRuns), run.Trigger),
-					Detail: map[string]any{
-						"runId":       run.ID,
-						"trigger":     run.Trigger,
-						"failedHosts": failedHosts,
-						"okHosts":     okHosts,
-					},
-					SourceType: "patchpilot", SourceID: srcID(inst.ID), SourceName: inst.Name,
-				})
-			case totalPkgs > 0:
-				out = append(out, Observation{
-					Key:        "pp:" + inst.ID.String() + ":run:" + run.ID.String(),
-					Severity:   SevInfo,
-					Title:      fmt.Sprintf("Updates applied: %d packages across %d hosts", totalPkgs, okHosts),
-					Body:       fmt.Sprintf("A %s update run finished cleanly.", run.Trigger),
-					Detail:     map[string]any{"runId": run.ID, "trigger": run.Trigger, "packages": totalPkgs, "hosts": okHosts},
-					SourceType: "patchpilot", SourceID: srcID(inst.ID), SourceName: inst.Name,
-				})
-			}
+			out = append(out, o)
 		}
 
 		// Hosts waiting on a reboot.
