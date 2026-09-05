@@ -41,7 +41,7 @@ import { Slider } from "@/ui/slider";
 import { Switch } from "@/ui/switch";
 import { Tooltip } from "@/ui/tooltip";
 import { useToast } from "@/ui/toast";
-import { AssistantModelPicker, loadModelChoice } from "./assistant-model-picker";
+import { AssistantModelPicker, modelForTurn, useAssistantModels } from "./assistant-model-picker";
 import {
   branchKey,
   buildPath,
@@ -141,6 +141,9 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
   const abortRef = useRef<AbortController | null>(null);
 
   const conversation = conversationId();
+  // Whether Auto can run decides what an untouched window sends (see
+  // modelForTurn); the picker reads the same catalog, so the two agree.
+  const { autoAvailable } = useAssistantModels();
   const history = useQuery({
     queryKey: ["assistant", "history", conversation],
     queryFn: async () =>
@@ -199,7 +202,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ ...body, conversation, model: loadModelChoice() }),
+          body: JSON.stringify({ ...body, conversation, model: modelForTurn(autoAvailable) }),
           signal: controller.signal,
         });
         if (!res.ok || !res.body) {
@@ -281,7 +284,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
         setLive(null);
       }
     },
-    [chooseBranch, conversation, queryClient, t, toast],
+    [autoAvailable, chooseBranch, conversation, queryClient, t, toast],
   );
 
   const cancelSend = useCallback(() => abortRef.current?.abort(), []);

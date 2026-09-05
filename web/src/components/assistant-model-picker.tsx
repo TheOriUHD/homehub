@@ -23,6 +23,10 @@ import {
  * Expensive models sit behind a spend gate. A premium model asks once; an
  * ultra one also makes you wait a few seconds, because the whole point is that
  * the price registers before you click rather than after the bill does.
+ *
+ * Auto is the default. A window that has not picked anything routes each turn
+ * by rule; the instance-wide model only answers when someone picks it, or
+ * when the provider has no lanes for Auto to route between.
  */
 
 export type AssistantModel = {
@@ -50,6 +54,16 @@ export function loadModelChoice(): string {
   } catch {
     return "";
   }
+}
+
+/**
+ * modelForTurn is what a turn sends: the stored pick, or Auto when nothing is
+ * stored and Auto can run. An empty string would make the server fall back to
+ * the instance-wide model, which is a choice, not the absence of one.
+ */
+export function modelForTurn(autoAvailable: boolean): string {
+  const chosen = loadModelChoice();
+  return chosen === "" && autoAvailable ? MODEL_AUTO : chosen;
 }
 
 /**
@@ -102,7 +116,7 @@ export function useAssistantModels() {
   // a dated snapshot still highlights that model instead of showing nothing.
   const configured = settings.data?.model ?? "";
   const matches = (m: AssistantModel, id: string) => m.id === id || (m.aliases ?? []).includes(id);
-  const isAuto = chosen === MODEL_AUTO && autoAvailable;
+  const isAuto = autoAvailable && (chosen === MODEL_AUTO || chosen === "");
   const active = isAuto
     ? null
     : models.find((m) => matches(m, chosen)) ?? models.find((m) => matches(m, configured)) ?? null;
