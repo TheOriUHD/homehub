@@ -32,7 +32,7 @@ const overrides = {
   }),
   'GET /assistant': (b) => ({
     ...b, enabled: true, provider: 'anthropic', model: 'claude-sonnet-5', keySet: true, canConfigure: true,
-    autoAvailable: true, autoBasic: 'claude-haiku-4-5', autoAdvanced: 'claude-sonnet-5',
+    autoAvailable: process.env.AUTO_AVAILABLE !== '0', autoBasic: 'claude-haiku-4-5', autoAdvanced: 'claude-sonnet-5',
     providers: [{ id: 'anthropic', label: 'Anthropic', kind: 'cloud', requiresKey: true, defaultModel: 'claude-sonnet-5', models }],
   }),
 };
@@ -40,6 +40,7 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 
 const unmatched = new Set();
 const errors = [];
+const posts = [];
 const browser = await chromium.launch();
 const [vw, vh] = (process.env.VIEWPORT || '1440x900').split('x').map(Number);
 const context = await browser.newContext({ viewport: { width: vw, height: vh } });
@@ -52,6 +53,7 @@ await context.route('**/*', async (route) => {
   const p = u.pathname;
   if (p.startsWith('/api/')) {
     const apiPath = p.slice(4);
+    if (req.method() === 'POST' && apiPath.startsWith('/assistant')) posts.push({ path: apiPath, body: req.postDataJSON() });
     const hit = routes.find((r) => r.method === req.method() && r.re.test(apiPath));
     if (!hit) {
       unmatched.add(req.method() + ' ' + apiPath);
@@ -67,9 +69,12 @@ await context.route('**/*', async (route) => {
   return route.fulfill({ status: 200, contentType: types[path.extname(file)] || 'application/octet-stream', body: fs.readFileSync(file) });
 });
 
-const page = await context.newPage();
-page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
-page.on('console', (m) => { if (m.type() === 'error' && !/WebSocket|ws:\/\//.test(m.text())) errors.push('console: ' + m.text().slice(0, 200)); });
+let page = await context.newPage();
+function wirePage(p) {
+  p.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+  p.on('console', (m) => { if (m.type() === 'error' && !/WebSocket|ws:\/\//.test(m.text())) errors.push('console: ' + m.text().slice(0, 200)); });
+}
+wirePage(page);
 
 /** What is painted on top at the menu's centre, judged with pointer-events
  *  forced on — Radix turns them off on <body> while a menu is open, which is
@@ -111,6 +116,18 @@ async function probeMenu(label) {
   return r;
 }
 
+/** The untouched state of a fresh tab: what the pill says before anyone
+ *  picks, and which model the first turn actually posts. */
+async function probeDefault() {
+  const pill = (await page.getByRole('button', { name: 'Switch model' }).innerText()).trim();
+  const before = posts.length;
+  await page.getByPlaceholder('Ask about your systems').fill('hello');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(600);
+  const turn = posts.slice(before).find((x) => x.body && 'model' in x.body);
+  return { pill, postedModel: turn ? turn.body.model : null, postedTo: turn ? turn.path : null };
+}
+
 async function probeEscape() {
   await page.keyboard.press('Escape');
   await page.waitForTimeout(250);
@@ -137,22 +154,26 @@ async function probeSelect() {
   return out;
 }
 
-const report = { dist: DIST, theme: THEME, viewport: [vw, vh] };
+const report = { dist: DIST, theme: THEME, viewport: [vw, vh], autoAvailable: process.env.AUTO_AVAILABLE !== '0' };
 await page.goto(ORIGIN + '/', { waitUntil: 'domcontentloaded' });
 const keep = page.getByRole('button', { name: 'Keep English' });
 if (await keep.isVisible({ timeout: 3000 }).catch(() => false)) await keep.click();
 await page.getByRole('button', { name: 'Open assistant' }).click();
 await page.locator('[role="dialog"][data-assistant-widget]').waitFor();
-report.widget = { menu: await probeMenu('widget'), escape: await probeEscape() };
+report.widget = { default: await probeDefault(), menu: await probeMenu('widget'), escape: await probeEscape() };
 if (!report.widget.escape.widgetStillOpen) {
   await page.getByRole('button', { name: 'Open assistant' }).click();
   await page.locator('[role="dialog"][data-assistant-widget]').waitFor();
 }
 report.widget.select = await probeSelect();
 
+// A new tab: sessionStorage is per tab, so the widget's pick above must not
+// colour what the page shows untouched.
+page = await context.newPage();
+wirePage(page);
 await page.goto(ORIGIN + '/assistant', { waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Switch model' }).waitFor();
-report.page = { menu: await probeMenu('page'), escape: await probeEscape() };
+report.page = { default: await probeDefault(), menu: await probeMenu('page'), escape: await probeEscape() };
 report.page.select = await probeSelect();
 
 report.errors = errors;
