@@ -20,6 +20,12 @@ import { AssistantChatPane } from "./assistant-chat";
  * modal and would otherwise treat a click here as "outside" and close
  * themselves, so both surfaces carry data-assistant-widget, which
  * DialogContent checks before honouring an outside interaction.
+ *
+ * Anything that pops out of the panel — the model menu, entity popovers,
+ * tooltips — is portaled to <body> and therefore competes with the panel on
+ * z-index alone, so those layers sit at z-[70] (ui/dropdown, popover, select,
+ * tooltip). At z-50 the menu opened *behind* this panel: still clickable,
+ * because Radix turns pointer events off everywhere else, but invisible.
  */
 export function AssistantWidget() {
   const { t } = useTranslation();
@@ -31,11 +37,14 @@ export function AssistantWidget() {
     queryFn: async () => unwrap(await api.GET("/assistant")),
   });
 
-  // Escape closes the panel from anywhere.
+  // Escape closes the panel from anywhere — unless a menu or dialog inside
+  // it already took the key. Radix dismisses its layer in a capture-phase
+  // listener and marks the event, so honouring it here would close the menu
+  // and the whole panel in one press.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape" && !e.defaultPrevented) setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

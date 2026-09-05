@@ -65,7 +65,7 @@ export function NotificationsBell() {
         <PopoverPrimitive.Content
           align="end"
           sideOffset={8}
-          className="bg-overlay border-edge z-50 w-[calc(100vw-2rem)] max-w-sm rounded-xl border shadow-3 animate-[hh-pop-in_150ms_var(--ease-out-quick)]"
+          className="bg-overlay border-edge z-[70] w-[calc(100vw-2rem)] max-w-sm rounded-xl border shadow-3 animate-[hh-pop-in_150ms_var(--ease-out-quick)]"
         >
           <div className="border-edge flex items-center justify-between border-b px-4 py-3">
             <h3 className="text-fg text-sm font-semibold">{t("notifications.title")}</h3>

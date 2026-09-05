@@ -5,6 +5,12 @@ import { cn } from "@/lib/utils";
 export const Dropdown = DropdownPrimitive.Root;
 export const DropdownTrigger = DropdownPrimitive.Trigger;
 
+/**
+ * Popups sit at z-[70]: above dialogs (z-50) and the floating assistant
+ * panel (z-[55]), which a menu opened from inside that panel would otherwise
+ * paint behind. Toasts stay at z-[60]; a menu the user just opened wins over
+ * a notice that happens to arrive. Popover, Select, and Tooltip match.
+ */
 export function DropdownContent({
   className,
   sideOffset = 6,
@@ -15,7 +21,7 @@ export function DropdownContent({
       <DropdownPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "bg-overlay border-edge z-50 min-w-44 rounded-lg border p-1 shadow-2",
+          "bg-overlay border-edge z-[70] min-w-44 rounded-lg border p-1 shadow-2",
           "animate-[hh-pop-in_140ms_var(--ease-out-quick)]",
           className,
         )}
@@ -77,7 +83,7 @@ export function DropdownSubContent({
       <DropdownPrimitive.SubContent
         sideOffset={4}
         className={cn(
-          "bg-overlay border-edge z-50 min-w-44 rounded-lg border p-1 shadow-2",
+          "bg-overlay border-edge z-[70] min-w-44 rounded-lg border p-1 shadow-2",
           "animate-[hh-pop-in_140ms_var(--ease-out-quick)]",
           className,
         )}

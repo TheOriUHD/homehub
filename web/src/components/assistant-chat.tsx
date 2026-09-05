@@ -30,7 +30,7 @@ import {
   X,
 } from "lucide-react";
 import { api, isApiError, unwrap, type HaEntity } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, randomId } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { ConfirmDialog } from "@/ui/confirm";
@@ -117,12 +117,14 @@ const toolLabel = (name: string) => name.replace(/_/g, " ");
 /**
  * conversationId scopes the web chat to one app session: sessionStorage
  * survives navigation and reloads within the running app but is gone once the
- * app is fully closed — a fresh open starts a fresh conversation.
+ * app is fully closed — a fresh open starts a fresh conversation. The id is
+ * opaque to the server, so it need not be a UUID — and crypto.randomUUID does
+ * not exist on the plain-http LAN origin, where it took the whole pane down.
  */
 function conversationId(): string {
   let id = sessionStorage.getItem("hh-assistant-conversation");
   if (!id) {
-    id = crypto.randomUUID();
+    id = randomId(32);
     sessionStorage.setItem("hh-assistant-conversation", id);
   }
   return id;
