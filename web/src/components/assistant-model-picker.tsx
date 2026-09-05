@@ -152,7 +152,17 @@ export function AssistantModelPicker({ compact }: { compact?: boolean }) {
             <ChevronDown className="size-3.5 shrink-0 opacity-60" />
           </button>
         </DropdownTrigger>
-        <DropdownContent align="start" side="top" className={cn("w-72", compact && "w-64")}>
+        {/* Capped to the room above the composer: a phone with the keyboard up
+            has far less than the list wants, and a menu that overflows the
+            viewport is a menu with its top entries out of reach. */}
+        <DropdownContent
+          align="start"
+          side="top"
+          className={cn(
+            "max-h-[var(--radix-dropdown-menu-content-available-height)] w-72 overflow-y-auto",
+            compact && "w-64",
+          )}
+        >
           {autoAvailable && (
             <DropdownItem onSelect={() => select(MODEL_AUTO)} className="items-start gap-2.5 py-2">
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">

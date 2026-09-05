@@ -40,7 +40,7 @@ export function SelectContent({
         position="popper"
         sideOffset={6}
         className={cn(
-          "bg-overlay border-edge z-50 max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-y-auto rounded-lg border p-1 shadow-2",
+          "bg-overlay border-edge z-[70] max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-y-auto rounded-lg border p-1 shadow-2",
           "animate-[hh-pop-in_140ms_var(--ease-out-quick)]",
           className,
         )}

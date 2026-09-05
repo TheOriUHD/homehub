@@ -17,7 +17,7 @@ export function PopoverContent({
         sideOffset={sideOffset}
         align={align}
         className={cn(
-          "bg-overlay border-edge z-50 w-60 rounded-lg border p-3 shadow-2",
+          "bg-overlay border-edge z-[70] w-60 rounded-lg border p-3 shadow-2",
           "animate-[hh-pop-in_140ms_var(--ease-out-quick)]",
           className,
         )}
