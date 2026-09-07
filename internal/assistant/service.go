@@ -79,6 +79,13 @@ every message with it like a form letter:
   "Printer's been down about 25 minutes, Sir — Klippy stopped responding."
   "Nothing's on fire, Sir. Tank's the only thing worth a look."
 
+Some things you propose have to be approved before they run — a command that changes a
+machine, for one. When that happens the bridge holds it and the person answers /yes to run
+it or /no to drop it. Say in one line what you are about to run and why, name the two
+replies once, and stop. Do not chase them for the yes. A /no is information, not a dead
+end: give them the next best option, or say plainly that there wasn't one and what happens
+if it's left alone.
+
 This is a phone, not the app:
 - Lead with the answer. No preamble, no restating the question.
 - Two or three sentences for most things. A list only when the answer genuinely is a list,
@@ -159,9 +166,28 @@ type Event struct {
 // pendingToolResult is what the model sees when a tool queued a write. It has
 // to convey "not yet" WITHOUT convincing the model it failed — an earlier
 // wording made it announce that it couldn't do the thing at all.
-const pendingToolResult = "QUEUED — awaiting the user's one-click approval, which is a normal part of this flow, NOT a refusal or a failure. " +
+const pendingToolResult = "QUEUED — awaiting the user's approval, which is a normal part of this flow, NOT a refusal or a failure. " +
 	"Tell the user plainly what you are about to run and why, in one or two sentences. " +
 	"Do NOT say you are unable to do it, and do NOT report a result yet: you will receive the real output as soon as they approve, and you finish the answer then."
+
+// pendingToolResultFor adds the gesture THIS surface actually offers. A chat
+// has no confirmation card, and a model that tells someone on their phone to
+// "click approve below" has sent them looking for a button that is not there.
+func pendingToolResultFor(access Access) string {
+	if channelOf(access) == store.AssistantChannelTelegram {
+		return pendingToolResult + " This is a chat, so there is no button: they approve by replying /yes and turn it down with /no. Tell them so in your own words."
+	}
+	return pendingToolResult + " They approve with one click on the confirmation card below your message."
+}
+
+// readyToRun is the stand-in answer when a model queues an action and says
+// nothing at all — rare, but it must still point at the right gesture.
+func readyToRun(access Access) string {
+	if channelOf(access) == store.AssistantChannelTelegram {
+		return "Ready to run — reply /yes and I'll report back, or /no to drop it."
+	}
+	return "Ready to run — approve below and I'll report back."
+}
 
 // TurnInput places a turn in the conversation tree.
 type TurnInput struct {
@@ -196,7 +222,8 @@ func (s *Service) RunTurnStream(ctx context.Context, provider Provider, cfg Conf
 	if err != nil {
 		return err
 	}
-	return s.runLoop(ctx, provider, cfg, access, turns, *parent, emit)
+	_, err = s.runLoop(ctx, provider, cfg, access, turns, *parent, emit)
+	return err
 }
 
 // ActionOutcome is what one approved action actually did — the receipt the
@@ -219,13 +246,51 @@ func (s *Service) RunActionOutcomes(
 	parentID int64,
 	outcomes []ActionOutcome,
 	emit func(Event),
-) error {
+) (TurnResult, error) {
 	turns, err := s.threadTurns(ctx, access, parentID)
 	if err != nil {
-		return err
+		return TurnResult{}, err
 	}
 	turns = append(turns, Turn{Role: "user", Text: outcomePrompt(outcomes)})
 	return s.runLoop(ctx, provider, cfg, access, turns, parentID, emit)
+}
+
+// RunActionsDeclined resumes a paused turn the other way: the user said no.
+// The model is told so and answers again, because the person still has the
+// problem they asked about — a refusal is the start of the next suggestion,
+// not the end of the exchange.
+func (s *Service) RunActionsDeclined(
+	ctx context.Context,
+	provider Provider,
+	cfg Config,
+	access Access,
+	parentID int64,
+	declined []PendingAction,
+	emit func(Event),
+) (TurnResult, error) {
+	turns, err := s.threadTurns(ctx, access, parentID)
+	if err != nil {
+		return TurnResult{}, err
+	}
+	turns = append(turns, Turn{Role: "user", Text: declinePrompt(declined)})
+	return s.runLoop(ctx, provider, cfg, access, turns, parentID, emit)
+}
+
+// declinePrompt frames a refusal for the model. Arriving in a user-role turn
+// like the outcome prompt, it says what happened and what a useful answer
+// looks like: the point is not to apologise — the person still has the
+// problem they asked about, so the next line should be what else can be done.
+func declinePrompt(declined []PendingAction) string {
+	var b strings.Builder
+	b.WriteString("[NOT FROM THE USER — system note] The user DECLINED the action(s) below. They were NOT run and are now discarded: do not run them, retry them, or ask a second time. ")
+	b.WriteString("Answer as if they had just said no to your face. Acknowledge it in one line, without apologising and without repeating the whole proposal. ")
+	b.WriteString("Then be useful: say what else can be done. A read-only command that would show much of the same thing, a narrower or safer version of what you proposed, the steps they could take by hand instead, or — if it really was the only way — say that plainly and what happens if nothing is done. ")
+	b.WriteString("If the likely reason for the no is that your command was broader than the question, say what a narrower one would look like. Keep it to a few sentences.\n\n")
+	b.WriteString("Declined:\n")
+	for _, a := range declined {
+		b.WriteString("- " + a.Summary + "\n")
+	}
+	return b.String()
 }
 
 // outcomeMarker fences approved-action output so the model can tell where
@@ -384,6 +449,18 @@ func normalizeTurns(turns []Turn) []Turn {
 	return rest
 }
 
+// TurnResult is what one completed turn produced: the answer, where it landed
+// in the thread, the tools it used, and anything it queued for approval. The
+// streaming caller has already emitted all of it and ignores the value; a
+// chat surface needs it, because it has to hold the proposal itself and ask
+// for a yes in words.
+type TurnResult struct {
+	Reply     string
+	MessageID int64
+	Steps     []StepInfo
+	Pending   []PendingAction
+}
+
 // runLoop is the shared tool loop behind both a fresh turn and a resumed one:
 // call the model, run whatever tools it asks for, repeat until it answers,
 // then persist the reply as a child of parentID.
@@ -395,7 +472,7 @@ func (s *Service) runLoop(
 	turns []Turn,
 	parentID int64,
 	emit func(Event),
-) error {
+) (TurnResult, error) {
 	// Wall clock for the whole turn: every model round and every tool call
 	// inside it, which is what the reader experienced as "the response".
 	started := time.Now()
@@ -410,7 +487,7 @@ func (s *Service) runLoop(
 	for round := 0; ; round++ {
 		reply, err = provider.Chat(ctx, cfg.Model, systemPrompt(access), turns, defs)
 		if err != nil {
-			return err
+			return TurnResult{}, err
 		}
 		total.Add(reply.Usage)
 		last := len(reply.Calls) == 0 || round >= maxToolRounds
@@ -432,7 +509,7 @@ func (s *Service) runLoop(
 				emit(Event{Type: "tool_result", Tool: call.Name, IsError: true})
 			} else if pa, ok := raw.(*PendingAction); ok {
 				pending = append(pending, *pa)
-				results = append(results, ToolResult{ID: call.ID, Content: pendingToolResult})
+				results = append(results, ToolResult{ID: call.ID, Content: pendingToolResultFor(access)})
 				emit(Event{Type: "tool_result", Tool: call.Name})
 			} else {
 				out, _ := json.Marshal(raw)
@@ -446,7 +523,7 @@ func (s *Service) runLoop(
 
 	final := strings.TrimSpace(reply.Text)
 	if final == "" && len(pending) > 0 {
-		final = "Ready to run — approve below and I'll report back."
+		final = readyToRun(access)
 	}
 	if final == "" {
 		final = "(no reply)"
@@ -471,22 +548,29 @@ func (s *Service) runLoop(
 	msgID, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation,
 		"assistant", final, trace, &parentID, usage)
 	if err != nil {
-		return err
+		return TurnResult{}, err
 	}
 	if len(pending) > 0 {
 		emit(Event{Type: "confirm", Actions: pending, MessageID: msgID})
 	}
 	emit(Event{Type: "done", MessageID: msgID})
-	return nil
+	return TurnResult{Reply: final, MessageID: msgID, Steps: steps, Pending: pending}, nil
 }
 
-// RunTurn executes one user message without streaming — the Telegram path.
-// That surface never branches, so each message simply chains onto the last.
-// Both sides of the exchange are persisted before returning.
-func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, access Access, text string) (string, []StepInfo, error) {
+// RunTurn executes one user message without streaming — the Telegram bridge
+// and the non-streaming chat endpoint. Those surfaces never branch, so each
+// message simply chains onto the last. Both sides of the exchange are
+// persisted before returning.
+//
+// It runs the SAME loop as the streaming path (with a no-op emit) rather than
+// a second copy of it. The copy it replaced called the toolbox's string entry
+// point, which JSON-encoded a queued action into the tool result: on Telegram
+// the model read its own proposal back as though the command had run, and
+// reported an outcome that never happened.
+func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, access Access, text string) (TurnResult, error) {
 	history, err := s.Store.ListAssistantMessages(ctx, access.UserID, channelOf(access), access.Conversation, historyLimit(access))
 	if err != nil {
-		return "", nil, err
+		return TurnResult{}, err
 	}
 	turns := append(normalizeTurns(historyTurns(history)), Turn{Role: "user", Text: text})
 
@@ -494,61 +578,12 @@ func (s *Service) RunTurn(ctx context.Context, provider Provider, cfg Config, ac
 	if n := len(history); n > 0 {
 		parent = &history[n-1].ID
 	}
-	userID, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation, "user", text, nil, parent, nil)
+	userMsgID, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation,
+		"user", text, nil, parent, nil)
 	if err != nil {
-		return "", nil, err
+		return TurnResult{}, err
 	}
-
-	started := time.Now()
-	defs := s.Toolbox.Defs()
-	var steps []StepInfo
-	var reply Reply
-	var total Usage
-	for round := 0; ; round++ {
-		reply, err = provider.Chat(ctx, cfg.Model, systemPrompt(access), turns, defs)
-		if err != nil {
-			return "", steps, err
-		}
-		total.Add(reply.Usage)
-		if len(reply.Calls) == 0 || round >= maxToolRounds {
-			break
-		}
-		turns = append(turns, Turn{Role: "assistant", Text: reply.Text, Calls: reply.Calls})
-		results := make([]ToolResult, 0, len(reply.Calls))
-		for _, call := range reply.Calls {
-			out, runErr := s.Toolbox.Run(ctx, access, call.Name, call.Input)
-			step := StepInfo{Tool: call.Name, Input: call.Input}
-			if runErr != nil {
-				step.IsError = true
-				results = append(results, ToolResult{ID: call.ID, Content: runErr.Error(), IsError: true})
-			} else {
-				results = append(results, ToolResult{ID: call.ID, Content: out})
-			}
-			steps = append(steps, step)
-		}
-		turns = append(turns, Turn{Role: "user", Results: results})
-	}
-
-	final := strings.TrimSpace(reply.Text)
-	if final == "" {
-		final = "(no reply)"
-	}
-	var trace json.RawMessage
-	if len(steps) > 0 {
-		trace, _ = json.Marshal(steps)
-	}
-	usage := &store.AssistantUsage{
-		Model: cfg.Model, InputTokens: total.PromptTokens(), OutputTokens: total.OutputTokens,
-		DurationMs: time.Since(started).Milliseconds(),
-	}
-	if cost, ok := EstimateCost(cfg.Model, total); ok {
-		usage.CostUsd = &cost
-	}
-	if _, err := s.Store.AddAssistantMessage(ctx, access.UserID, channelOf(access), access.Conversation,
-		"assistant", final, trace, &userID, usage); err != nil {
-		return "", steps, err
-	}
-	return final, steps, nil
+	return s.runLoop(ctx, provider, cfg, access, turns, userMsgID, func(Event) {})
 }
 
 // channelOf defaults an unset channel to the web surface.

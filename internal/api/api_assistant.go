@@ -258,7 +258,8 @@ func (s *Server) AssistantChat(ctx context.Context, req AssistantChatRequestObje
 		return AssistantChat400JSONResponse{BadRequestJSONResponse(errBody("empty_message", "say something"))}, nil
 	}
 
-	reply, steps, err := svc.RunTurn(ctx, provider, cfg, s.assistantAccess(ctx, id), message)
+	turn, err := svc.RunTurn(ctx, provider, cfg, s.assistantAccess(ctx, id), message)
+	reply, steps := turn.Reply, turn.Steps
 	toolNames := make([]string, 0, len(steps))
 	for _, step := range steps {
 		toolNames = append(toolNames, step.Tool)
