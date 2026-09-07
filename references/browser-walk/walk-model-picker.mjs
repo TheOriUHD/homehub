@@ -1,21 +1,10 @@
-import { chromium } from 'playwright-core';
-import fs from 'node:fs';
-import path from 'node:path';
-
-const DIST = process.argv[2] || '/root/homehub/web/dist';
-const OUT = process.argv[3] || '.';
-fs.mkdirSync(OUT, { recursive: true });
-const ORIGIN = process.env.ORIGIN || 'https://homehub.walk';
-
-const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const stubs = JSON.parse(fs.readFileSync(new URL('./stubs.json', import.meta.url)));
-const routes = Object.entries(stubs)
-  .map(([k, v]) => {
-    const [method, tpl] = k.split(' ');
-    const re = new RegExp('^' + tpl.split(/\{[^}]+\}/).map(esc).join('[^/]+') + '$');
-    return { method, tpl, re, ...v, params: (tpl.match(/\{/g) || []).length };
-  })
-  .sort((a, b) => a.params - b.params || b.tpl.length - a.tpl.length);
+// Is the assistant's model picker visible, and does picking a model work?
+//
+// The menu is portaled to <body>, so it competes with the floating assistant
+// widget on z-index alone. It once opened BEHIND that panel: still clickable,
+// because Radix turns pointer events off everywhere else while a menu is open,
+// but invisible. Hence the paint probe below rather than a visibility check.
+import { openApp, report } from './harness.mjs';
 
 const models = [
   { id: 'claude-haiku-4-5', label: 'Haiku 4.5', blurb: 'Fast, for routine questions', autoLane: 'basic' },
@@ -23,58 +12,21 @@ const models = [
   { id: 'claude-opus-5', label: 'Opus 5', blurb: 'Deep reasoning', tier: 'premium', costNote: 'About 5x the cost of Sonnet' },
   { id: 'claude-fable-5', label: 'Fable 5', blurb: 'Frontier model', tier: 'ultra', costNote: 'About 25x the cost of Sonnet' },
 ];
-const overrides = {
-  'GET /auth/me': (b) => ({
-    ...b,
-    user: { ...b.user, username: 'walk', displayName: 'Walk' },
-    grants: [{ selector: '*', effect: 'allow', levels: ['view', 'control', 'configure', 'delete'] }],
-    viewAsRoleId: null,
-  }),
-  'GET /assistant': (b) => ({
-    ...b, enabled: true, provider: 'anthropic', model: 'claude-sonnet-5', keySet: true, canConfigure: true,
-    autoAvailable: process.env.AUTO_AVAILABLE !== '0', autoBasic: 'claude-haiku-4-5', autoAdvanced: 'claude-sonnet-5',
-    providers: [{ id: 'anthropic', label: 'Anthropic', kind: 'cloud', requiresKey: true, defaultModel: 'claude-sonnet-5', models }],
-  }),
-};
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff', '.json': 'application/json', '.ico': 'image/x-icon', '.webp': 'image/webp' };
 
-const unmatched = new Set();
-const errors = [];
-const posts = [];
-const browser = await chromium.launch();
-const [vw, vh] = (process.env.VIEWPORT || '1440x900').split('x').map(Number);
-const context = await browser.newContext({ viewport: { width: vw, height: vh } });
-const THEME = process.env.THEME || 'light';
-await context.addInitScript(([k, theme]) => { localStorage.setItem(k, theme); localStorage.setItem('hh-lang-chosen', '1'); }, ['homehub-theme', THEME]);
-await context.route('**/*', async (route) => {
-  const req = route.request();
-  const u = new URL(req.url());
-  if (u.origin !== ORIGIN) return route.abort();
-  const p = u.pathname;
-  if (p.startsWith('/api/')) {
-    const apiPath = p.slice(4);
-    if (req.method() === 'POST' && apiPath.startsWith('/assistant')) posts.push({ path: apiPath, body: req.postDataJSON() });
-    const hit = routes.find((r) => r.method === req.method() && r.re.test(apiPath));
-    if (!hit) {
-      unmatched.add(req.method() + ' ' + apiPath);
-      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    }
-    let body = hit.body;
-    const ov = overrides[hit.method + ' ' + hit.tpl];
-    if (ov) body = ov(body);
-    return route.fulfill({ status: hit.status, contentType: 'application/json', body: body === null ? '' : JSON.stringify(body) });
-  }
-  let file = path.join(DIST, p);
-  if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(DIST, 'index.html');
-  return route.fulfill({ status: 200, contentType: types[path.extname(file)] || 'application/octet-stream', body: fs.readFileSync(file) });
+const app = await openApp({
+  dist: process.argv[2] || '/root/homehub/web/dist',
+  out: process.argv[3] || '.',
+  overrides: {
+    'GET /assistant': (b) => ({
+      ...b, enabled: true, provider: 'anthropic', model: 'claude-sonnet-5', keySet: true, canConfigure: true,
+      autoAvailable: process.env.AUTO_AVAILABLE !== '0',
+      autoBasic: 'claude-haiku-4-5', autoAdvanced: 'claude-sonnet-5',
+      providers: [{ id: 'anthropic', label: 'Anthropic', kind: 'cloud', requiresKey: true, defaultModel: 'claude-sonnet-5', models }],
+    }),
+  },
 });
-
-let page = await context.newPage();
-function wirePage(p) {
-  p.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
-  p.on('console', (m) => { if (m.type() === 'error' && !/WebSocket|ws:\/\//.test(m.text())) errors.push('console: ' + m.text().slice(0, 200)); });
-}
-wirePage(page);
+let { page, goto, posts, out: OUT } = app;
+const path = await import('node:path');
 
 /** What is painted on top at the menu's centre, judged with pointer-events
  *  forced on — Radix turns them off on <body> while a menu is open, which is
@@ -112,7 +64,7 @@ async function probeMenu(label) {
       menuScrollable: menu.scrollHeight > menu.clientHeight,
     };
   });
-  await page.screenshot({ path: path.join(OUT, `${label}-menu.png`) });
+  await page.screenshot({ path: path.default.join(OUT, `${label}-menu.png`) });
   return r;
 }
 
@@ -154,29 +106,24 @@ async function probeSelect() {
   return out;
 }
 
-const report = { dist: DIST, theme: THEME, viewport: [vw, vh], autoAvailable: process.env.AUTO_AVAILABLE !== '0' };
-await page.goto(ORIGIN + '/', { waitUntil: 'domcontentloaded' });
-const keep = page.getByRole('button', { name: 'Keep English' });
-if (await keep.isVisible({ timeout: 3000 }).catch(() => false)) await keep.click();
+const report_ = {};
+await goto('/');
 await page.getByRole('button', { name: 'Open assistant' }).click();
 await page.locator('[role="dialog"][data-assistant-widget]').waitFor();
-report.widget = { default: await probeDefault(), menu: await probeMenu('widget'), escape: await probeEscape() };
-if (!report.widget.escape.widgetStillOpen) {
+report_.widget = { default: await probeDefault(), menu: await probeMenu('widget'), escape: await probeEscape() };
+if (!report_.widget.escape.widgetStillOpen) {
   await page.getByRole('button', { name: 'Open assistant' }).click();
   await page.locator('[role="dialog"][data-assistant-widget]').waitFor();
 }
-report.widget.select = await probeSelect();
+report_.widget.select = await probeSelect();
 
 // A new tab: sessionStorage is per tab, so the widget's pick above must not
 // colour what the page shows untouched.
-page = await context.newPage();
-wirePage(page);
-await page.goto(ORIGIN + '/assistant', { waitUntil: 'domcontentloaded' });
+page = await app.context.newPage();
+app.watch(page);
+await goto('/assistant', page);
 await page.getByRole('button', { name: 'Switch model' }).waitFor();
-report.page = { default: await probeDefault(), menu: await probeMenu('page'), escape: await probeEscape() };
-report.page.select = await probeSelect();
+report_.page = { default: await probeDefault(), menu: await probeMenu('page'), escape: await probeEscape() };
+report_.page.select = await probeSelect();
 
-report.errors = errors;
-report.unmatchedApi = [...unmatched];
-console.log(JSON.stringify(report, null, 1));
-await browser.close();
+await report(app, report_);

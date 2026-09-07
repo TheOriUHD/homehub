@@ -2968,6 +2968,7 @@
       "autoBlurb": "Regelbasiert: {{basic}} für Abfragen und Befehle, {{advanced}} sobald eine Frage Deutung braucht."
     },
     "modelHint": "Der Modellname, den dein Provider erwartet.",
+    "modelLabel": "Modell",
     "apiKey": "API-Schlüssel",
     "apiKeyHint": "Verschlüsselt im Tresor gespeichert, wird nie wieder angezeigt.",
     "apiKeySetHint": "Ein Schlüssel ist gespeichert. Gib einen neuen ein, um ihn zu ersetzen, oder lass das Feld leer, um ihn zu behalten.",
@@ -3011,11 +3012,6 @@
     "endpointOkModels": "Erreichbar — geladen: {{models}}.",
     "endpointOkEmpty": "Erreichbar, aber noch kein Modell geladen.",
     "useModel": "{{model}} verwenden",
-    "lmGuideTitle": "LM Studio verbinden",
-    "lmGuide1": "Öffne in LM Studio den Developer-Tab und starte den Server.",
-    "lmGuide2": "Aktiviere „Serve on Local Network“ — sonst lauscht er nur auf dieser einen Maschine.",
-    "lmGuide3": "Lade ein Modell (eines mit Tool-Use beantwortet Fragen am besten).",
-    "lmGuide4": "Der Endpunkt ist http://<IP dieser Maschine>:1234/v1 — finde ihn oben oder teste ihn hier.",
     "apiKeyStoredHint": "Für {{provider}} ist ein Schlüssel gespeichert — jeder Provider hat seinen eigenen. Gib einen neuen ein, um ihn zu ersetzen, oder lass das Feld leer, um ihn zu behalten.",
     "scanLocked": "gefunden — braucht seinen API-Schlüssel (unten eingeben, dann testen)",
     "telegram": {
@@ -3113,6 +3109,214 @@
       "hint": "Schreibt die Statusmeldungen an Telegram und entscheidet, wann eine Wiederholung keine Unterbrechung wert ist. Läuft unbeaufsichtigt, einmal pro Zustand — klein halten.",
       "auto": "Kleines Modell dieses Anbieters (empfohlen)",
       "recommended": "klein"
+    },
+    "guide": {
+      "title": "Schritt für Schritt einrichten",
+      "fillIn": "Oben eintragen",
+      "mode": {
+        "single": "Ein Modell",
+        "singleHint": "Ein Modell beantwortet alles. Das Einfachste, was funktioniert — und auf einer einzelnen Maschine das Richtige.",
+        "auto": "Auto-Modus",
+        "autoHint": "Zwei Modelle: ein schnelles für Abfragen und Befehle, ein stärkeres, wenn eine Frage Deutung braucht. HomeHub wählt pro Nachricht."
+      },
+      "hub": {
+        "title": "In HomeHub eintragen",
+        "bodySingle": "Base URL: {{baseUrl}} · Modell: {{model}} — mit der Adresse deiner Maschine statt des Beispiels. Danach unten auf Endpunkt testen drücken, um zu prüfen, ob HomeHub drankommt.",
+        "bodyAuto": "Base URL: {{baseUrl}} · Schnelles Modell: {{basic}} · Starkes Modell: {{advanced}} — mit der Adresse deiner Maschine statt des Beispiels. Danach unten auf Endpunkt testen drücken."
+      },
+      "note": {
+        "reachable": "HomeHub ruft diese Adresse vom Server aus auf, auf dem es läuft — nicht aus deinem Browser. 127.0.0.1 geht nur, wenn das Modell auf genau diesem Server läuft; sonst nimm die Netzwerkadresse der Maschine.",
+        "tools": "Nimm ein Modell, das Tool-Calling kann. Ohne das kann der Assistent nur plaudern: er kommt nicht an deine Systeme und rät stattdessen.",
+        "oneEndpoint": "Der Auto-Modus entscheidet pro Nachricht, also müssen beide Modelle unter derselben Base URL antworten — unter genau den Namen, die du einträgst."
+      },
+      "ollama": {
+        "single": {
+          "install": {
+            "title": "Ollama installieren",
+            "body": "Auf der Maschine, die das Modell ausführen soll. Für macOS und Windows gibt es Installer auf ollama.com, unter Linux ist es eine Zeile."
+          },
+          "pull": {
+            "title": "Ein Modell laden",
+            "body": "qwen3:8b ist ein guter Anfang: klein genug für eine bescheidene GPU und kann Tools nutzen. Ein größeres Modell läuft genauso."
+          },
+          "expose": {
+            "title": "HomeHub Zugriff geben",
+            "body": "Ollama hört standardmäßig nur auf der eigenen Maschine. Diesen Schritt kannst du überspringen, wenn Ollama auf dem HomeHub-Server selbst läuft."
+          },
+          "check": {
+            "title": "Antwortet es?",
+            "body": "Von einer anderen Maschine ausführen, mit der Adresse deiner Ollama-Maschine. Das geladene Modell sollte in der Liste stehen."
+          }
+        },
+        "auto": {
+          "pullTwo": {
+            "title": "Zwei Modelle laden",
+            "body": "Ein kleines für Abfragen und Befehle, ein größeres für Fragen, die Nachdenken brauchen. Beide müssen Tools können."
+          },
+          "expose": {
+            "title": "Zugriff geben und beide geladen halten",
+            "body": "Ollama bedient beide über eine Adresse und lädt jeweils das angefragte. Zwei gleichzeitig im Speicher zu halten erspart die Pause beim Wechsel — aber nur, wenn die Maschine genug RAM oder VRAM für beide hat."
+          },
+          "check": {
+            "title": "Sind beide da?",
+            "body": "Beide Namen sollten in der Liste auftauchen. Übernimm sie genau so."
+          }
+        }
+      },
+      "lmstudio": {
+        "single": {
+          "install": {
+            "title": "LM Studio installieren und ein Modell laden",
+            "body": "Über den Search-Tab. Auf der Karte eines Modells steht, ob es Tool-Use kann — nimm eines, das es kann."
+          },
+          "serve": {
+            "title": "Server starten",
+            "body": "Im Developer-Tab starten. „Serve on Local Network“ einschalten, sonst kommt nur diese eine Maschine dran."
+          },
+          "load": {
+            "title": "Modell laden",
+            "body": "Der Identifier neben dem geladenen Modell gehört ins Modell-Feld — nicht der schöne Name darüber."
+          },
+          "check": {
+            "title": "Antwortet es?",
+            "body": "Von einer anderen Maschine aus, mit der Adresse deiner LM-Studio-Maschine. Der Scan-Button oben findet es auch selbst."
+          }
+        },
+        "auto": {
+          "downloadTwo": {
+            "title": "Zwei Modelle laden",
+            "body": "Ein kleines schnelles und ein größeres. Beide brauchen Tool-Unterstützung."
+          },
+          "serveBoth": {
+            "title": "Beide bereitstellen",
+            "body": "Bei laufendem Server lädt LM Studio ein Modell, sobald eine Anfrage es beim Namen nennt — beide sind also über dieselbe Adresse erreichbar. Beide geladen zu lassen ist schneller, wenn der Speicher reicht."
+          },
+          "check": {
+            "title": "Beide Namen prüfen",
+            "body": "Beide Identifier sollten gelistet sein. Genau übernehmen — danach fragt der Auto-Modus."
+          }
+        }
+      },
+      "llamacpp": {
+        "single": {
+          "get": {
+            "title": "llama-server und eine Modelldatei besorgen",
+            "body": "Einen Release-Build aus dem llama.cpp-Projekt laden oder selbst kompilieren, und eine GGUF-Datei dort ablegen, wo der Server sie lesen kann."
+          },
+          "serve": {
+            "title": "Server starten",
+            "body": "--host 0.0.0.0 macht ihn von anderen Maschinen erreichbar. --jinja aktiviert das Chat-Template des Modells, und genau daran hängt Tool-Calling — ohne das kommt der Assistent an gar nichts."
+          },
+          "check": {
+            "title": "Antwortet es?",
+            "body": "llama.cpp bedient nur die eine Datei, mit der du es gestartet hast — der Modellname ist bloß ein Etikett."
+          }
+        },
+        "auto": {
+          "oneModelEach": {
+            "title": "Ein Server, ein Modell",
+            "body": "Ein llama-server-Prozess hält genau ein Modell, der Auto-Modus braucht aber beide unter einer Adresse — zwei Server auf zwei Ports reichen allein nicht. Setz den kleinen Proxy llama-swap davor, oder nimm Ollama, das kann es von Haus aus."
+          },
+          "swap": {
+            "title": "Beide Modelle für llama-swap beschreiben",
+            "body": "Es lauscht auf einem Port und startet den passenden llama-server für den angefragten Namen. Als llama-swap.yaml speichern, mit deinen eigenen Pfaden."
+          },
+          "run": {
+            "title": "Proxy starten",
+            "body": "Port 8080 antwortet jetzt für beide Namen; die Server dahinter starten bei Bedarf."
+          },
+          "check": {
+            "title": "Beide Namen prüfen",
+            "body": "Beide sollten gelistet sein."
+          }
+        }
+      },
+      "vllm": {
+        "single": {
+          "install": {
+            "title": "vLLM installieren",
+            "body": "Die meisten Modelle brauchen eine CUDA-GPU. Ein virtualenv hält es aus dem System-Python heraus."
+          },
+          "serve": {
+            "title": "Modell bereitstellen",
+            "body": "Die beiden Tool-Flags sind entscheidend: ohne sie ignoriert der Server Tools, und der Assistent kommt an keine Daten. Welcher Parser passt, hängt von der Modellfamilie ab — die vLLM-Doku listet den richtigen."
+          },
+          "check": {
+            "title": "Antwortet es?",
+            "body": "Der gemeldete Name ist der volle Modellpfad, den du bereitgestellt hast — genau der gehört ins Modell-Feld."
+          }
+        },
+        "auto": {
+          "oneModelEach": {
+            "title": "Ein Server, ein Modell",
+            "body": "Ein vLLM-Server hält das Modell, mit dem er gestartet wurde; der Auto-Modus braucht beide unter einer Adresse. Also zwei starten und eine gemeinsame Adresse davorsetzen."
+          },
+          "twoServers": {
+            "title": "Beide Modelle starten",
+            "body": "Zwei Server auf zwei Ports — auf derselben Maschine, wenn der Speicher reicht, sonst auf zweien."
+          },
+          "proxy": {
+            "title": "Eine Adresse davorsetzen",
+            "body": "Der LiteLLM-Proxy leitet nach dem Modellnamen in der Anfrage weiter, und genau den variiert der Auto-Modus. Als litellm.yaml speichern."
+          },
+          "run": {
+            "title": "Proxy starten",
+            "body": "Port 4000 antwortet jetzt für beide Namen, und diese Adresse trägst du in HomeHub ein."
+          }
+        }
+      },
+      "localai": {
+        "single": {
+          "run": {
+            "title": "LocalAI starten",
+            "body": "Docker ist der einfachste Weg. Für GPUs gibt es eigene Image-Tags."
+          },
+          "install": {
+            "title": "Ein Modell installieren",
+            "body": "http://deine-maschine:8080 im Browser öffnen und ein Modell aus der Gallery installieren. Nimm eines, dessen Beschreibung Function- oder Tool-Calling erwähnt."
+          },
+          "check": {
+            "title": "Antwortet es?",
+            "body": "Der Name aus dieser Liste gehört ins Modell-Feld."
+          }
+        },
+        "auto": {
+          "installTwo": {
+            "title": "Zwei Modelle installieren",
+            "body": "Aus derselben Gallery: ein kleines schnelles und ein größeres. Beide brauchen Tool-Unterstützung."
+          },
+          "sameEndpoint": {
+            "title": "Eine Adresse für beide",
+            "body": "LocalAI antwortet für alles Installierte über denselben Port und lädt ein Modell, sobald es angefragt wird. Es ist nichts weiter zu starten."
+          },
+          "check": {
+            "title": "Beide Namen prüfen",
+            "body": "Beide sollten gelistet sein; die Namen genau übernehmen."
+          }
+        }
+      },
+      "custom": {
+        "single": {
+          "requirements": {
+            "title": "Was HomeHub braucht",
+            "body": "Jeden Server, der die OpenAI-Chat-API spricht: POST /v1/chat/completions, mit Tool-Calling, erreichbar vom HomeHub-Server. Die Base URL ist der Teil, der auf /v1 endet."
+          },
+          "check": {
+            "title": "Antwortet es?",
+            "body": "Wenn hier Modelle gelistet werden, kommt HomeHub dran. Falls dein Endpunkt einen Key will, trag ihn unten ein."
+          }
+        },
+        "auto": {
+          "twoNames": {
+            "title": "Zwei Namen, eine Adresse",
+            "body": "Der Auto-Modus schickt mit jeder Nachricht einen Modellnamen mit — dein Endpunkt muss also für beide unter derselben Base URL antworten. Gateways wie LiteLLM oder LocalAI können das, ebenso jeder Reverse Proxy, der nach dem Modell-Feld weiterleitet."
+          },
+          "check": {
+            "title": "Beide Namen prüfen",
+            "body": "Beide sollten gelistet sein."
+          }
+        }
+      }
     }
   },
   "tools": {

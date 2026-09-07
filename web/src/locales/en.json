@@ -2968,6 +2968,7 @@
       "autoBlurb": "Routes by rule: {{basic}} for lookups and commands, {{advanced}} when a question needs interpretation."
     },
     "modelHint": "The model name your provider expects.",
+    "modelLabel": "Model",
     "apiKey": "API key",
     "apiKeyHint": "Stored encrypted in the vault, never shown again.",
     "apiKeySetHint": "A key is stored. Enter a new one to replace it, or leave empty to keep it.",
@@ -3011,11 +3012,6 @@
     "endpointOkModels": "Reachable — loaded: {{models}}.",
     "endpointOkEmpty": "Reachable, but no model is loaded yet.",
     "useModel": "Use {{model}}",
-    "lmGuideTitle": "Connecting LM Studio",
-    "lmGuide1": "In LM Studio, open the Developer tab and start the server.",
-    "lmGuide2": "Enable “Serve on Local Network” — otherwise it only listens on that machine.",
-    "lmGuide3": "Load a model (one that supports tool use answers questions best).",
-    "lmGuide4": "The endpoint is http://<that machine's IP>:1234/v1 — find it above or test it here.",
     "apiKeyStoredHint": "A key for {{provider}} is stored — each provider keeps its own. Enter a new one to replace it, or leave empty to keep it.",
     "scanLocked": "found — requires its API key (enter it below, then test)",
     "telegram": {
@@ -3113,6 +3109,214 @@
       "hint": "Writes the status messages sent to Telegram, and decides when a repeat is not worth an interruption. Runs unattended once per condition — keep it small.",
       "auto": "Small model for this provider (recommended)",
       "recommended": "small"
+    },
+    "guide": {
+      "title": "Set this up step by step",
+      "fillIn": "Fill these in above",
+      "mode": {
+        "single": "One model",
+        "singleHint": "One model answers everything. The simplest thing that works, and the right choice on a single machine.",
+        "auto": "Auto mode",
+        "autoHint": "Two models: a quick one for lookups and commands, a stronger one when a question needs thinking about. HomeHub picks per message."
+      },
+      "hub": {
+        "title": "Put it into HomeHub",
+        "bodySingle": "Base URL: {{baseUrl}} · Model: {{model}} — with your own machine's address instead of the example. Then press Test endpoint below to confirm HomeHub can reach it.",
+        "bodyAuto": "Base URL: {{baseUrl}} · Quick model: {{basic}} · Strong model: {{advanced}} — with your own machine's address instead of the example. Then press Test endpoint below."
+      },
+      "note": {
+        "reachable": "HomeHub dials this address from the server it runs on, not from your browser. 127.0.0.1 works only when the model runs on that same server — otherwise use the machine's own address on your network.",
+        "tools": "Pick a model that supports tool calling. Without it the assistant can only chat: it cannot read your systems, and it will guess at them.",
+        "oneEndpoint": "Auto mode chooses per message, so both models must answer at the same base URL, under the names you type in."
+      },
+      "ollama": {
+        "single": {
+          "install": {
+            "title": "Install Ollama",
+            "body": "On the machine that will run the model. macOS and Windows have installers on ollama.com; on Linux it is one line."
+          },
+          "pull": {
+            "title": "Download a model",
+            "body": "qwen3:8b is a good start: small enough for a modest GPU, and it can use tools. A larger model works exactly the same way."
+          },
+          "expose": {
+            "title": "Let HomeHub reach it",
+            "body": "Ollama listens only on its own machine by default. Skip this step if Ollama runs on the HomeHub server itself."
+          },
+          "check": {
+            "title": "Check it answers",
+            "body": "Run this from another machine, using your Ollama machine's address. The model you pulled should be in the list."
+          }
+        },
+        "auto": {
+          "pullTwo": {
+            "title": "Download two models",
+            "body": "A small one for lookups and commands, a larger one for questions that need reasoning. Both have to support tools."
+          },
+          "expose": {
+            "title": "Let HomeHub reach it, and keep both loaded",
+            "body": "Ollama serves both from one address and loads whichever is asked for. Holding two in memory avoids a pause on every switch — worth it only if the machine has the RAM or VRAM for both."
+          },
+          "check": {
+            "title": "Check both are there",
+            "body": "Both names should appear in the list. Copy them exactly as shown."
+          }
+        }
+      },
+      "lmstudio": {
+        "single": {
+          "install": {
+            "title": "Install LM Studio and download a model",
+            "body": "Use the Search tab. A model's card says whether it supports tool use — pick one that does."
+          },
+          "serve": {
+            "title": "Start the server",
+            "body": "Open the Developer tab and start it. Turn on “Serve on Local Network”, or nothing but that machine can reach it."
+          },
+          "load": {
+            "title": "Load the model",
+            "body": "The identifier shown next to the loaded model is exactly what goes in the model field — not the friendly name above it."
+          },
+          "check": {
+            "title": "Check it answers",
+            "body": "From another machine, using your LM Studio machine's address. The scan button above can also find it for you."
+          }
+        },
+        "auto": {
+          "downloadTwo": {
+            "title": "Download two models",
+            "body": "A small quick one and a larger one. Both need tool support."
+          },
+          "serveBoth": {
+            "title": "Serve both",
+            "body": "With the server running, LM Studio loads a model when a request names it, so both are reachable at one address. Keeping both loaded is faster when the memory is there."
+          },
+          "check": {
+            "title": "Check both names",
+            "body": "Both identifiers should be listed. Copy them exactly — they are what Auto mode will ask for."
+          }
+        }
+      },
+      "llamacpp": {
+        "single": {
+          "get": {
+            "title": "Get llama-server and a model file",
+            "body": "Download a release build from the llama.cpp project or compile it yourself, and put a GGUF model file where the server can read it."
+          },
+          "serve": {
+            "title": "Start the server",
+            "body": "--host 0.0.0.0 lets HomeHub reach it from another machine. --jinja turns on the model's own chat template, which is what makes tool calling work — without it the assistant cannot read anything."
+          },
+          "check": {
+            "title": "Check it answers",
+            "body": "llama.cpp serves the one file you started it with, so the model name is only a label — anything readable will do."
+          }
+        },
+        "auto": {
+          "oneModelEach": {
+            "title": "One server serves one model",
+            "body": "A llama-server process holds exactly one model, and Auto mode needs both under one address — two servers on two ports will not do on their own. Put the small llama-swap proxy in front, or use Ollama, which does this by itself."
+          },
+          "swap": {
+            "title": "Describe both models to llama-swap",
+            "body": "It listens on one port and starts the right llama-server for whichever name it is asked for. Save this as llama-swap.yaml, with your own paths."
+          },
+          "run": {
+            "title": "Start the proxy",
+            "body": "Port 8080 now answers for both names, and the servers behind it start on demand."
+          },
+          "check": {
+            "title": "Check both names",
+            "body": "Both should be listed."
+          }
+        }
+      },
+      "vllm": {
+        "single": {
+          "install": {
+            "title": "Install vLLM",
+            "body": "Most models need a CUDA GPU. A virtualenv keeps it out of the system Python."
+          },
+          "serve": {
+            "title": "Serve the model",
+            "body": "The two tool flags matter: without them the server ignores tools and the assistant cannot read your systems. Which parser to name depends on the model family — vLLM's docs list the right one for each."
+          },
+          "check": {
+            "title": "Check it answers",
+            "body": "The name it reports is the full model path you served, and that is what goes in the model field."
+          }
+        },
+        "auto": {
+          "oneModelEach": {
+            "title": "One server serves one model",
+            "body": "A vLLM server holds the model it was started with, and Auto mode needs both at one address. So run two, then put a single address in front of them."
+          },
+          "twoServers": {
+            "title": "Run both models",
+            "body": "Two servers on two ports — on the same machine if it has the memory, otherwise on two."
+          },
+          "proxy": {
+            "title": "Give them one address",
+            "body": "LiteLLM's proxy routes by the model name in the request, which is exactly what Auto mode varies. Save this as litellm.yaml."
+          },
+          "run": {
+            "title": "Start the proxy",
+            "body": "Port 4000 now answers for both names, and that address is the one HomeHub uses."
+          }
+        }
+      },
+      "localai": {
+        "single": {
+          "run": {
+            "title": "Start LocalAI",
+            "body": "Docker is the simplest way. There are GPU image tags if you have the hardware for one."
+          },
+          "install": {
+            "title": "Install a model",
+            "body": "Open http://your-machine:8080 in a browser and install a model from the gallery. Choose one whose description mentions function or tool calling."
+          },
+          "check": {
+            "title": "Check it answers",
+            "body": "The name in this list is what goes in the model field."
+          }
+        },
+        "auto": {
+          "installTwo": {
+            "title": "Install two models",
+            "body": "From the same gallery: a small quick one and a larger one. Both need tool support."
+          },
+          "sameEndpoint": {
+            "title": "One address serves both",
+            "body": "LocalAI answers for everything installed, on the same port, and loads a model when it is asked for. There is nothing extra to run."
+          },
+          "check": {
+            "title": "Check both names",
+            "body": "Both should be listed; copy the names exactly."
+          }
+        }
+      },
+      "custom": {
+        "single": {
+          "requirements": {
+            "title": "What HomeHub needs",
+            "body": "Any server speaking the OpenAI chat API: POST /v1/chat/completions, with tool calling, reachable from the HomeHub server. The base URL is the part ending in /v1."
+          },
+          "check": {
+            "title": "Check it answers",
+            "body": "If this lists models, HomeHub can talk to it. Add a key in the field below if your endpoint wants one."
+          }
+        },
+        "auto": {
+          "twoNames": {
+            "title": "Two names, one address",
+            "body": "Auto mode sends a model name with every message, so your endpoint has to answer for both of them at the same base URL. Gateways like LiteLLM or LocalAI do this, as does any reverse proxy that routes on the model field."
+          },
+          "check": {
+            "title": "Check both names",
+            "body": "Both should be listed."
+          }
+        }
+      }
     }
   },
   "tools": {

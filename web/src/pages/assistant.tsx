@@ -5,6 +5,7 @@ import { CircleCheck, CircleX, Radar, Send, Settings2, Sparkles } from "lucide-r
 import { api, isApiError, unwrap } from "@/lib/api";
 import { AssistantChatPane } from "@/components/assistant-chat";
 import { TelegramDialog } from "./assistant-telegram";
+import { LocalSetupGuide, hasLocalGuide, type GuideApply } from "./assistant-local-guide";
 import { Button } from "@/ui/button";
 import { Card, CardBody } from "@/ui/card";
 import { Dialog, DialogContent } from "@/ui/dialog";
@@ -167,6 +168,16 @@ function AssistantSettingsDialog({
     }
   };
 
+  // The guide's last step writes its example values into the form. Auto mode
+  // fills the plain model field as well: whatever does not route through Auto
+  // — the Telegram bridge above all — answers on that one.
+  const applyGuide = (v: GuideApply) => {
+    setBaseUrl(v.baseUrl);
+    setModel(v.model);
+    if (v.autoBasic !== undefined) setAutoBasic(v.autoBasic);
+    if (v.autoAdvanced !== undefined) setAutoAdvanced(v.autoAdvanced);
+  };
+
   const save = useMutation({
     mutationFn: async () => {
       unwrap(
@@ -196,6 +207,7 @@ function AssistantSettingsDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
+        wide
         title={t("assistant.settingsTitle")}
         footer={
           <>
@@ -247,7 +259,7 @@ function AssistantSettingsDialog({
               </Select>
             )}
           </Field>
-          <Field label={t("assistant.model")} hint={selected?.modelHint || t("assistant.modelHint")}>
+          <Field label={t("assistant.modelLabel")} hint={selected?.modelHint || t("assistant.modelHint")}>
             {(p) => <Input {...p} value={model} onChange={(e) => setModel(e.target.value)} />}
           </Field>
           {(selected?.kind === "local" || selected?.defaultBaseUrl) && (
@@ -324,6 +336,20 @@ function AssistantSettingsDialog({
               </div>
             </div>
           )}
+          {/* Running the model is the hard half, and it happens on another
+              machine entirely — so the guide covers that side too, and ends by
+              filling these fields in rather than asking for a retype. */}
+          {selected?.kind === "local" && hasLocalGuide(provider) && (
+            <LocalSetupGuide provider={provider} onApply={applyGuide} />
+          )}
+          {provider === "lmstudio" && (
+            <LmStudioFinder
+              onPick={(url, model) => {
+                setBaseUrl(url);
+                if (model) setModel(model);
+              }}
+            />
+          )}
           {selected?.kind === "local" && (
             <EndpointVerify
               baseUrl={baseUrl || selected?.defaultBaseUrl || ""}
@@ -331,25 +357,6 @@ function AssistantSettingsDialog({
               draftKey={apiKey}
               onModel={(m) => setModel(m)}
             />
-          )}
-          {provider === "lmstudio" && (
-            <>
-              <LmStudioFinder
-                onPick={(url, model) => {
-                  setBaseUrl(url);
-                  if (model) setModel(model);
-                }}
-              />
-              <div className="bg-bg-subtle border-edge rounded-lg border px-3 py-2.5">
-                <p className="text-fg mb-1 text-[12.5px] font-medium">{t("assistant.lmGuideTitle")}</p>
-                <ol className="text-fg-muted ml-4 list-decimal space-y-0.5 text-[12px]">
-                  <li>{t("assistant.lmGuide1")}</li>
-                  <li>{t("assistant.lmGuide2")}</li>
-                  <li>{t("assistant.lmGuide3")}</li>
-                  <li>{t("assistant.lmGuide4")}</li>
-                </ol>
-              </div>
-            </>
           )}
           <Field
             label={t("assistant.apiKey")}
