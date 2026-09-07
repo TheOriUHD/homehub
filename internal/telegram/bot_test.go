@@ -99,3 +99,155 @@ func TestLinkRejectedInGroupChat(t *testing.T) {
 		}
 	}
 }
+
+// fakeRunner stands in for the API server. Each turn method reports what it
+// was asked and answers with whatever the test set.
+type fakeRunner struct {
+	called  string
+	reply   string
+	pending []string
+	err     error
+}
+
+func (f *fakeRunner) RunAssistantTurnFor(context.Context, uuid.UUID, string) (string, []string, error) {
+	f.called = "turn"
+	return f.reply, f.pending, f.err
+}
+
+func (f *fakeRunner) ConfirmPendingFor(context.Context, uuid.UUID) (string, []string, error) {
+	f.called = "confirm"
+	return f.reply, f.pending, f.err
+}
+
+func (f *fakeRunner) DeclinePendingFor(context.Context, uuid.UUID) (string, []string, error) {
+	f.called = "decline"
+	return f.reply, f.pending, f.err
+}
+
+func (f *fakeRunner) SystemStatusFor(context.Context, uuid.UUID) (string, error) { return "", nil }
+
+// recorder captures every message the bot sends.
+func recorder(b *Bot, sent *[]string) {
+	b.client.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		body, _ := io.ReadAll(r.Body)
+		vals, _ := url.ParseQuery(string(body))
+		if text := vals.Get("text"); text != "" {
+			*sent = append(*sent, text)
+		}
+		return &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(strings.NewReader(`{"ok":true,"result":{}}`)),
+			Header:     make(http.Header),
+		}, nil
+	})
+}
+
+// A one-word reply answers a waiting proposal; anything longer is a fresh
+// instruction. "yes, and restart it too" approving the old command — while the
+// new half of the sentence is never heard — is the failure this guards.
+func TestBareAnswerOnlyTakesExactWords(t *testing.T) {
+	for _, word := range []string{"yes", "Yes", "y", "OK", "do it", "ja", " yes. "} {
+		if approve, ok := bareAnswer(word); !ok || !approve {
+			t.Errorf("%q should read as approval", word)
+		}
+	}
+	for _, word := range []string{"no", "N", "nope", "cancel", "nein"} {
+		if approve, ok := bareAnswer(word); !ok || approve {
+			t.Errorf("%q should read as a refusal", word)
+		}
+	}
+	for _, sentence := range []string{
+		"yes, and restart nginx too",
+		"no idea what that means",
+		"yes please run it on the other host as well",
+		"is the answer yes",
+		"",
+	} {
+		if _, ok := bareAnswer(sentence); ok {
+			t.Errorf("%q was taken as a bare answer; it is a new instruction", sentence)
+		}
+	}
+}
+
+// Approving and declining both go back to the agent — the refusal especially,
+// because the person still has the problem they asked about.
+func TestProposalAnswersReachTheAgent(t *testing.T) {
+	for _, tc := range []struct {
+		approve bool
+		want    string
+	}{{true, "confirm"}, {false, "decline"}} {
+		runner := &fakeRunner{reply: "Done, Sir."}
+		var sent []string
+		b := &Bot{Runner: runner}
+		recorder(b, &sent)
+		b.setAwaiting(4242, true)
+
+		b.answerProposal(context.Background(), "tok", 4242, uuid.New(), tc.approve)
+
+		if runner.called != tc.want {
+			t.Errorf("approve=%v called %q, want %q", tc.approve, runner.called, tc.want)
+		}
+		if len(sent) == 0 || !strings.Contains(sent[0], "Done, Sir.") {
+			t.Errorf("approve=%v did not relay the agent's answer: %q", tc.approve, sent)
+		}
+		if b.isAwaiting(4242) {
+			t.Errorf("approve=%v left the chat still waiting on an answered proposal", tc.approve)
+		}
+	}
+}
+
+// A /yes that finds nothing must say so. Silence would read as "it ran".
+func TestApprovingNothingSaysSo(t *testing.T) {
+	var sent []string
+	b := &Bot{Runner: &fakeRunner{err: ErrNoPending}}
+	recorder(b, &sent)
+	b.setAwaiting(7, true)
+
+	b.answerProposal(context.Background(), "tok", 7, uuid.New(), true)
+
+	if len(sent) != 1 || !strings.Contains(strings.ToLower(sent[0]), "nothing is waiting") {
+		t.Fatalf("reply = %q, want a plain 'nothing is waiting'", sent)
+	}
+	if b.isAwaiting(7) {
+		t.Error("the chat is still marked as waiting after an empty approval")
+	}
+}
+
+// The proposal arrives as its own message: a shell command survives it intact,
+// and the two replies that answer it are the last thing on the screen.
+func TestProposalIsSentSeparatelyAndNamesBothReplies(t *testing.T) {
+	var sent []string
+	b := &Bot{Runner: &fakeRunner{}}
+	recorder(b, &sent)
+
+	b.deliverTurn(context.Background(), "tok", 9, "I'd restart nginx to pick the config up.",
+		[]string{"Run on WebHost LXC: systemctl restart nginx"})
+
+	if len(sent) != 2 {
+		t.Fatalf("sent %d messages, want the answer and the proposal separately: %q", len(sent), sent)
+	}
+	proposal := sent[1]
+	for _, want := range []string{"systemctl restart nginx", "/yes", "/no"} {
+		if !strings.Contains(proposal, want) {
+			t.Errorf("proposal message is missing %q:\n%s", want, proposal)
+		}
+	}
+	if !b.isAwaiting(9) {
+		t.Error("a delivered proposal did not mark the chat as waiting")
+	}
+}
+
+// An answer with nothing queued must clear the flag, or a later bare "yes"
+// would be swallowed instead of reaching the agent as a message.
+func TestAnswerWithoutProposalStopsWaiting(t *testing.T) {
+	var sent []string
+	b := &Bot{Runner: &fakeRunner{}}
+	recorder(b, &sent)
+	b.setAwaiting(11, true)
+
+	b.deliverTurn(context.Background(), "tok", 11, "Everything's quiet.", nil)
+
+	if b.isAwaiting(11) {
+		t.Error("still waiting after a turn that proposed nothing")
+	}
+}

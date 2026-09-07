@@ -3,6 +3,8 @@ package assistant
 import (
 	"strings"
 	"testing"
+
+	"homehub/internal/store"
 )
 
 // The prompt used to state outright that the assistant had no SSH access,
@@ -98,5 +100,73 @@ func TestGatedModelsExplainTheirCost(t *testing.T) {
 		if m.Tier != TierStandard && m.CostNote == "" {
 			t.Errorf("%s is gated but says nothing about what it costs", m.ID)
 		}
+	}
+}
+
+// A chat has no approve button. Telling someone on their phone to "click
+// approve below" sends them looking for a control that does not exist, so the
+// queued-action note names the gesture the surface actually offers.
+func TestPendingResultNamesTheSurfacesGesture(t *testing.T) {
+	tg := pendingToolResultFor(Access{Channel: store.AssistantChannelTelegram})
+	if !strings.Contains(tg, "/yes") || !strings.Contains(tg, "/no") {
+		t.Errorf("the Telegram note must name /yes and /no:\n%s", tg)
+	}
+	if strings.Contains(tg, "card") || strings.Contains(tg, "click") {
+		t.Errorf("the Telegram note points at a button that isn't there:\n%s", tg)
+	}
+	web := pendingToolResultFor(Access{})
+	if strings.Contains(web, "/yes") {
+		t.Errorf("the web note should describe the confirmation card, not chat commands:\n%s", web)
+	}
+	// Both keep the framing that stops the model reporting a failure.
+	for _, text := range []string{tg, web} {
+		if !strings.Contains(text, "QUEUED") || !strings.Contains(text, "NOT a refusal") {
+			t.Errorf("a surface note lost the queued-not-failed framing:\n%s", text)
+		}
+	}
+}
+
+// The stand-in answer, for when a model queues an action and says nothing.
+func TestReadyToRunPointsAtTheRightAnswer(t *testing.T) {
+	if !strings.Contains(readyToRun(Access{Channel: store.AssistantChannelTelegram}), "/yes") {
+		t.Error("the Telegram fallback should ask for /yes")
+	}
+	if strings.Contains(readyToRun(Access{}), "/yes") {
+		t.Error("the web fallback should point at the approval below, not a chat command")
+	}
+}
+
+// A refusal is a turn of the conversation, not the end of it: the person still
+// has whatever they asked about. The prompt has to ask for the alternative and
+// must not invite the model to propose the same thing straight back.
+func TestDeclinePromptAsksForTheAlternative(t *testing.T) {
+	prompt := declinePrompt([]PendingAction{
+		{Kind: "ssh.run", Summary: "Run on WebHost LXC: systemctl restart nginx"},
+	})
+	for _, want := range []string{"NOT FROM THE USER", "DECLINED", "were NOT run", "what else can be done"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("decline prompt is missing %q:\n%s", want, prompt)
+		}
+	}
+	if !strings.Contains(prompt, "do not run them, retry them, or ask a second time") {
+		t.Error("the model must be told not to re-propose what was just refused")
+	}
+	// It names what was refused, so the answer can be specific about it.
+	if !strings.Contains(prompt, "systemctl restart nginx") {
+		t.Errorf("decline prompt does not say what was declined:\n%s", prompt)
+	}
+}
+
+// The Telegram voice has to know how confirmation works on its own surface,
+// or it invents one — "let me know" leaves the proposal sitting there forever.
+func TestTelegramPersonaExplainsApproval(t *testing.T) {
+	p := systemPrompt(Access{DisplayName: "Someone", Channel: store.AssistantChannelTelegram}).Text()
+	for _, want := range []string{"/yes", "/no"} {
+		if !strings.Contains(p, want) {
+			t.Errorf("the Telegram persona never mentions %q", want)
+		}
+	}
+	if strings.Contains(systemPrompt(Access{DisplayName: "Someone"}).Text(), "/yes") {
+		t.Error("the web prompt should not be telling people to type chat commands")
 	}
 }

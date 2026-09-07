@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -24,35 +25,55 @@ const telegramTokenName = "bot-token"
 // its TurnRunner, so the two meet in app wiring).
 func (s *Server) SetTelegramBot(b *telegram.Bot) { s.telegram = b }
 
-// RunAssistantTurnFor executes one assistant turn for a user reached over a
-// messaging bridge: same provider config, same tools, same permissions as
-// the in-app chat — the identity is just built from the stored user row.
-func (s *Server) RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, message string) (string, error) {
+// A chat has no confirmation card. When the agent proposes something that
+// needs approving — a command that changes a machine, above all — the proposal
+// is held server-side and the person answers /yes or /no. Approving replays it
+// through exactly the same code the web page's approve button reaches, so the
+// permission re-check and the audit entry are the same ones, not a second
+// implementation that happens to look similar.
+
+// telegramPendingTTL is how long a proposal stays approvable: long enough to
+// put the phone down and think, short enough that a "yes" tomorrow cannot run
+// a command written for a situation that has since moved on.
+const telegramPendingTTL = 15 * time.Minute
+
+// telegramRuntime resolves one Telegram turn's identity, provider and tools.
+// Same provider config, same tools and same permissions as the in-app chat —
+// the identity is just built from the stored user row instead of a cookie.
+func (s *Server) telegramRuntime(ctx context.Context, userID uuid.UUID) (
+	*assistant.Service, assistant.Provider, assistant.Config, *httpctx.Identity, assistant.Access, error,
+) {
+	var (
+		noSvc    *assistant.Service
+		noProv   assistant.Provider
+		noCfg    assistant.Config
+		noAccess assistant.Access
+	)
 	user, err := s.store.GetUser(ctx, userID)
 	if err != nil {
-		return "", fmt.Errorf("the linked user no longer exists")
+		return noSvc, noProv, noCfg, nil, noAccess, fmt.Errorf("the linked user no longer exists")
 	}
 	if user.Status == "disabled" {
-		return "", fmt.Errorf("the linked user is disabled")
+		return noSvc, noProv, noCfg, nil, noAccess, fmt.Errorf("the linked user is disabled")
 	}
 	id := &httpctx.Identity{User: user, IP: "telegram"}
 
 	enabled, providerName, model, baseURL := s.settings.Assistant(ctx)
 	if !enabled {
-		return "", fmt.Errorf("the assistant is not enabled in HomeHub")
+		return noSvc, noProv, noCfg, nil, noAccess, fmt.Errorf("the assistant is not enabled in HomeHub")
 	}
 	info := assistant.ProviderByID(providerName)
 	if info == nil {
-		return "", fmt.Errorf("the configured AI provider no longer exists")
+		return noSvc, noProv, noCfg, nil, noAccess, fmt.Errorf("the configured AI provider no longer exists")
 	}
 	apiKey, _ := s.assistantKeyFor(ctx, providerName)
 	if info.RequiresKey && apiKey == "" {
-		return "", fmt.Errorf("the assistant has no API key configured")
+		return noSvc, noProv, noCfg, nil, noAccess, fmt.Errorf("the assistant has no API key configured")
 	}
 	cfg := assistant.Config{Provider: providerName, Model: model, APIKey: apiKey, BaseURL: baseURL}
 	provider, err := assistant.NewProviderFor(cfg)
 	if err != nil {
-		return "", err
+		return noSvc, noProv, noCfg, nil, noAccess, err
 	}
 	svc := &assistant.Service{
 		Store: s.store,
@@ -71,8 +92,134 @@ func (s *Server) RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, mess
 	access.ContextLines = s.recentNoticeLines(ctx)
 	// Telegram keeps its own thread — never the web UI's conversation.
 	access.Channel = store.AssistantChannelTelegram
-	reply, _, err := svc.RunTurn(ctx, provider, cfg, access, message)
-	return reply, err
+	return svc, provider, cfg, id, access, nil
+}
+
+// RunAssistantTurnFor answers one message from a linked chat. Anything the
+// agent queued for approval comes back as summaries for the bridge to show,
+// and is held until answered.
+//
+// Whatever was pending before this message is dropped first: a new instruction
+// supersedes the old proposal, and a "yes" five messages later must never run
+// a command the person has long stopped thinking about.
+func (s *Server) RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, message string) (string, []string, error) {
+	svc, provider, cfg, id, access, err := s.telegramRuntime(ctx, userID)
+	if err != nil {
+		return "", nil, err
+	}
+	if cerr := s.store.ClearPendingActions(ctx, userID, store.AssistantChannelTelegram); cerr != nil {
+		s.logger.Warn("telegram: clearing the previous proposal", "error", cerr)
+	}
+	turn, err := svc.RunTurn(ctx, provider, cfg, access, message)
+	if err != nil {
+		return "", nil, err
+	}
+	return turn.Reply, s.holdPendingActions(ctx, id, turn), nil
+}
+
+// holdPendingActions stores what a turn queued and returns the summaries to
+// show. A proposal that cannot be stored is not announced: better that the
+// agent looks like it dropped the idea than that a /yes finds nothing and the
+// person believes something ran.
+func (s *Server) holdPendingActions(ctx context.Context, id *httpctx.Identity, turn assistant.TurnResult) []string {
+	if len(turn.Pending) == 0 {
+		return nil
+	}
+	raw, err := json.Marshal(turn.Pending)
+	if err == nil {
+		err = s.store.PutPendingActions(ctx, id.User.ID, store.AssistantChannelTelegram,
+			turn.MessageID, raw, time.Now().Add(telegramPendingTTL))
+	}
+	if err != nil {
+		s.logger.Warn("telegram: holding proposed actions", "user", id.User.Username, "error", err)
+		return nil
+	}
+	out := make([]string, 0, len(turn.Pending))
+	for _, a := range turn.Pending {
+		out = append(out, a.Summary)
+	}
+	return out
+}
+
+// takeTelegramPending claims the held proposal, or reports that there is
+// nothing (or nothing still valid) to answer. Claiming deletes it, so two
+// approvals arriving together cannot run the same command twice.
+func (s *Server) takeTelegramPending(ctx context.Context, userID uuid.UUID) (int64, []assistant.PendingAction, error) {
+	row, err := s.store.TakePendingActions(ctx, userID, store.AssistantChannelTelegram)
+	if err != nil {
+		return 0, nil, err
+	}
+	if row == nil {
+		return 0, nil, telegram.ErrNoPending
+	}
+	if time.Now().After(row.ExpiresAt) {
+		return 0, nil, fmt.Errorf("that proposal expired — ask me again and I'll put it back up")
+	}
+	var actions []assistant.PendingAction
+	if err := json.Unmarshal(row.Actions, &actions); err != nil || len(actions) == 0 {
+		return 0, nil, telegram.ErrNoPending
+	}
+	return row.ParentID, actions, nil
+}
+
+// ConfirmPendingFor runs what the person approved and returns the agent's
+// report on it. The actions replay through applyAssistantAction — the same
+// path the web approve button takes — so each one re-checks permission at the
+// moment it runs and writes its own audit entry.
+func (s *Server) ConfirmPendingFor(ctx context.Context, userID uuid.UUID) (string, []string, error) {
+	svc, provider, cfg, id, access, err := s.telegramRuntime(ctx, userID)
+	if err != nil {
+		return "", nil, err
+	}
+	parentID, actions, err := s.takeTelegramPending(ctx, userID)
+	if err != nil {
+		return "", nil, err
+	}
+
+	outcomes := make([]assistant.ActionOutcome, 0, len(actions))
+	applied := 0
+	for _, a := range actions {
+		summary, output, aerr := s.applyAssistantAction(ctx, id, a)
+		out := assistant.ActionOutcome{Summary: summary, Output: output}
+		if aerr != nil {
+			// The raw error can wrap internal detail; the model gets the
+			// plain fact that it failed, and the journal keeps the rest.
+			s.logger.Warn("telegram apply action failed", "kind", a.Kind, "error", aerr)
+			out.Failed = true
+			out.Output = strings.TrimSpace(out.Output + "\n" + aerr.Error())
+		} else {
+			applied++
+		}
+		outcomes = append(outcomes, out)
+	}
+	s.audit.Log(ctx, actorFor(id), "assistant.apply", "system/settings", "success",
+		map[string]any{"applied": applied, "channel": "telegram"})
+
+	turn, err := svc.RunActionOutcomes(ctx, provider, cfg, access, parentID, outcomes, func(assistant.Event) {})
+	if err != nil {
+		return "", nil, err
+	}
+	return turn.Reply, s.holdPendingActions(ctx, id, turn), nil
+}
+
+// DeclinePendingFor drops the proposal and lets the agent answer the refusal.
+// It is deliberately not a silent cancel: the person still has whatever they
+// asked about, so the model is told what was turned down and asked what else
+// could be done.
+func (s *Server) DeclinePendingFor(ctx context.Context, userID uuid.UUID) (string, []string, error) {
+	svc, provider, cfg, id, access, err := s.telegramRuntime(ctx, userID)
+	if err != nil {
+		return "", nil, err
+	}
+	parentID, actions, err := s.takeTelegramPending(ctx, userID)
+	if err != nil {
+		return "", nil, err
+	}
+	turn, err := svc.RunActionsDeclined(ctx, provider, cfg, access, parentID, actions, func(assistant.Event) {})
+	if err != nil {
+		return "", nil, err
+	}
+	return turn.Reply, s.holdPendingActions(ctx, id, turn), nil
 }
 
 // SystemStatusFor renders the /status summary: every system's health, DB and

@@ -3,14 +3,23 @@
 // inbound exposure needed. Chats link to a HomeHub user via a short-lived
 // code minted in the UI; linked chats talk to the assistant under that
 // user's own permissions. Messages starting with '!' or '/' are command
-// triggers (routing configured separately); everything else is a plain
-// assistant turn answered right back into the chat.
+// triggers; everything else is a plain assistant turn answered right back
+// into the chat.
+//
+// The agent can do things here, not only answer — including running commands
+// over SSH. The dangerous half of that is gated exactly as it is in the app:
+// read-only commands run unattended, anything that changes a machine is held
+// as a proposal, and catastrophic ones are refused outright. A chat has no
+// approve button, so the proposal waits for /yes or /no. Either answer goes
+// back to the agent: a refusal is a turn of the conversation, not a dead end,
+// so it can offer something narrower instead.
 package telegram
 
 import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -34,12 +43,27 @@ const (
 	turnDeadline = 3 * time.Minute
 )
 
+// ErrNoPending is what an approval answers with when there is nothing left to
+// approve — the proposal expired, was already answered, or never existed. The
+// bridge says so rather than leaving the person wondering what their /yes did.
+var ErrNoPending = errors.New("nothing is waiting for approval")
+
 // TurnRunner is the bot's window into HomeHub, always scoped to one user's
 // permissions. The API server implements it; the bot stays free of provider
 // and RBAC plumbing.
+//
+// The three turn methods share a shape: the agent's reply, plus a summary line
+// for anything it now wants approved. A non-empty second return means the
+// chat is holding a proposal and the next /yes or /no belongs to it.
 type TurnRunner interface {
 	// RunAssistantTurnFor answers a plain message via the LLM tool loop.
-	RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, message string) (string, error)
+	RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, message string) (string, []string, error)
+	// ConfirmPendingFor runs the held proposal and returns what the agent
+	// makes of the result. ErrNoPending when there was nothing to run.
+	ConfirmPendingFor(ctx context.Context, userID uuid.UUID) (string, []string, error)
+	// DeclinePendingFor discards the held proposal and lets the agent answer
+	// the refusal. ErrNoPending when there was nothing to decline.
+	DeclinePendingFor(ctx context.Context, userID uuid.UUID) (string, []string, error)
 	// SystemStatusFor returns a formatted health summary of every system the
 	// user may see (the /status command — deterministic, no LLM).
 	SystemStatusFor(ctx context.Context, userID uuid.UUID) (string, error)
@@ -87,6 +111,11 @@ type Bot struct {
 	lastErr  string
 	pending  map[string]pendingLink
 	attempts map[uuid.UUID]*claimAttempts
+	// awaiting marks chats currently holding a proposal, so a bare "yes" can
+	// mean what it obviously means. Only a hint for that shortcut: HomeHub
+	// holds the proposal itself, so /yes and /no work regardless of what this
+	// map remembers across a restart.
+	awaiting map[int64]bool
 
 	client http.Client
 }
@@ -216,7 +245,7 @@ func (b *Bot) run(ctx context.Context, token string) {
 
 	// Advertise the commands so they appear in Telegram's command menu.
 	_ = b.call(ctx, token, "setMyCommands", url.Values{
-		"commands": {`[{"command":"status","description":"Health of every system"},{"command":"link","description":"Get a code to link this chat to HomeHub"},{"command":"unlink","description":"Disconnect this chat from HomeHub"},{"command":"help","description":"How the bridge works"}]`},
+		"commands": {`[{"command":"status","description":"Health of every system"},{"command":"yes","description":"Run what the assistant proposed"},{"command":"no","description":"Turn down what the assistant proposed"},{"command":"link","description":"Get a code to link this chat to HomeHub"},{"command":"unlink","description":"Disconnect this chat from HomeHub"},{"command":"help","description":"How the bridge works"}]`},
 	}, nil)
 
 	offset := int64(0)
@@ -358,11 +387,25 @@ func (b *Bot) handleMessage(ctx context.Context, token string, msg *tgMessage) {
 			}
 			b.send(ctx, token, chatID, out)
 			return
+		case "yes", "y", "approve":
+			b.answerProposal(ctx, token, chatID, chat.UserID, true)
+			return
+		case "no", "n", "deny", "cancel":
+			b.answerProposal(ctx, token, chatID, chat.UserID, false)
+			return
 		case "start", "help":
-			b.send(ctx, token, chatID, "Linked to HomeHub. Plain messages go to the assistant, which answers here and can act on your homelab.\n\nCommands:\n/status — health of every system\n/unlink — disconnect this chat from HomeHub\n/help — show this\n\nMore command triggers (! or /) are coming.")
+			b.send(ctx, token, chatID, "Linked to HomeHub. Plain messages go to the assistant, which answers here and can act on your homelab — including running commands on your machines over SSH.\n\nAnything that only reads runs straight away. Anything that changes a machine is proposed first and waits for you; commands that could destroy a system are refused outright, even if you ask.\n\nCommands:\n/status — health of every system\n/yes — run what was proposed\n/no — turn it down (I'll suggest something else)\n/unlink — disconnect this chat from HomeHub\n/help — show this")
 			return
 		default:
 			b.send(ctx, token, chatID, fmt.Sprintf("Unknown command %q. Try /help. Plain messages talk to the assistant.", "/"+trigger))
+			return
+		}
+	}
+
+	// A bare "yes" while something is waiting means what it looks like.
+	if b.isAwaiting(chatID) {
+		if approve, ok := bareAnswer(text); ok {
+			b.answerProposal(ctx, token, chatID, chat.UserID, approve)
 			return
 		}
 	}
@@ -372,19 +415,105 @@ func (b *Bot) handleMessage(ctx context.Context, token string, msg *tgMessage) {
 	defer stop()
 	turnCtx, cancel := context.WithTimeout(ctx, turnDeadline)
 	defer cancel()
-	reply, err := b.Runner.RunAssistantTurnFor(turnCtx, chat.UserID, text)
+	reply, pending, err := b.Runner.RunAssistantTurnFor(turnCtx, chat.UserID, text)
 	if err != nil {
 		b.send(ctx, token, chatID, "The assistant could not answer: "+err.Error())
 		return
 	}
-	if len(reply) > replyLimit {
-		reply = reply[:replyLimit] + "…"
+	b.deliverTurn(ctx, token, chatID, reply, pending)
+}
+
+// answerProposal handles /yes and /no. Both go back to the agent rather than
+// being settled here: an approval so it can report what the command actually
+// did, a refusal so it can say what else there is. Either way it may propose
+// something new, which is why this ends the same way a plain turn does.
+func (b *Bot) answerProposal(ctx context.Context, token string, chatID int64, userID uuid.UUID, approve bool) {
+	stop := b.typing(ctx, token, chatID)
+	defer stop()
+	turnCtx, cancel := context.WithTimeout(ctx, turnDeadline)
+	defer cancel()
+
+	run := b.Runner.DeclinePendingFor
+	if approve {
+		run = b.Runner.ConfirmPendingFor
 	}
-	// Try Markdown first (the assistant answers in it); Telegram rejects
-	// malformed markup with a 400, in which case plain text still lands.
-	if err := b.sendParsed(ctx, token, chatID, reply, "Markdown"); err != nil {
-		b.send(ctx, token, chatID, reply)
+	reply, pending, err := run(turnCtx, userID)
+	if err != nil {
+		b.setAwaiting(chatID, false)
+		if errors.Is(err, ErrNoPending) {
+			b.send(ctx, token, chatID, "Nothing is waiting for approval right now.")
+			return
+		}
+		b.send(ctx, token, chatID, "That did not go through: "+err.Error())
+		return
 	}
+	b.deliverTurn(ctx, token, chatID, reply, pending)
+}
+
+// deliverTurn sends one answer, and the proposal behind it when there is one.
+// The proposal goes as its own plain-text message: a shell command is full of
+// characters Markdown would mangle, and what it is about to do deserves to be
+// the last thing on the screen rather than a line buried in prose.
+func (b *Bot) deliverTurn(ctx context.Context, token string, chatID int64, reply string, pending []string) {
+	if reply = strings.TrimSpace(reply); reply != "" {
+		// Try Markdown first (the assistant answers in it); Telegram rejects
+		// malformed markup with a 400, in which case plain text still lands.
+		if err := b.sendParsed(ctx, token, chatID, clip(reply), "Markdown"); err != nil {
+			b.send(ctx, token, chatID, clip(reply))
+		}
+	}
+	b.setAwaiting(chatID, len(pending) > 0)
+	if len(pending) == 0 {
+		return
+	}
+	var msg strings.Builder
+	msg.WriteString("Waiting on you:\n")
+	for _, line := range pending {
+		msg.WriteString("• " + line + "\n")
+	}
+	msg.WriteString("\n/yes to run it, /no to skip.")
+	b.send(ctx, token, chatID, clip(msg.String()))
+}
+
+// bareAnswer reads a one-word reply as an answer to a waiting proposal. Only
+// an exact match counts: "yes, and check the disk too" is a new instruction,
+// not an approval, and has to reach the agent as one.
+func bareAnswer(text string) (approve bool, ok bool) {
+	switch strings.ToLower(strings.Trim(strings.TrimSpace(text), " .!")) {
+	case "yes", "y", "yep", "yeah", "ok", "okay", "do it", "go ahead", "ja":
+		return true, true
+	case "no", "n", "nope", "cancel", "stop", "nein":
+		return false, true
+	}
+	return false, false
+}
+
+// setAwaiting records whether this chat is holding a proposal.
+func (b *Bot) setAwaiting(chatID int64, waiting bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.awaiting == nil {
+		b.awaiting = map[int64]bool{}
+	}
+	if waiting {
+		b.awaiting[chatID] = true
+	} else {
+		delete(b.awaiting, chatID)
+	}
+}
+
+func (b *Bot) isAwaiting(chatID int64) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.awaiting[chatID]
+}
+
+// clip keeps a message inside Telegram's size limit.
+func clip(text string) string {
+	if len(text) <= replyLimit {
+		return text
+	}
+	return text[:replyLimit] + "…"
 }
 
 // typing keeps the "typing…" chat action alive until stopped.

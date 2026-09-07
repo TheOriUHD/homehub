@@ -273,7 +273,9 @@ func (s *Server) HandleAssistantApply(w http.ResponseWriter, r *http.Request) {
 	access := s.assistantAccess(ctx, id)
 	access.Conversation = strings.TrimSpace(body.Conversation)
 	access.Route = route.Rule
-	if err := svc.RunActionOutcomes(ctx, provider, cfg, access, *body.ParentID, outcomes,
+	// The page has already had every step as an event; the returned result is
+	// for surfaces that cannot stream.
+	if _, err := svc.RunActionOutcomes(ctx, provider, cfg, access, *body.ParentID, outcomes,
 		func(e assistant.Event) { write(e) }); err != nil {
 		write(assistant.Event{Type: "error", Message: err.Error()})
 	}
