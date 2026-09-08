@@ -20,10 +20,11 @@ import {
   RotateCcw,
   Send,
   Server,
-  Square,
   ShieldCheck,
   Sparkles,
+  Square,
   Terminal,
+  TriangleAlert,
   Volume2,
   VolumeX,
   Wrench,
@@ -166,6 +167,10 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
   const [outcomes, setOutcomes] = useState<OutcomeMap>(() => loadOutcomes(conversation));
 
   const [live, setLive] = useState<Live | null>(null);
+  // The live bubble is torn down when the stream ends, which took the error
+  // down with it — a red line that appeared and vanished before it could be
+  // read. A failure outlives the turn that caused it and waits to be dismissed.
+  const [turnError, setTurnError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
   const streaming = live !== null;
@@ -192,6 +197,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
       replacing: number | null = null,
     ) => {
       setPending(null);
+      setTurnError(null);
       const controller = new AbortController();
       abortRef.current = controller;
       setLive({ userText: showUser, replacing, segments: [], tools: [], outcomes: [] });
@@ -206,7 +212,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
           signal: controller.signal,
         });
         if (!res.ok || !res.body) {
-          setLive((l) => (l ? { ...l, error: t("assistant.failed") } : l));
+          setTurnError(t("assistant.failed"));
           return;
         }
         const reader = res.body.getReader();
@@ -242,6 +248,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
                 return next;
               });
             }
+            if (e.type === "error" && e.message) setTurnError(e.message);
             if (e.type === "confirm") {
               confirm = { actions: e.actions ?? [], parentId: e.messageId ?? null };
             }
@@ -276,7 +283,7 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
         if (confirm && confirm.actions.length > 0) setPending(confirm);
       } catch (err) {
         if (!(err instanceof DOMException && err.name === "AbortError")) {
-          toast("error", t("assistant.failed"), err instanceof Error ? err.message : t("common.unknownError"));
+          setTurnError(err instanceof Error ? err.message : t("common.unknownError"));
         }
         await queryClient.invalidateQueries({ queryKey: ["assistant", "history"] });
       } finally {
@@ -450,6 +457,24 @@ export function AssistantChatPane({ variant }: { variant: "page" | "widget" }) {
         )}
         <div ref={bottomRef} />
       </div>
+
+      {turnError && (
+        <div className="bg-danger-soft text-danger-soft-fg flex items-start gap-2 rounded-lg px-3 py-2.5">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium">{t("assistant.failed")}</p>
+            <p className="mt-0.5 text-[12.5px] leading-relaxed break-words">{turnError}</p>
+          </div>
+          <button
+            type="button"
+            aria-label={t("common.close")}
+            onClick={() => setTurnError(null)}
+            className="-mr-1 flex size-6 shrink-0 cursor-pointer items-center justify-center opacity-70 hover:opacity-100"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* One composer surface — the field on top, controls beneath — so the
           model switcher sits with the send button instead of floating loose

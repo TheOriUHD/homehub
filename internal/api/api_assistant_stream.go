@@ -180,6 +180,11 @@ func (s *Server) HandleAssistantChatStream(w http.ResponseWriter, r *http.Reques
 			write(e)
 		})
 	if err != nil {
+		// A failed turn used to leave no trace anywhere: the reader saw a red
+		// line that vanished with the streaming bubble, and the journal said
+		// nothing at all. Whatever the provider refused, it is on the record.
+		s.logger.Warn("assistant turn failed", "user", id.User.Username,
+			"model", cfg.Model, "provider", cfg.Provider, "tools", toolNames, "error", err)
 		write(assistant.Event{Type: "error", Message: err.Error()})
 		return
 	}

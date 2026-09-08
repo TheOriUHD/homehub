@@ -91,8 +91,8 @@ func (tb *Toolbox) tools() []tool {
 		{
 			def: ToolDef{
 				Name:        "list_metrics",
-				Description: "The catalog of recorded metric series (resource, metric, unit) the user may read. Call this to discover what query_metric can be asked about.",
-				InputSchema: obj(``),
+				Description: "The catalog of recorded metric series the user may read, grouped by resource. Call this to discover what query_metric can be asked about. There are hundreds on a real instance, so filter: pass resource (any substring of the resource path, e.g. a system id or \"pool\") and/or metric (e.g. \"mem\", \"temp\"). An unfiltered call is capped and tells you how many it left out.",
+				InputSchema: obj(`"resource":{"type":"string","description":"Substring of the resource path to match, e.g. a system id"},"metric":{"type":"string","description":"Substring of the metric name to match, e.g. mem"}`),
 			},
 			run: tb.listMetrics,
 		},
@@ -378,22 +378,67 @@ func (tb *Toolbox) listAlerts(ctx context.Context, access Access, input json.Raw
 	return out, nil
 }
 
-func (tb *Toolbox) listMetrics(ctx context.Context, access Access, _ json.RawMessage) (any, error) {
+// maxMetricSeries bounds the catalogue. There are hundreds of series on a
+// real instance — one per container, per entity, per disk — and listing them
+// flat came to 56 KB, which is most of a local model's context spent on a
+// table of contents. Grouping by resource removes the repetition; the filter
+// and the cap keep the rest honest.
+const maxMetricSeries = 120
+
+func (tb *Toolbox) listMetrics(ctx context.Context, access Access, input json.RawMessage) (any, error) {
+	var args struct {
+		Resource string `json:"resource"`
+		Metric   string `json:"metric"`
+	}
+	_ = json.Unmarshal(input, &args)
+	resFilter := strings.ToLower(strings.TrimSpace(args.Resource))
+	metFilter := strings.ToLower(strings.TrimSpace(args.Metric))
+
 	series, err := tb.Store.ListMetricSeries(ctx)
 	if err != nil {
 		return nil, err
 	}
-	type entry struct {
-		Resource string `json:"resource"`
-		Metric   string `json:"metric"`
-		Unit     string `json:"unit,omitempty"`
+	type group struct {
+		Resource string   `json:"resource"`
+		Metrics  []string `json:"metrics"`
 	}
-	out := []entry{}
+	var groups []group
+	index := map[string]int{}
+	matched, shown := 0, 0
 	for _, info := range series {
 		if !access.Can(info.Resource, "view") {
 			continue
 		}
-		out = append(out, entry{Resource: info.Resource, Metric: info.Metric, Unit: info.Unit})
+		if resFilter != "" && !strings.Contains(strings.ToLower(info.Resource), resFilter) {
+			continue
+		}
+		if metFilter != "" && !strings.Contains(strings.ToLower(info.Metric), metFilter) {
+			continue
+		}
+		matched++
+		if shown >= maxMetricSeries {
+			continue
+		}
+		shown++
+		name := info.Metric
+		if info.Unit != "" {
+			name += " (" + info.Unit + ")"
+		}
+		if at, ok := index[info.Resource]; ok {
+			groups[at].Metrics = append(groups[at].Metrics, name)
+			continue
+		}
+		index[info.Resource] = len(groups)
+		groups = append(groups, group{Resource: info.Resource, Metrics: []string{name}})
+	}
+	if groups == nil {
+		groups = []group{}
+	}
+	out := map[string]any{"resources": groups, "seriesShown": shown, "seriesMatched": matched}
+	if matched > shown {
+		out["note"] = fmt.Sprintf(
+			"%d series match but only %d are listed. Pass resource (a substring of the resource path, e.g. a system id) or metric to narrow it — do not assume the rest do not exist.",
+			matched, shown)
 	}
 	return out, nil
 }

@@ -10,9 +10,35 @@ import (
 	"homehub/internal/store"
 )
 
-// maxToolRounds bounds one turn's tool loop; a model that keeps asking for
-// tools past this gets cut off with whatever it has.
+// maxToolRounds bounds one turn's tool loop. Past it the model is asked once
+// more WITHOUT tools, so it answers with what it has rather than reaching for
+// another one and leaving the reader with nothing.
 const maxToolRounds = 6
+
+// clampToolResult keeps one tool's answer inside maxToolResultBytes. The
+// per-system tools cap themselves through capResult, but the store-backed ones
+// did not, and nothing enforced it for all of them — the metric catalogue came
+// back at 56 KB.
+//
+// A context window is a hard wall, and a local model's is far lower than the
+// cloud's. Past it, llama.cpp-family servers drop the oldest messages to make
+// room: that deletes an assistant message while keeping the tool reply that
+// belonged to it, and the chat template then refuses the whole request —
+// "Message has tool role, but there was no previous assistant message with a
+// tool call". What the reader saw was a 500 from the model, so the cure has to
+// be here, before the wall, not in a friendlier error afterwards.
+//
+// The note matters as much as the cut: a model shown half a list without being
+// told will answer confidently from the half it saw.
+func clampToolResult(content string) string {
+	if len(content) <= maxToolResultBytes {
+		return content
+	}
+	return content[:maxToolResultBytes] +
+		"\n\n[… truncated: this result was too large to show in full. " +
+		"Do NOT treat what you can see as the complete list. " +
+		"Narrow the request — filter by resource, by name, or to a shorter window — and ask again.]"
+}
 
 // historyWindow is how many stored messages ride along as context.
 const historyWindow = 30
@@ -449,6 +475,22 @@ func normalizeTurns(turns []Turn) []Turn {
 	return rest
 }
 
+// lastRoundPrompt is the nudge on the final round. Reasoning models given no
+// tools and no instruction will spend the round thinking and return empty
+// content; asked plainly for the answer, they write one.
+const lastRoundPrompt = "[NOT FROM THE USER — system note] You have used all the tool calls available for this turn. " +
+	"Answer the user now, in prose, using only what you have already gathered. " +
+	"Do not ask for another tool and do not describe what you would do next. " +
+	"If what they asked for was not in the data, say exactly that and what is missing."
+
+// noAnswer explains an empty response in terms the reader can act on.
+func noAnswer(steps int) string {
+	if steps > 0 {
+		return "I gathered the data but the model returned no answer. Ask again, or switch models in the picker below — a smaller local model can run out of room after several tool calls."
+	}
+	return "The model returned no answer. Ask again, or switch models in the picker below."
+}
+
 // TurnResult is what one completed turn produced: the answer, where it landed
 // in the thread, the tools it used, and anything it queued for approval. The
 // streaming caller has already emitted all of it and ignores the value; a
@@ -485,7 +527,19 @@ func (s *Service) runLoop(
 	// against the answer is the whole turn, not just the round that spoke.
 	var total Usage
 	for round := 0; ; round++ {
-		reply, err = provider.Chat(ctx, cfg.Model, systemPrompt(access), turns, defs)
+		// Past the round budget the tools are withheld and the model is told
+		// to answer. A model handed tools keeps calling them, and the turn
+		// then ends on a call nobody answers — which is how a question came
+		// back as "(no reply)". Withholding them is not enough on its own:
+		// asked nothing in particular, these models spend the round thinking
+		// and return empty content, so the round carries an explicit demand.
+		offered := defs
+		ask := turns
+		if round >= maxToolRounds {
+			offered = nil
+			ask = append(append([]Turn{}, turns...), Turn{Role: "user", Text: lastRoundPrompt})
+		}
+		reply, err = provider.Chat(ctx, cfg.Model, systemPrompt(access), ask, offered)
 		if err != nil {
 			return TurnResult{}, err
 		}
@@ -505,7 +559,7 @@ func (s *Service) runLoop(
 			raw, runErr := s.Toolbox.RunTool(ctx, access, call.Name, call.Input)
 			if runErr != nil {
 				step.IsError = true
-				results = append(results, ToolResult{ID: call.ID, Content: runErr.Error(), IsError: true})
+				results = append(results, ToolResult{ID: call.ID, Content: clampToolResult(runErr.Error()), IsError: true})
 				emit(Event{Type: "tool_result", Tool: call.Name, IsError: true})
 			} else if pa, ok := raw.(*PendingAction); ok {
 				pending = append(pending, *pa)
@@ -513,7 +567,7 @@ func (s *Service) runLoop(
 				emit(Event{Type: "tool_result", Tool: call.Name})
 			} else {
 				out, _ := json.Marshal(raw)
-				results = append(results, ToolResult{ID: call.ID, Content: string(out)})
+				results = append(results, ToolResult{ID: call.ID, Content: clampToolResult(string(out))})
 				emit(Event{Type: "tool_result", Tool: call.Name})
 			}
 			steps = append(steps, step)
@@ -526,7 +580,11 @@ func (s *Service) runLoop(
 		final = readyToRun(access)
 	}
 	if final == "" {
-		final = "(no reply)"
+		// The model answered with nothing at all. "(no reply)" told the reader
+		// only that something was wrong, not what or what to do; if tools did
+		// run, say so, because the work happened and the answer is the only
+		// part missing.
+		final = noAnswer(len(steps))
 	}
 	var trace json.RawMessage
 	if len(steps) > 0 {

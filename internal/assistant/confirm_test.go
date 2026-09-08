@@ -170,3 +170,53 @@ func TestTelegramPersonaExplainsApproval(t *testing.T) {
 		t.Error("the web prompt should not be telling people to type chat commands")
 	}
 }
+
+// A context window is a hard wall on a local model. One tool answered with
+// 56 KB, the prompt outgrew the window, and the server dropped the oldest
+// messages to fit — which deletes an assistant message while keeping the tool
+// reply below it, and the chat template then refuses the whole request.
+func TestToolResultsAreClampedWithAWarning(t *testing.T) {
+	small := `{"ok":true}`
+	if clampToolResult(small) != small {
+		t.Error("a small result must pass through untouched")
+	}
+	big := strings.Repeat("x", maxToolResultBytes*3)
+	got := clampToolResult(big)
+	if len(got) > maxToolResultBytes+400 {
+		t.Fatalf("clamped result is %d bytes, barely smaller than the %d it started at", len(got), len(big))
+	}
+	// Being cut is only safe if the model is told; otherwise it answers
+	// confidently from the half it happened to see.
+	for _, want := range []string{"truncated", "Do NOT treat what you can see as the complete list", "Narrow the request"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the truncation note is missing %q", want)
+		}
+	}
+}
+
+// Withholding tools on the last round is not enough on its own: a reasoning
+// model asked nothing in particular spends the round thinking and returns
+// empty content, which is how a question came back as "(no reply)".
+func TestLastRoundDemandsAnAnswer(t *testing.T) {
+	for _, want := range []string{"NOT FROM THE USER", "Answer the user now", "Do not ask for another tool"} {
+		if !strings.Contains(lastRoundPrompt, want) {
+			t.Errorf("the last-round prompt is missing %q:\n%s", want, lastRoundPrompt)
+		}
+	}
+}
+
+// "(no reply)" told the reader that something was wrong and nothing else.
+func TestEmptyAnswerExplainsItself(t *testing.T) {
+	withTools := noAnswer(4)
+	if !strings.Contains(withTools, "gathered the data") {
+		t.Errorf("when tools ran, say so — the work happened: %q", withTools)
+	}
+	for _, text := range []string{withTools, noAnswer(0)} {
+		if strings.Contains(text, "(no reply)") {
+			t.Errorf("still the old placeholder: %q", text)
+		}
+		if !strings.Contains(text, "switch models") {
+			t.Errorf("the reader needs something to do next: %q", text)
+		}
+	}
+}
