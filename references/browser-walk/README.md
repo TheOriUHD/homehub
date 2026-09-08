@@ -47,6 +47,13 @@ error and unmatched API route as JSON.
 
 Write a new `walk-*.mjs` per question rather than growing an existing one.
 
+**The stubs are spec-shaped, not server-shaped.** The generator emits `[]` for
+an array and a filled value for every field, which is not what Go sends: a nil
+slice marshals to `null`, and an `omitempty` field is simply absent. A walk
+that only ever sees tidy data will pass while the real page throws. When a
+response carries a list or an optional field, stub the awkward shape on purpose
+— `null`, missing, empty — because that is the one the client will meet.
+
 ## What it has caught
 
 The widget's model menu opening behind the panel; a `crypto.randomUUID` crash
@@ -54,3 +61,7 @@ that took down the whole assistant pane on the LAN origin; the model field's
 label rendering as an i18next error string, broken since the model picker
 landed; a host-key dialog that stated the same sentence twice; and a dead end
 where only PatchPilot's pin was stale and the dialog offered no way out.
+
+What it missed, once: a `null` list from the server where the spec said array,
+which blanked the SSH Hosts page. The stubs were the reason, and the note above
+is the fix.
