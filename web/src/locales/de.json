@@ -3990,6 +3990,39 @@
       "hint": "Wähle einen gespeicherten Host oder gib Zugangsdaten nur für diese Ressource ein."
     },
     "generateAndSave": "Schlüsselpaar erzeugen & speichern",
-    "generated": "Schlüsselpaar erzeugt und installiert"
+    "generated": "Schlüsselpaar erzeugt und installiert",
+    "hostKey": {
+      "title": "Hostkey",
+      "fixIt": "Der Hostkey hat sich geändert — ansehen",
+      "dialogTitle": "Hostkey · {{name}}",
+      "pinnedLabel": "Hinterlegt",
+      "observedLabel": "Aktuell gemeldet",
+      "nonePinned": "Noch nichts hinterlegt.",
+      "noAnswer": "Keine Antwort von dieser Adresse.",
+      "recheck": "Erneut prüfen",
+      "trust": "Neuem Key vertrauen",
+      "trusted": "{{name}} ist wieder vertraut. Verbindungen dorthin funktionieren wieder.",
+      "forget": "Hinterlegten Key verwerfen",
+      "forgot": "Key für {{name}} verworfen. Die nächste Verbindung hinterlegt, was auch immer antwortet.",
+      "forgetHint": "Verwerfen ist die schwächere Variante: hinterlegt wird, was als Nächstes antwortet. Besser ist es, einem Fingerprint zu vertrauen, den du dir angesehen hast.",
+      "caution": "Ein Key ändert sich auch, wenn sich etwas dazwischenschaltet. Vertraue diesem nur, wenn du weißt, warum er sich geändert hat — du hast die Maschine neu aufgesetzt, oder diese Adresse zeigt jetzt auf eine andere. Trifft beides nicht zu, kläre erst die Ursache.",
+      "unreachableHint": "Es hat nichts geantwortet, also gibt es nichts zu vergleichen. Die Maschine ist vielleicht aus, oder die Adresse hat sich geändert.",
+      "status": {
+        "match": "Der hinterlegte Key passt weiterhin.",
+        "changed": "Diese Maschine meldet einen anderen Key.",
+        "unpinned": "Für diese Adresse ist noch nichts hinterlegt.",
+        "unreachable": "Diese Adresse hat nicht geantwortet."
+      },
+      "check": "Prüfen",
+      "knownTitle": "Hinterlegte Hostkeys",
+      "knownSubtitle": "Jede Maschine, für die HomeHub einen Key aufgezeichnet hat. Ein Eintrag gehört zur Adresse — einer neu aufgesetzten Maschine zu vertrauen stellt Terminal, alle Systeme, die sie per SSH ansprechen, und den Assistenten auf einmal wieder her.",
+      "knownEmpty": "Noch keine hinterlegten Keys",
+      "knownEmptyBody": "Die erste Verbindung zu einer Maschine zeichnet ihren Key auf; spätere Verbindungen werden abgelehnt, wenn er sich ändert.",
+      "cols": {
+        "address": "Adresse",
+        "usedBy": "Verwendet von",
+        "fingerprint": "Hinterlegter Fingerprint"
+      }
+    }
   }
 }

@@ -1,7 +1,7 @@
 import { Suspense, lazy, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { KeyRound, Pencil, Plus, ServerCog, SquareTerminal, TerminalSquare, Trash2, Zap } from "lucide-react";
+import { Fingerprint, KeyRound, Pencil, Plus, ServerCog, SquareTerminal, TerminalSquare, Trash2, Zap } from "lucide-react";
 import { api, isApiError, unwrap, type SSHHost, type TermSession, type TestConnectionResult } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Badge } from "@/ui/badge";
@@ -16,6 +16,7 @@ import { PageLoader } from "@/ui/misc";
 import { EmptyState, ErrorState } from "@/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/ui/table";
 import { useToast } from "@/ui/toast";
+import { HostKeyDialog, KnownHostsCard, hostKeyChanged } from "./ssh-host-keys";
 
 const TerminalPane = lazy(() =>
   import("@/components/terminal").then((m) => ({ default: m.TerminalPane })),
@@ -48,6 +49,7 @@ export function SSHHostsPage() {
   const [deleting, setDeleting] = useState<SSHHost | null>(null);
   const [session, setSession] = useState<{ host: SSHHost; term: TermSession } | null>(null);
   const [tested, setTested] = useState<Record<string, TestConnectionResult>>({});
+  const [hostKeyFor, setHostKeyFor] = useState<SSHHost | null>(null);
 
   const canConfigure = can(SSH_RES, "configure");
 
@@ -135,6 +137,15 @@ export function SSHHostsPage() {
                             {result.message}
                           </p>
                         )}
+                        {result && !result.ok && hostKeyChanged(result.message) && (
+                          <button
+                            type="button"
+                            onClick={() => setHostKeyFor(host)}
+                            className="text-accent mt-0.5 cursor-pointer text-[12px] font-medium hover:underline"
+                          >
+                            {t("ssh.hostKey.fixIt")}
+                          </button>
+                        )}
                       </TD>
                       <TD>
                         <code className="font-mono text-[12.5px]">
@@ -166,6 +177,10 @@ export function SSHHostsPage() {
                             onClick={() => test.mutate(host)}>
                             <Zap className="size-4" />
                           </Button>
+                          <Button size="sm" variant="ghost" aria-label={t("ssh.hostKey.title")} title={t("ssh.hostKey.title")}
+                            onClick={() => setHostKeyFor(host)}>
+                            <Fingerprint className="size-4" />
+                          </Button>
                           {can(`ssh/${host.id}`, "control") || can(SSH_RES, "control") ? (
                             <Button size="sm" variant="ghost" aria-label={t("ssh.terminal")} title={t("ssh.terminal")}
                               loading={openTerminal.isPending && openTerminal.variables?.id === host.id}
@@ -192,6 +207,17 @@ export function SSHHostsPage() {
             </Table>
           </div>
         </Card>
+      )}
+
+      <KnownHostsCard />
+
+      {hostKeyFor && (
+        <HostKeyDialog
+          host={hostKeyFor.hostname}
+          port={hostKeyFor.port}
+          label={hostKeyFor.name}
+          onClose={() => setHostKeyFor(null)}
+        />
       )}
 
       {(creating || editing) && (

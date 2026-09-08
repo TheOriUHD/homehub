@@ -2972,6 +2972,118 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /ssh-known-hosts:
+    get:
+      operationId: listSSHKnownHosts
+      summary: Pinned SSH host keys
+      description: >
+        Every machine HomeHub has pinned a host key for, and what points at it.
+        Pins are keyed by address, so one entry covers the SSH registry, a
+        Docker daemon over SSH, a Minecraft host and a Proxmox guest console
+        alike.
+      tags: [ssh]
+      responses:
+        "200":
+          description: Pinned keys
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/SSHKnownHost" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /ssh-known-hosts/check:
+    post:
+      operationId: checkSSHHostKey
+      summary: Compare a machine's live host key against its pin
+      description: >
+        Reads the key the machine is presenting now, without logging in or
+        offering a credential, and says whether it still matches.
+      tags: [ssh]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SSHHostKeyRef" }
+      responses:
+        "200":
+          description: What the address is presenting
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SSHHostKeyCheck" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /ssh-known-hosts/trust:
+    post:
+      operationId: trustSSHHostKey
+      summary: Pin the key a machine is presenting now
+      description: >
+        Replaces the pin, restoring every connection to that address at once.
+        The fingerprint must match what the machine is presenting at the moment
+        of the call, so a stale screen cannot approve a key that has since
+        changed again. Requires configure on the SSH registry. Audited.
+      tags: [ssh]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/SSHHostKeyRef"
+                - type: object
+                  required: [fingerprint]
+                  properties:
+                    fingerprint:
+                      type: string
+                      description: The SHA256 fingerprint being accepted, as shown by a check
+      responses:
+        "200":
+          description: The pin after trusting
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SSHHostKeyCheck" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: The machine is presenting a different key than the one being accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /ssh-known-hosts/forget:
+    post:
+      operationId: forgetSSHHostKey
+      summary: Drop a pin, returning the address to trust-on-first-use
+      description: >
+        Weaker than trusting a fingerprint you have looked at, because whatever
+        answers next is what gets pinned. Requires configure on the SSH
+        registry. Audited.
+      tags: [ssh]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SSHHostKeyRef" }
+      responses:
+        "204":
+          description: Pin removed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /db/instances:
     get:
       operationId: dbListInstances
@@ -8198,6 +8310,44 @@ components:
           type: string
           description: Password or PEM private key; omit on update to keep the stored one
         notes: { type: string }
+
+    SSHKnownHost:
+      type: object
+      required: [host, port, fingerprint, updatedAt, usedBy]
+      properties:
+        host: { type: string }
+        port: { type: integer }
+        fingerprint: { type: string }
+        updatedAt: { type: string, format: date-time }
+        usedBy:
+          type: array
+          description: Names of the registry entries and systems that connect to this address
+          items: { type: string }
+
+    SSHHostKeyRef:
+      type: object
+      required: [host]
+      properties:
+        host: { type: string, minLength: 1 }
+        port: { type: integer, minimum: 1, maximum: 65535, default: 22 }
+
+    SSHHostKeyCheck:
+      type: object
+      required: [host, port, status]
+      properties:
+        host: { type: string }
+        port: { type: integer }
+        status:
+          type: string
+          enum: [match, changed, unpinned, unreachable]
+          description: >
+            match — the pin still holds. changed — the machine answers with a
+            different key, so every connection to it is refused until this is
+            resolved. unpinned — nothing pinned yet; the next connection pins
+            what it sees. unreachable — the address did not answer.
+        pinned: { type: string, description: The fingerprint on record, absent when nothing is pinned }
+        observed: { type: string, description: What the machine is presenting now, absent when unreachable }
+        message: { type: string }
 
     DockerContainer:
       type: object
