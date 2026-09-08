@@ -34,6 +34,15 @@ const checkFor = (host) => {
   if (host === '192.168.20.235') {
     return { host, port: 22, status: 'unreachable', message: 'cannot reach 192.168.20.235:22: dial tcp 192.168.20.235:22: connect: no route to host' };
   }
+  // Forgetting a pin and reconnecting re-pins the address on its own, leaving
+  // only PatchPilot behind. The dialog must still offer the way out.
+  if (host === '192.168.20.164') {
+    return {
+      host, port: 22, status: 'match', pinned: LIVE, observed: LIVE,
+      message: 'Nothing here is blocking connections to this address.',
+      alsoStale: ['OpenSpeedTest LXC'],
+    };
+  }
   if (trusted) {
     return {
       host, port: 22, status: 'match', pinned: LIVE, observed: LIVE,
@@ -137,5 +146,14 @@ await page.waitForTimeout(300);
 // An address that does not answer must read as unreachable, not as a lockout.
 await page.locator('tbody tr').nth(1).getByRole('button', { name: 'Host key' }).click();
 findings.unreachable = await readDialog();
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+
+// Address pin fine, PatchPilot behind: still recoverable, from the pin list.
+await page.evaluate(() => {
+  const rows = [...[...document.querySelectorAll('table')].pop().querySelectorAll('tbody tr')];
+  rows.find((r) => r.textContent.includes('192.168.20.164')).querySelector('button').click();
+});
+findings.onlyPatchpilotBehind = await readDialog();
 
 await report(app, { findings });

@@ -40,12 +40,17 @@ error and unmatched API route as JSON.
 - **`walk-local-guide.mjs`** — the local-model setup guide across all six
   runtimes in both modes, catching missing translation keys (which render as
   the key itself) and checking the fill-in button writes the form.
+- **`walk-host-keys.mjs`** — SSH host-key recovery in its four states: pin
+  changed, trusted, address unreachable, and only PatchPilot's own pin behind.
+  Its stub messages are copied from the handler, because a stub that
+  paraphrases the server cannot catch the two of them saying the same thing.
 
 Write a new `walk-*.mjs` per question rather than growing an existing one.
 
 ## What it has caught
 
 The widget's model menu opening behind the panel; a `crypto.randomUUID` crash
-that took down the whole assistant pane on the LAN origin; and the model
-field's label rendering as an i18next error string, broken since the model
-picker landed.
+that took down the whole assistant pane on the LAN origin; the model field's
+label rendering as an i18next error string, broken since the model picker
+landed; a host-key dialog that stated the same sentence twice; and a dead end
+where only PatchPilot's pin was stale and the dialog offered no way out.

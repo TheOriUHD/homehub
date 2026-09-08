@@ -44,6 +44,17 @@ export function hostKeyChanged(message: string | undefined): boolean {
   return /host key (has )?changed/i.test(message ?? "");
 }
 
+/**
+ * There is something to accept when the address pin is stale, and ALSO when
+ * only PatchPilot's own pin is behind: forgetting a pin and reconnecting
+ * re-pins the address by itself, which would otherwise leave the dialog
+ * reporting a match while the update runs kept failing, with no button.
+ */
+function canTrust(result: SSHHostKeyCheck | null): boolean {
+  if (!result?.observed) return false;
+  return result.status === "changed" || (result.alsoStale?.length ?? 0) > 0;
+}
+
 const TONES: Record<string, { icon: typeof CircleCheck; className: string }> = {
   match: { icon: CircleCheck, className: "text-success" },
   changed: { icon: ShieldAlert, className: "text-danger" },
@@ -122,8 +133,8 @@ export function HostKeyDialog({
             <Button variant="ghost" onClick={onClose}>
               {t("common.close")}
             </Button>
-            {canConfigure && result?.status === "changed" && result.observed && (
-              <Button variant="primary" loading={trust.isPending} onClick={() => trust.mutate(result.observed!)}>
+            {canConfigure && canTrust(result) && (
+              <Button variant="primary" loading={trust.isPending} onClick={() => trust.mutate(result!.observed!)}>
                 {t("ssh.hostKey.trust")}
               </Button>
             )}
