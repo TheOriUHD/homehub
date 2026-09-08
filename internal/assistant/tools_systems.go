@@ -18,8 +18,10 @@ import (
 // not a re-implementation. A 403 comes back to the model as a readable
 // refusal; every action lands in the audit log under the human's name.
 
-// maxToolResultBytes caps what one tool feeds back into the model — tool
-// output is prompt tokens, and prompt tokens are money.
+// maxToolResultBytes caps what one tool feeds back into the model. Tool output
+// is prompt tokens, and prompt tokens are money on a cloud model and a hard
+// wall on a local one — see clampToolResult, which holds every tool to this,
+// not only the ones that remember to call capResult.
 const maxToolResultBytes = 7000
 
 func (tb *Toolbox) systemTools() []tool {
