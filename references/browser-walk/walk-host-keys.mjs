@@ -43,6 +43,7 @@ const checkFor = (host) => {
   return {
     host, port: 22, status: 'changed', pinned: PINNED, observed: LIVE,
     message: 'Every connection to this address is being refused until it is resolved.',
+    alsoStale: ['Minecraft VM'],
   };
 };
 
@@ -104,6 +105,7 @@ const readDialog = async () => {
       fingerprints: [...d.querySelectorAll('code')].map((c) => c.textContent.trim()),
       buttons: [...d.querySelectorAll('button')].map((b) => b.textContent.trim()).filter(Boolean),
       mentionsInterception: /intercept/i.test(text),
+      mentionsPatchpilot: /PatchPilot/.test(text),
       rawKeys: /ssh\.hostKey\./.test(text),
     };
   });

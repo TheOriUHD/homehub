@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Check,
   ChevronDown,
+  Fingerprint,
   History,
   Loader2,
   Pencil,
@@ -19,6 +20,7 @@ import {
 import type { PatchpilotDryRunResult, PatchpilotHost, PatchpilotHostRun } from "@/lib/api";
 import { live } from "@/lib/ws";
 import { SSHHostPicker } from "@/pages/ssh-hosts";
+import { HostKeyDialog } from "@/pages/ssh-host-keys";
 import { cn, formatRelative } from "@/lib/utils";
 import { Badge, StatusDot } from "@/ui/badge";
 import { Button } from "@/ui/button";
@@ -67,6 +69,7 @@ export function PatchpilotHostDetailPage() {
   const deleteHost = useDeleteHost(instanceId);
   const bindHost = useBindHost(instanceId);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [hostKeyOpen, setHostKeyOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
   const [busy, setBusy] = useState<ActionKind | null>(null);
@@ -277,6 +280,10 @@ export function PatchpilotHostDetailPage() {
               <RefreshCw className="size-3.5" />
               {t("patchpilot.hostDetail.rebootstrap")}
             </Button>
+            <Button variant="ghost" disabled={busyAny} onClick={() => setHostKeyOpen(true)}>
+              <Fingerprint className="size-3.5" />
+              {t("ssh.hostKey.title")}
+            </Button>
             <div className="ml-auto flex items-center gap-2">
               <Button variant="secondary" disabled={busyAny} onClick={() => setEditOpen(true)}>
                 <Pencil className="size-3.5" />
@@ -412,6 +419,17 @@ export function PatchpilotHostDetailPage() {
       />
       <EditHostDialog instanceId={instanceId} host={host} open={editOpen} onOpenChange={setEditOpen} />
       <RebootstrapDialog instanceId={instanceId} host={host} open={setupOpen} onOpenChange={setSetupOpen} />
+
+      {/* Accepting the key here also moves this host's own pin, which is what
+          stops a rebuilt machine failing every run with nothing to click. */}
+      {hostKeyOpen && (
+        <HostKeyDialog
+          host={host.hostname}
+          port={host.sshPort}
+          label={host.name}
+          onClose={() => setHostKeyOpen(false)}
+        />
+      )}
       <CriticalRunConfirm
         open={runConfirm}
         onOpenChange={setRunConfirm}

@@ -130,6 +130,14 @@ func (s *Server) checkHostKey(ctx context.Context, host string, port int) SSHHos
 	}
 	out.Observed = &observed
 
+	// PatchPilot pins per managed host rather than per address, so its runs can
+	// stay blocked after the address pin is fixed. Name whoever is in that
+	// state, because a fix that leaves half the failure in place is worse than
+	// no fix: the operator stops looking.
+	if stale := s.patchpilotPinsBehind(ctx, host, port, observed); len(stale) > 0 {
+		out.AlsoStale = &stale
+	}
+
 	// The message says what the status MEANS, never what it already says: the
 	// screen puts the two next to each other, and a sentence repeated back at
 	// the reader is a sentence they stop reading.
@@ -143,6 +151,22 @@ func (s *Server) checkHostKey(ctx context.Context, host string, port int) SSHHos
 	default:
 		out.Status = "changed"
 		out.Message = ptr("Every connection to this address is being refused until it is resolved.")
+	}
+	return out
+}
+
+// patchpilotPinsBehind names managed hosts at this address whose pin is not
+// the key the machine is presenting.
+func (s *Server) patchpilotPinsBehind(ctx context.Context, host string, port int, observed string) []string {
+	rows, err := s.store.PatchpilotHostsAtAddress(ctx, host, port)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, h := range rows {
+		if h.HostKey != "" && h.HostKey != observed {
+			out = append(out, h.Name)
+		}
 	}
 	return out
 }
@@ -201,18 +225,51 @@ func (s *Server) TrustSSHHostKey(ctx context.Context, req TrustSSHHostKeyRequest
 	if err := s.store.TrustSSHHostKey(ctx, host, port, accepting); err != nil {
 		return nil, err
 	}
+	// The decision is about the machine at this address, so it applies to
+	// PatchPilot's own pins for it as well. Doing it here rather than making
+	// the operator find a second screen — and saying so below, because an
+	// action that quietly reaches further than its label is its own problem.
+	alsoFixed := s.trustPatchpilotPins(ctx, host, port, accepting)
+
 	previous := ""
 	if live.Pinned != nil {
 		previous = *live.Pinned
 	}
-	s.audit.Log(ctx, actorFor(id), "ssh_host.trust_key", ResSSHHosts, "success",
-		map[string]any{"address": addrKey(host, port), "previous": previous, "trusted": accepting})
+	s.audit.Log(ctx, actorFor(id), "ssh_host.trust_key", ResSSHHosts, "success", map[string]any{
+		"address": addrKey(host, port), "previous": previous, "trusted": accepting,
+		"patchpilotHosts": alsoFixed,
+	})
 
 	out := s.checkHostKey(ctx, host, port)
 	if out.Status == "match" {
-		out.Message = ptr("Connections to this address work again — the terminal, any system that dials it over SSH, and the assistant.")
+		msg := "Connections to this address work again — the terminal, any system that dials it over SSH, and the assistant."
+		if len(alsoFixed) > 0 {
+			msg += " PatchPilot's own pin was updated too, for " + strings.Join(alsoFixed, ", ") + "."
+		}
+		out.Message = ptr(msg)
 	}
 	return TrustSSHHostKey200JSONResponse(out), nil
+}
+
+// trustPatchpilotPins applies an accepted key to the managed hosts at that
+// address, and reports which ones it moved.
+func (s *Server) trustPatchpilotPins(ctx context.Context, host string, port int, accepting string) []string {
+	rows, err := s.store.PatchpilotHostsAtAddress(ctx, host, port)
+	if err != nil {
+		return nil
+	}
+	var moved []string
+	for _, h := range rows {
+		if h.HostKey == "" || h.HostKey == accepting {
+			continue
+		}
+		if err := s.store.SetPatchpilotHostKey(ctx, h.ID, accepting); err != nil {
+			s.logger.Warn("could not update the PatchPilot host key", "host", h.Name, "error", err)
+			continue
+		}
+		moved = append(moved, h.Name)
+	}
+	return moved
 }
 
 func (s *Server) ForgetSSHHostKey(ctx context.Context, req ForgetSSHHostKeyRequestObject) (ForgetSSHHostKeyResponseObject, error) {
