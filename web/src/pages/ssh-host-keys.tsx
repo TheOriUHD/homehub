@@ -273,7 +273,7 @@ export function KnownHostsCard() {
                         </code>
                       </TD>
                       <TD>
-                        {row.usedBy.length > 0 ? (
+                        {(row.usedBy ?? []).length > 0 ? (
                           <span className="text-fg-muted text-[12.5px]">{row.usedBy.join(", ")}</span>
                         ) : (
                           <span className="text-fg-subtle text-[12.5px]">—</span>
@@ -303,7 +303,7 @@ export function KnownHostsCard() {
         <HostKeyDialog
           host={inspecting.host}
           port={inspecting.port}
-          label={inspecting.usedBy[0] ?? inspecting.host}
+          label={inspecting.usedBy?.[0] ?? inspecting.host}
           onClose={() => setInspecting(null)}
         />
       )}

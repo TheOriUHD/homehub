@@ -65,7 +65,10 @@ const app = await openApp({
       items: [
         { host: '192.168.20.73', port: 22, fingerprint: trusted ? LIVE : PINNED, updatedAt: '2026-08-21T22:41:13Z', usedBy: ['Minecraft VM', 'AcardiaMC'] },
         { host: '192.168.20.235', port: 22, fingerprint: 'SHA256:xr+8wAmlc8YR5GnMIlIJA', updatedAt: '2026-08-20T03:42:08Z', usedBy: ['WebHost LXC'] },
-        { host: '192.168.20.164', port: 22, fingerprint: 'SHA256:a3GNb2FMcKDDiEeuiPYHD', updatedAt: '2026-08-20T03:41:17Z', usedBy: [] },
+        // Most pins have nothing pointing at them by name, and Go marshals a
+        // nil slice as null rather than []. Shipping that took the page down,
+        // so the stub sends what the server actually sends.
+        { host: '192.168.20.164', port: 22, fingerprint: 'SHA256:a3GNb2FMcKDDiEeuiPYHD', updatedAt: '2026-08-20T03:41:17Z', usedBy: null },
       ],
     }),
   },
