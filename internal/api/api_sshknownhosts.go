@@ -11,6 +11,7 @@ import (
 
 	"github.com/TheOriUHD/homehub/internal/httpctx"
 	"github.com/TheOriUHD/homehub/internal/rbac"
+	"github.com/TheOriUHD/homehub/internal/store"
 	"github.com/TheOriUHD/homehub/internal/term"
 )
 
@@ -48,15 +49,26 @@ func (s *Server) ListSSHKnownHosts(ctx context.Context, _ ListSSHKnownHostsReque
 	users := s.sshAddressUsers(ctx)
 	items := make([]SSHKnownHost, 0, len(rows))
 	for _, r := range rows {
-		items = append(items, SSHKnownHost{
-			Host: r.Host, Port: r.Port, Fingerprint: r.Fingerprint,
-			UpdatedAt: r.UpdatedAt, UsedBy: users[addrKey(r.Host, r.Port)],
-		})
+		items = append(items, knownHostRow(r, users[addrKey(r.Host, r.Port)]))
 	}
 	return ListSSHKnownHosts200JSONResponse{Items: items}, nil
 }
 
 func addrKey(host string, port int) string { return net.JoinHostPort(host, fmt.Sprint(port)) }
+
+// knownHostRow shapes one pin for the wire. The empty slice is load bearing: a
+// nil one marshals to null, the schema promises an array, and most pins have
+// nothing pointing at them by name — so shipping null took the whole page down
+// on the client's first .length.
+func knownHostRow(r store.SSHKnownHost, usedBy []string) SSHKnownHost {
+	if usedBy == nil {
+		usedBy = []string{}
+	}
+	return SSHKnownHost{
+		Host: r.Host, Port: r.Port, Fingerprint: r.Fingerprint,
+		UpdatedAt: r.UpdatedAt, UsedBy: usedBy,
+	}
+}
 
 // sshAddressUsers maps an address to the things that connect to it, so a pin
 // reads as "the Minecraft VM" rather than a bare address the operator has to

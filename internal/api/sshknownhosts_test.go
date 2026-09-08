@@ -1,6 +1,12 @@
 package api
 
-import "testing"
+import (
+	"bytes"
+	"encoding/json"
+	"testing"
+
+	"github.com/TheOriUHD/homehub/internal/store"
+)
 
 // The address a request names decides which pin is replaced, so a malformed
 // one has to be refused rather than defaulted into something plausible.
@@ -26,5 +32,26 @@ func TestHostKeyRefNormalisesAnAddress(t *testing.T) {
 		if _, _, err := hostKeyRef(bad.host, bad.port); err == nil {
 			t.Errorf("accepted host=%q port=%v", bad.host, bad.port)
 		}
+	}
+}
+
+// Most pins have nothing pointing at them by name. A nil slice marshals to
+// null, the schema promises an array, and the page read .length off it — so
+// the whole screen went blank on the addresses that are hardest to identify.
+func TestKnownHostRowNeverShipsANullList(t *testing.T) {
+	row := knownHostRow(store.SSHKnownHost{Host: "192.168.10.159", Port: 22, Fingerprint: "SHA256:x"}, nil)
+	if row.UsedBy == nil {
+		t.Fatal("usedBy is nil and would marshal to null")
+	}
+	raw, err := json.Marshal(row)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(raw, []byte(`"usedBy":null`)) {
+		t.Fatalf("shipped a null list: %s", raw)
+	}
+	named := knownHostRow(store.SSHKnownHost{Host: "192.168.10.73", Port: 22}, []string{"Minecraft VM"})
+	if len(named.UsedBy) != 1 || named.UsedBy[0] != "Minecraft VM" {
+		t.Fatalf("names were dropped: %v", named.UsedBy)
 	}
 }
