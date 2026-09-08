@@ -58,7 +58,126 @@ func (tb *Toolbox) sshTools() []tool {
 			},
 			run: tb.sshRun,
 		},
+		{
+			def: ToolDef{
+				Name:        "ssh_check_host_key",
+				Description: "Compare a machine's live SSH host key against the one HomeHub pinned. Use this when an SSH connection fails with \"host key changed\" — it says whether the machine is presenting a different key, and what both fingerprints are. Reads the key without logging in, so it works even when connections are being refused.",
+				InputSchema: obj(`"host":{"type":"string","description":"Host name from list_ssh_hosts, or a plain address"},"port":{"type":"integer","description":"SSH port, default 22"}`, "host"),
+			},
+			run: tb.sshCheckHostKey,
+		},
+		{
+			def: ToolDef{
+				Name:        "ssh_trust_host_key",
+				Description: "Accept the host key a machine is presenting now, restoring connections to it. Only for a key that changed for a reason the user knows about — a rebuild, a reinstall, or the address now pointing at a different machine. NOT executed on your say-so: it is queued for the user to approve, and you must tell them both fingerprints and that a key can also change because something is intercepting the connection. Always run ssh_check_host_key first and quote what it found.",
+				InputSchema: obj(`"host":{"type":"string","description":"Host name from list_ssh_hosts, or a plain address"},"port":{"type":"integer","description":"SSH port, default 22"}`, "host"),
+			},
+			run: tb.sshTrustHostKey,
+		},
 	}
+}
+
+// resolveSSHAddress turns what the model said into an address. It accepts a
+// registry entry name, because that is what the model has been shown, and
+// falls back to treating the string as the address itself — a Docker daemon
+// or Minecraft host has a pinned key without having a registry entry.
+func (tb *Toolbox) resolveSSHAddress(ctx context.Context, name string, port int) (string, int, string) {
+	if host, err := tb.Store.GetSSHHostByName(ctx, name); err == nil {
+		return host.Hostname, host.Port, host.Name
+	}
+	if port == 0 {
+		port = 22
+	}
+	return name, port, name
+}
+
+func (tb *Toolbox) sshCheckHostKey(ctx context.Context, access Access, input json.RawMessage) (any, error) {
+	var p struct {
+		Host string `json:"host"`
+		Port int    `json:"port"`
+	}
+	if err := json.Unmarshal(input, &p); err != nil {
+		return nil, err
+	}
+	name := strings.TrimSpace(p.Host)
+	if name == "" {
+		return nil, fmt.Errorf("which host?")
+	}
+	if !access.Can("system/ssh", "view") {
+		return nil, fmt.Errorf("you do not have permission to look at pinned host keys")
+	}
+	if tb.Call == nil {
+		return nil, fmt.Errorf("host keys are not reachable from the assistant here")
+	}
+	host, port, label := tb.resolveSSHAddress(ctx, name, p.Port)
+	status, resp := tb.Call(ctx, "POST", "/ssh-known-hosts/check", map[string]any{"host": host, "port": port})
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("could not check that host key: %s", string(resp))
+	}
+	var out map[string]any
+	if err := json.Unmarshal(resp, &out); err != nil {
+		return nil, err
+	}
+	out["name"] = label
+	return out, nil
+}
+
+func (tb *Toolbox) sshTrustHostKey(ctx context.Context, access Access, input json.RawMessage) (any, error) {
+	var p struct {
+		Host string `json:"host"`
+		Port int    `json:"port"`
+	}
+	if err := json.Unmarshal(input, &p); err != nil {
+		return nil, err
+	}
+	name := strings.TrimSpace(p.Host)
+	if name == "" {
+		return nil, fmt.Errorf("which host?")
+	}
+	// Trusting a key is a configuration decision, and the approval below does
+	// not grant permission — the API re-checks this when the action runs.
+	if !access.Can("system/ssh", "configure") {
+		return nil, fmt.Errorf("you do not have permission to change pinned host keys")
+	}
+	if tb.Call == nil {
+		return nil, fmt.Errorf("host keys are not reachable from the assistant here")
+	}
+	host, port, label := tb.resolveSSHAddress(ctx, name, p.Port)
+
+	// Read the live key first, so the proposal names the exact fingerprint
+	// being accepted rather than "whatever answers when you say yes".
+	status, resp := tb.Call(ctx, "POST", "/ssh-known-hosts/check", map[string]any{"host": host, "port": port})
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("could not read that host key: %s", string(resp))
+	}
+	var check struct {
+		Status   string `json:"status"`
+		Pinned   string `json:"pinned"`
+		Observed string `json:"observed"`
+		Message  string `json:"message"`
+	}
+	if err := json.Unmarshal(resp, &check); err != nil {
+		return nil, err
+	}
+	switch check.Status {
+	case "unreachable":
+		return nil, fmt.Errorf("%s is not answering on port %d, so there is no key to accept: %s", label, port, check.Message)
+	case "match":
+		return map[string]any{
+			"host": label, "status": "match", "pinned": check.Pinned,
+			"note": "Nothing to do — the pinned key still matches, so whatever is failing is not the host key.",
+		}, nil
+	}
+
+	raw, _ := json.Marshal(map[string]any{
+		"host": host, "port": port, "name": label,
+		"fingerprint": check.Observed, "previous": check.Pinned,
+	})
+	summary := fmt.Sprintf("Trust the new SSH host key for %s (%s:%d): %s", label, host, port, check.Observed)
+	if check.Pinned != "" {
+		summary += fmt.Sprintf(", replacing %s", check.Pinned)
+	}
+	return &PendingAction{Kind: "ssh.trust_host_key", Summary: summary, Params: raw}, nil
 }
 
 func (tb *Toolbox) listSSHHosts(ctx context.Context, access Access, _ json.RawMessage) (any, error) {

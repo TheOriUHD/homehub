@@ -1852,6 +1852,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ssh-known-hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pinned SSH host keys
+         * @description Every machine HomeHub has pinned a host key for, and what points at it. Pins are keyed by address, so one entry covers the SSH registry, a Docker daemon over SSH, a Minecraft host and a Proxmox guest console alike.
+         */
+        get: operations["listSSHKnownHosts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ssh-known-hosts/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare a machine's live host key against its pin
+         * @description Reads the key the machine is presenting now, without logging in or offering a credential, and says whether it still matches.
+         */
+        post: operations["checkSSHHostKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ssh-known-hosts/trust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pin the key a machine is presenting now
+         * @description Replaces the pin, restoring every connection to that address at once. The fingerprint must match what the machine is presenting at the moment of the call, so a stale screen cannot approve a key that has since changed again. Requires configure on the SSH registry. Audited.
+         */
+        post: operations["trustSSHHostKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ssh-known-hosts/forget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Drop a pin, returning the address to trust-on-first-use
+         * @description Weaker than trusting a fingerprint you have looked at, because whatever answers next is what gets pinned. Requires configure on the SSH registry. Audited.
+         */
+        post: operations["forgetSSHHostKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/db/instances": {
         parameters: {
             query?: never;
@@ -5451,6 +5531,34 @@ export interface components {
             /** @description Password or PEM private key; omit on update to keep the stored one */
             secret?: string;
             notes?: string;
+        };
+        SSHKnownHost: {
+            host: string;
+            port: number;
+            fingerprint: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Names of the registry entries and systems that connect to this address */
+            usedBy: string[];
+        };
+        SSHHostKeyRef: {
+            host: string;
+            /** @default 22 */
+            port: number;
+        };
+        SSHHostKeyCheck: {
+            host: string;
+            port: number;
+            /**
+             * @description match — the pin still holds. changed — the machine answers with a different key, so every connection to it is refused until this is resolved. unpinned — nothing pinned yet; the next connection pins what it sees. unreachable — the address did not answer.
+             * @enum {string}
+             */
+            status: "match" | "changed" | "unpinned" | "unreachable";
+            /** @description The fingerprint on record */
+            pinned?: string;
+            /** @description What the machine is presenting now */
+            observed?: string;
+            message?: string;
         };
         DockerContainer: {
             id: string;
@@ -10430,6 +10538,118 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TermSession"];
                 };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listSSHKnownHosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pinned keys */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["SSHKnownHost"][];
+                    };
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    checkSSHHostKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSHHostKeyRef"];
+            };
+        };
+        responses: {
+            /** @description What the address is presenting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHHostKeyCheck"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    trustSSHHostKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSHHostKeyRef"] & {
+                    /** @description The SHA256 fingerprint being accepted, as shown by a check */
+                    fingerprint: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The pin after trusting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHHostKeyCheck"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            /** @description The machine is presenting a different key than the one being accepted */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    forgetSSHHostKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSHHostKeyRef"];
+            };
+        };
+        responses: {
+            /** @description Pin removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];

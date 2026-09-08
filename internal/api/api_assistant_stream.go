@@ -341,6 +341,31 @@ func (s *Server) applyAssistantAction(ctx context.Context, id *httpctx.Identity,
 		}
 		return fmt.Sprintf("Created calendar “%s”", p.Name), "", nil
 
+	case "ssh.trust_host_key":
+		var p struct {
+			Host        string `json:"host"`
+			Port        int    `json:"port"`
+			Name        string `json:"name"`
+			Fingerprint string `json:"fingerprint"`
+		}
+		if err := json.Unmarshal(a.Params, &p); err != nil {
+			return "Trust SSH host key", "", err
+		}
+		label := p.Name
+		if label == "" {
+			label = p.Host
+		}
+		summary := fmt.Sprintf("Trust the new SSH host key for %s", label)
+		// Through the same handler the page uses, so the permission re-check
+		// and the audit entry are that handler's, and so is the re-probe that
+		// refuses a key which has changed again since it was proposed.
+		body := map[string]any{"host": p.Host, "port": p.Port, "fingerprint": p.Fingerprint}
+		if err := selfCallResult(s.SelfCall(ctx, id, http.MethodPost, "/ssh-known-hosts/trust", body)); err != nil {
+			return summary, "", err
+		}
+		return summary, fmt.Sprintf("Pinned %s for %s:%d. Connections to it work again.",
+			p.Fingerprint, p.Host, p.Port), nil
+
 	case "ssh.run":
 		var p struct {
 			HostID   string `json:"hostId"`

@@ -3990,6 +3990,39 @@
       "hint": "Pick a saved host, or enter credentials just for this resource."
     },
     "generateAndSave": "Generate keypair & save",
-    "generated": "Keypair generated and installed"
+    "generated": "Keypair generated and installed",
+    "hostKey": {
+      "title": "Host key",
+      "fixIt": "The host key changed — look at it",
+      "dialogTitle": "Host key · {{name}}",
+      "pinnedLabel": "On record",
+      "observedLabel": "Presenting now",
+      "nonePinned": "Nothing pinned yet.",
+      "noAnswer": "No answer from this address.",
+      "recheck": "Check again",
+      "trust": "Trust the new key",
+      "trusted": "{{name}} trusted. Connections to it work again.",
+      "forget": "Forget the pin",
+      "forgot": "Pin removed for {{name}}. The next connection will pin whatever answers.",
+      "forgetHint": "Forgetting is the weaker option: whatever answers next is what gets pinned. Trusting a fingerprint you have looked at is better.",
+      "caution": "A key also changes when something is intercepting the connection. Trust this one only if you know why it changed — you rebuilt or reinstalled the machine, or this address now points at a different one. If neither is true, find out why before accepting it.",
+      "unreachableHint": "Nothing answered, so there is no key to compare. The machine may be off, or the address may have moved.",
+      "status": {
+        "match": "The pinned key still matches.",
+        "changed": "This machine is presenting a different key.",
+        "unpinned": "Nothing is pinned for this address yet.",
+        "unreachable": "This address did not answer."
+      },
+      "check": "Check",
+      "knownTitle": "Pinned host keys",
+      "knownSubtitle": "Every machine HomeHub has recorded a key for. A pin belongs to the address, so trusting a rebuilt machine restores the terminal, anything dialling it over SSH, and the assistant at once.",
+      "knownEmpty": "No pinned keys yet",
+      "knownEmptyBody": "The first connection to a machine records its key, and later connections are refused if it changes.",
+      "cols": {
+        "address": "Address",
+        "usedBy": "Used by",
+        "fingerprint": "Pinned fingerprint"
+      }
+    }
   }
 }
