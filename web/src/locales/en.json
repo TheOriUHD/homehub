@@ -4022,7 +4022,8 @@
         "address": "Address",
         "usedBy": "Used by",
         "fingerprint": "Pinned fingerprint"
-      }
+      },
+      "alsoStale": "PatchPilot keeps its own key for this machine and is on the old one too, for {{hosts}}. Trusting here updates that as well, so its update runs are not left failing."
     }
   }
 }

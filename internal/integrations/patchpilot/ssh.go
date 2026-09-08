@@ -102,7 +102,9 @@ func dial(ctx context.Context, host string, port int, user string, auth []ssh.Au
 		_ = tcp.Close()
 		if expectedKey != "" && observed != "" && observed != expectedKey {
 			return nil, sourceIP, observed, fmt.Errorf(
-				"Host key changed — refusing to connect (pinned %s, now %s); if this host was rebuilt, remove and re-add it",
+				"Host key changed — refusing to connect (pinned %s, now %s). "+
+					"If this machine was rebuilt, accept the new key under SSH Hosts and this host follows; "+
+					"it does not need onboarding again",
 				expectedKey, observed)
 		}
 		return nil, sourceIP, observed, classifyDial(err, keyLogin)

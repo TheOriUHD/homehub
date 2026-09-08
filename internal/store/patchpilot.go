@@ -99,6 +99,17 @@ func (s *Store) SetPatchpilotHostKey(ctx context.Context, id uuid.UUID, hostKey 
 	return err
 }
 
+// PatchpilotHostsAtAddress finds managed hosts reachable at an address, so a
+// host key accepted for that address can be applied to their pins too.
+// PatchPilot keeps its own pin per managed host, tied to that host's
+// onboarding; leaving it stale after the operator has accepted the machine's
+// new key would keep the runs failing with no visible reason.
+func (s *Store) PatchpilotHostsAtAddress(ctx context.Context, hostname string, port int) ([]PatchpilotHost, error) {
+	return scanMany[PatchpilotHost](s.pool.Query(ctx,
+		`select `+ppHostCols+` from patchpilot_hosts where hostname = $1 and ssh_port = $2 order by name`,
+		hostname, port))
+}
+
 // UpdatePatchpilotHost writes the operator-mutable fields.
 func (s *Store) UpdatePatchpilotHost(ctx context.Context, id uuid.UUID, name string, enabled, autoReboot, critical bool, notes string) (*PatchpilotHost, error) {
 	return scanOne[PatchpilotHost](s.pool.Query(ctx, `

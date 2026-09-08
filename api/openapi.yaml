@@ -8348,6 +8348,14 @@ components:
         pinned: { type: string, description: The fingerprint on record, absent when nothing is pinned }
         observed: { type: string, description: What the machine is presenting now, absent when unreachable }
         message: { type: string }
+        alsoStale:
+          type: array
+          description: >
+            PatchPilot hosts at this address whose own pin no longer matches
+            either. PatchPilot pins per managed host, so its update runs stay
+            blocked until the same key is accepted for them; trusting here does
+            that too, and this names who it covers.
+          items: { type: string }
 
     DockerContainer:
       type: object

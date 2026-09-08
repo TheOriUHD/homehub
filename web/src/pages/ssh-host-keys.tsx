@@ -157,6 +157,12 @@ export function HostKeyDialog({
                 />
               </div>
 
+              {result.alsoStale && result.alsoStale.length > 0 && (
+                <p className="text-fg-muted text-[12.5px] leading-relaxed">
+                  {t("ssh.hostKey.alsoStale", { hosts: result.alsoStale.join(", ") })}
+                </p>
+              )}
+
               {result.status === "changed" && (
                 <p className="bg-danger-soft text-danger-soft-fg rounded-lg px-3 py-2.5 text-[12.5px] leading-relaxed">
                   {t("ssh.hostKey.caution")}

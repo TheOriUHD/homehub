@@ -5559,6 +5559,8 @@ export interface components {
             /** @description What the machine is presenting now */
             observed?: string;
             message?: string;
+            /** @description PatchPilot hosts at this address whose own pin no longer matches either. PatchPilot pins per managed host, so its update runs stay blocked until the same key is accepted for them; trusting here does that too, and this names who it covers. */
+            alsoStale?: string[];
         };
         DockerContainer: {
             id: string;

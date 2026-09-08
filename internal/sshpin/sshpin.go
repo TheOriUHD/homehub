@@ -74,7 +74,9 @@ func (p *Pin) Verify(_ string, _ net.Addr, key ssh.PublicKey) error {
 	p.observed = ssh.FingerprintSHA256(key)
 	if p.expected != "" && p.observed != p.expected {
 		return fmt.Errorf(
-			"host key changed for %s — refusing to connect (pinned %s, now %s); if this host was rebuilt, clear its pin",
+			"host key changed for %s — refusing to connect (pinned %s, now %s). "+
+				"If this machine was rebuilt or the address now points at a different one, "+
+				"accept the new key under SSH Hosts; nothing needs re-adding",
 			net.JoinHostPort(p.host, fmt.Sprint(p.port)), p.expected, p.observed)
 	}
 	return nil

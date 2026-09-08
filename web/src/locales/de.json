@@ -4022,7 +4022,8 @@
         "address": "Adresse",
         "usedBy": "Verwendet von",
         "fingerprint": "Hinterlegter Fingerprint"
-      }
+      },
+      "alsoStale": "PatchPilot hat für diese Maschine einen eigenen Key hinterlegt und liegt ebenfalls auf dem alten — betrifft {{hosts}}. Hier zu vertrauen aktualisiert das mit, damit die Update-Läufe nicht weiter fehlschlagen."
     }
   }
 }
