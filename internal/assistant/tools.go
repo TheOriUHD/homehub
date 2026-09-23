@@ -123,8 +123,8 @@ func (tb *Toolbox) tools() []tool {
 		{
 			def: ToolDef{
 				Name:        "list_calendar_events",
-				Description: "Upcoming calendar events across every calendar, recurrence expanded — title, calendar, start/end (local time), all-day flag and location. Use this for questions about the schedule, what's coming up, or the next trash pickup.",
-				InputSchema: obj(`"days":{"type":"integer","description":"How many days ahead to look, default 14, max 365"}`),
+				Description: "Calendar events across every calendar, recurrence expanded — title, calendar, start/end (local time), all-day flag and location, plus the eventId that update_calendar_event and delete_calendar_event need. The window always includes ALL of today, earlier hours included, so an appointment that has already finished today is still here and still editable; those carry \"past\": true. Set daysBack to reach further back for something last week. Use this for the schedule, what is coming up, the next trash pickup, or to find an event you are about to change.",
+				InputSchema: obj(`"days":{"type":"integer","description":"How many days ahead to look, default 14, max 365"},"daysBack":{"type":"integer","description":"How many days before today to include as well, default 0 (today is always included in full), max 365"}`),
 			},
 			run: tb.listCalendarEvents,
 		},
@@ -386,6 +386,11 @@ func (tb *Toolbox) listAlerts(ctx context.Context, access Access, input json.Raw
 	return out, nil
 }
 
+// maxCalendarEvents bounds one listing. The window reaches into the past now,
+// so a year of history could otherwise crowd out the future the caller asked
+// about; the result says when it had to stop.
+const maxCalendarEvents = 150
+
 // maxMetricSeries bounds the catalogue. There are hundreds of series on a
 // real instance — one per container, per entity, per disk — and listing them
 // flat came to 56 KB, which is most of a local model's context spent on a
@@ -521,7 +526,8 @@ func (tb *Toolbox) listCalendars(ctx context.Context, _ Access, _ json.RawMessag
 
 func (tb *Toolbox) listCalendarEvents(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
 	var args struct {
-		Days int `json:"days"`
+		Days     int `json:"days"`
+		DaysBack int `json:"daysBack"`
 	}
 	_ = json.Unmarshal(input, &args)
 	if args.Days <= 0 {
@@ -530,8 +536,20 @@ func (tb *Toolbox) listCalendarEvents(ctx context.Context, _ Access, input json.
 	if args.Days > 365 {
 		args.Days = 365
 	}
-	from := time.Now()
-	to := from.AddDate(0, 0, args.Days)
+	if args.DaysBack < 0 {
+		args.DaysBack = 0
+	}
+	if args.DaysBack > 365 {
+		args.DaysBack = 365
+	}
+	// The window starts at the top of TODAY, not at this moment. It used to
+	// start at now, so an appointment at 18:00 had vanished by 19:47 — asked
+	// to add its location, the agent could not find the event at all and told
+	// the owner to do it by hand. Anything today is still today.
+	now := time.Now()
+	from := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).
+		AddDate(0, 0, -args.DaysBack)
+	to := now.AddDate(0, 0, args.Days)
 
 	cals, err := tb.Store.ListCalendars(ctx)
 	if err != nil {
@@ -563,13 +581,42 @@ func (tb *Toolbox) listCalendarEvents(ctx context.Context, _ Access, input json.
 		Location        string `json:"location,omitempty"`
 		Recurring       bool   `json:"recurring,omitempty"`
 		OccurrenceStart string `json:"occurrenceStart,omitempty"`
+		// Past marks an occurrence that has already ended. The window reaches
+		// backwards now, so the model has to be able to tell "this evening at
+		// six" from "this evening at six, which was an hour ago".
+		Past bool `json:"past,omitempty"`
 	}
-	out := make([]ev, 0, len(instances))
-	for _, i := range instances {
+	// Truncation has to keep what was asked for. The window reaches backwards
+	// now, so a busy year of history would otherwise fill the whole budget and
+	// leave the model concluding there is nothing coming up. Everything from
+	// now onwards is kept; whatever budget is left goes to the most recent
+	// past, which is the part anyone asking about "earlier" means.
+	kept := instances
+	if len(instances) > maxCalendarEvents {
+		var past, upcoming []calendar.Instance
+		for _, i := range instances {
+			if i.End.Before(now) {
+				past = append(past, i)
+			} else {
+				upcoming = append(upcoming, i)
+			}
+		}
+		if len(upcoming) > maxCalendarEvents {
+			upcoming = upcoming[:maxCalendarEvents]
+		}
+		if room := maxCalendarEvents - len(upcoming); room > 0 && len(past) > room {
+			past = past[len(past)-room:]
+		}
+		kept = append(past, upcoming...)
+	}
+
+	out := make([]ev, 0, len(kept))
+	for _, i := range kept {
 		e := ev{
 			EventID: i.EventID.String(), CalendarID: i.CalendarID.String(),
 			Title: i.Title, Calendar: name[i.CalendarID], Location: i.Location, AllDay: i.AllDay,
 			Recurring: i.Recurring, OccurrenceStart: i.OccurrenceStart.UTC().Format(time.RFC3339),
+			Past: i.End.Before(now),
 		}
 		if i.AllDay {
 			e.Start = i.Start.Local().Format("Mon 2006-01-02")
@@ -579,11 +626,21 @@ func (tb *Toolbox) listCalendarEvents(ctx context.Context, _ Access, input json.
 			e.End = i.End.Local().Format("Mon 2006-01-02 15:04")
 		}
 		out = append(out, e)
-		if len(out) >= 150 {
-			break
-		}
 	}
-	return map[string]any{"windowDays": args.Days, "events": out}, nil
+	// The window is reported back because it is no longer obvious: saying
+	// "nothing on Tuesday" is only true if Tuesday was looked at.
+	res := map[string]any{
+		"from":   from.Format("Mon 2006-01-02 15:04"),
+		"to":     to.Format("Mon 2006-01-02 15:04"),
+		"now":    now.Format("Mon 2006-01-02 15:04"),
+		"events": out,
+	}
+	if len(instances) > len(out) {
+		res["note"] = fmt.Sprintf(
+			"%d occurrences fall in this window and %d are listed — everything from now onwards, plus the most recent past. Narrow days/daysBack to see the older ones.",
+			len(instances), len(out))
+	}
+	return res, nil
 }
 
 func (tb *Toolbox) scanNetwork(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
