@@ -27,6 +27,25 @@ import (
 
 func (s *Server) SetCalendar(svc *calendar.Service) { s.calendar = svc }
 
+// Live topics. calendarTopic is broadcast: a calendar belongs to the house,
+// not to whoever happened to change it, so every open calendar refreshes
+// whether the edit came from another tab, the agent, or a CalDAV sync.
+//
+// agentTopic is per-user and carries whatever the agent just did — see
+// announceSelfChange in selfcall.go.
+const (
+	calendarTopic = "calendar"
+	agentTopic    = "agent"
+)
+
+// calendarChanged nudges every open calendar. Called after a write rather than
+// inside the calendar service, which has no hub and should not grow one.
+func (s *Server) calendarChanged() {
+	if s.hub != nil {
+		s.hub.Publish(calendarTopic, map[string]any{"event": "changed"})
+	}
+}
+
 func toAPICalendar(c *store.Calendar) Calendar {
 	out := Calendar{
 		Id:           c.ID,
@@ -165,6 +184,7 @@ func (s *Server) CreateCalendar(ctx context.Context, req CreateCalendarRequestOb
 			created = fresh
 		}
 	}
+	s.calendarChanged()
 	return CreateCalendar200JSONResponse(toAPICalendar(created)), nil
 }
 
@@ -215,6 +235,7 @@ func (s *Server) UpdateCalendar(ctx context.Context, req UpdateCalendarRequestOb
 	if err != nil {
 		return UpdateCalendar404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such calendar"))}, nil
 	}
+	s.calendarChanged()
 	return UpdateCalendar200JSONResponse(toAPICalendar(row)), nil
 }
 
@@ -229,6 +250,7 @@ func (s *Server) DeleteCalendar(ctx context.Context, req DeleteCalendarRequestOb
 	if !gone {
 		return DeleteCalendar404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such calendar"))}, nil
 	}
+	s.calendarChanged()
 	return DeleteCalendar204Response{}, nil
 }
 
@@ -237,6 +259,7 @@ func (s *Server) SyncCalendar(ctx context.Context, req SyncCalendarRequestObject
 		return nil, ErrUnauthenticated
 	}
 	_ = s.calendar.Sync(ctx, req.Id) // errors land in syncError
+	s.calendarChanged()
 	row, err := s.store.GetCalendar(ctx, req.Id)
 	if err != nil {
 		return SyncCalendar404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such calendar"))}, nil
@@ -313,6 +336,7 @@ func (s *Server) CreateCalendarEvent(ctx context.Context, req CreateCalendarEven
 	if err != nil {
 		return CreateCalendarEvent400JSONResponse{BadRequestJSONResponse(errBody("create_failed", err.Error()))}, nil
 	}
+	s.calendarChanged()
 	inst := calendar.Instance{
 		EventID: row.ID, CalendarID: row.CalendarID, UID: row.UID,
 		Title: row.Title, Location: row.Location, Description: row.Description, URL: row.URL,
@@ -337,6 +361,7 @@ func (s *Server) UpdateCalendarEvent(ctx context.Context, req UpdateCalendarEven
 	if err := s.calendar.UpdateEvent(ctx, req.Id, scope, occ, eventInputFromAPI(req.Body.Event)); err != nil {
 		return UpdateCalendarEvent400JSONResponse{BadRequestJSONResponse(errBody("update_failed", err.Error()))}, nil
 	}
+	s.calendarChanged()
 	return UpdateCalendarEvent204Response{}, nil
 }
 
@@ -355,6 +380,7 @@ func (s *Server) DeleteCalendarEvent(ctx context.Context, req DeleteCalendarEven
 	if err := s.calendar.DeleteEvent(ctx, req.Id, scope, occ); err != nil {
 		return DeleteCalendarEvent404JSONResponse{NotFoundJSONResponse(errBody("delete_failed", err.Error()))}, nil
 	}
+	s.calendarChanged()
 	return DeleteCalendarEvent204Response{}, nil
 }
 

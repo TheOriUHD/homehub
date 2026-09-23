@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/lib/api";
+import { useLiveInvalidate } from "@/lib/live";
 import type { ApiSchemas } from "@/lib/api";
 
 export type Calendar = ApiSchemas["Calendar"];
@@ -82,6 +83,15 @@ export function useCalendarInstances(from: Date, to: Date) {
       ),
     staleTime: 15_000,
   });
+}
+
+/**
+ * useCalendarLive keeps an open calendar current no matter who changed it —
+ * another tab, the assistant, or the CalDAV sync pulling an event someone
+ * moved on their phone. The server publishes on every calendar write.
+ */
+export function useCalendarLive() {
+  useLiveInvalidate("calendar", [["calendar-events"], ["calendars"]]);
 }
 
 export function useInvalidateCalendar() {

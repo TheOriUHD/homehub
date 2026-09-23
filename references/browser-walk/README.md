@@ -45,6 +45,13 @@ error and unmatched API route as JSON.
   Its stub messages are copied from the handler, because a stub that
   paraphrases the server cannot catch the two of them saying the same thing.
 
+- **`walk-live-updates.mjs`** — push-driven refresh: that the calendar page
+  subscribes, and that both a `calendar` broadcast and an `agent` announcement
+  actually refetch what is on screen. It replaces `window.WebSocket` with a
+  fake it can push through, which needs the `OPEN` constant — without it the
+  client compares two `undefined`s, believes the socket is open, and sends on
+  a null.
+
 Write a new `walk-*.mjs` per question rather than growing an existing one.
 
 **The stubs are spec-shaped, not server-shaped.** The generator emits `[]` for

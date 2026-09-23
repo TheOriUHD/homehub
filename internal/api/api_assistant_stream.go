@@ -317,6 +317,34 @@ func (s *Server) applyAssistantAction(ctx context.Context, id *httpctx.Identity,
 		}
 		return label, "", selfCallResult(s.SelfCall(ctx, id, http.MethodDelete, path, nil))
 
+	case "calendar.update_event":
+		var p struct {
+			EventID         uuid.UUID      `json:"eventId"`
+			Scope           string         `json:"scope"`
+			OccurrenceStart string         `json:"occurrenceStart"`
+			Title           string         `json:"title"`
+			Event           map[string]any `json:"event"`
+		}
+		if err := json.Unmarshal(a.Params, &p); err != nil {
+			return "Edit event", "", err
+		}
+		label := fmt.Sprintf("Edit “%s”", p.Title)
+		scope := p.Scope
+		if scope == "" {
+			scope = "all"
+		}
+		// The whole event is sent because the endpoint replaces it; the tool
+		// already merged the untouched fields back in.
+		reqBody := map[string]any{"event": p.Event, "scope": scope}
+		if p.OccurrenceStart != "" {
+			reqBody["occurrenceStart"] = p.OccurrenceStart
+		}
+		if err := selfCallResult(s.SelfCall(ctx, id, http.MethodPut,
+			"/calendar/events/"+p.EventID.String(), reqBody)); err != nil {
+			return label, "", err
+		}
+		return fmt.Sprintf("Edited “%s”", p.Title), "", nil
+
 	case "calendar.create_calendar":
 		var p struct {
 			Name, Color, Kind, URL string

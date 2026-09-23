@@ -303,6 +303,9 @@ func Run(ctx context.Context) error {
 	apiServer.SetCalendar(calendarSvc)
 	jobEngine.Register("calendar.sync", func(ctx context.Context, _ json.RawMessage) error {
 		calendarSvc.SyncAll(ctx)
+		// An upstream change is a change: a CalDAV event moved on someone's
+		// phone should land on an open calendar here without a reload.
+		hub.Publish("calendar", map[string]any{"event": "changed"})
 		return nil
 	})
 
@@ -385,6 +388,15 @@ func authorizeTopic(ctx context.Context, engine *rbac.Engine, st *store.Store, u
 	switch {
 	case topic == "notifications":
 		// Personal inbox — delivered per-user, identity is the authorization.
+		return true
+	case topic == "agent":
+		// What the assistant just changed, delivered per-user via PublishUser
+		// — it only ever describes that user's own actions.
+		return true
+	case topic == "calendar":
+		// Calendars are not permissioned per user (the REST handlers gate on
+		// identity alone), so the live stream matches: anyone signed in who
+		// can read a calendar hears when one changes.
 		return true
 	case topic == "convert":
 		// Personal converter progress — delivered per-user via PublishUser.

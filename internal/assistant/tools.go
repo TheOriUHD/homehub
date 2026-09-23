@@ -146,6 +146,14 @@ func (tb *Toolbox) tools() []tool {
 		},
 		{
 			def: ToolDef{
+				Name:        "update_calendar_event",
+				Description: "Propose changing an existing calendar event — move it, rename it, or edit its details (it is QUEUED and the user must confirm). eventId comes from list_calendar_events. Send ONLY the fields that change; everything else is kept as it is. Times are local, like \"2026-08-25 15:00\". For a repeating event set scope: 'this' (only that occurrence), 'following' (this and all later ones) or 'all' (the whole series), and pass occurrenceStart from list_calendar_events for this/following.",
+				InputSchema: obj(`"eventId":{"type":"string","description":"Event id from list_calendar_events"},"title":{"type":"string"},"start":{"type":"string","description":"New local start, e.g. 2026-08-25 15:00"},"end":{"type":"string","description":"New local end"},"allDay":{"type":"boolean"},"location":{"type":"string"},"notes":{"type":"string"},"url":{"type":"string"},"repeat":{"type":"string","description":"none, daily, weekly, biweekly, monthly, or yearly"},"scope":{"type":"string","description":"this, following, or all (default all)"},"occurrenceStart":{"type":"string","description":"The occurrenceStart of the instance (for this/following)"}`, "eventId"),
+			},
+			run: tb.proposeUpdateEvent,
+		},
+		{
+			def: ToolDef{
 				Name:        "delete_calendar_event",
 				Description: "Propose deleting a calendar event (destructive — it is QUEUED and the user must confirm). eventId comes from list_calendar_events. For a repeating event set scope: 'this' (only the clicked occurrence), 'following' (this and all later ones) or 'all' (the whole series); pass occurrenceStart (from list_calendar_events) for this/following.",
 				InputSchema: obj(`"eventId":{"type":"string","description":"Event id from list_calendar_events"},"scope":{"type":"string","description":"this, following, or all (default all)"},"occurrenceStart":{"type":"string","description":"The occurrenceStart of the instance (for this/following)"}`, "eventId"),
@@ -809,6 +817,171 @@ func (tb *Toolbox) proposeDeleteEvent(ctx context.Context, _ Access, input json.
 	}
 	raw, _ := json.Marshal(map[string]any{"eventId": id.String(), "scope": scope, "occurrenceStart": strings.TrimSpace(args.OccurrenceStart)})
 	return &PendingAction{Kind: "calendar.delete_event", Summary: summary, Params: raw}, nil
+}
+
+// proposeUpdateEvent edits an event in place. The API replaces the whole
+// event, so a partial change has to be merged onto what is stored first —
+// otherwise asking to move an appointment an hour later would also blank its
+// location and notes. Only the fields the model actually sent are applied,
+// and the summary names what moves, so the confirmation is readable without
+// opening the calendar.
+func (tb *Toolbox) proposeUpdateEvent(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+	// Pointers throughout: "not mentioned" and "set to empty" are different
+	// instructions, and only the first means keep.
+	var args struct {
+		EventID         string  `json:"eventId"`
+		Title           *string `json:"title"`
+		Start           *string `json:"start"`
+		End             *string `json:"end"`
+		AllDay          *bool   `json:"allDay"`
+		Location        *string `json:"location"`
+		Notes           *string `json:"notes"`
+		URL             *string `json:"url"`
+		Repeat          *string `json:"repeat"`
+		Scope           string  `json:"scope"`
+		OccurrenceStart string  `json:"occurrenceStart"`
+	}
+	if err := json.Unmarshal(input, &args); err != nil {
+		return nil, err
+	}
+	id, err := uuid.Parse(strings.TrimSpace(args.EventID))
+	if err != nil {
+		return nil, fmt.Errorf("eventId must be an id from list_calendar_events")
+	}
+	ev, err := tb.Store.GetCalendarEvent(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("no such event — list_calendar_events shows what exists")
+	}
+
+	next := map[string]any{
+		"title":       ev.Title,
+		"startsAt":    ev.StartsAt.Format(time.RFC3339),
+		"endsAt":      ev.EndsAt.Format(time.RFC3339),
+		"allDay":      ev.AllDay,
+		"location":    ev.Location,
+		"description": ev.Description,
+		"url":         ev.URL,
+		"rrule":       ev.RRule,
+	}
+	var changes []string
+
+	if args.Title != nil && strings.TrimSpace(*args.Title) != ev.Title {
+		title := strings.TrimSpace(*args.Title)
+		if title == "" {
+			return nil, fmt.Errorf("an event needs a title")
+		}
+		next["title"] = title
+		changes = append(changes, fmt.Sprintf("rename to “%s”", title))
+	}
+	// All-day first: it decides how the times below should read.
+	allDay := ev.AllDay
+	if args.AllDay != nil && *args.AllDay != ev.AllDay {
+		allDay = *args.AllDay
+		next["allDay"] = allDay
+		changes = append(changes, map[bool]string{true: "make it all day", false: "give it a time"}[allDay])
+	}
+	when := func(t time.Time) string {
+		if allDay {
+			return t.Format("Mon 2 Jan")
+		}
+		return t.Format("Mon 2 Jan 15:04")
+	}
+	start, end := ev.StartsAt, ev.EndsAt
+	if args.Start != nil {
+		parsed, dateOnly, perr := parseWhen(*args.Start)
+		if perr != nil {
+			return nil, perr
+		}
+		if args.AllDay == nil && dateOnly {
+			allDay, next["allDay"] = true, true
+		}
+		// Moving the start alone keeps the event as long as it was, which is
+		// what "move it to 3pm" means to anyone who says it.
+		if args.End == nil {
+			end = parsed.Add(ev.EndsAt.Sub(ev.StartsAt))
+			next["endsAt"] = end.Format(time.RFC3339)
+		}
+		start = parsed
+		next["startsAt"] = start.Format(time.RFC3339)
+	}
+	if args.End != nil {
+		parsed, _, perr := parseWhen(*args.End)
+		if perr != nil {
+			return nil, perr
+		}
+		end = parsed
+		next["endsAt"] = end.Format(time.RFC3339)
+	}
+	if !start.Equal(ev.StartsAt) || !end.Equal(ev.EndsAt) {
+		if !end.After(start) {
+			return nil, fmt.Errorf("the end would be before the start — check the times")
+		}
+		changes = append(changes, fmt.Sprintf("move to %s", when(start)))
+	}
+	if args.Location != nil && strings.TrimSpace(*args.Location) != ev.Location {
+		next["location"] = strings.TrimSpace(*args.Location)
+		changes = append(changes, describeField("location", ev.Location, strings.TrimSpace(*args.Location)))
+	}
+	if args.Notes != nil && strings.TrimSpace(*args.Notes) != ev.Description {
+		next["description"] = strings.TrimSpace(*args.Notes)
+		changes = append(changes, describeField("notes", ev.Description, strings.TrimSpace(*args.Notes)))
+	}
+	if args.URL != nil && strings.TrimSpace(*args.URL) != ev.URL {
+		next["url"] = strings.TrimSpace(*args.URL)
+		changes = append(changes, describeField("link", ev.URL, strings.TrimSpace(*args.URL)))
+	}
+	if args.Repeat != nil {
+		rrule := repeatToRRule(*args.Repeat)
+		if strings.EqualFold(strings.TrimSpace(*args.Repeat), "none") {
+			rrule = ""
+		}
+		if rrule != ev.RRule {
+			next["rrule"] = rrule
+			if rrule == "" {
+				changes = append(changes, "stop it repeating")
+			} else {
+				changes = append(changes, "repeat "+strings.ToLower(strings.TrimSpace(*args.Repeat)))
+			}
+		}
+	}
+
+	if len(changes) == 0 {
+		return nil, fmt.Errorf("nothing would change on “%s” — say what to change about it", ev.Title)
+	}
+
+	scope := strings.ToLower(strings.TrimSpace(args.Scope))
+	if scope == "" {
+		scope = "all"
+	}
+	summary := fmt.Sprintf("Edit “%s”: %s", ev.Title, strings.Join(changes, ", "))
+	if ev.RRule != "" || ev.RecurrenceID != nil {
+		switch scope {
+		case "this":
+			summary += " (this occurrence only)"
+		case "following":
+			summary += " (this and all following)"
+		default:
+			summary += " (the whole repeating series)"
+		}
+	}
+	raw, _ := json.Marshal(map[string]any{
+		"eventId": id.String(), "scope": scope,
+		"occurrenceStart": strings.TrimSpace(args.OccurrenceStart),
+		"title":           next["title"], "event": next,
+	})
+	return &PendingAction{Kind: "calendar.update_event", Summary: summary, Params: raw}, nil
+}
+
+// describeField phrases one field change the way a person would read it.
+func describeField(name, from, to string) string {
+	switch {
+	case to == "":
+		return "clear the " + name
+	case from == "":
+		return fmt.Sprintf("add %s “%s”", name, to)
+	default:
+		return fmt.Sprintf("change %s to “%s”", name, to)
+	}
 }
 
 func (tb *Toolbox) proposeCreateCalendar(_ context.Context, _ Access, input json.RawMessage) (any, error) {

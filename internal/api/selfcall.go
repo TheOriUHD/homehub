@@ -65,7 +65,44 @@ func (s *Server) SelfCall(ctx context.Context, id *httpctx.Identity, method, pat
 		s.logger.Warn("self-call failed", "method", method, "path", path, "status", rec.Code,
 			"pattern", pattern, "body", truncateForLog(rec.Body.String()))
 	}
+	s.announceSelfChange(id, method, path, rec.Code)
 	return rec.Code, rec.Body.Bytes()
+}
+
+// announceSelfChange tells the acting user's open pages that the agent just
+// changed something, so the screen catches up on its own.
+//
+// It hooks HERE, at the one door every tool goes through, rather than in each
+// handler: the agent's reach is the API's, and a rule per endpoint would be a
+// list to keep in step with every tool added later. Domain topics still exist
+// and are still the right thing for changes that everyone should see — this is
+// the per-user backstop that makes "the agent did something" visible whether
+// or not the domain it touched has a topic of its own.
+//
+// Reads announce nothing, and neither does a call that failed: nothing moved.
+func (s *Server) announceSelfChange(id *httpctx.Identity, method, path string, code int) {
+	if s.hub == nil || id == nil || !announcesChange(method, code) {
+		return
+	}
+	s.hub.PublishUser(id.User.ID, agentTopic, map[string]any{
+		"event": "changed", "method": method, "path": path,
+	})
+}
+
+// announcesChange decides whether a self-call moved anything. A read changes
+// nothing and a refusal changes nothing; announcing either would have every
+// open page refetch each time the agent merely looked something up, which on
+// a turn with six tool calls is six rounds of pointless traffic.
+func announcesChange(method string, code int) bool {
+	if code >= 400 {
+		return false
+	}
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		return true
+	default:
+		return false
+	}
 }
 
 func truncateForLog(s string) string {
