@@ -18,6 +18,7 @@ import {
   useCalendars,
   weekDays,
   type CalendarInstance,
+  useCalendarLive,
 } from "./shared";
 
 /**
@@ -34,6 +35,9 @@ export function CalendarPage() {
   const [hiddenCals, setHiddenCals] = useState<Set<string>>(new Set());
 
   const calendars = useCalendars();
+  // Someone else's edit, the assistant's, or a CalDAV sync: the grid follows
+  // without a reload.
+  useCalendarLive();
 
   // Query window covers the whole visible grid.
   const [from, to] = useMemo(() => {

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Activity, BellRing, Boxes, CalendarDays, Cctv, ChartSpline, Container, Database, DatabaseBackup, Eye, FileClock, Gamepad2, HardDrive, Home, House, KeyRound, LogOut, Menu, Moon, Network, Pickaxe, Printer, Radio, Search, Server, ServerCog, Settings, Shield, ShieldCheck, Sparkles, Sun, Users, Waypoints, Wrench, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
+import { useAgentLive } from "@/lib/live";
 import { RES } from "@/lib/perms";
 import { AssistantWidget } from "./assistant-widget";
 import { api, unwrap } from "@/lib/api";
@@ -43,6 +44,10 @@ export function AppShell() {
   const [langPrompt, setLangPrompt] = useState(languagePromptPending);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // Whatever the assistant just did lands on the page you are looking at,
+  // whichever page that is — see useAgentLive.
+  useAgentLive();
 
   // Close the mobile drawer on navigation.
   useEffect(() => setMobileNav(false), [pathname]);
