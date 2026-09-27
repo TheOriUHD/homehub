@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -14,8 +15,9 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// ptyStdinDelay is how long to wait before writing a password to a su/sudo
-// PTY — su reads the terminal, not a pipe, and misses input sent too early.
+// ptyStdinDelay is how long to wait before writing a password to su's PTY —
+// su reads the terminal, not a pipe, and misses input sent too early. sudo no
+// longer waits on a timer: it answers the prompt it was told to print.
 const ptyStdinDelay = 400 * time.Millisecond
 
 // syncBuffer is a mutex-guarded bytes.Buffer, safe for the concurrent
@@ -323,17 +325,97 @@ func (c *SSHConn) RunEscalated(ctx context.Context, command string) (string, int
 		// The password goes to sudo on stdin, so we can't feed the script on
 		// stdin too — instead sudo runs /bin/sh with a base64 pipe, keeping
 		// the whole thing shell-agnostic (the login shell only sees plain
-		// words + a single-quoted arg). sudo reads one stdin line for the
-		// password; the inner /bin/sh reads the script from the pipe.
-		// Use a PTY: some hosts require a terminal for sudo (requiretty), and
-		// a PTY also satisfies sudo's password prompt cleanly. -S is dropped
-		// so sudo prompts on the tty; the password is written after a short
-		// delay (same as su).
-		return c.runWithPasswordStdin(ctx, "sudo -p '' /bin/sh -c "+shellSingleQuote(b64Pipe(command)), true)
+		// words + a single-quoted arg). The inner /bin/sh reads the script
+		// from the pipe. A PTY, because some hosts require a terminal for
+		// sudo (requiretty).
+		//
+		// sudo prints a prompt we chose, and the password is written when it
+		// appears. This used to be -p '' with the password written blind
+		// after a delay — and a WRONG password made sudo prompt again, which
+		// nothing answered, so detection waited forever on a request with no
+		// deadline. A second appearance of our prompt means the first answer
+		// was rejected; that is detected here, in any locale, and the attempt
+		// ends at once rather than when somebody gives up waiting.
+		return c.runSudoWithPassword(ctx,
+			"sudo -p "+shellSingleQuote(sudoPromptMarker)+" /bin/sh -c "+shellSingleQuote(b64Pipe(command)))
 	case EscSuRoot:
 		return c.runWithPasswordStdin(ctx, "su -c "+shellSingleQuote(b64Pipe(command)), true)
 	}
 	return "", -1, fmt.Errorf("no escalation strategy selected")
+}
+
+// sudoPromptMarker is the prompt sudo is told to print. Distinctive, so it
+// cannot be mistaken for anything a command writes, and ours, so its meaning
+// does not depend on the host's language.
+const sudoPromptMarker = "PP-SUDO-PASSWORD:"
+
+// ErrSudoPasswordRejected says sudo asked for the password a second time,
+// which it only does when the first was wrong.
+var ErrSudoPasswordRejected = errors.New("sudo did not accept the password")
+
+// runSudoWithPassword runs a sudo command on a PTY, answering its prompt with
+// the stored password exactly once. Once, deliberately: repeating the answer
+// to a rejected prompt would spend the account's attempts and can trip a
+// lockout such as pam_faillock, for a password already known to be wrong.
+func (c *SSHConn) runSudoWithPassword(ctx context.Context, command string) (string, int, error) {
+	sess, err := c.client.NewSession()
+	if err != nil {
+		return "", -1, err
+	}
+	defer sess.Close()
+
+	out := &syncBuffer{}
+	sess.Stdout = out
+	sess.Stderr = out
+	stdin, err := sess.StdinPipe()
+	if err != nil {
+		return "", -1, err
+	}
+	if err := sess.RequestPty("xterm", 24, 80, ssh.TerminalModes{ssh.ECHO: 0}); err != nil {
+		return "", -1, err
+	}
+	if err := sess.Start(command); err != nil {
+		return "", -1, err
+	}
+	done := make(chan error, 1)
+	go func() { done <- sess.Wait() }()
+
+	tick := time.NewTicker(50 * time.Millisecond)
+	defer tick.Stop()
+	answered := false
+	for {
+		select {
+		case <-ctx.Done():
+			_ = sess.Signal(ssh.SIGKILL)
+			return cleanSudoOutput(out.String()), -1, ctx.Err()
+		case werr := <-done:
+			text := cleanSudoOutput(out.String())
+			if werr != nil {
+				if ee, ok := werr.(*ssh.ExitError); ok {
+					return text, ee.ExitStatus(), nil
+				}
+				return text, -1, werr
+			}
+			return text, 0, nil
+		case <-tick.C:
+			// Cached credentials mean sudo never prompts, and the command
+			// simply finishes above; nothing here waits for a prompt.
+			switch prompts := strings.Count(out.String(), sudoPromptMarker); {
+			case prompts == 1 && !answered:
+				answered = true
+				_, _ = io.WriteString(stdin, c.password+"\n")
+			case prompts > 1:
+				_ = sess.Signal(ssh.SIGKILL)
+				return cleanSudoOutput(out.String()), -1, ErrSudoPasswordRejected
+			}
+		}
+	}
+}
+
+// cleanSudoOutput removes the prompt, so a command's output is only its own.
+func cleanSudoOutput(s string) string {
+	s = strings.ReplaceAll(s, sudoPromptMarker, "")
+	return strings.TrimLeft(s, "\r\n")
 }
 
 // b64Pipe wraps a shell script so it runs under /bin/sh regardless of the

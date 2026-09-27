@@ -330,6 +330,13 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
   const [name, setName] = useState("");
   const [autoReboot, setAutoReboot] = useState(true); // on by default
   const [result, setResult] = useState<PatchpilotDetectResult | null>(null);
+  // Whether detection has said this login needs a password to become root.
+  // Kept apart from the result on purpose: typing a password clears the
+  // result so the next Test checks it again — and the fields used to key off
+  // that same result, so they vanished on the first keystroke and took the
+  // half-typed password out of sight with them. Only picking a different host
+  // puts the question back.
+  const [passwordAsked, setPasswordAsked] = useState(false);
   const [steps, setSteps] = useState<BootstrapStep[]>([]);
 
   const detect = useDetectHost(instanceId);
@@ -373,7 +380,10 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
   const runDetect = () => {
     setResult(null);
     detect.mutate(credentials(), {
-      onSuccess: setResult,
+      onSuccess: (res) => {
+        setResult(res);
+        if (res.needsPassword) setPasswordAsked(true);
+      },
       onError: (err) => toast("error", isApiError(err) ? err.message : t("common.unknownError")),
     });
   };
@@ -397,7 +407,7 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
   const canOnboard = ok && name.trim() !== "";
   // With a registry key the wizard only asks for a password once detection
   // says the login cannot become root by itself.
-  const askPasswords = !sshHostId || Boolean(result?.needsPassword);
+  const askPasswords = !sshHostId || passwordAsked;
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -440,6 +450,7 @@ function AddHostDialog({ instanceId, onClose }: { instanceId: string; onClose: (
                   setSshHostId(id);
                   setPassword("");
                   setRootPassword("");
+                  setPasswordAsked(false);
                   resetDetection();
                 }}
               />

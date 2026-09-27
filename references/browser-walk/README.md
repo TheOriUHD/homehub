@@ -52,6 +52,11 @@ error and unmatched API route as JSON.
   client compares two `undefined`s, believes the socket is open, and sends on
   a null.
 
+- **`walk-patchpilot-add.mjs`** — adding a registry host whose key login needs
+  a sudo password: the fields have to survive typing (they used to vanish on
+  the first keystroke), a wrong password has to come back named rather than
+  as an endless spinner, and the fixed one has to reach the ready state.
+
 Write a new `walk-*.mjs` per question rather than growing an existing one.
 
 **The stubs are spec-shaped, not server-shaped.** The generator emits `[]` for
