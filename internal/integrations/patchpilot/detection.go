@@ -2,6 +2,7 @@ package patchpilot
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"strings"
 	"time"
@@ -165,6 +166,9 @@ func firstLine(s string) string {
 	return strings.TrimSpace(s)
 }
 
+// elevationCheckTimeout bounds one attempt to become root during detection.
+const elevationCheckTimeout = 20 * time.Second
+
 // ResolveEscalation picks an escalation mode AND proves it works by running a
 // trivial command as root over the given connection — so we never greenlight
 // an account that merely has sudo installed but isn't actually a sudoer.
@@ -172,10 +176,21 @@ func firstLine(s string) string {
 // connection is left configured with the working mode/password. On failure it
 // returns a human blocker explaining exactly what's needed.
 func ResolveEscalation(ctx context.Context, conn *SSHConn, f *HostFacts, loginPassword, rootPassword string) (EscalationMode, string) {
+	sudoRejected := false
 	try := func(mode EscalationMode, pw string) bool {
 		conn.escalate = mode
 		conn.password = pw
-		out, code, err := conn.RunEscalated(ctx, "echo PP_ELEV_OK")
+		// Each attempt has its own ceiling. The check is one echo and answers
+		// in well under a second, so anything still running long after is
+		// waiting on something that will not come — and the caller is a
+		// browser request with no deadline of its own, which is how a wrong
+		// password once left the spinner turning indefinitely.
+		actx, cancel := context.WithTimeout(ctx, elevationCheckTimeout)
+		defer cancel()
+		out, code, err := conn.RunEscalated(actx, "echo PP_ELEV_OK")
+		if errors.Is(err, ErrSudoPasswordRejected) {
+			sudoRejected = true
+		}
 		return err == nil && code == 0 && strings.Contains(out, "PP_ELEV_OK")
 	}
 
@@ -192,6 +207,15 @@ func ResolveEscalation(ctx context.Context, conn *SSHConn, f *HostFacts, loginPa
 	}
 	if f.HasSu && rootPassword != "" && try(EscSuRoot, rootPassword) {
 		return EscSuRoot, ""
+	}
+
+	// A typed password that sudo turned down is the likeliest thing to fix,
+	// and it deserves saying outright rather than inside a list of maybes.
+	if sudoRejected {
+		if f.HasSu && rootPassword == "" {
+			return "", "sudo did not accept that password — check it, or enter root's password instead"
+		}
+		return "", "sudo did not accept that password — check it and try again"
 	}
 
 	// Nothing worked — explain what to do, steering to the root-password field.

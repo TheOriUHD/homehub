@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -261,12 +262,23 @@ func (s *Server) PatchpilotDetect(ctx context.Context, req PatchpilotDetectReque
 	case lerr != nil:
 		return PatchpilotDetect400JSONResponse{BadRequestJSONResponse(errBody("bad_input", lerr.Error()))}, nil
 	}
-	res, err := s.patchpilot.Detect(ctx, login.host, login.port, login.cred, deref(b.RootPassword))
+	// A browser request carries no deadline of its own, so anything inside
+	// detection that waits on the host — a prompt nobody answers, a probe on
+	// a wedged shell — waited as long as the tab stayed open. Each elevation
+	// attempt is bounded already; this is the ceiling over all of it, so the
+	// wizard always gets an answer it can show.
+	dctx, cancel := context.WithTimeout(ctx, ppDetectTimeout)
+	defer cancel()
+	res, err := s.patchpilot.Detect(dctx, login.host, login.port, login.cred, deref(b.RootPassword))
 	if err != nil {
 		return nil, err
 	}
 	return PatchpilotDetect200JSONResponse(toAPIDetect(res)), nil
 }
+
+// ppDetectTimeout bounds one detection: three connection attempts, the probe,
+// and up to two elevation checks, with room for a slow host.
+const ppDetectTimeout = 90 * time.Second
 
 func toAPIDetect(r *patchpilot.DetectResult) PatchpilotDetectResult {
 	return PatchpilotDetectResult{

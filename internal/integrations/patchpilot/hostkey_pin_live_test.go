@@ -43,7 +43,9 @@ func TestHostKeyPinning_CaptureVerifyReject(t *testing.T) {
 	if err == nil {
 		t.Fatal("connect with mismatched pin must fail")
 	}
-	if !strings.Contains(err.Error(), "host key changed") {
+	// Case-insensitive: the message is a sentence and starts with a capital,
+	// so the exact-case match had been failing since the day it was written.
+	if !strings.Contains(strings.ToLower(err.Error()), "host key changed") {
 		t.Fatalf("expected a host-key-changed error, got: %v", err)
 	}
 }
