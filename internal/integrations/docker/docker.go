@@ -124,7 +124,7 @@ func buildClient(cfg config, secrets map[string]string) (*dockerclient.Client, e
 			opts = append(opts, dockerclient.WithHTTPClient(&http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: tlsConfig,
-					DialContext: (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
+					DialContext:     (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
 				},
 			}))
 		}

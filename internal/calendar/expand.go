@@ -13,17 +13,17 @@ import (
 // Instance is one concrete occurrence shown on the calendar: either a
 // non-recurring event, one expansion of a recurring master, or an override.
 type Instance struct {
-	EventID    uuid.UUID  `json:"eventId"`
-	CalendarID uuid.UUID  `json:"calendarId"`
-	UID        string     `json:"uid"`
-	Title      string     `json:"title"`
-	Location   string     `json:"location,omitempty"`
+	EventID     uuid.UUID `json:"eventId"`
+	CalendarID  uuid.UUID `json:"calendarId"`
+	UID         string    `json:"uid"`
+	Title       string    `json:"title"`
+	Location    string    `json:"location,omitempty"`
 	Description string    `json:"description,omitempty"`
-	URL        string     `json:"url,omitempty"`
-	Start      time.Time  `json:"start"`
-	End        time.Time  `json:"end"`
-	AllDay     bool       `json:"allDay"`
-	Recurring  bool       `json:"recurring"`
+	URL         string    `json:"url,omitempty"`
+	Start       time.Time `json:"start"`
+	End         time.Time `json:"end"`
+	AllDay      bool      `json:"allDay"`
+	Recurring   bool      `json:"recurring"`
 	// OccurrenceStart identifies the slot in the master's series this
 	// instance fills (equal to Start unless an override moved it).
 	OccurrenceStart time.Time `json:"occurrenceStart"`
@@ -58,17 +58,17 @@ func Expand(rows []store.CalendarEvent, from, to time.Time) []Instance {
 			return
 		}
 		out = append(out, Instance{
-			EventID:     row.ID,
-			CalendarID:  row.CalendarID,
-			UID:         row.UID,
-			Title:       row.Title,
-			Location:    row.Location,
-			Description: row.Description,
-			URL:         row.URL,
-			Start:       start,
-			End:         end,
-			AllDay:      row.AllDay,
-			Recurring:   recurring,
+			EventID:         row.ID,
+			CalendarID:      row.CalendarID,
+			UID:             row.UID,
+			Title:           row.Title,
+			Location:        row.Location,
+			Description:     row.Description,
+			URL:             row.URL,
+			Start:           start,
+			End:             end,
+			AllDay:          row.AllDay,
+			Recurring:       recurring,
 			OccurrenceStart: occurrence,
 		})
 	}

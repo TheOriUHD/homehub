@@ -10,11 +10,11 @@ import (
 // LocalNetwork describes an interface's IPv4 network and a sensible default
 // scan window (its /24, hosts .1–.254).
 type LocalNetwork struct {
-	Label    string `json:"label"`    // interface name
-	CIDR     string `json:"cidr"`     // the interface's actual network, e.g. 192.168.10.42/24
-	Start    string `json:"start"`    // suggested scan start
-	End      string `json:"end"`      // suggested scan end
-	Primary  bool   `json:"primary"`  // best guess for "your subnet"
+	Label   string `json:"label"`   // interface name
+	CIDR    string `json:"cidr"`    // the interface's actual network, e.g. 192.168.10.42/24
+	Start   string `json:"start"`   // suggested scan start
+	End     string `json:"end"`     // suggested scan end
+	Primary bool   `json:"primary"` // best guess for "your subnet"
 }
 
 func isPrivate(ip net.IP) bool {

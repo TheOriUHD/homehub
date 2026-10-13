@@ -187,8 +187,8 @@ func (s *Store) UpsertNotificationPref(ctx context.Context, pref *NotificationPr
 
 type MetricSeriesInfo struct {
 	Resource string `db:"resource"`
-	Metric string `db:"metric"`
-	Unit   string `db:"unit"`
+	Metric   string `db:"metric"`
+	Unit     string `db:"unit"`
 	// LastSeen is the newest sample or rollup this series has, nil when it
 	// has neither. A series whose integration was removed keeps its catalog
 	// row and stops receiving points; without this the picker offers it as if

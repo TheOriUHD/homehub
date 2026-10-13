@@ -1,5 +1,5 @@
 // Package caddy manages a Caddy reverse proxy through a caddy-reader helper
-// running on the Caddy host (protocol: references/caddy/caddy.md). Caddy's
+// running on the Caddy host (the caddy-reader protocol). Caddy's
 // admin API is unauthenticated and must never leave loopback; the helper is
 // the narrow, token-authenticated surface HomeHub talks to.
 //

@@ -61,16 +61,16 @@ type entityRow struct {
 
 // Entity is the joined view of an entity's registry row and live state.
 type Entity struct {
-	EntityID   string         `json:"entityId"`
-	Domain     string         `json:"domain"`
-	ObjectID   string         `json:"objectId"`
-	Name       string         `json:"name"`
-	AreaID     string         `json:"areaId,omitempty"`
-	Category   string         `json:"category,omitempty"` // "config" | "diagnostic"
-	State      string         `json:"state"`
-	Attributes map[string]any `json:"attributes"`
-	LastChanged time.Time     `json:"lastChanged"`
-	LastUpdated time.Time     `json:"lastUpdated"`
+	EntityID    string         `json:"entityId"`
+	Domain      string         `json:"domain"`
+	ObjectID    string         `json:"objectId"`
+	Name        string         `json:"name"`
+	AreaID      string         `json:"areaId,omitempty"`
+	Category    string         `json:"category,omitempty"` // "config" | "diagnostic"
+	State       string         `json:"state"`
+	Attributes  map[string]any `json:"attributes"`
+	LastChanged time.Time      `json:"lastChanged"`
+	LastUpdated time.Time      `json:"lastUpdated"`
 }
 
 // Area is a Home Assistant area with the devices resolved out.

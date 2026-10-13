@@ -22,7 +22,7 @@ func TestBlocked(t *testing.T) {
 		"zfs destroy -r tank/data",
 		"history -c",
 		"iptables -F",
-		"ls -la && rm -rf /",           // dangerous suffix behind a safe prefix
+		"ls -la && rm -rf /", // dangerous suffix behind a safe prefix
 		"cat /etc/hosts; mkfs.ext4 /dev/sdb1",
 	}
 	for _, c := range cases {
@@ -73,10 +73,10 @@ func TestConfirm(t *testing.T) {
 		"rm /tmp/one-file",
 		"mv /etc/a /etc/b",
 		"chown -R me /srv",
-		"echo hello > /tmp/file",       // any write redirect
+		"echo hello > /tmp/file", // any write redirect
 		"sed -i s/a/b/ /etc/conf",
 		"kill -9 1234",
-		"some-unknown-binary --flag",   // unknown ⇒ fail closed
+		"some-unknown-binary --flag", // unknown ⇒ fail closed
 		"ls -la && systemctl stop nginx",
 		"docker compose up -d",
 		"truncate -s 0 /var/log/syslog",

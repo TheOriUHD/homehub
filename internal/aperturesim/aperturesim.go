@@ -1,6 +1,6 @@
 // Package aperturesim is an in-memory Aperture NVR used to verify the
 // aperture driver and UI without the real (production) server. It mirrors
-// the documented surface (references/aperture/aperture.md): Bearer-token
+// the documented surface (Aperture's REST and WebSocket API): Bearer-token
 // REST under /api/v1 with {"code","error"} failures, the public health
 // endpoint, /cameras responses that INCLUDE plaintext RTSP credentials
 // (so tests can prove the driver's whitelist strips them), stream-token
@@ -112,10 +112,10 @@ func (s *Sim) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				"cameraId": cam.id, "name": cam.name, "enabled": true,
 				"recordMode": "continuous", "recordingExpected": true,
 				"recordingOk": cam.healthy, "liveOk": cam.healthy,
-				"coveragePercent": cam.coverage,
-				"lastSegmentTs":   now - 9000,
-				"restartsToday":   map[bool]int{true: 0, false: 17}[cam.healthy],
-				"watchdogStale":   !cam.healthy,
+				"coveragePercent":  cam.coverage,
+				"lastSegmentTs":    now - 9000,
+				"restartsToday":    map[bool]int{true: 0, false: 17}[cam.healthy],
+				"watchdogStale":    !cam.healthy,
 				"watchdogLastSeen": now - 20000,
 			})
 		}
@@ -126,8 +126,8 @@ func (s *Sim) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		for i, cam := range s.cameras {
 			cams = append(cams, map[string]any{
 				"cameraId": cam.id, "name": cam.name,
-				"bytes": int64(9_000_000_000) + int64(i)*1_500_000_000,
-				"count": 5000 + i*500,
+				"bytes":    int64(9_000_000_000) + int64(i)*1_500_000_000,
+				"count":    5000 + i*500,
 				"oldestTs": now - int64(64+i)*3_600_000,
 				"newestTs": now - 9000,
 			})
@@ -175,8 +175,8 @@ func (s *Sim) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		token := "st_" + uuid.NewString()
 		s.streamTokens[token] = cam.id
 		s.reply(w, http.StatusOK, map[string]any{
-			"token": token,
-			"wsUrl": "/api/v1/cameras/" + cam.id + "/ws?token=" + token,
+			"token":  token,
+			"wsUrl":  "/api/v1/cameras/" + cam.id + "/ws?token=" + token,
 			"hasSub": true,
 		})
 

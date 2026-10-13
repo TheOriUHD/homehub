@@ -40,9 +40,9 @@ type Service struct {
 
 // DeliveryPayload parameterizes one outbound channel delivery.
 type DeliveryPayload struct {
-	ChannelID uuid.UUID         `json:"channelId"`
-	Message   alerting.Message  `json:"message"`
-	Recipient string            `json:"recipient,omitempty"`
+	ChannelID uuid.UUID        `json:"channelId"`
+	Message   alerting.Message `json:"message"`
+	Recipient string           `json:"recipient,omitempty"`
 }
 
 func New(st *store.Store, hub *ws.Hub, v *vault.Vault, logger *slog.Logger) *Service {

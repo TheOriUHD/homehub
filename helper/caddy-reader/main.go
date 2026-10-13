@@ -9,7 +9,7 @@
 // This runs on the Caddy host instead and exposes a narrow surface: a projection
 // of the running config, and — only when asked for — the Caddyfile.
 //
-// TWO MODES, AND THE DIFFERENCE IS THE WHOLE POINT
+// # TWO MODES, AND THE DIFFERENCE IS THE WHOLE POINT
 //
 // Read-only is the default and needs no privileges. It answers GET /config with
 // a projection and nothing else.

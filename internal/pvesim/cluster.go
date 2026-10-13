@@ -90,16 +90,16 @@ func (s *Server) getClusterResources(w http.ResponseWriter, r *http.Request) {
 		for _, n := range s.nodes {
 			for _, st := range n.storages {
 				items = append(items, j{
-					"id":      fmt.Sprintf("storage/%s/%s", n.name, st.name),
-					"type":    "storage",
-					"storage": st.name,
-					"node":    n.name,
-					"status":  "available",
-					"disk":    st.used,
-					"maxdisk": st.total,
+					"id":         fmt.Sprintf("storage/%s/%s", n.name, st.name),
+					"type":       "storage",
+					"storage":    st.name,
+					"node":       n.name,
+					"status":     "available",
+					"disk":       st.used,
+					"maxdisk":    st.total,
 					"plugintype": st.kind,
-					"content": st.content,
-					"shared":  0,
+					"content":    st.content,
+					"shared":     0,
 				})
 			}
 		}

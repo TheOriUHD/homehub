@@ -1,9 +1,8 @@
-// Package aperture integrates the Aperture NVR (references/aperture/
-// aperture.md). Aperture has NO CORS, so every JSON read goes through this
+// Package aperture integrates the Aperture NVR. Aperture has NO CORS, so every JSON read goes through this
 // backend; only the live-video WebSocket runs browser→Aperture directly,
 // authenticated by short-lived stream tokens this backend mints.
 //
-// Two rules from the doc shape everything here:
+// Two rules shape everything here:
 //
 //  1. The rate budget is burst 40, refill 20/min PER TOKEN — so responses
 //     are cached server-side (status ~10s, storage/bitrate ~60s, cameras

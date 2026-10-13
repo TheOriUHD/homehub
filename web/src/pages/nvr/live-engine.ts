@@ -1,5 +1,5 @@
 // LiveEngine: the browser side of Aperture's live-video WebSocket, built
-// from references/aperture/aperture.md §5.2–5.6. WebRTC first (host
+// from Aperture's live-stream API. WebRTC first (host
 // candidates only — direct on the LAN), MSE fallback, reconnect with
 // backoff, and a warm-connection pool so React re-renders never pay the
 // 0–2 s keyframe penalty again.

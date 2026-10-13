@@ -1,6 +1,6 @@
 // Package caddysim is an in-memory caddy-reader helper used to verify the
 // Caddy driver without a real proxy host. It mirrors the helper's documented
-// HTTP surface exactly (references/caddy/caddy.md §3–§6): unauthenticated
+// HTTP surface exactly (the caddy-reader protocol): unauthenticated
 // /health, the six-digit pairing exchange with expiry / attempt-burning /
 // single use, Bearer-token routes with both /x and /x/ registered, the
 // {path,text,sha256,writable} Caddyfile envelope, PUT with optimistic

@@ -7,7 +7,7 @@ func TestLoopbackURL(t *testing.T) {
 		"http://127.0.0.1:8080":    true,
 		"http://localhost":         true,
 		"http://[::1]:8080":        true,
-		"https://example.com":  false,
+		"https://example.com":      false,
 		"http://192.168.10.5:8080": false,
 		"":                         false,
 	} {

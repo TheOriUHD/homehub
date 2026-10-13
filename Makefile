@@ -21,7 +21,7 @@ build-companion:
 
 ## caddy-reader helper binaries (amd64/arm64/armv7) + installer into helper/dist,
 ## embedded into the server by the "helper" build tag. helper/caddy-reader is its
-## own Go module (vendored from references/caddy/caddy-reader-export).
+## own Go module.
 build-helper:
 	cd helper/caddy-reader && \
 	for target in amd64 arm64 armv7; do \

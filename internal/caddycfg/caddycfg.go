@@ -1,6 +1,6 @@
 // Package caddycfg reads Caddy's *running* configuration — the JSON the
 // admin API serves, or the projection a caddy-reader helper returns (the two
-// have the same nested shape by contract, references/caddy/caddy.md §5.3).
+// have the same nested shape by contract).
 //
 // Caddyfile text is deliberately unsupported here: its grammar has snippets,
 // imports, environment substitution and matcher shorthands, and a parser for
@@ -65,10 +65,10 @@ func ParseConfig(config map[string]any) *Result {
 		return res
 	}
 
-	seenUpstream := map[string]bool{}      // domain+"\x00"+dial
-	seenUnresolvable := map[string]bool{}  // domain+"\x00"+reason
-	proxiedDomains := map[string]bool{}    // any domain that hit a reverse_proxy
-	servedDomains := map[string]bool{}     // any domain seen in a host matcher
+	seenUpstream := map[string]bool{}     // domain+"\x00"+dial
+	seenUnresolvable := map[string]bool{} // domain+"\x00"+reason
+	proxiedDomains := map[string]bool{}   // any domain that hit a reverse_proxy
+	servedDomains := map[string]bool{}    // any domain seen in a host matcher
 
 	// servers is a map with arbitrary keys — `caddy adapt` happens to name
 	// them srv0, srv1…, but a hand-written config names them anything.

@@ -1,6 +1,6 @@
 // Package caddyfile splits a Caddyfile into blocks without ever parsing it.
 //
-// The invariant (from references/caddy/caddy.md §7): for any file, splitting
+// The invariant (from the caddy-reader contract): for any file, splitting
 // and re-rendering WITHOUT edits produces byte-identical text — and therefore
 // byte-identical adapted JSON. Every block keeps its exact original text in
 // Raw, and Render is nothing but their concatenation. That is what makes

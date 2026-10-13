@@ -138,19 +138,19 @@ type Storage struct {
 
 // BackupJob is one row of GET /cluster/backup.
 type BackupJob struct {
-	ID       string    `json:"id"`
-	Type     string    `json:"type"`
-	Enabled  FlexBool  `json:"enabled"`
-	Schedule string    `json:"schedule"`
-	Storage  string    `json:"storage"`
-	Node     string    `json:"node"`
-	VMID     string    `json:"vmid"`
-	All      FlexBool  `json:"all"`
-	Mode     string    `json:"mode"`
-	Compress string    `json:"compress"`
-	NextRun  FlexInt64 `json:"next-run"`
-	Comment  string    `json:"comment"`
-	MailTo   string    `json:"mailto"`
+	ID       string         `json:"id"`
+	Type     string         `json:"type"`
+	Enabled  FlexBool       `json:"enabled"`
+	Schedule string         `json:"schedule"`
+	Storage  string         `json:"storage"`
+	Node     string         `json:"node"`
+	VMID     string         `json:"vmid"`
+	All      FlexBool       `json:"all"`
+	Mode     string         `json:"mode"`
+	Compress string         `json:"compress"`
+	NextRun  FlexInt64      `json:"next-run"`
+	Comment  string         `json:"comment"`
+	MailTo   string         `json:"mailto"`
 	Prune    FlexPropString `json:"prune-backups"`
 }
 
