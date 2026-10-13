@@ -150,6 +150,10 @@ detection raises a signal when a subserver drops.
 Optional SSH host access — from the SSH registry or inline — enables full
 restarts of the machine behind the network.
 
+The per-player inventory view draws with Minecraft's own item textures, which are
+not bundled: `homehub minecraft-textures` downloads them from Mojang's servers
+onto your machine on demand, and the view falls back to text labels until then.
+
 ## AMP (CubeCoders)
 
 Every instance with live state, players, CPU and memory, a full console with
@@ -196,8 +200,8 @@ installs a dedicated least-privilege account — nothing else lands on the host.
 
 Pending updates per host, patch on demand or on a schedule, live logs while a
 run executes, run history with per-host outcomes, and a critical-updates view
-that surfaces security patches ahead of the rest. **It never reboots a host on
-its own.**
+that surfaces security patches ahead of the rest. **It reboots a host only
+when you ask**, with the Reboot action or the per-host auto-reboot switch.
 
 Hosts come from the **SSH host registry**: pick an entry and its address and
 stored key or password do the one-time setup, with a sudo password asked for
