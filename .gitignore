@@ -17,3 +17,6 @@ companion/**/build/
 companion/dist/
 companion/**/.gradle/
 /homehub
+
+# built caddy-reader artifacts (make build-helper)
+/helper/dist/

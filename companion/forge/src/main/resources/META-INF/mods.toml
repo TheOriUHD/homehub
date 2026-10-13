@@ -1,6 +1,6 @@
 modLoader="javafml"
 loaderVersion="[${forgeMajor},)"
-license="MIT"
+license="PolyForm-Noncommercial-1.0.0"
 
 [[mods]]
 modId="homehubcompanion"
