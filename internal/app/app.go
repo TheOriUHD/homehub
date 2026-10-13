@@ -46,6 +46,7 @@ import (
 	"github.com/TheOriUHD/homehub/internal/integrations/tailscale"
 	"github.com/TheOriUHD/homehub/internal/integrations/truenas"
 	"github.com/TheOriUHD/homehub/internal/jobs"
+	"github.com/TheOriUHD/homehub/internal/mctex"
 	"github.com/TheOriUHD/homehub/internal/metrics"
 	"github.com/TheOriUHD/homehub/internal/notify"
 	"github.com/TheOriUHD/homehub/internal/rbac"
@@ -344,6 +345,7 @@ func Run(ctx context.Context) error {
 		MC:       mcRegistry,
 		UI:       web.UI(),
 		Helper:   helper.FS(),
+		MCTexDir: mctex.Dir(cfg.DataDir),
 	})
 	server := httpserver.NewServer(cfg.HTTPAddr, handler)
 

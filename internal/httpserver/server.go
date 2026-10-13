@@ -11,6 +11,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -44,6 +46,9 @@ type Deps struct {
 	// the helper build tag). Deliberately unauthenticated: the binary is
 	// not a secret, and curl cannot log in.
 	Helper fs.FS
+	// MCTexDir holds the Minecraft item textures installed by
+	// `homehub minecraft-textures`. Empty disables the route.
+	MCTexDir string
 }
 
 func Handler(deps Deps) http.Handler {
@@ -53,6 +58,9 @@ func Handler(deps Deps) http.Handler {
 
 	if deps.Helper != nil {
 		registerHelperRoutes(r, deps.Helper)
+	}
+	if deps.MCTexDir != "" {
+		r.Get("/mc-tex/{name}", mcTexHandler(deps.MCTexDir))
 	}
 	// Published calendars: the token in the URL is the credential, so this
 	// sits outside /api and its session middleware — a phone's calendar app
@@ -103,6 +111,23 @@ func Handler(deps Deps) http.Handler {
 
 	r.NotFound(spaHandler(deps.UI))
 	return r
+}
+
+// mcTexName admits only the file names the installer writes.
+var mcTexName = regexp.MustCompile(`^[a-z0-9_]+\.png$`)
+
+// mcTexHandler serves installed Minecraft textures. They are public-by-name
+// artwork with no user data, so like the helper routes it needs no session.
+func mcTexHandler(dir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		name := chi.URLParam(r, "name")
+		if !mcTexName.MatchString(name) {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		http.ServeFile(w, r, filepath.Join(dir, name))
+	}
 }
 
 // ---- middleware ------------------------------------------------------------
