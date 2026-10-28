@@ -41,11 +41,35 @@ if [ "$BASE_URL" != "__BASE_URL__" ]; then
 else
   URL="https://github.com/${REPO}/releases/latest/download/caddy-reader-linux-${ARCH}"
 fi
+SUMS_URL="${URL%/*}/SHA256SUMS"
 TMP="$(mktemp)"
-trap 'rm -f "$TMP"' EXIT
+SUMS="$(mktemp)"
+trap 'rm -f "$TMP" "$SUMS"' EXIT
+
+case "$URL" in
+  https://*) ;;
+  *) printf '  %sDownloading over plain HTTP. Prefer the https:// address of your HomeHub if it has one.%s\n' "$dim" "$off" ;;
+esac
 
 curl -fsSL "$URL" -o "$TMP" || die "Could not download ${URL}
   Is there a release yet? Releases are cut by tagging: helper-vX.Y.Z"
+
+# Verify the binary against the checksum list published next to it before it
+# is ever executed — as root. A truncated or tampered download stops here.
+curl -fsSL "$SUMS_URL" -o "$SUMS" || die "Could not download ${SUMS_URL} to verify the binary."
+want="$(awk -v f="caddy-reader-linux-${ARCH}" '$2 == f || $2 == "*" f { print $1 }' "$SUMS")"
+[ -n "$want" ] || die "SHA256SUMS has no entry for caddy-reader-linux-${ARCH}."
+if command -v sha256sum >/dev/null 2>&1; then
+  have="$(sha256sum "$TMP" | awk '{ print $1 }')"
+elif command -v shasum >/dev/null 2>&1; then
+  have="$(shasum -a 256 "$TMP" | awk '{ print $1 }')"
+else
+  die "Neither sha256sum nor shasum is installed, so the download cannot be verified."
+fi
+[ "$have" = "$want" ] || die "Checksum mismatch for caddy-reader-linux-${ARCH}: refusing to install.
+  expected ${want}
+  got      ${have}"
+printf '  Checksum verified.\n'
 chmod +x "$TMP"
 
 # Check it runs before replacing anything, so a bad download cannot take out a

@@ -11,6 +11,7 @@ import {
   type McPairingCode,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { usePreferredOrigin } from "@/lib/origin";
 import { cn, formatBytes, formatRelative } from "@/lib/utils";
 import { useIntegrations } from "@/lib/systems";
 import { Button } from "@/ui/button";
@@ -93,6 +94,7 @@ export function McSetupPage() {
   }, [hasPending]);
 
   const [cmdMode, setCmdMode] = useState<"ingame" | "console">("ingame");
+  const origin = usePreferredOrigin();
 
   if (!allowed) {
     return <Navigate to="/mc/$instanceId" params={{ instanceId }} replace />;
@@ -109,7 +111,6 @@ export function McSetupPage() {
 
   const data = overview.data!;
   const pending = data.pendingPairing ?? null;
-  const origin = window.location.origin;
   const code = pending?.code ?? t("mc.setup.codePlaceholder");
   const propertiesSnippet = `url=${origin}\ncode=${code}`;
   const pairCommand = `${cmdMode === "ingame" ? "/" : ""}homehub pair ${origin} ${code}`;

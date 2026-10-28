@@ -10,6 +10,7 @@ import {
   type IntegrationType,
   type TestConnectionResult,
 } from "@/lib/api";
+import { usePreferredOrigin } from "@/lib/origin";
 import { systemTypeIcon } from "@/lib/systems";
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent } from "@/ui/dialog";
@@ -1653,6 +1654,7 @@ function CaddyForm({
   onFormChange: () => void;
 }) {
   const { t } = useTranslation();
+  const origin = usePreferredOrigin();
   const update = (patch: Partial<CaddyFormState>) => {
     onFormChange();
     setForm((prev) => ({ ...prev, ...patch }));
@@ -1672,7 +1674,7 @@ function CaddyForm({
           <div className="bg-bg-subtle border-edge rounded-md border px-3 py-2">
             <p className="text-fg-subtle mb-1 text-xs">{t("integrations.caddy.installTitle")}</p>
             <pre className="text-fg overflow-x-auto font-mono text-[12px] whitespace-pre select-all">
-              {`curl -fsSL ${window.location.origin}/helper/install.sh | sudo bash\nsudo caddy-reader setup`}
+              {`curl -fsSL ${origin}/helper/install.sh | sudo bash\nsudo caddy-reader setup`}
             </pre>
           </div>
           <Field label={t("integrations.caddy.code")} hint={t("integrations.caddy.codeHint")}>

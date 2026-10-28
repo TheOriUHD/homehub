@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api, isApiError, unwrap } from "@/lib/api";
+import { usePreferredOrigin } from "@/lib/origin";
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent } from "@/ui/dialog";
 import { Field } from "@/ui/field";
@@ -20,7 +21,8 @@ export function CaddySetupDialog({ instanceId, onClose }: { instanceId: string; 
   const toast = useToast();
   const [code, setCode] = useState("");
 
-  const installCmd = `curl -fsSL ${window.location.origin}/helper/install.sh | sudo bash`;
+  const origin = usePreferredOrigin();
+  const installCmd = `curl -fsSL ${origin}/helper/install.sh | sudo bash`;
 
   const repair = useMutation({
     mutationFn: async () => {
