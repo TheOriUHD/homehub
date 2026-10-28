@@ -93,3 +93,171 @@ func TestEmpty(t *testing.T) {
 		t.Errorf("empty command should not be safe, got %s", v.Risk)
 	}
 }
+
+// Each of these once classified as safe — a read-only program name in front
+// of a flag, a wrapper or a shell construct that acts. None may run
+// unattended.
+func TestBypassesNeedConfirmation(t *testing.T) {
+	cases := []string{
+		// readers with acting flags
+		"find / -name x -delete",
+		"find . -exec rm {} \\;",
+		"find . -execdir sh -c id \\;",
+		"find /tmp -ok rm {} ;",
+		"find / -fprint /etc/cron.d/x",
+		"find . -fls /tmp/out",
+		"sort -o /etc/passwd x",
+		"sort --output=/etc/passwd x",
+		"sort -ro /etc/hosts x",
+		"sort --compress-program=sh x",
+		"date -s 2020-01-01",
+		"date 010100002020",
+		"hostname evil",
+		"tree -o /etc/motd",
+		"uniq in /etc/passwd",
+		"journalctl --vacuum-size=1M",
+		"journalctl --rotate",
+		"dmesg -C",
+		"ss -K dst 10.0.0.1",
+		"rg --pre ./x pattern",
+		"less +!reboot /etc/hosts",
+		"mount /dev/sdb1 /mnt",
+		"route add default gw 10.0.0.1",
+		"ifconfig eth0 down",
+		// interpreters and wrappers
+		"awk 'BEGIN{system(\"reboot\")}'",
+		"gawk '{print > \"/etc/x\"}' f",
+		"sed -i s/a/b/ /etc/conf",
+		"perl -e 'unlink \"/etc/x\"'",
+		"python3 -c 'import os'",
+		"env reboot",
+		"env -i reboot",
+		"xargs rm < list",
+		"echo /etc | xargs rm -r",
+		"eval reboot",
+		"exec reboot",
+		"sh -c reboot",
+		"bash -c 'ls; reboot'",
+		"nohup reboot",
+		"timeout 5 reboot",
+		"tee /etc/passwd",
+		"dd if=/dev/zero of=/tmp/x",
+		// network changes behind a reader's name
+		"ip link set eth0 down",
+		"ip addr add 10.0.0.2/24 dev eth0",
+		"ip route del default",
+		"ip netns exec x reboot",
+		"ip -b /tmp/cmds",
+		// shell constructs
+		"echo $(reboot)",
+		"echo `reboot`",
+		"echo \"$(reboot)\"",
+		"cat <(reboot)",
+		"diff >(reboot) x",
+		"ls & reboot",
+		"ls |& reboot",
+		"ls\nreboot",
+		"(reboot)",
+		"echo hi > /tmp/file",
+		"echo hi >> ~/.bashrc",
+		"echo hi >| /tmp/f",
+		"ls &> /tmp/out",
+		"cat x 1> out",
+		"cat <> /etc/passwd",
+		"cat <<EOF",
+		"echo 'unterminated",
+		// smuggled programs and environment
+		"./ls",
+		"/tmp/cat /etc/hosts",
+		"$CMD",
+		"l? -la",
+		"LD_PRELOAD=/tmp/x.so ls",
+		"PAGER=reboot git log",
+		"GIT_EXTERNAL_DIFF=reboot git diff",
+		"sudo -s ls",
+		"sudo -i",
+		"sudo -E ls",
+		"find . ${IFS}-delete",
+		"find . -de*",
+		"sort $OPT x",
+		// subcommand tricks
+		"kubectl -n get delete pod x",
+		"systemctl -H status reboot",
+		"git -c core.pager=reboot log",
+		"git --exec-path=/tmp log",
+		"git branch evil",
+		"git branch -D main",
+		"git remote add x y",
+		"git log --output=/etc/passwd",
+		"git diff --ext-diff",
+		"docker -H tcp://x rm y",
+		"dpkg -l -i x.deb",
+		"dpkg -i x.deb",
+	}
+	for _, c := range cases {
+		if v := Classify(c); v.Risk == RiskSafe {
+			t.Errorf("Classify(%q) = safe; want it held for confirmation", c)
+		}
+	}
+	// rm -r -f with split flags is still refused outright.
+	if v := Classify("rm -r -f /var"); v.Risk != RiskBlocked {
+		t.Errorf("rm -r -f = %s, want blocked", v.Risk)
+	}
+}
+
+// The tightening must not turn everyday reads into prompts: the harmless
+// spellings of the same programs stay safe.
+func TestHarmlessSpellingsStaySafe(t *testing.T) {
+	cases := []string{
+		"find /var/log -name '*.log' -mtime -1",
+		"find . -type f -print",
+		"sort -n -k2 file",
+		"sort -u /etc/group",
+		"env",
+		"date",
+		"date +%s",
+		"date -d yesterday +%F",
+		"hostname",
+		"hostname -I",
+		"ip a",
+		"ip r",
+		"ip -br link show",
+		"ip addr show dev eth0",
+		"ip route get 1.1.1.1",
+		"ifconfig",
+		"ifconfig eth0",
+		"route -n",
+		"mount",
+		"uniq -c sorted.txt",
+		"tree -L 2 /etc",
+		"less /etc/hosts",
+		"journalctl -u nginx --since today --no-pager",
+		"dmesg -T",
+		"ss -tlnp",
+		"grep -E 'a|b' /etc/hosts",
+		"grep 'x;y' file",
+		"ls 2>/dev/null",
+		"cat /etc/hosts > /dev/null 2>&1",
+		"ls &>/dev/null",
+		"cat < /etc/hosts",
+		"echo $HOME",
+		"ls *.conf",
+		"/usr/bin/ls -la",
+		"LC_ALL=C sort file",
+		"sudo -n journalctl -u ssh",
+		"git -C /srv/app status",
+		"git --no-pager log -n 5",
+		"git branch -a",
+		"git remote -v",
+		"kubectl -n kube-system get pods",
+		"systemctl --no-pager status nginx",
+		"dpkg -l nginx",
+		"ps aux | grep nginx | head -5",
+		"df -h && free -m || uptime",
+	}
+	for _, c := range cases {
+		if v := Classify(c); v.Risk != RiskSafe {
+			t.Errorf("Classify(%q) = %s (%s), want safe", c, v.Risk, v.Reason)
+		}
+	}
+}
