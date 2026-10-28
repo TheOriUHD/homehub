@@ -133,7 +133,12 @@ func (s *Server) PasskeyLoginVerify(ctx context.Context, req PasskeyLoginVerifyR
 	out, err := s.auth.FinishPasskeyLogin(ctx, requestOrigin(r), req.Body.ChallengeToken, raw, ClientIP(r), r.UserAgent())
 	if err != nil {
 		var validation *auth.ValidationError
-		if errors.Is(err, auth.ErrInvalidCredentials) || errors.Is(err, auth.ErrRateLimited) || errors.As(err, &validation) {
+		if errors.As(err, &validation) {
+			// Expired challenge, missing user verification: actionable, and
+			// says nothing about which accounts exist.
+			return PasskeyLoginVerify401JSONResponse{UnauthorizedJSONResponse(errBody("passkey_rejected", validation.Msg))}, nil
+		}
+		if errors.Is(err, auth.ErrInvalidCredentials) || errors.Is(err, auth.ErrRateLimited) {
 			return PasskeyLoginVerify401JSONResponse{UnauthorizedJSONResponse(errBody("passkey_rejected", "passkey sign-in failed — try again"))}, nil
 		}
 		return nil, err
