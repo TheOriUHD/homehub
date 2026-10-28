@@ -254,7 +254,7 @@ function BrowseView({
           database={database}
           object={object}
           info={info}
-          canControl={canControl}
+          canDelete={can(dbDatabaseResource(instance, database), "delete")}
         />
       )}
 
@@ -1311,13 +1311,14 @@ function StructureTab({
   database,
   object,
   info,
-  canControl,
+  canDelete,
 }: {
   instanceId: string;
   database: string;
   object: string;
   info: DbObjectSchema;
-  canControl: boolean;
+  /** Emptying or dropping an object is a delete, not an edit. */
+  canDelete: boolean;
 }) {
   const { t } = useTranslation();
   const isTable = info.kind === "table";
@@ -1433,7 +1434,7 @@ function StructureTab({
         )}
       </Card>
 
-      {canControl && (
+      {canDelete && (
         <DangerZone instanceId={instanceId} database={database} object={object} info={info} />
       )}
     </div>

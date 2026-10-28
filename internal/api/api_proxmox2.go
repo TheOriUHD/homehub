@@ -368,7 +368,7 @@ func (s *Server) PveOpenConsole(ctx context.Context, req PveOpenConsoleRequestOb
 		return PveOpenConsole502JSONResponse{UpstreamErrorJSONResponse(errBody("unreachable", err.Error()))}, nil
 	}
 	guestRes := guestResource(resource, req.Vmid)
-	if !s.can(ctx, id, guestRes, rbac.LevelControl) {
+	if !s.can(ctx, id, guestRes, rbac.LevelShell) {
 		s.deniedAudit(ctx, id, "proxmox.console", guestRes)
 		return PveOpenConsole403JSONResponse{forbidden()}, nil
 	}
@@ -409,7 +409,7 @@ func (s *Server) PveOpenSSH(ctx context.Context, req PveOpenSSHRequestObject) (P
 		return PveOpenSSH404JSONResponse{notFoundErr("integration")}, nil
 	}
 	guestRes := guestResource(resource, req.Vmid)
-	if !s.can(ctx, id, guestRes, rbac.LevelControl) {
+	if !s.can(ctx, id, guestRes, rbac.LevelShell) {
 		s.deniedAudit(ctx, id, "proxmox.ssh", guestRes)
 		return PveOpenSSH403JSONResponse{forbidden()}, nil
 	}

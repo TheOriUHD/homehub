@@ -222,7 +222,8 @@ func (tb *Toolbox) sshRun(ctx context.Context, access Access, input json.RawMess
 		return nil, fmt.Errorf("no SSH host named %q — use list_ssh_hosts to see the available ones", name)
 	}
 	hostRes := "ssh/" + host.ID.String()
-	if !access.Can("system/ssh", "control") && !access.Can(hostRes, "control") {
+	// The same bar as a terminal: a command is a shell, one line at a time.
+	if !access.Can("system/ssh", "configure") && !access.Can(hostRes, "configure") {
 		return nil, fmt.Errorf("you do not have permission to run commands on %s", host.Name)
 	}
 

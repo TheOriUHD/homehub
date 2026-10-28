@@ -102,7 +102,7 @@ var (
 )
 
 // ppLoginFromRegistry builds the login from a registry entry the caller may
-// use — control on that host, the same as opening a terminal on it, since
+// use — the same permission as opening a terminal on it, since
 // the bootstrap runs commands as that login. A stored key logs in and the
 // password typed in the wizard, if any, is the sudo password; a stored
 // password serves both purposes, as a typed one does on a manual host.
@@ -111,7 +111,7 @@ func (s *Server) ppLoginFromRegistry(ctx context.Context, id *httpctx.Identity, 
 	if err != nil {
 		return nil, errSSHHostHidden
 	}
-	if !s.can(ctx, id, ResSSHHosts, rbac.LevelControl) && !s.can(ctx, id, sshHostResource(hostID), rbac.LevelControl) {
+	if !s.canShellOnSSHHost(ctx, id, hostID) {
 		return nil, errSSHHostHidden
 	}
 	secret, err := s.vault.Open(ctx, sshVaultScope, hostID.String())
@@ -431,7 +431,7 @@ func (s *Server) PatchpilotBindHost(ctx context.Context, req PatchpilotBindHostR
 		}
 		// Binding lets the fleet dial this entry and, on a re-run, log in as
 		// it — the same permission as opening a terminal on it.
-		if !s.can(ctx, id, ResSSHHosts, rbac.LevelControl) && !s.can(ctx, id, sshHostResource(sid), rbac.LevelControl) {
+		if !s.canShellOnSSHHost(ctx, id, sid) {
 			return PatchpilotBindHost404JSONResponse{notFoundErr("SSH host")}, nil
 		}
 		target = &sid

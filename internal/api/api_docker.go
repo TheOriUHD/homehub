@@ -343,7 +343,9 @@ func (s *Server) DockerExecContainer(ctx context.Context, req DockerExecContaine
 		return DockerExecContainer502JSONResponse{UpstreamErrorJSONResponse(errBody("unreachable", err.Error()))}, nil
 	}
 	containerRes := containerResource(resource, req.Name)
-	if !s.can(ctx, id, containerRes, rbac.LevelControl) {
+	// An exec is a shell — and on a host with HomeHub's own container, a shell
+	// next to master.key — so it needs the shell level, not control.
+	if !s.can(ctx, id, containerRes, rbac.LevelShell) {
 		s.deniedAudit(ctx, id, "docker.exec", containerRes)
 		return DockerExecContainer403JSONResponse{forbidden()}, nil
 	}

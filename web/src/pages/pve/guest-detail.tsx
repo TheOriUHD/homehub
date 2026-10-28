@@ -28,6 +28,7 @@ import {
   type TermSession,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { SHELL } from "@/lib/perms";
 import { SSHHostPicker } from "@/pages/ssh-hosts";
 import { useLiveInvalidate } from "@/lib/live";
 import { cn, formatBytes, formatDateTime, formatDuration } from "@/lib/utils";
@@ -82,6 +83,7 @@ export function PveGuestDetailPage() {
   const canControl = can(guestRes, "control");
   const canConfigure = can(guestRes, "configure");
   const canDelete = can(guestRes, "delete");
+  const canShell = can(guestRes, SHELL);
 
   const action = useMutation({
     mutationFn: async (a: PveGuestAction) =>
@@ -134,7 +136,7 @@ export function PveGuestDetailPage() {
     { key: "hardware", label: t("pve.guest.hardware"), show: true },
     { key: "snapshots", label: t("pve.guest.snapshots"), show: true },
     { key: "backup", label: t("pve.guest.backup"), show: canControl },
-    { key: "console", label: t("pve.guest.console"), show: canControl },
+    { key: "console", label: t("pve.guest.console"), show: canShell },
   ];
 
   return (
@@ -236,7 +238,7 @@ export function PveGuestDetailPage() {
       )}
       {tab === "snapshots" && <SnapshotsTab instanceId={instanceId} vmid={vmid} canControl={canControl} />}
       {tab === "backup" && canControl && <BackupTab instanceId={instanceId} vmid={vmid} />}
-      {tab === "console" && canControl && (
+      {tab === "console" && canShell && (
         <ConsoleTab instanceId={instanceId} vmid={vmid} kind={guest.kind} canConfigure={canConfigure} />
       )}
 

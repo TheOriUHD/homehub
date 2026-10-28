@@ -23,6 +23,7 @@ import {
   type TermSession,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { SHELL } from "@/lib/perms";
 import { useLiveInvalidate } from "@/lib/live";
 import { useMetricSeries } from "@/lib/metrics";
 import { cn, formatRelative } from "@/lib/utils";
@@ -123,7 +124,7 @@ export function DockerContainerDetailPage() {
     { key: "overview", label: t("docker.container.overview"), show: true },
     { key: "inspect", label: t("docker.container.inspect"), show: true },
     { key: "logs", label: t("docker.container.logs"), show: true },
-    { key: "shell", label: t("docker.container.shell"), show: canControl },
+    { key: "shell", label: t("docker.container.shell"), show: can(containerRes, SHELL) },
   ];
 
   return (
@@ -211,7 +212,7 @@ export function DockerContainerDetailPage() {
       {tab === "overview" && <OverviewTab instanceId={instanceId} name={name} detail={data} />}
       {tab === "inspect" && <InspectTab detail={data} />}
       {tab === "logs" && <LogsTab instanceId={instanceId} name={name} />}
-      {tab === "shell" && canControl && <ShellTab instanceId={instanceId} name={name} />}
+      {tab === "shell" && can(containerRes, SHELL) && <ShellTab instanceId={instanceId} name={name} />}
 
       <ConfirmDialog
         open={confirmKill}

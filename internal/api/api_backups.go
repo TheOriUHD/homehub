@@ -174,6 +174,11 @@ func (s *Server) UpdateBackupTarget(ctx context.Context, req UpdateBackupTargetR
 	if req.Body.Enabled != nil {
 		enabled = *req.Body.Enabled
 	}
+	var prevConfig map[string]any
+	_ = json.Unmarshal(row.Config, &prevConfig)
+	if missing := s.storedSecretsToReenter(ctx, "target:"+row.ID.String(), nil, prevConfig, req.Body.Config, req.Body.Secrets); len(missing) > 0 {
+		return UpdateBackupTarget400JSONResponse{BadRequestJSONResponse(secretsRequired(missing))}, nil
+	}
 	if err := s.store.UpdateBackupTarget(ctx, row.ID, name, req.Body.Config, retention, encrypt, enabled); err != nil {
 		return nil, err
 	}

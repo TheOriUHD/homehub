@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type Integration struct {
@@ -83,4 +84,14 @@ func (s *Store) DeleteIntegration(ctx context.Context, id uuid.UUID) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// SecretNames lists the names sealed under a vault scope, without opening
+// them — enough to know which stored secrets an edit would carry over.
+func (s *Store) SecretNames(ctx context.Context, scope string) ([]string, error) {
+	rows, err := s.pool.Query(ctx, `select name from secrets where scope = $1 order by name`, scope)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
 }

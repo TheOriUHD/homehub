@@ -2,6 +2,7 @@ import { Link, Outlet, useParams, useRouterState } from "@tanstack/react-router"
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, Database } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { SHELL } from "@/lib/perms";
 import { useLiveInvalidate } from "@/lib/live";
 import { statusTone } from "@/lib/systems";
 import { cn } from "@/lib/utils";
@@ -13,7 +14,7 @@ import { dbResource, engineBadgeLabel, engineLabel, useDbInstances } from "./sha
 
 /**
  * DbModulePage frames one instance — either engine — with the tab nav. The
- * console tab exists only for SQL engines and only with a control grant on
+ * console tab exists only for SQL engines and only with a shell grant on
  * the instance (the perms mirror; the server still re-checks every run).
  */
 export function DbModulePage() {
@@ -43,7 +44,7 @@ export function DbModulePage() {
   }
 
   const consoleVisible =
-    instance.engine === "mysql" && can(dbResource(instance), "control");
+    instance.engine === "mysql" && can(dbResource(instance), SHELL);
   const base = `/db/${instanceId}`;
   const tabs = [
     { to: base, label: t("db.tabs.databases"), exact: true },

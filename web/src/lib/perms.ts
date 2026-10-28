@@ -5,6 +5,13 @@ import type { Grant } from "./api";
 
 export type Level = "view" | "control" | "configure" | "delete";
 
+/**
+ * SHELL is the level a terminal, container exec, VM console or SQL console
+ * needs — mirrors rbac.LevelShell. A shell can reconfigure anything it opens
+ * onto, so it is configure, never control.
+ */
+export const SHELL: Level = "configure";
+
 // System resource paths, kept in sync with internal/api/server.go.
 export const RES = {
   users: "system/users",
@@ -12,6 +19,7 @@ export const RES = {
   settings: "system/settings",
   audit: "system/audit",
   health: "system/health",
+  calendar: "calendar",
 } as const;
 
 /** matches reports whether a selector covers a resource (node or subtree). */

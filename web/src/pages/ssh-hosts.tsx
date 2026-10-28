@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Fingerprint, KeyRound, Pencil, Plus, ServerCog, SquareTerminal, TerminalSquare, Trash2, Zap } from "lucide-react";
 import { api, isApiError, unwrap, type SSHHost, type TermSession, type TestConnectionResult } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { SHELL } from "@/lib/perms";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
@@ -181,7 +182,7 @@ export function SSHHostsPage() {
                             onClick={() => setHostKeyFor(host)}>
                             <Fingerprint className="size-4" />
                           </Button>
-                          {can(`ssh/${host.id}`, "control") || can(SSH_RES, "control") ? (
+                          {can(`ssh/${host.id}`, SHELL) || can(SSH_RES, SHELL) ? (
                             <Button size="sm" variant="ghost" aria-label={t("ssh.terminal")} title={t("ssh.terminal")}
                               loading={openTerminal.isPending && openTerminal.variables?.id === host.id}
                               onClick={() => openTerminal.mutate(host)}>

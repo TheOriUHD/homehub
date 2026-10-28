@@ -51,6 +51,13 @@ func (s *Server) PutSSHCredential(ctx context.Context, req PutSSHCredentialReque
 		if herr != nil {
 			return PutSSHCredential400JSONResponse{BadRequestJSONResponse(errBody("unknown_host", "that SSH host does not exist"))}, nil
 		}
+		// Binding hands this resource's shell the host's stored key, so it needs
+		// the right to a shell on that host too — configure on one VM must not
+		// borrow the Proxmox node's root login.
+		if !s.canShellOnSSHHost(ctx, id, h.ID) {
+			s.deniedAudit(ctx, id, "resource.ssh_credential", sshHostResource(h.ID))
+			return PutSSHCredential403JSONResponse{forbidden()}, nil
+		}
 		if err := s.store.UpsertSSHCredential(ctx, &store.SSHCredential{
 			Resource: resource, Host: h.Hostname, Port: h.Port, Username: h.Username,
 			AuthType: h.AuthType, HostID: &h.ID,
@@ -78,17 +85,23 @@ func (s *Server) PutSSHCredential(ctx context.Context, req PutSSHCredentialReque
 		port = *req.Body.Port
 	}
 
-	// A fresh credential needs a secret; an update may keep the stored one.
-	hasStored := true
-	if _, err := s.store.GetSSHCredential(ctx, resource); errors.Is(err, store.ErrNotFound) {
-		hasStored = false
+	// A fresh credential needs a secret; an update may keep the stored one —
+	// but only while it still goes to the same login. Re-pointing the host,
+	// port or user without re-entering the secret would deliver the stored
+	// password to whatever address the caller typed.
+	keepsStored := false
+	if prev, err := s.store.GetSSHCredential(ctx, resource); err == nil {
+		keepsStored = prev.HostID == nil && prev.Host == host && prev.Port == port &&
+			prev.Username == req.Body.Username && prev.AuthType == string(req.Body.AuthType)
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return nil, err
 	}
 	secret := ""
 	if req.Body.Secret != nil {
 		secret = *req.Body.Secret
 	}
-	if secret == "" && !hasStored {
-		return PutSSHCredential400JSONResponse{BadRequestJSONResponse(errBody("secret_required", "a password or private key is required"))}, nil
+	if secret == "" && !keepsStored {
+		return PutSSHCredential400JSONResponse{BadRequestJSONResponse(errBody("secret_required", "a password or private key is required — re-enter it when the host, port or user changes"))}, nil
 	}
 
 	if err := s.store.UpsertSSHCredential(ctx, &store.SSHCredential{

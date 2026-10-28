@@ -1,9 +1,15 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"regexp"
+	"slices"
 	"strings"
+
+	"github.com/google/uuid"
 
 	"homehub/internal/httpctx"
 	"homehub/internal/integration"
@@ -86,6 +92,9 @@ func (s *Server) TestIntegrationConfig(ctx context.Context, req TestIntegrationC
 	if req.Body.Secrets != nil {
 		secrets = *req.Body.Secrets
 	}
+	if !s.mayBindSSHHost(ctx, id, nil, req.Body.Config) {
+		return TestIntegrationConfig403JSONResponse{forbidden()}, nil
+	}
 	config, berr := s.applySSHBindingForTest(ctx, req.Body.Config, secrets)
 	if berr != nil {
 		return TestIntegrationConfig200JSONResponse(TestConnectionResult{Ok: false, Message: berr.Error()}), nil
@@ -109,6 +118,9 @@ func (s *Server) CreateIntegration(ctx context.Context, req CreateIntegrationReq
 	name := strings.TrimSpace(req.Body.Name)
 	if name == "" {
 		return CreateIntegration400JSONResponse{BadRequestJSONResponse(errBody("invalid_name", "a name is required"))}, nil
+	}
+	if !s.mayBindSSHHost(ctx, id, nil, req.Body.Config) {
+		return CreateIntegration403JSONResponse{forbidden()}, nil
 	}
 
 	row, err := s.store.CreateIntegration(ctx, req.Body.Type, name, req.Body.Config)
@@ -181,6 +193,14 @@ func (s *Server) UpdateIntegration(ctx context.Context, req UpdateIntegrationReq
 	}
 	config := any(row.Config)
 	if req.Body.Config != nil {
+		var prev map[string]any
+		_ = json.Unmarshal(row.Config, &prev)
+		if !s.mayBindSSHHost(ctx, id, prev, *req.Body.Config) {
+			return UpdateIntegration403JSONResponse{forbidden()}, nil
+		}
+		if missing := s.secretsToReenter(ctx, row, prev, *req.Body.Config, req.Body.Secrets); len(missing) > 0 {
+			return UpdateIntegration400JSONResponse{BadRequestJSONResponse(secretsRequired(missing))}, nil
+		}
 		config = *req.Body.Config
 	}
 	enabled := row.Enabled
@@ -332,6 +352,105 @@ func toAPITestResult(r integration.TestResult) TestConnectionResult {
 	out := TestConnectionResult{Ok: r.OK, Message: r.Message}
 	if r.Detail != nil {
 		out.Detail = &r.Detail
+	}
+	return out
+}
+
+// mayBindSSHHost reports whether the caller may point an instance's config at
+// the registry host it names. The driver then logs in with that host's stored
+// key, so configure on the integration is not enough: it takes the same
+// shell right as a terminal on the host. Keeping an existing binding is free —
+// it was checked when it was made.
+func (s *Server) mayBindSSHHost(ctx context.Context, id *httpctx.Identity, prev, next map[string]any) bool {
+	raw, _ := next[integration.SSHHostIDKey].(string)
+	if raw == "" {
+		return true
+	}
+	if was, _ := prev[integration.SSHHostIDKey].(string); was == raw {
+		return true
+	}
+	hostID, err := uuid.Parse(raw)
+	if err != nil {
+		return true // ResolveSSHBinding reports a malformed binding to the user
+	}
+	if !s.canShellOnSSHHost(ctx, id, hostID) {
+		s.deniedAudit(ctx, id, "integration.ssh_binding", sshHostResource(hostID))
+		return false
+	}
+	return true
+}
+
+// addressKey matches the config fields that decide where an instance's
+// secrets are sent — its address, port, TLS posture or login. Drivers name
+// these freely (host, baseUrl, sshHost, insecureTls, …), so it goes by name.
+var addressKey = regexp.MustCompile(`(?i)host|url|address|endpoint|port|tls|fingerprint|socket|server|tailnet|user`)
+
+// secretsToReenter lists the stored secrets an update would carry to a new
+// destination. A token kept across an address change would be presented to
+// whatever server the new address names, so every stored secret must come
+// with the edit — or the edit is refused.
+func (s *Server) secretsToReenter(ctx context.Context, row *store.Integration, prev, next map[string]any, given *map[string]string) []string {
+	driver, ok := s.integrations.Driver(row.Type)
+	if !ok {
+		return nil
+	}
+	// Only the secrets the form asks for travel outward; the rest of the scope
+	// (a Minecraft agent's inbound tokens, say) are never sent anywhere.
+	return s.storedSecretsToReenter(ctx, "integration:"+row.ID.String(), driver.SecretNames(), prev, next, given)
+}
+
+// storedSecretsToReenter is the shared rule for every form with "leave empty
+// to keep the stored secret": that only holds while the destination stays
+// put. names limits it to the secrets that are sent outward; nil means every
+// secret in the scope is.
+func (s *Server) storedSecretsToReenter(ctx context.Context, scope string, names []string, prev, next map[string]any, given *map[string]string) []string {
+	if !addressMoved(prev, next) {
+		return nil
+	}
+	stored, err := s.store.SecretNames(ctx, scope)
+	if err != nil {
+		return []string{"secrets"} // unknown is refused, not waved through
+	}
+	var missing []string
+	for _, name := range stored {
+		if names != nil && !slices.Contains(names, name) {
+			continue
+		}
+		if given == nil || (*given)[name] == "" {
+			missing = append(missing, name)
+		}
+	}
+	return missing
+}
+
+func addressMoved(prev, next map[string]any) bool {
+	for k := range mergedKeys(prev, next) {
+		if k == integration.SSHHostIDKey || !addressKey.MatchString(k) {
+			continue
+		}
+		a, _ := json.Marshal(prev[k])
+		b, _ := json.Marshal(next[k])
+		if !bytes.Equal(a, b) {
+			return true
+		}
+	}
+	return false
+}
+
+// secretsRequired is the 400 body for an edit that moved a destination
+// without re-entering its stored secrets.
+func secretsRequired(missing []string) Error {
+	return errBody("secrets_required",
+		"the address changed, so the stored "+strings.Join(missing, ", ")+" must be entered again — a saved secret is never sent to a new destination")
+}
+
+func mergedKeys(a, b map[string]any) map[string]struct{} {
+	out := make(map[string]struct{}, len(a)+len(b))
+	for k := range a {
+		out[k] = struct{}{}
+	}
+	for k := range b {
+		out[k] = struct{}{}
 	}
 	return out
 }

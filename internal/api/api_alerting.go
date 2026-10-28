@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -271,6 +272,11 @@ func (s *Server) UpdateChannel(ctx context.Context, req UpdateChannelRequestObje
 	enabled := channel.Enabled
 	if req.Body.Enabled != nil {
 		enabled = *req.Body.Enabled
+	}
+	var prevConfig map[string]any
+	_ = json.Unmarshal(channel.Config, &prevConfig)
+	if missing := s.storedSecretsToReenter(ctx, "channel:"+channel.ID.String(), nil, prevConfig, req.Body.Config, req.Body.Secrets); len(missing) > 0 {
+		return UpdateChannel400JSONResponse{BadRequestJSONResponse(secretsRequired(missing))}, nil
 	}
 	if err := s.store.UpdateChannel(ctx, channel.ID, name, req.Body.Config, enabled); err != nil {
 		return nil, err

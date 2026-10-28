@@ -40,6 +40,14 @@ const (
 	LevelDelete    Level = "delete"
 )
 
+// LevelShell is what an interactive shell, container exec, VM console or raw
+// SQL console needs. A shell can rewrite any configuration on the machine it
+// opens onto, so it can never sit below configure: granting it at control
+// would hand the Operator role — which operates systems but may not
+// reconfigure them — root on everything. It is an alias rather than a fifth
+// level so existing roles keep their meaning and the editor stays four boxes.
+const LevelShell = LevelConfigure
+
 var AllLevels = []string{string(LevelView), string(LevelControl), string(LevelConfigure), string(LevelDelete)}
 
 // Principal is the identity permissions are evaluated for. When ViewAsRole is

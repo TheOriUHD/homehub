@@ -349,7 +349,7 @@ func (s *Server) DbTruncateObject(ctx context.Context, req DbTruncateObjectReque
 	if req.Body == nil || !req.Body.Confirm {
 		return DbTruncateObject400JSONResponse{BadRequestJSONResponse(errBody("not_confirmed", "confirm is required to empty a table"))}, nil
 	}
-	conn, dbRes, err := s.dbObjectAccess(ctx, id, req.Id, req.Database, rbac.LevelControl, "db.truncate")
+	conn, dbRes, err := s.dbObjectAccess(ctx, id, req.Id, req.Database, rbac.LevelDelete, "db.truncate")
 	if err != nil {
 		return dbTruncateErr(err), nil
 	}
@@ -373,7 +373,7 @@ func (s *Server) DbDropObject(ctx context.Context, req DbDropObjectRequestObject
 	if !req.Params.Confirm {
 		return DbDropObject400JSONResponse{BadRequestJSONResponse(errBody("not_confirmed", "confirm is required to drop"))}, nil
 	}
-	conn, dbRes, err := s.dbObjectAccess(ctx, id, req.Id, req.Database, rbac.LevelControl, "db.drop")
+	conn, dbRes, err := s.dbObjectAccess(ctx, id, req.Id, req.Database, rbac.LevelDelete, "db.drop")
 	if err != nil {
 		return dbDropErr(err), nil
 	}

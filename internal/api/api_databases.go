@@ -264,12 +264,14 @@ func (s *Server) DbQuery(ctx context.Context, req DbQueryRequestObject) (DbQuery
 	// safely confined by parsing the statement — `schema.table` is
 	// syntactically indistinguishable from `table.column`, so a schema
 	// allow-list would either over-block ordinary SQL or be trivially evaded.
-	// So the raw console requires INSTANCE-level control: the same grant the UI
-	// already requires to show the console tab. A per-database grant still
+	// So the raw console requires the shell level on the INSTANCE: the same
+	// grant the UI requires to show the console tab, and the same bar as a
+	// terminal, since arbitrary SQL as a privileged account is a shell into the
+	// data (GRANT, user tables, file functions). A per-database grant still
 	// unlocks the structured browser (databases / tables / peek), which is
 	// read-scoped server-side, but not the free-form console. This closes the
 	// cross-schema/system-schema bypass a one-database grant otherwise had.
-	if !s.can(ctx, id, resource, rbac.LevelControl) {
+	if !s.can(ctx, id, resource, rbac.LevelShell) {
 		s.deniedAudit(ctx, id, "db.query", resource)
 		return DbQuery403JSONResponse{forbidden()}, nil
 	}

@@ -28,6 +28,15 @@ const ResSSHHosts = "system/ssh"
 // machine without the whole registry.
 func sshHostResource(id uuid.UUID) string { return "ssh/" + id.String() }
 
+// canShellOnSSHHost is the one bar for logging in as a registry host — a
+// terminal, an assistant command, PatchPilot onboarding, or binding the host
+// to another resource so that resource's shell opens with its key. Every one
+// of them ends in a shell under that login, so they share rbac.LevelShell on
+// the registry as a whole or on that one host.
+func (s *Server) canShellOnSSHHost(ctx context.Context, id *httpctx.Identity, hostID uuid.UUID) bool {
+	return s.can(ctx, id, ResSSHHosts, rbac.LevelShell) || s.can(ctx, id, sshHostResource(hostID), rbac.LevelShell)
+}
+
 // sshVaultScope holds each host's password or private key.
 const sshVaultScope = store.SSHHostVaultScope
 
@@ -139,12 +148,23 @@ func (s *Server) UpdateSSHHost(ctx context.Context, req UpdateSSHHostRequestObje
 		s.deniedAudit(ctx, id, "ssh_host.update", sshHostResource(req.Id))
 		return UpdateSSHHost403JSONResponse{forbidden()}, nil
 	}
-	if _, err := s.store.GetSSHHost(ctx, req.Id); err != nil {
+	prev, err := s.store.GetSSHHost(ctx, req.Id)
+	if err != nil {
 		return UpdateSSHHost404JSONResponse{notFoundErr("SSH host")}, nil
 	}
 	h, bad := sshHostInput(req.Body.Name, req.Body.Hostname, req.Body.Username, string(req.Body.AuthType), req.Body.Port)
 	if bad != "" {
 		return UpdateSSHHost400JSONResponse{BadRequestJSONResponse(errBody("bad_input", bad))}, nil
+	}
+	// The stored secret may only follow the login it was entered for. A
+	// password is sent to the server in the clear (inside SSH), so re-pointing
+	// a password host would hand it to whatever the new address is; switching
+	// the auth type would present a private key as a password.
+	newSecret := req.Body.Secret != nil && strings.TrimSpace(*req.Body.Secret) != ""
+	moved := h.Hostname != prev.Hostname || h.Port != prev.Port || h.Username != prev.Username
+	if !newSecret && (h.AuthType != prev.AuthType || (moved && h.AuthType == "password")) {
+		return UpdateSSHHost400JSONResponse{BadRequestJSONResponse(errBody("secret_required",
+			"enter the password or key again — a saved one is never sent to a changed address, login or auth type"))}, nil
 	}
 	h.ID = req.Id
 	if req.Body.Notes != nil {
@@ -158,7 +178,7 @@ func (s *Server) UpdateSSHHost(ctx context.Context, req UpdateSSHHostRequestObje
 		return nil, err
 	}
 	// An empty secret keeps the stored one — the usual "leave blank" rule.
-	if req.Body.Secret != nil && strings.TrimSpace(*req.Body.Secret) != "" {
+	if newSecret {
 		if err := s.vault.Seal(ctx, sshVaultScope, req.Id.String(), []byte(*req.Body.Secret)); err != nil {
 			return nil, err
 		}
@@ -234,8 +254,7 @@ func (s *Server) OpenSSHHostTerminal(ctx context.Context, req OpenSSHHostTermina
 	if err != nil {
 		return OpenSSHHostTerminal404JSONResponse{notFoundErr("SSH host")}, nil
 	}
-	// A shell is full control of the machine — gate it accordingly.
-	if !s.can(ctx, id, ResSSHHosts, rbac.LevelControl) && !s.can(ctx, id, sshHostResource(req.Id), rbac.LevelControl) {
+	if !s.canShellOnSSHHost(ctx, id, req.Id) {
 		s.deniedAudit(ctx, id, "ssh_host.terminal", sshHostResource(req.Id))
 		return OpenSSHHostTerminal403JSONResponse{forbidden()}, nil
 	}

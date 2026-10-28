@@ -13,7 +13,6 @@ import (
 
 	"homehub/internal/assistant"
 	"homehub/internal/httpctx"
-	"homehub/internal/rbac"
 )
 
 // assistantRuntime resolves the provider for one turn. `pick` is an optional
@@ -414,8 +413,7 @@ func (s *Server) applyAssistantAction(ctx context.Context, id *httpctx.Identity,
 			return summary, "", errors.New("bad host id")
 		}
 		// Re-check permission at apply time: the proposal may be minutes old.
-		if !s.can(ctx, id, ResSSHHosts, rbac.LevelControl) &&
-			!s.can(ctx, id, sshHostResource(hostID), rbac.LevelControl) {
+		if !s.canShellOnSSHHost(ctx, id, hostID) {
 			s.deniedAudit(ctx, id, "ssh_host.agent_run", sshHostResource(hostID))
 			return summary, "", errors.New("not permitted")
 		}
