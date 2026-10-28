@@ -20,6 +20,18 @@ services:
       - "${HOMEHUB_PORT:-8080}:8080"
     environment:
       HOMEHUB_DATABASE_URL: postgres://homehub:${POSTGRES_PASSWORD:-homehub}@db:5432/homehub?sslmode=disable
+      # The file converter runs ffmpeg/ImageMagick/libraw/pandoc on uploads
+      # inside a user-namespace sandbox that cannot see /data (master.key).
+      # Docker's default seccomp and AppArmor profiles block user namespaces,
+      # so out of the box the media converters report "sandbox unavailable"
+      # (table conversions still work). Either allow namespaces for this
+      # container (security_opt below; it relaxes the container's own
+      # syscall filter in exchange for per-conversion isolation), or accept
+      # running the converters with access to /data:
+      # HOMEHUB_CONVERT_UNSANDBOXED: "1"
+    # security_opt:
+    #   - seccomp=unconfined
+    #   - apparmor=unconfined
     volumes:
       - homehub-data:/data
       # Uncomment to manage this host's Docker with the "socket" transport:

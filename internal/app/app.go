@@ -302,7 +302,8 @@ func Run(ctx context.Context) error {
 	})
 
 	// Universal file converter: runs untrusted uploads through ffmpeg/
-	// ImageMagick/libraw/pandoc privilege-dropped as nobody. One job per batch
+	// ImageMagick/libraw/pandoc sandboxed (dropped to nobody as root, in a
+	// namespace sandbox otherwise; refused if neither works). One job per batch
 	// (never retried), an hourly reaper, and a startup sweep of interrupted work.
 	convertSvc := convert.NewService(st, cfg.DataDir, logger,
 		func(userID uuid.UUID, topic string, data any) { hub.PublishUser(userID, topic, data) },

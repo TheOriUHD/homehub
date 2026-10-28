@@ -208,8 +208,8 @@ func TestProbeTablesAlwaysAvailable(t *testing.T) {
 	}
 }
 
-// The runner actually shells out to ImageMagick (privilege drop off so the test
-// is portable) and must produce a non-empty output.
+// The runner actually shells out to ImageMagick through the namespace sandbox
+// (the non-root production path) and must produce a non-empty output.
 func TestRunnerConvertsPNGToJPG(t *testing.T) {
 	if _, err := exec.LookPath("magick"); err != nil {
 		t.Skip("magick not installed")
@@ -221,7 +221,10 @@ func TestRunnerConvertsPNGToJPG(t *testing.T) {
 	if !ok {
 		t.Fatal("png→jpg edge missing")
 	}
-	r := NewRunner(false, slog.Default())
+	r := NewRunner(false, false, slog.Default())
+	if r.SandboxBroken() {
+		t.Skip("namespace sandbox unavailable here: " + r.BrokenReason())
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := r.Convert(ctx, e, dir, "in.png", "out.jpg", ".", "item", Options{}); err != nil {

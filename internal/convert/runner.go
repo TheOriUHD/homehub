@@ -287,8 +287,10 @@ func pandocTemplate(from, to string) string {
 
 // Caps records which engines and codecs are installed right now.
 type Caps struct {
-	// SandboxBroken: root without setpriv — external-tool edges are refused.
+	// SandboxBroken: no sandbox mechanism works and the owner has not opted
+	// out — external-tool edges are refused, with SandboxReason as the why.
 	SandboxBroken bool
+	SandboxReason string
 	FFmpeg        bool
 	ImageMagick   bool
 	Libraw        bool
@@ -408,7 +410,10 @@ func (c *Caps) Available(e Edge) (bool, string) {
 		return true, ""
 	}
 	if c.SandboxBroken {
-		return false, "the conversion sandbox is unavailable on this host (setpriv missing)"
+		if c.SandboxReason != "" {
+			return false, c.SandboxReason
+		}
+		return false, "the conversion sandbox is unavailable on this host"
 	}
 	switch e.Kind {
 	case KindImage:
@@ -470,30 +475,53 @@ func (c *capsCache) get() *Caps {
 	return c.caps
 }
 
-// ---- privilege-dropped, group-killed execution -----------------------------
+// ---- sandboxed, group-killed execution -------------------------------------
 
-// Runner executes conversion plans. When drop is set, each tool is launched
-// through setpriv, which drops to nobody AFTER the (root) process has already
-// chdir'd into the batch dir — so the tool addresses its files by paths
-// relative to that dir and never has to traverse the 0700 DataDir ancestors as
-// nobody. In a non-root dev environment (or when setpriv is missing) drop is
-// false and tools run as the current user.
+// SandboxMode is how external tools are contained.
+type SandboxMode string
+
+const (
+	// SandboxSetpriv: HomeHub is root; each tool is dropped to nobody by
+	// setpriv after root has chdir'd into the batch dir, optionally inside
+	// a network-less namespace.
+	SandboxSetpriv SandboxMode = "setpriv"
+	// SandboxNamespaces: HomeHub is not root (the Docker image, a service
+	// user); each tool runs in fresh user/mount/net/pid namespaces on a
+	// whitelisted read-only root with only its batch dir writable — see
+	// sandbox_linux.go. Also the fallback for root without setpriv.
+	SandboxNamespaces SandboxMode = "namespaces"
+	// SandboxNone: no containment, because the owner set
+	// HOMEHUB_CONVERT_UNSANDBOXED=1. Tools run as the app user and can read
+	// everything it can, master.key included.
+	SandboxNone SandboxMode = "none"
+	// SandboxUnavailable: no mechanism works here and the owner has not
+	// opted out, so external-tool conversions are refused.
+	SandboxUnavailable SandboxMode = "unavailable"
+)
+
+// UnsandboxedEnv is the owner's explicit opt-out for hosts where no sandbox
+// mechanism works. A bootstrap switch rather than a UI setting on purpose:
+// turning off the containment of untrusted media parsers should take
+// someone with access to the host, not a browser session.
+const UnsandboxedEnv = "HOMEHUB_CONVERT_UNSANDBOXED"
+
+// Runner executes conversion plans inside the sandbox its mode names.
 type Runner struct {
+	mode SandboxMode
+	// drop is the setpriv mode: the batch dirs are handed to the sandbox uid.
 	drop bool
-	// sandboxBroken means the drop was WANTED (we are root, parsing untrusted
-	// bytes) but cannot be applied (setpriv missing). The sandbox fails
-	// CLOSED: external-tool conversions are refused rather than run as root.
-	sandboxBroken bool
-	logger        *slog.Logger
-	nicePath      string
-	ionicePath    string
-	setprivPath   string
-	unsharePath   string
-	// netns runs each tool in a fresh (network-less) namespace via `unshare
-	// --net`, so no converter can make ANY outbound connection regardless of
-	// input tricks — defense-in-depth for the SSRF surface. Enabled only when a
-	// startup probe confirms the kernel/capabilities allow it, so hosts that
-	// can't (unprivileged containers) simply fall back to the UID-drop sandbox.
+	// brokenReason says why mode is SandboxUnavailable, for the UI and logs.
+	brokenReason string
+	logger       *slog.Logger
+	nicePath     string
+	ionicePath   string
+	setprivPath  string
+	unsharePath  string
+	// netns runs each setpriv'd tool in a fresh (network-less) namespace via
+	// `unshare --net`, so no converter can make ANY outbound connection
+	// regardless of input tricks — defense-in-depth for the SSRF surface.
+	// Enabled only when a startup probe confirms the kernel/capabilities
+	// allow it. The namespace mode always has its own network namespace.
 	netns bool
 
 	mu    sync.Mutex
@@ -501,13 +529,19 @@ type Runner struct {
 }
 
 // SandboxBroken reports whether external-tool conversions are refused because
-// the privilege drop is unavailable (root without setpriv).
-func (r *Runner) SandboxBroken() bool { return r.sandboxBroken }
+// no sandbox mechanism is available.
+func (r *Runner) SandboxBroken() bool { return r.mode == SandboxUnavailable }
 
-// NewRunner builds a runner. It resolves nice/ionice/setpriv once. wantDrop is
-// the caller's intent (true when the process is root); the actual drop also
-// requires setpriv to exist.
-func NewRunner(wantDrop bool, logger *slog.Logger) *Runner {
+// Mode reports the active sandbox mode.
+func (r *Runner) Mode() SandboxMode { return r.mode }
+
+// BrokenReason is the user-facing reason conversions are refused, if they are.
+func (r *Runner) BrokenReason() string { return r.brokenReason }
+
+// NewRunner picks the strongest containment this host supports: setpriv
+// when root, otherwise namespaces; with neither, conversions fail closed
+// unless allowUnsandboxed (the owner's explicit HOMEHUB_CONVERT_UNSANDBOXED).
+func NewRunner(isRoot, allowUnsandboxed bool, logger *slog.Logger) *Runner {
 	r := &Runner{logger: logger, tools: map[string]string{}}
 	if p, err := exec.LookPath("nice"); err == nil {
 		r.nicePath = p
@@ -518,21 +552,12 @@ func NewRunner(wantDrop bool, logger *slog.Logger) *Runner {
 	if p, err := exec.LookPath("setpriv"); err == nil {
 		r.setprivPath = p
 	}
-	if wantDrop {
-		if r.setprivPath != "" {
-			r.drop = true
-		} else {
-			// Fail CLOSED: running converters as root on untrusted uploads is
-			// the exact risk the sandbox exists to prevent.
-			r.sandboxBroken = true
-			logger.Error("setpriv not found: refusing external-tool conversions (install util-linux); table conversions still work")
-		}
-	}
-	// Network-namespace isolation is best-effort: enable it only if `unshare
-	// --net` actually works here (root + CAP_SYS_ADMIN, not blocked by the
-	// container runtime). Otherwise the UID-drop + ffmpeg protocol whitelist
-	// remain the sandbox.
-	if r.drop {
+	if isRoot && r.setprivPath != "" {
+		r.mode, r.drop = SandboxSetpriv, true
+		// Network-namespace isolation is best-effort: enable it only if
+		// `unshare --net` actually works here (root + CAP_SYS_ADMIN, not
+		// blocked by the container runtime). Otherwise the UID-drop + ffmpeg
+		// protocol whitelist remain the sandbox.
 		if p, err := exec.LookPath("unshare"); err == nil {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			probe := exec.CommandContext(ctx, p, "--net", "true")
@@ -545,7 +570,28 @@ func NewRunner(wantDrop bool, logger *slog.Logger) *Runner {
 			}
 			cancel()
 		}
+		return r
 	}
+	nsErr := probeNamespaceSandbox()
+	if nsErr == nil {
+		r.mode = SandboxNamespaces
+		logger.Info("convert sandbox: namespaces (private root, no data dir, no network)")
+		return r
+	}
+	if allowUnsandboxed {
+		r.mode = SandboxNone
+		logger.Warn("convert sandbox DISABLED by "+UnsandboxedEnv+": converters parse untrusted media with full access to the data dir, master.key included",
+			"namespace_error", nsErr)
+		return r
+	}
+	r.mode = SandboxUnavailable
+	if isRoot {
+		r.brokenReason = "the conversion sandbox is unavailable on this host (setpriv missing and user namespaces unavailable)"
+	} else {
+		r.brokenReason = "the conversion sandbox is unavailable on this host (user namespaces are disabled or blocked)"
+	}
+	logger.Error("convert sandbox unavailable: refusing external-tool conversions (table conversions still work); enable unprivileged user namespaces, or set "+UnsandboxedEnv+"=1 to run converters without containment",
+		"error", nsErr)
 	return r
 }
 
@@ -585,8 +631,8 @@ func (r *Runner) Convert(ctx context.Context, e Edge, workDir, inRel, outRel, tm
 }
 
 func (r *Runner) run(ctx context.Context, spec procSpec, workDir string) error {
-	if r.sandboxBroken {
-		return fmt.Errorf("conversion sandbox unavailable on this host (setpriv missing) — external-tool conversions are disabled")
+	if r.mode == SandboxUnavailable {
+		return fmt.Errorf("%s — external-tool conversions are disabled", r.brokenReason)
 	}
 	bin, err := r.toolPath(spec.tool)
 	if err != nil {
@@ -598,7 +644,7 @@ func (r *Runner) run(ctx context.Context, spec procSpec, workDir string) error {
 	// setpriv then drops to nobody and execs the tool with the cwd already set.
 	// Absolute binary paths, relative file args, and never a shell.
 	var argv []string
-	if r.netns {
+	if r.netns && r.mode == SandboxSetpriv {
 		// Outermost: create the network-less namespace as root, before the
 		// nice/ionice/setpriv chain execs within it.
 		argv = append(argv, r.unsharePath, "--net")
@@ -625,12 +671,18 @@ func (r *Runner) run(ctx context.Context, spec procSpec, workDir string) error {
 	}
 	defer func() { <-procSem }()
 
-	cmd := exec.Command(argv[0], argv[1:]...)
-	// chdir happens as root (no Credential here); setpriv does the drop after,
-	// so the sandboxed tool never traverses the DataDir ancestors as nobody.
-	cmd.Dir = workDir
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Env = spec.env()
+	var cmd *exec.Cmd
+	if r.mode == SandboxNamespaces {
+		cmd = sandboxCommand(workDir, argv, spec.env())
+	} else {
+		cmd = exec.Command(argv[0], argv[1:]...)
+		// chdir happens as root (no Credential here); setpriv does the drop
+		// after, so the sandboxed tool never traverses the DataDir ancestors
+		// as nobody.
+		cmd.Dir = workDir
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		cmd.Env = spec.env()
+	}
 
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

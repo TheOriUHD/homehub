@@ -47,17 +47,16 @@ type Service struct {
 	enqueue EnqueueFunc
 }
 
-// NewService constructs the service and prepares the working root. drop (run
-// tools privilege-dropped as nobody) is enabled only when the process is root,
-// since that is what lets it both chown the working dirs and setuid.
+// NewService constructs the service and prepares the working root. As root,
+// tools are privilege-dropped to nobody (root can chown the working dirs and
+// setuid); otherwise they run in the namespace sandbox. See NewRunner.
 func NewService(st *store.Store, dataDir string, logger *slog.Logger, publish PublishFunc, enqueue EnqueueFunc) *Service {
 	root := filepath.Join(dataDir, "convert")
-	drop := os.Geteuid() == 0
 	s := &Service{
 		store:   st,
 		dataDir: dataDir,
 		root:    root,
-		runner:  NewRunner(drop, logger),
+		runner:  NewRunner(os.Geteuid() == 0, os.Getenv(UnsandboxedEnv) == "1", logger),
 		caps:    &capsCache{},
 		logger:  logger.With("component", "convert"),
 		publish: publish,
@@ -66,9 +65,6 @@ func NewService(st *store.Store, dataDir string, logger *slog.Logger, publish Pu
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		s.logger.Error("create convert root", "error", err)
 	}
-	if !s.runner.drop {
-		s.logger.Warn("conversions run without privilege drop (not root, or setpriv missing)")
-	}
 	return s
 }
 
@@ -76,6 +72,7 @@ func NewService(st *store.Store, dataDir string, logger *slog.Logger, publish Pu
 func (s *Service) Caps() *Caps {
 	c := s.caps.get()
 	c.SandboxBroken = s.runner.SandboxBroken()
+	c.SandboxReason = s.runner.BrokenReason()
 	return c
 }
 
