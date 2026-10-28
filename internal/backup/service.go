@@ -629,8 +629,10 @@ func extractTo(path string, r io.Reader, mode os.FileMode) error {
 // ahead of the replay. pg_restore --clean only drops what the archive itself
 // contains, so restoring an older archive would leave newer tables behind
 // with the schema version rolled back, and the migrations on the next start
-// would fail creating tables that already exist. HomeHub's schema holds no
-// functions, types or extensions, so these are the only object kinds.
+// would fail creating tables that already exist. The same goes for the
+// schema's functions (the audit log's append-only trigger function), which
+// are dropped after the tables that use them; HomeHub defines no types or
+// extensions of its own.
 const clearSchemaSQL = `
 set local client_min_messages = warning;
 do $$
@@ -648,6 +650,13 @@ begin
 			case r.relkind when 'v' then 'view' when 'm' then 'materialized view'
 			               when 'S' then 'sequence' else 'table' end,
 			r.relname);
+	end loop;
+	for r in
+		select p.oid::regprocedure as sig from pg_proc p
+		join pg_namespace n on n.oid = p.pronamespace
+		where n.nspname = 'public' and p.prokind = 'f'
+	loop
+		execute format('drop function if exists %s cascade', r.sig);
 	end loop;
 end $$;`
 

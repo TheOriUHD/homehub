@@ -10,7 +10,7 @@
 -- it survive a backup restore of an older database, which replaces the table
 -- wholesale (pg_restore --clean) along with everything else.
 -- +goose StatementBegin
-create function audit_log_append_only() returns trigger
+create or replace function audit_log_append_only() returns trigger
 language plpgsql as $$
 begin
     if tg_op = 'DELETE' and current_setting('homehub.audit_retention', true) = 'on' then
