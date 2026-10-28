@@ -12,7 +12,7 @@ import (
 // SSH tools. The assistant can look at the SSH registry and run commands on
 // those machines, under three layers of protection:
 //
-//  1. Permission — the caller needs control on the host (or the registry) for
+//  1. Permission — the caller needs the shell level (configure) on the host (or the registry) for
 //     anything to run at all; listing needs view.
 //  2. Classification — sshguard decides read-only / needs-confirmation /
 //     refused. Read-only commands run straight away; anything that mutates
