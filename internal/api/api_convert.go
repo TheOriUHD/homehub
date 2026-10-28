@@ -29,7 +29,18 @@ const (
 	maxConvertFileBytes  = int64(1) << 30 // 1 GiB
 	maxConvertBatchBytes = int64(2) << 30 // 2 GiB
 	maxConvertField      = 1 << 16        // 64 KiB for target/options fields
+	// Bound TOTAL parts, not just file parts: otherwise a client can dribble
+	// an endless stream of tiny form fields and pin the handler (slowloris).
+	maxConvertParts = 200
 )
+
+// MaxConvertRequestBytes is the whole-request cap the HTTP layer applies to
+// the converter upload instead of the generic 8 MiB JSON cap: the full batch
+// plus every allowed form field and a margin for multipart framing. The
+// per-file and per-batch limits are still enforced exactly by
+// CreateConversion as it streams; this only bounds what a client can send
+// in total.
+const MaxConvertRequestBytes = maxConvertBatchBytes + maxConvertParts*maxConvertField + 1<<20
 
 func (s *Server) ConvertFormats(ctx context.Context, _ ConvertFormatsRequestObject) (ConvertFormatsResponseObject, error) {
 	if httpctx.IdentityFrom(ctx) == nil {
@@ -206,9 +217,6 @@ func (s *Server) CreateConversion(ctx context.Context, req CreateConversionReque
 		total   int64
 	)
 
-	// Bound TOTAL parts, not just file parts: otherwise a client can dribble an
-	// endless stream of tiny form fields and pin this goroutine (slowloris).
-	const maxParts = 200
 	parts := 0
 	for {
 		part, perr := req.Body.NextPart()
@@ -216,7 +224,7 @@ func (s *Server) CreateConversion(ctx context.Context, req CreateConversionReque
 			break
 		}
 		parts++
-		if parts > maxParts {
+		if parts > maxConvertParts {
 			return CreateConversion400JSONResponse{BadRequestJSONResponse(errBody("too_many_parts", "too many multipart sections"))}, nil
 		}
 		if perr != nil {

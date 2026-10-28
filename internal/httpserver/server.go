@@ -140,13 +140,26 @@ var streamingBodyPaths = map[string]bool{
 	"/api/assistant/actions/apply": true,
 }
 
-// jsonBodyLimit wraps the request body of the 116 generated JSON endpoints in
+// largeBodyPaths are generated (strict-handler) endpoints that take a
+// multipart upload rather than JSON. They can't set their own MaxBytesReader
+// — the generated wrapper has already handed them a multipart reader — so
+// their larger, route-specific cap is applied here instead of maxJSONBody.
+// Without this the converter's advertised 1 GiB/file died at 8 MiB.
+var largeBodyPaths = map[string]int64{
+	"/api/convert": api.MaxConvertRequestBytes,
+}
+
+// jsonBodyLimit wraps the request body of the generated JSON endpoints in
 // a MaxBytesReader so an unbounded (even pre-auth) POST can't OOM the process.
 // Runs before sessionMiddleware so /api/auth/login is covered too.
 func jsonBodyLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil && !streamingBodyPaths[r.URL.Path] {
-			r.Body = http.MaxBytesReader(w, r.Body, maxJSONBody)
+			limit := int64(maxJSONBody)
+			if l, ok := largeBodyPaths[r.URL.Path]; ok && r.Method == http.MethodPost {
+				limit = l
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
 		}
 		next.ServeHTTP(w, r)
 	})
