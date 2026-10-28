@@ -78,14 +78,18 @@ func Run(ctx context.Context) error {
 		logger.Info("trusting reverse-proxy headers", "networks", len(cfg.TrustedProxies))
 	}
 
-	if err := db.Migrate(ctx, cfg.DatabaseURL, logger); err != nil {
-		return err
-	}
+	// Connect first: it is the step that waits for a database still starting
+	// (a container or postgresql.service racing the app at boot). Migrating
+	// first would fail on the very first refused connection and never reach
+	// the wait.
 	pool, err := db.Connect(ctx, cfg.DatabaseURL, logger)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
+	if err := db.Migrate(ctx, cfg.DatabaseURL, logger); err != nil {
+		return err
+	}
 
 	st := store.New(pool)
 	// Register the store as the trust-on-first-use host-key backend for the
