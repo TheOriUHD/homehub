@@ -1,0 +1,69 @@
+# Checks every push and pull request: Go vet + tests, web typecheck + build.
+# No secrets, no deploy. Database-backed tests (*_db_test.go) skip without
+# HOMEHUB_DATABASE_URL; a Postgres service runs them here on a throwaway
+# database.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: homehub
+          POSTGRES_PASSWORD: homehub
+          POSTGRES_DB: homehub
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U homehub -d homehub"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Generated API code is up to date
+        run: |
+          go tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
+          git diff --exit-code -- internal/api/gen.go
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd internal)" || { gofmt -l cmd internal; exit 1; }
+      - name: Migrate the test database
+        # The DB-backed tests expect the schema; `homehub migrate` applies
+        # it without starting the server.
+        env:
+          HOMEHUB_DATABASE_URL: postgres://homehub:homehub@127.0.0.1:5432/homehub?sslmode=disable
+        run: go run ./cmd/homehub migrate
+      - run: go vet ./...
+      - name: go test
+        env:
+          HOMEHUB_DATABASE_URL: postgres://homehub:homehub@127.0.0.1:5432/homehub?sslmode=disable
+        run: go test ./...
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Generated API types are up to date
+        run: |
+          npm run generate
+          git diff --exit-code -- src/lib/schema.d.ts
+      - run: npm run typecheck
+      - run: npm run build
