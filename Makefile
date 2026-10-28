@@ -1,5 +1,10 @@
 SHELL := /bin/bash
+# Every recipe line fails on the first failing command, including inside a
+# pipeline — so a broken step can never be followed by the next one (above
+# all: a failed build by a restart).
+.SHELLFLAGS := -euo pipefail -c
 VERSION := $(shell cat VERSION)
+BIN := $(CURDIR)/bin/homehub
 
 .PHONY: generate build build-web build-companion build-helper dev-api dev-web test lint image \
 	install-service deploy start stop restart status logs
@@ -39,7 +44,8 @@ build-helper:
 build: build-web build-companion build-helper
 	CGO_ENABLED=0 go build -trimpath -tags "ui companion helper" \
 		-ldflags "-s -w -X homehub/internal/version.Version=$(VERSION)" \
-		-o bin/homehub ./cmd/homehub
+		-o bin/homehub.new ./cmd/homehub
+	mv -f bin/homehub.new bin/homehub
 
 ## API only, no embedded UI (frontend served by `make dev-web`)
 dev-api:
@@ -56,10 +62,13 @@ image:
 	docker build -t homehub:$(VERSION) -t homehub:latest .
 
 ## Install the systemd unit (starts on boot, restarts itself if it exits) and
-## the homehubctl wrapper, then start the service. Re-run after editing
-## deploy/homehub.service; systemd reloads the unit without a restart.
+## the homehubctl wrapper, then start the service. The unit's /opt/homehub
+## paths are rewritten to this checkout, so ExecStart is always the binary
+## `make build` produces here. Re-run after editing deploy/homehub.service;
+## systemd reloads the unit without a restart.
 install-service:
-	install -m 0644 deploy/homehub.service /etc/systemd/system/$(UNIT).service
+	sed -e 's|/opt/homehub|$(CURDIR)|g' deploy/homehub.service > /etc/systemd/system/$(UNIT).service
+	chmod 0644 /etc/systemd/system/$(UNIT).service
 	ln -sfn $(CURDIR)/deploy/homehubctl /usr/local/bin/homehubctl
 	systemctl daemon-reload
 	systemctl enable --now $(UNIT)
@@ -67,9 +76,24 @@ install-service:
 
 ## Build and put the new binary live — the whole update loop in one target,
 ## so it can never run from the wrong directory and restart the old binary.
+##
+## Refuses to restart when the unit would start some other binary (the
+## failure mode where a deploy "succeeds" and the old code keeps running),
+## and afterwards checks that the process systemd is running really is the
+## freshly built file and is still up a few seconds later.
 deploy: build
+	@running=$$(systemctl show -p ExecStart --value $(UNIT) | sed -n 's/.*path=\([^ ;]*\).*/\1/p'); \
+	if [ "$$running" != "$(BIN)" ]; then \
+		echo "deploy: $(UNIT) starts '$$running', not $(BIN) — run 'make install-service' from this checkout first" >&2; \
+		exit 1; \
+	fi
 	systemctl restart $(UNIT)
-	systemctl is-active $(UNIT)
+	@sleep 5; \
+	systemctl is-active --quiet $(UNIT) || { echo "deploy: $(UNIT) is not running after restart" >&2; systemctl --no-pager --lines=20 status $(UNIT) >&2 || true; exit 1; }; \
+	pid=$$(systemctl show -p MainPID --value $(UNIT)); \
+	exe=$$(readlink /proc/$$pid/exe); \
+	if [ "$$exe" != "$(BIN)" ]; then echo "deploy: $(UNIT) is running '$$exe', not the new $(BIN)" >&2; exit 1; fi; \
+	echo "deploy: $(UNIT) $(VERSION) is live (pid $$pid)"
 
 start stop restart:
 	systemctl $@ $(UNIT)

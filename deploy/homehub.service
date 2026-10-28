@@ -1,11 +1,12 @@
 # HomeHub systemd unit — installs the app as a boot service on a host that
 # runs the binary directly (rather than via docker compose).
 #
-#   sudo cp deploy/homehub.service /etc/systemd/system/
-#   sudo systemctl daemon-reload && sudo systemctl enable --now homehub
+#   sudo make install-service      (from the checkout you build in)
 #
-# Adjust the paths and HOMEHUB_DATABASE_URL for your install. The data dir
-# holds master.key — back it up; without it stored credentials are lost.
+# install-service rewrites the /opt/homehub paths below to that checkout, so
+# ExecStart is always the binary `make build` writes and `make deploy`
+# restarts. Adjust HOMEHUB_DATABASE_URL for your install. The data dir holds
+# master.key — back it up; without it stored credentials are lost.
 [Unit]
 Description=HomeHub homelab control plane
 Documentation=https://github.com/theoriuhd/homehub
@@ -15,14 +16,49 @@ Requires=postgresql.service
 
 [Service]
 Type=simple
-ExecStart=/root/homehub/bin/homehub
+ExecStart=/opt/homehub/bin/homehub
 Environment=HOMEHUB_DATABASE_URL=postgres://homehub:homehub@127.0.0.1:5432/homehub?sslmode=disable
-Environment=HOMEHUB_DATA_DIR=/root/homehub/data
+Environment=HOMEHUB_DATA_DIR=/opt/homehub/data
 # Restart=always so the restore flow (which SIGTERMs the process to reload
 # every subsystem from the restored database) comes back up. An explicit
 # `systemctl stop` still stops it — systemd suppresses restart on manual stop.
 Restart=always
 RestartSec=3
+
+# Hardening. HomeHub still runs as root (it drops converters to nobody with
+# setpriv, sends raw ICMP, and may own the Docker socket), so these are the
+# protections that do not get in the way of what it does: pg_dump/pg_restore,
+# the Docker socket, outbound SSH, ffmpeg/ImageMagick in their own sandbox,
+# and writing backups to local-disk targets anywhere outside /usr and /etc.
+#
+# No setuid/setgid escalation, for HomeHub or anything it runs. setpriv only
+# ever drops privileges, which this allows.
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+# A private /tmp: scratch files (dumps in flight, converter temp) are not
+# visible to, or plantable by, other services.
+PrivateTmp=yes
+# /usr, /boot, /efi and /etc are read-only. HomeHub never writes there; it
+# manages remote hosts (Caddy, PatchPilot) over the network, not this one.
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+# IP for everything, Unix for the Docker and Postgres sockets, netlink for
+# the IP scanner's interface list.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+# Deliberately not set: UMask=0077 (converter inputs are written by root and
+# must stay readable by the nobody the tools are dropped to), ProtectHome (the default install lives under the
+# checkout, which may be in /root), RestrictNamespaces (the converter sandbox
+# creates namespaces), PrivateDevices (not yet verified against local-disk
+# backup targets on removable drives), MemoryDenyWriteExecute (inherited
+# by pandoc/ffmpeg).
+
 
 [Install]
 WantedBy=multi-user.target
