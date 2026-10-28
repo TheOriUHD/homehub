@@ -510,7 +510,7 @@ func (tb *Toolbox) queryMetric(ctx context.Context, access Access, input json.Ra
 // the same filter the REST API applies — the tools read the store directly,
 // so they must not see calendars the user could not open in the app.
 func (tb *Toolbox) visibleCalendars(ctx context.Context, access Access) ([]store.Calendar, error) {
-	cals, err := tb.visibleCalendars(ctx, access)
+	cals, err := tb.Store.ListCalendars(ctx)
 	if err != nil {
 		return nil, err
 	}
