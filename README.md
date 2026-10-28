@@ -108,10 +108,13 @@ twenty small tools from subnet math to EXIF stripping.
 subscribed ICS feeds, and trash-pickup schedules, with recurring events that
 ask how far an edit should reach.
 
-**Backups** — scheduled application backups (`pg_dump` of the full state)
-to local disk, SMB shares, NFS exports, or S3-compatible storage, with
+**Backups** — scheduled application backups to local disk, SMB shares, NFS exports, or S3-compatible storage, with
 per-target retention and optional age encryption. Targets are managed and
-write-tested in the app; restore replays an archive and restarts cleanly.
+write-tested in the app. An archive holds a `pg_dump` of the whole database
+(settings, users, roles, systems, history, the audit log, the encrypted
+secrets) plus every uploaded workspace file. A restore is all-or-nothing: it
+either replaces the database and files completely or leaves them as they
+were, refuses archives from a newer HomeHub, and is never retried.
 The encryption key is exportable (audited) — store it offline. The database
 dump never contains the master key, so a restored instance needs the
 original `master.key` to unlock stored credentials.
@@ -144,6 +147,8 @@ for bootstrap concerns, and every one has a working default:
 | `HOMEHUB_PORT`         | `8080`                               | Listen port (`HOMEHUB_ADDR` for full addr)|
 | `HOMEHUB_MASTER_KEY`   | auto-generated keyfile               | Base64 32-byte secret-wrapping key        |
 | `HOMEHUB_LOG_LEVEL`    | `info`                               | `debug` · `info` · `warn` · `error`       |
+| `HOMEHUB_TRUSTED_PROXIES` | none                              | Reverse proxies whose `X-Forwarded-For` may be believed |
+| `HOMEHUB_CONVERT_UNSANDBOXED` | unset                         | `1` lets media conversions run unsandboxed where no sandbox is available |
 
 **Back up `master.key`.** Credentials stored by HomeHub are envelope-encrypted;
 the wrapping key lives in `HOMEHUB_MASTER_KEY` or `<data dir>/master.key` and
@@ -184,7 +189,27 @@ the same calls with the repo path filled in. Adjust the unit's
   and its subtree, with separate view / control / configure / delete levels
   and explicit deny. Denied resources are hidden, not disabled — navigation,
   search, and notifications all filter server-side.
-- Every state-changing action is written to an append-only audit log.
+- Opening a shell — a terminal, container exec, VM console, the SQL console,
+  an assistant command — needs **configure** on that resource, never just
+  control: the built-in Operator role operates systems but gets no shells.
+  Nobody can grant rights they do not hold themselves.
+- Every state-changing action, including denied attempts, is written to an
+  audit log that is append-only at the database: a trigger refuses edits and
+  deletes, and only the nightly retention pass removes entries older than the
+  window set in *Settings* (one year by default). The guard holds against
+  HomeHub and its database role, not a PostgreSQL superuser, and a restore
+  replaces the log with the rest of the database.
+- Conversions parse untrusted files in a sandbox: as root, each tool is
+  dropped to `nobody` in a network-less namespace; otherwise each runs in its
+  own user, mount, network and PID namespaces on a private read-only root that
+  never contains the data directory or `master.key`. Where neither works,
+  media conversions are refused unless `HOMEHUB_CONVERT_UNSANDBOXED=1`.
+- The network tools and calendar feeds reach your LAN and the internet, but
+  not HomeHub's own loopback, link-local or cloud-metadata addresses.
+- SSH host keys are pinned on first use; a changed key, or a pin that cannot
+  be read, refuses the connection.
+- Assistant actions that change state, unlock, disarm or take systems down
+  need a confirmation, and its shell commands pass a fail-closed classifier.
 
 ## API
 
