@@ -32,10 +32,13 @@ const maxUploadBytes = 512 << 20 // 512 MiB per uploaded blob
 const maxFileName = 200
 const maxFolderPath = 400
 
-// workspaceQuotaBytes caps each user's total workspace storage. Uploads that
-// would push a user over it are rejected with 413, so no single account can
+// workspaceQuotaBytes caps each user's total workspace storage. Every write
+// that adds bytes (new text file, edit that grows one, upload) is checked
+// against it in the same transaction as the insert, so no single account can
 // fill the disk that also backs PostgreSQL and starve the whole control plane.
 const workspaceQuotaBytes = 2 << 30 // 2 GiB per user
+
+const quotaExceededMsg = "you have reached your workspace storage limit"
 
 func validFileName(name string) (string, bool) {
 	name = strings.TrimSpace(name)
@@ -143,8 +146,11 @@ func (s *Server) CreateFile(ctx context.Context, req CreateFileRequestObject) (C
 	if len(content) > maxTextFileBytes {
 		return CreateFile400JSONResponse{BadRequestJSONResponse(errBody("too_large", "text files are capped at 1 MiB"))}, nil
 	}
-	f, err := s.store.CreateUserFile(ctx, id.User.ID, name, folder, content)
+	f, err := s.store.CreateUserFile(ctx, id.User.ID, name, folder, content, workspaceQuotaBytes)
 	if err != nil {
+		if errors.Is(err, store.ErrQuotaExceeded) {
+			return CreateFile400JSONResponse{BadRequestJSONResponse(errBody("quota_exceeded", quotaExceededMsg))}, nil
+		}
 		if isUniqueViolation(err) {
 			return CreateFile409JSONResponse(errBody("name_taken", "a file with that name already exists here")), nil
 		}
@@ -193,9 +199,12 @@ func (s *Server) UpdateFile(ctx context.Context, req UpdateFileRequestObject) (U
 	if existing.IsBinary {
 		f, err = s.store.RenameUserFile(ctx, id.User.ID, req.Id, name)
 	} else {
-		f, err = s.store.UpdateUserFile(ctx, id.User.ID, req.Id, name, req.Body.Content)
+		f, err = s.store.UpdateUserFile(ctx, id.User.ID, req.Id, name, req.Body.Content, workspaceQuotaBytes)
 	}
 	if err != nil {
+		if errors.Is(err, store.ErrQuotaExceeded) {
+			return UpdateFile400JSONResponse{BadRequestJSONResponse(errBody("quota_exceeded", quotaExceededMsg))}, nil
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return UpdateFile404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such file"))}, nil
 		}
@@ -330,8 +339,9 @@ func (s *Server) HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Per-user storage quota: start from what the user already holds and add
-	// each file as it lands, rejecting once the ceiling is crossed.
+	// Per-user storage quota: what the user already holds bounds how much of
+	// each upload is even written to disk; the insert re-checks under the
+	// quota lock, which is what catches parallel uploads.
 	usedBytes, err := s.store.UserFilesTotalBytes(ctx, id.User.ID)
 	if err != nil {
 		s.logger.Error("workspace quota lookup", "error", err)
@@ -386,11 +396,11 @@ func (s *Server) HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 			}
 			isText := errors.Is(rerr, io.EOF) || errors.Is(rerr, io.ErrUnexpectedEOF)
 			if isText && looksLikeText(head) {
-				if usedBytes+int64(len(head)) > workspaceQuotaBytes {
-					http.Error(w, `{"code":"quota_exceeded","message":"you have reached your workspace storage limit"}`, http.StatusRequestEntityTooLarge)
+				f, cerr := s.store.CreateUserFile(ctx, id.User.ID, name, folder, string(head), workspaceQuotaBytes)
+				if errors.Is(cerr, store.ErrQuotaExceeded) {
+					http.Error(w, `{"code":"quota_exceeded","message":"`+quotaExceededMsg+`"}`, http.StatusRequestEntityTooLarge)
 					return
 				}
-				f, cerr := s.store.CreateUserFile(ctx, id.User.ID, name, folder, string(head))
 				if cerr != nil {
 					s.logger.Error("workspace upload (text)", "error", cerr)
 					http.Error(w, `{"code":"upload_failed","message":"could not store the file"}`, http.StatusInternalServerError)
@@ -423,21 +433,24 @@ func (s *Server) HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 			} else {
 				size += int64(n)
 			}
-			copied, werr := io.Copy(dst, part)
+			// Stream no further than the smaller of the per-file cap and what
+			// is left of the quota (+1 byte to detect the overrun), so an
+			// over-quota upload is refused without first filling the disk.
+			limit := min(int64(maxUploadBytes), max(workspaceQuotaBytes-usedBytes, 0)) - size + 1
+			copied, werr := io.Copy(dst, io.LimitReader(part, max(limit, 0)))
 			size += copied
 			dst.Close()
-			if werr != nil || size > maxUploadBytes {
+			if werr != nil || size > maxUploadBytes || usedBytes+size > workspaceQuotaBytes {
 				_ = os.Remove(s.blobPath(fid))
 				code, msg := http.StatusInternalServerError, `{"code":"upload_failed","message":"could not store the file"}`
-				if size > maxUploadBytes {
+				switch {
+				case werr != nil:
+				case size > maxUploadBytes:
 					code, msg = http.StatusBadRequest, `{"code":"too_large","message":"uploads are capped at 512 MiB"}`
+				default:
+					code, msg = http.StatusRequestEntityTooLarge, `{"code":"quota_exceeded","message":"`+quotaExceededMsg+`"}`
 				}
 				http.Error(w, msg, code)
-				return
-			}
-			if usedBytes+size > workspaceQuotaBytes {
-				_ = os.Remove(s.blobPath(fid))
-				http.Error(w, `{"code":"quota_exceeded","message":"you have reached your workspace storage limit"}`, http.StatusRequestEntityTooLarge)
 				return
 			}
 
@@ -449,7 +462,12 @@ func (s *Server) HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 					mimeType = "application/octet-stream"
 				}
 			}
-			f, cerr := s.store.CreateBinaryUserFile(ctx, fid, id.User.ID, name, folder, mimeType, size)
+			f, cerr := s.store.CreateBinaryUserFile(ctx, fid, id.User.ID, name, folder, mimeType, size, workspaceQuotaBytes)
+			if errors.Is(cerr, store.ErrQuotaExceeded) {
+				_ = os.Remove(s.blobPath(fid))
+				http.Error(w, `{"code":"quota_exceeded","message":"`+quotaExceededMsg+`"}`, http.StatusRequestEntityTooLarge)
+				return
+			}
 			if cerr != nil {
 				_ = os.Remove(s.blobPath(fid))
 				s.logger.Error("workspace upload (binary)", "error", cerr)

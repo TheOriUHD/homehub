@@ -43,7 +43,8 @@ func scanFileMeta(row interface{ Scan(...any) error }, f *UserFile) error {
 }
 
 // UserFilesTotalBytes sums a user's workspace storage — blob sizes plus the
-// octet length of text files — for per-user quota enforcement at upload time.
+// octet length of text files. Uploads use it to cap how much they stream to
+// disk; the binding check is reserveQuota at insert time.
 func (s *Store) UserFilesTotalBytes(ctx context.Context, userID uuid.UUID) (int64, error) {
 	var total int64
 	err := s.pool.QueryRow(ctx,
@@ -117,15 +118,51 @@ func (s *Store) GetUserFileInFolder(ctx context.Context, userID uuid.UUID, folde
 	return &f, nil
 }
 
-// CreateUserFile inserts a new text file. A duplicate name in the same
+// ErrQuotaExceeded is returned when a write would take the user's workspace
+// past its storage quota.
+var ErrQuotaExceeded = errors.New("workspace storage quota exceeded")
+
+// reserveQuota serialises a user's workspace writes on a transaction-scoped
+// advisory lock and checks that adding bytes keeps them within quota. The
+// lock is what makes the check hold under concurrency: two parallel uploads
+// that each fit on their own can no longer both land and overshoot together.
+// Shrinking (adding <= 0) is always allowed, so a user over quota can still
+// trim a file.
+func reserveQuota(ctx context.Context, tx pgx.Tx, userID uuid.UUID, adding, quota int64) error {
+	if _, err := tx.Exec(ctx,
+		`SELECT pg_advisory_xact_lock(hashtextextended('user_files_quota:' || $1::text, 0))`, userID); err != nil {
+		return err
+	}
+	if adding <= 0 {
+		return nil
+	}
+	var used int64
+	if err := tx.QueryRow(ctx,
+		`SELECT COALESCE(SUM(CASE WHEN is_binary THEN blob_size ELSE octet_length(content) END), 0)
+		 FROM user_files WHERE user_id=$1`, userID).Scan(&used); err != nil {
+		return err
+	}
+	if used+adding > quota {
+		return ErrQuotaExceeded
+	}
+	return nil
+}
+
+// CreateUserFile inserts a new text file, refusing with ErrQuotaExceeded when
+// it would take the user past quota bytes. A duplicate name in the same
 // folder fails on the unique constraint.
-func (s *Store) CreateUserFile(ctx context.Context, userID uuid.UUID, name, folder, content string) (*UserFile, error) {
+func (s *Store) CreateUserFile(ctx context.Context, userID uuid.UUID, name, folder, content string, quota int64) (*UserFile, error) {
 	var f UserFile
-	err := s.pool.QueryRow(ctx,
-		`INSERT INTO user_files (user_id, name, folder, content) VALUES ($1,$2,$3,$4)
-		 RETURNING id, user_id, name, folder, is_binary, mime, content, octet_length(content), created_at, updated_at`,
-		userID, name, folder, content).
-		Scan(&f.ID, &f.UserID, &f.Name, &f.Folder, &f.IsBinary, &f.Mime, &f.Content, &f.Size, &f.CreatedAt, &f.UpdatedAt)
+	err := s.WithTx(ctx, func(tx pgx.Tx) error {
+		if err := reserveQuota(ctx, tx, userID, int64(len(content)), quota); err != nil {
+			return err
+		}
+		return tx.QueryRow(ctx,
+			`INSERT INTO user_files (user_id, name, folder, content) VALUES ($1,$2,$3,$4)
+			 RETURNING id, user_id, name, folder, is_binary, mime, content, octet_length(content), created_at, updated_at`,
+			userID, name, folder, content).
+			Scan(&f.ID, &f.UserID, &f.Name, &f.Folder, &f.IsBinary, &f.Mime, &f.Content, &f.Size, &f.CreatedAt, &f.UpdatedAt)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -133,13 +170,20 @@ func (s *Store) CreateUserFile(ctx context.Context, userID uuid.UUID, name, fold
 }
 
 // CreateBinaryUserFile inserts the metadata row for a blob that the caller
-// has written to disk under the given pre-generated id.
-func (s *Store) CreateBinaryUserFile(ctx context.Context, id, userID uuid.UUID, name, folder, mime string, size int64) (*UserFile, error) {
+// has written to disk under the given pre-generated id. The quota is checked
+// under the same lock as the insert; on ErrQuotaExceeded the caller removes
+// the blob.
+func (s *Store) CreateBinaryUserFile(ctx context.Context, id, userID uuid.UUID, name, folder, mime string, size, quota int64) (*UserFile, error) {
 	var f UserFile
-	err := scanFileMeta(s.pool.QueryRow(ctx,
-		`INSERT INTO user_files (id, user_id, name, folder, is_binary, mime, blob_size)
-		 VALUES ($1,$2,$3,$4,TRUE,$5,$6)
-		 RETURNING `+fileMetaCols, id, userID, name, folder, mime, size), &f)
+	err := s.WithTx(ctx, func(tx pgx.Tx) error {
+		if err := reserveQuota(ctx, tx, userID, size, quota); err != nil {
+			return err
+		}
+		return scanFileMeta(tx.QueryRow(ctx,
+			`INSERT INTO user_files (id, user_id, name, folder, is_binary, mime, blob_size)
+			 VALUES ($1,$2,$3,$4,TRUE,$5,$6)
+			 RETURNING `+fileMetaCols, id, userID, name, folder, mime, size), &f)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -147,14 +191,26 @@ func (s *Store) CreateBinaryUserFile(ctx context.Context, id, userID uuid.UUID, 
 }
 
 // UpdateUserFile renames and/or rewrites a text file, scoped to the owner.
-func (s *Store) UpdateUserFile(ctx context.Context, userID, id uuid.UUID, name, content string) (*UserFile, error) {
+// Growing a file counts against quota; shrinking it never fails.
+func (s *Store) UpdateUserFile(ctx context.Context, userID, id uuid.UUID, name, content string, quota int64) (*UserFile, error) {
 	var f UserFile
-	err := s.pool.QueryRow(ctx,
-		`UPDATE user_files SET name=$3, content=$4, updated_at=now()
-		 WHERE id=$1 AND user_id=$2 AND NOT is_binary
-		 RETURNING id, user_id, name, folder, is_binary, mime, content, octet_length(content), created_at, updated_at`,
-		id, userID, name, content).
-		Scan(&f.ID, &f.UserID, &f.Name, &f.Folder, &f.IsBinary, &f.Mime, &f.Content, &f.Size, &f.CreatedAt, &f.UpdatedAt)
+	err := s.WithTx(ctx, func(tx pgx.Tx) error {
+		var oldSize int64
+		if err := tx.QueryRow(ctx,
+			`SELECT octet_length(content) FROM user_files WHERE id=$1 AND user_id=$2 AND NOT is_binary`,
+			id, userID).Scan(&oldSize); err != nil {
+			return err
+		}
+		if err := reserveQuota(ctx, tx, userID, int64(len(content))-oldSize, quota); err != nil {
+			return err
+		}
+		return tx.QueryRow(ctx,
+			`UPDATE user_files SET name=$3, content=$4, updated_at=now()
+			 WHERE id=$1 AND user_id=$2 AND NOT is_binary
+			 RETURNING id, user_id, name, folder, is_binary, mime, content, octet_length(content), created_at, updated_at`,
+			id, userID, name, content).
+			Scan(&f.ID, &f.UserID, &f.Name, &f.Folder, &f.IsBinary, &f.Mime, &f.Content, &f.Size, &f.CreatedAt, &f.UpdatedAt)
+	})
 	if err != nil {
 		return nil, err
 	}
