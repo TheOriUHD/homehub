@@ -128,7 +128,14 @@ func (s *Server) sshAddressUsers(ctx context.Context) map[string][]string {
 func (s *Server) checkHostKey(ctx context.Context, host string, port int) SSHHostKeyCheck {
 	out := SSHHostKeyCheck{Host: host, Port: port}
 	pinned, err := s.store.GetSSHHostKey(ctx, host, port)
-	if err == nil && pinned != "" {
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		// Connections fail closed on an unreadable pin; saying "unpinned"
+		// here would tell the reader the opposite of what is happening.
+		out.Status = "unreachable"
+		out.Message = ptr("The pinned key could not be read, so connections to this address are refused until the database answers: " + err.Error())
+		return out
+	}
+	if pinned != "" {
 		out.Pinned = &pinned
 	}
 
