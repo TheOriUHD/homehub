@@ -2278,7 +2278,7 @@
       },
       "restoreTitle": "Dieses Backup wiederherstellen?",
       "restoreWarningTitle": "Das lässt sich nicht rückgängig machen",
-      "restoreWarningReplace": "Die Wiederherstellung ersetzt die gesamte aktuelle Datenbank durch den Inhalt dieses Archivs.",
+      "restoreWarningReplace": "Die Wiederherstellung ersetzt die gesamte aktuelle Datenbank und, sofern das Archiv sie enthält, die hochgeladenen Workspace-Dateien durch den Inhalt dieses Archivs. Schlägt die Wiederherstellung fehl, bleibt die aktuelle Datenbank unverändert.",
       "restoreWarningLost": "Alles, was seit {{date}} erstellt oder geändert wurde — Benutzer, Einstellungen, Verlauf, einfach alles — geht verloren.",
       "restoreWarningRestart": "HomeHub startet neu, um die Wiederherstellung abzuschließen, und alle (auch du) werden abgemeldet.",
       "restoreArchiveLabel": "Archiv",

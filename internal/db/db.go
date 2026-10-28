@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"path"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -89,4 +90,37 @@ func Migrate(ctx context.Context, url string, logger *slog.Logger) error {
 		logger.Info("applied migration", "migration", r.Source.Path, "duration", r.Duration)
 	}
 	return nil
+}
+
+// SupportedVersion is the newest schema migration this binary carries. A
+// database (or a backup of one) at a higher version was written by a newer
+// HomeHub, and this binary must not run against it.
+func SupportedVersion() (int64, error) {
+	entries, err := fs.ReadDir(migrationsFS, "migrations")
+	if err != nil {
+		return 0, fmt.Errorf("read embedded migrations: %w", err)
+	}
+	var latest int64
+	for _, entry := range entries {
+		if path.Ext(entry.Name()) != ".sql" {
+			continue
+		}
+		v, err := goose.NumericComponent(entry.Name())
+		if err != nil {
+			return 0, fmt.Errorf("migration %s: %w", entry.Name(), err)
+		}
+		latest = max(latest, v)
+	}
+	return latest, nil
+}
+
+// AppliedVersion is the newest migration recorded in the database.
+func AppliedVersion(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	var v int64
+	err := pool.QueryRow(ctx,
+		`select coalesce(max(version_id), 0) from `+goose.DefaultTablename+` where is_applied`).Scan(&v)
+	if err != nil {
+		return 0, fmt.Errorf("read schema version: %w", err)
+	}
+	return v, nil
 }

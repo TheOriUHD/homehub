@@ -365,7 +365,10 @@ func (s *Server) RestoreBackup(ctx context.Context, req RestoreBackupRequestObje
 		}
 		return nil, err
 	}
-	job, err := s.jobs.Enqueue(ctx, "backup.restore", backup.JobPayload{
+	// Never retried: a restore that failed left the database unchanged and
+	// said why, and repeating it unattended minutes later would replace
+	// whatever was written in between.
+	job, err := s.jobs.EnqueueOnce(ctx, "backup.restore", backup.JobPayload{
 		TargetID: req.Body.TargetId, UserID: id.User.ID, Path: req.Body.Path,
 	})
 	if err != nil {

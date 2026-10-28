@@ -2278,7 +2278,7 @@
       },
       "restoreTitle": "Restore this backup?",
       "restoreWarningTitle": "This cannot be undone",
-      "restoreWarningReplace": "Restoring replaces the entire current database with this archive’s contents.",
+      "restoreWarningReplace": "Restoring replaces the entire current database, and the uploaded workspace files when the archive includes them, with this archive’s contents. If the restore fails, the current database is left as it was.",
       "restoreWarningLost": "Everything created or changed since {{date}} — users, settings, history, everything — is lost.",
       "restoreWarningRestart": "HomeHub restarts to finish the restore, and everyone (including you) is signed out.",
       "restoreArchiveLabel": "Archive",
