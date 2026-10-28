@@ -67,12 +67,26 @@ func (s *Store) ReplaceRecoveryCodes(ctx context.Context, userID uuid.UUID, hash
 	})
 }
 
-// ConsumeRecoveryCode atomically marks a matching unused code as used.
-// Returns false when no unused code matched.
-func (s *Store) ConsumeRecoveryCode(ctx context.Context, userID uuid.UUID, hash []byte) (bool, error) {
+// RecoveryCodeHash is one unused code's stored hash. Codes are salted, so a
+// presented code can't be looked up by hash; the caller compares against
+// each unused code and claims the match.
+type RecoveryCodeHash struct {
+	ID       uuid.UUID `db:"id"`
+	CodeHash []byte    `db:"code_hash"`
+}
+
+func (s *Store) ListUnusedRecoveryCodes(ctx context.Context, userID uuid.UUID) ([]RecoveryCodeHash, error) {
+	return scanMany[RecoveryCodeHash](s.pool.Query(ctx,
+		`select id, code_hash from recovery_codes where user_id = $1 and used_at is null`, userID))
+}
+
+// ClaimRecoveryCode atomically marks one unused code as used. Returns false
+// when it was already used (a concurrent attempt won), so a code can never
+// sign in twice.
+func (s *Store) ClaimRecoveryCode(ctx context.Context, userID, id uuid.UUID) (bool, error) {
 	tag, err := s.pool.Exec(ctx,
-		`update recovery_codes set used_at = now() where user_id = $1 and code_hash = $2 and used_at is null`,
-		userID, hash)
+		`update recovery_codes set used_at = now() where id = $1 and user_id = $2 and used_at is null`,
+		id, userID)
 	if err != nil {
 		return false, err
 	}

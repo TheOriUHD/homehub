@@ -138,7 +138,7 @@ export function LoginPage() {
                 required
                 inputMode={isRecovery ? "text" : "numeric"}
                 autoComplete="one-time-code"
-                placeholder={isRecovery ? "00000-00000" : "000000"}
+                placeholder={isRecovery ? "xxxx-xxxx-xxxx-xxxx" : "000000"}
                 className="text-center font-mono text-base tracking-[0.2em]"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}

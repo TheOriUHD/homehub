@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"fmt"
 	"math/big"
 )
 
@@ -47,14 +46,4 @@ func NewTempPassword() (string, error) {
 		}
 	}
 	return string(out), nil
-}
-
-// NewRecoveryCode generates one MFA recovery code (10 digits, grouped).
-func NewRecoveryCode() (string, error) {
-	n, err := rand.Int(rand.Reader, big.NewInt(1_00000_00000))
-	if err != nil {
-		return "", err
-	}
-	s := fmt.Sprintf("%010d", n.Int64())
-	return s[:5] + "-" + s[5:], nil
 }

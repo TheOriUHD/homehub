@@ -298,7 +298,7 @@ func (s *Service) CompleteRecovery(ctx context.Context, mfaToken, code, ip, user
 	if err != nil {
 		return nil, ErrMFAExpired
 	}
-	used, err := s.store.ConsumeRecoveryCode(ctx, user.ID, HashToken(normalizeRecoveryCode(code)))
+	used, err := s.consumeRecoveryCode(ctx, user.ID, code)
 	if err != nil {
 		return nil, err
 	}
@@ -487,13 +487,32 @@ func (s *Service) issueRecoveryCodes(ctx context.Context, userID uuid.UUID) ([]s
 		if err != nil {
 			return nil, err
 		}
+		hash, err := hashRecoveryCode(code)
+		if err != nil {
+			return nil, err
+		}
 		codes = append(codes, code)
-		hashes = append(hashes, HashToken(normalizeRecoveryCode(code)))
+		hashes = append(hashes, hash)
 	}
 	if err := s.store.ReplaceRecoveryCodes(ctx, userID, hashes); err != nil {
 		return nil, err
 	}
 	return codes, nil
+}
+
+// consumeRecoveryCode finds the unused code matching the presented one (new
+// salted or legacy format) and claims it.
+func (s *Service) consumeRecoveryCode(ctx context.Context, userID uuid.UUID, code string) (bool, error) {
+	unused, err := s.store.ListUnusedRecoveryCodes(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	for _, c := range unused {
+		if recoveryCodeMatches(c.CodeHash, code) {
+			return s.store.ClaimRecoveryCode(ctx, userID, c.ID)
+		}
+	}
+	return false, nil
 }
 
 // confirmPassword re-authenticates a sensitive action with the account
@@ -513,16 +532,6 @@ func (s *Service) confirmPassword(user *store.User, password string) error {
 		return ErrInvalidCredentials
 	}
 	return nil
-}
-
-func normalizeRecoveryCode(code string) string {
-	out := make([]byte, 0, len(code))
-	for _, c := range code {
-		if c >= '0' && c <= '9' {
-			out = append(out, byte(c))
-		}
-	}
-	return string(out)
 }
 
 // TOTPEnabled reports whether a user has confirmed TOTP.
