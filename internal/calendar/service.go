@@ -337,6 +337,9 @@ func (s *Service) CreateEvent(ctx context.Context, calendarID uuid.UUID, in Even
 	if cal.ReadOnly || cal.Kind == KindICS || cal.Kind == KindTrash {
 		return nil, fmt.Errorf("this calendar is read-only")
 	}
+	if err := ValidateRRule(in.RRule); err != nil {
+		return nil, err
+	}
 	row := store.CalendarEvent{
 		CalendarID:  calendarID,
 		UID:         uuid.NewString() + "@homehub",
@@ -376,6 +379,9 @@ func (s *Service) UpdateEvent(ctx context.Context, eventID uuid.UUID, scope Edit
 	}
 	if cal.ReadOnly || cal.Kind == KindICS || cal.Kind == KindTrash {
 		return fmt.Errorf("this calendar is read-only")
+	}
+	if err := ValidateRRule(in.RRule); err != nil {
+		return err
 	}
 
 	apply := func(e *store.CalendarEvent) {

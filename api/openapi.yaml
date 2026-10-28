@@ -6555,6 +6555,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Calendar" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /calendars/discover:
     post:
       operationId: discoverCalendars
@@ -6586,6 +6587,7 @@ paths:
                     name: { type: string }
                     description: { type: string }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /calendars/{id}:
     put:
       operationId: updateCalendar
@@ -6611,6 +6613,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Calendar" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     delete:
       operationId: deleteCalendar
       summary: Remove a calendar and its events
@@ -6620,6 +6623,7 @@ paths:
       responses:
         "204": { description: Deleted }
         "404": { $ref: "#/components/responses/NotFound" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /calendars/{id}/sync:
     post:
       operationId: syncCalendar
@@ -6634,6 +6638,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Calendar" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /calendars/{id}/feed:
     get:
       operationId: getCalendarFeed
@@ -6648,6 +6653,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CalendarFeed" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     post:
       operationId: publishCalendarFeed
       summary: Publish the calendar as an iCalendar subscription URL (or rotate the URL)
@@ -6666,6 +6672,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CalendarFeed" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     delete:
       operationId: unpublishCalendarFeed
       summary: Stop publishing; the URL stops working at once
@@ -6675,6 +6682,7 @@ paths:
       responses:
         "204": { description: Unpublished }
         "404": { $ref: "#/components/responses/NotFound" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /calendar/events:
     get:
       operationId: listCalendarEvents
@@ -6712,6 +6720,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CalendarInstance" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /calendar/events/{id}:
     put:
       operationId: updateCalendarEvent
@@ -6734,6 +6743,7 @@ paths:
         "204": { description: Updated }
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     delete:
       operationId: deleteCalendarEvent
       summary: Delete an event (scope decides how far)
@@ -6745,6 +6755,7 @@ paths:
       responses:
         "204": { description: Deleted }
         "404": { $ref: "#/components/responses/NotFound" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   /signals:
     get:

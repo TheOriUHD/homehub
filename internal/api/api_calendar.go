@@ -13,10 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"homehub/internal/calendar"
 	"homehub/internal/httpctx"
+	"homehub/internal/rbac"
 	"homehub/internal/store"
 )
 
@@ -95,11 +97,58 @@ func toAPIInstance(i calendar.Instance, rrule string) CalendarInstance {
 	return out
 }
 
+// Calendars are household-wide, so they sit in the resource tree like any
+// connected system: view to read one, control to change its events,
+// configure to add, re-point or publish calendars, delete to remove one.
+// Before this they checked only for a session, which let a read-only Viewer
+// delete calendars, publish them, and point the server at arbitrary URLs.
+func calendarResource(id uuid.UUID) string { return ResCalendar + "/" + id.String() }
+
+// calendarAllowed loads a calendar and checks the level on it. A calendar the
+// caller cannot see answers as missing, the same as elsewhere.
+func (s *Server) calendarAllowed(ctx context.Context, id *httpctx.Identity, calID uuid.UUID, level rbac.Level, action string) (*store.Calendar, bool, bool) {
+	cal, err := s.store.GetCalendar(ctx, calID)
+	if err != nil || !s.can(ctx, id, calendarResource(calID), rbac.LevelView) {
+		return nil, false, false
+	}
+	if !s.can(ctx, id, calendarResource(calID), level) {
+		s.deniedAudit(ctx, id, action, calendarResource(calID))
+		return cal, true, false
+	}
+	return cal, true, true
+}
+
+// eventCalendarAllowed resolves an event to its calendar and checks the level.
+func (s *Server) eventCalendarAllowed(ctx context.Context, id *httpctx.Identity, eventID uuid.UUID, level rbac.Level, action string) (found, ok bool) {
+	ev, err := s.store.GetCalendarEvent(ctx, eventID)
+	if err != nil {
+		return false, false
+	}
+	_, found, ok = s.calendarAllowed(ctx, id, ev.CalendarID, level, action)
+	return found, ok
+}
+
+// visibleCalendars is every calendar the caller may read.
+func (s *Server) visibleCalendars(ctx context.Context, id *httpctx.Identity) ([]store.Calendar, error) {
+	rows, err := s.store.ListCalendars(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := rows[:0]
+	for _, c := range rows {
+		if s.can(ctx, id, calendarResource(c.ID), rbac.LevelView) {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
 func (s *Server) ListCalendars(ctx context.Context, _ ListCalendarsRequestObject) (ListCalendarsResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	rows, err := s.store.ListCalendars(ctx)
+	rows, err := s.visibleCalendars(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -114,6 +163,10 @@ func (s *Server) CreateCalendar(ctx context.Context, req CreateCalendarRequestOb
 	id := httpctx.IdentityFrom(ctx)
 	if id == nil {
 		return nil, ErrUnauthenticated
+	}
+	if !s.can(ctx, id, ResCalendar, rbac.LevelConfigure) {
+		s.deniedAudit(ctx, id, "calendar.create", ResCalendar)
+		return CreateCalendar403JSONResponse{forbidden()}, nil
 	}
 	b := req.Body
 	kind := string(b.Kind)
@@ -189,8 +242,15 @@ func (s *Server) CreateCalendar(ctx context.Context, req CreateCalendarRequestOb
 }
 
 func (s *Server) DiscoverCalendars(ctx context.Context, req DiscoverCalendarsRequestObject) (DiscoverCalendarsResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
 		return nil, ErrUnauthenticated
+	}
+	// Discovery makes the server fetch a caller-supplied URL — the first step
+	// of adding a calendar, and held to the same right.
+	if !s.can(ctx, id, ResCalendar, rbac.LevelConfigure) {
+		s.deniedAudit(ctx, id, "calendar.discover", ResCalendar)
+		return DiscoverCalendars403JSONResponse{forbidden()}, nil
 	}
 	username, password := "", ""
 	if req.Body.Username != nil {
@@ -220,16 +280,22 @@ func (s *Server) DiscoverCalendars(ctx context.Context, req DiscoverCalendarsReq
 }
 
 func (s *Server) UpdateCalendar(ctx context.Context, req UpdateCalendarRequestObject) (UpdateCalendarResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	var settings json.RawMessage
+	existing, found, ok := s.calendarAllowed(ctx, id, req.Id, rbac.LevelConfigure, "calendar.update")
+	if !found {
+		return UpdateCalendar404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such calendar"))}, nil
+	}
+	if !ok {
+		return UpdateCalendar403JSONResponse{forbidden()}, nil
+	}
+	settings := existing.Settings
 	if req.Body.Settings != nil {
 		if raw, err := json.Marshal(req.Body.Settings); err == nil {
 			settings = raw
 		}
-	} else if existing, err := s.store.GetCalendar(ctx, req.Id); err == nil {
-		settings = existing.Settings
 	}
 	row, err := s.store.UpdateCalendar(ctx, req.Id, req.Body.Name, req.Body.Color, settings)
 	if err != nil {
@@ -240,8 +306,14 @@ func (s *Server) UpdateCalendar(ctx context.Context, req UpdateCalendarRequestOb
 }
 
 func (s *Server) DeleteCalendar(ctx context.Context, req DeleteCalendarRequestObject) (DeleteCalendarResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
 		return nil, ErrUnauthenticated
+	}
+	if _, found, ok := s.calendarAllowed(ctx, id, req.Id, rbac.LevelDelete, "calendar.delete"); !found {
+		return DeleteCalendar404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such calendar"))}, nil
+	} else if !ok {
+		return DeleteCalendar403JSONResponse{forbidden()}, nil
 	}
 	gone, err := s.store.DeleteCalendar(ctx, req.Id)
 	if err != nil {
@@ -255,8 +327,14 @@ func (s *Server) DeleteCalendar(ctx context.Context, req DeleteCalendarRequestOb
 }
 
 func (s *Server) SyncCalendar(ctx context.Context, req SyncCalendarRequestObject) (SyncCalendarResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
 		return nil, ErrUnauthenticated
+	}
+	if _, found, ok := s.calendarAllowed(ctx, id, req.Id, rbac.LevelControl, "calendar.sync"); !found {
+		return SyncCalendar404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such calendar"))}, nil
+	} else if !ok {
+		return SyncCalendar403JSONResponse{forbidden()}, nil
 	}
 	_ = s.calendar.Sync(ctx, req.Id) // errors land in syncError
 	s.calendarChanged()
@@ -268,14 +346,15 @@ func (s *Server) SyncCalendar(ctx context.Context, req SyncCalendarRequestObject
 }
 
 func (s *Server) ListCalendarEvents(ctx context.Context, req ListCalendarEventsRequestObject) (ListCalendarEventsResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
 		return nil, ErrUnauthenticated
 	}
 	from, to := req.Params.From, req.Params.To
 	if !to.After(from) || to.Sub(from) > 400*24*time.Hour {
 		to = from.Add(31 * 24 * time.Hour)
 	}
-	cals, err := s.store.ListCalendars(ctx)
+	cals, err := s.visibleCalendars(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -329,8 +408,14 @@ func eventInputFromAPI(in CalendarEventInput) calendar.EventInput {
 }
 
 func (s *Server) CreateCalendarEvent(ctx context.Context, req CreateCalendarEventRequestObject) (CreateCalendarEventResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
 		return nil, ErrUnauthenticated
+	}
+	if _, found, ok := s.calendarAllowed(ctx, id, req.Body.CalendarId, rbac.LevelControl, "calendar.event_create"); !found {
+		return CreateCalendarEvent400JSONResponse{BadRequestJSONResponse(errBody("create_failed", "no such calendar"))}, nil
+	} else if !ok {
+		return CreateCalendarEvent403JSONResponse{forbidden()}, nil
 	}
 	row, err := s.calendar.CreateEvent(ctx, req.Body.CalendarId, eventInputFromAPI(req.Body.Event))
 	if err != nil {
@@ -347,8 +432,14 @@ func (s *Server) CreateCalendarEvent(ctx context.Context, req CreateCalendarEven
 }
 
 func (s *Server) UpdateCalendarEvent(ctx context.Context, req UpdateCalendarEventRequestObject) (UpdateCalendarEventResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
 		return nil, ErrUnauthenticated
+	}
+	if found, ok := s.eventCalendarAllowed(ctx, id, req.Id, rbac.LevelControl, "calendar.event_update"); !found {
+		return UpdateCalendarEvent400JSONResponse{BadRequestJSONResponse(errBody("update_failed", "no such event"))}, nil
+	} else if !ok {
+		return UpdateCalendarEvent403JSONResponse{forbidden()}, nil
 	}
 	scope := calendar.ScopeAll
 	if req.Body.Scope != nil {
@@ -366,8 +457,15 @@ func (s *Server) UpdateCalendarEvent(ctx context.Context, req UpdateCalendarEven
 }
 
 func (s *Server) DeleteCalendarEvent(ctx context.Context, req DeleteCalendarEventRequestObject) (DeleteCalendarEventResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
 		return nil, ErrUnauthenticated
+	}
+	// Removing events is editing the calendar, not deleting the calendar.
+	if found, ok := s.eventCalendarAllowed(ctx, id, req.Id, rbac.LevelControl, "calendar.event_delete"); !found {
+		return DeleteCalendarEvent404JSONResponse{NotFoundJSONResponse(errBody("delete_failed", "no such event"))}, nil
+	} else if !ok {
+		return DeleteCalendarEvent403JSONResponse{forbidden()}, nil
 	}
 	scope := calendar.ScopeAll
 	if req.Params.Scope != nil {
@@ -433,11 +531,16 @@ func (s *Server) toAPICalendarFeed(ctx context.Context, feed *store.CalendarFeed
 }
 
 func (s *Server) GetCalendarFeed(ctx context.Context, req GetCalendarFeedRequestObject) (GetCalendarFeedResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	if _, err := s.store.GetCalendar(ctx, req.Id); err != nil {
+	// The feed URL is the whole credential for reading the calendar from
+	// outside, so seeing or revoking it is a configure-level act.
+	if _, found, ok := s.calendarAllowed(ctx, id, req.Id, rbac.LevelConfigure, "calendar.feed"); !found {
 		return GetCalendarFeed404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such calendar"))}, nil
+	} else if !ok {
+		return GetCalendarFeed403JSONResponse{forbidden()}, nil
 	}
 	feed, err := s.store.GetCalendarFeed(ctx, req.Id)
 	if err != nil {
@@ -451,8 +554,10 @@ func (s *Server) PublishCalendarFeed(ctx context.Context, req PublishCalendarFee
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	if _, err := s.store.GetCalendar(ctx, req.Id); err != nil {
+	if _, found, ok := s.calendarAllowed(ctx, id, req.Id, rbac.LevelConfigure, "calendar.feed_publish"); !found {
 		return PublishCalendarFeed404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such calendar"))}, nil
+	} else if !ok {
+		return PublishCalendarFeed403JSONResponse{forbidden()}, nil
 	}
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
@@ -466,11 +571,16 @@ func (s *Server) PublishCalendarFeed(ctx context.Context, req PublishCalendarFee
 }
 
 func (s *Server) UnpublishCalendarFeed(ctx context.Context, req UnpublishCalendarFeedRequestObject) (UnpublishCalendarFeedResponseObject, error) {
-	if httpctx.IdentityFrom(ctx) == nil {
+	id := httpctx.IdentityFrom(ctx)
+	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	if _, err := s.store.GetCalendar(ctx, req.Id); err != nil {
+	// The feed URL is the whole credential for reading the calendar from
+	// outside, so seeing or revoking it is a configure-level act.
+	if _, found, ok := s.calendarAllowed(ctx, id, req.Id, rbac.LevelConfigure, "calendar.feed"); !found {
 		return UnpublishCalendarFeed404JSONResponse{NotFoundJSONResponse(errBody("not_found", "no such calendar"))}, nil
+	} else if !ok {
+		return UnpublishCalendarFeed403JSONResponse{forbidden()}, nil
 	}
 	if _, err := s.store.DeleteCalendarFeed(ctx, req.Id); err != nil {
 		return nil, err

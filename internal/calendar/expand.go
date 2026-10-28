@@ -1,7 +1,10 @@
 package calendar
 
 import (
+	"errors"
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,6 +34,13 @@ type Instance struct {
 
 // maxInstancesPerEvent caps runaway rules.
 const maxInstancesPerEvent = 750
+
+// maxRuleSteps bounds how far one rule is walked, counting the occurrences
+// before the window too. Capping only the result is not enough: Between
+// materialises every occurrence first, so FREQ=SECONDLY over a year-long
+// window is tens of millions of timestamps per request — and every reminder
+// tick and feed poll expands again.
+const maxRuleSteps = 100_000
 
 // Expand turns event rows into concrete instances within [from, to).
 // Overrides replace their master's occurrence; EXDATEs remove theirs.
@@ -103,10 +113,7 @@ func Expand(rows []store.CalendarEvent, from, to time.Time) []Instance {
 		}
 		// Expand a window slightly widened so events spanning the boundary
 		// still appear.
-		starts := rule.Between(from.Add(-duration).Add(-time.Second), to, true)
-		if len(starts) > maxInstancesPerEvent {
-			starts = starts[:maxInstancesPerEvent]
-		}
+		starts := boundedBetween(rule, from.Add(-duration).Add(-time.Second), to)
 		for _, s := range starts {
 			slot := s.UTC()
 			if ex[slot.Unix()] {
@@ -131,4 +138,50 @@ func Expand(rows []store.CalendarEvent, from, to time.Time) []Instance {
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Start.Before(out[j].Start) })
 	return out
+}
+
+// boundedBetween is rule.Between with both caps applied while walking, so a
+// dense rule costs at most maxRuleSteps iterations however wide the window.
+func boundedBetween(rule *rrule.RRule, after, before time.Time) []time.Time {
+	next := rule.Iterator()
+	var out []time.Time
+	for steps := 0; steps < maxRuleSteps; steps++ {
+		t, ok := next()
+		if !ok || t.After(before) {
+			break
+		}
+		if t.Before(after) {
+			continue
+		}
+		out = append(out, t)
+		if len(out) == maxInstancesPerEvent {
+			break
+		}
+	}
+	return out
+}
+
+// ValidateRRule refuses rules no household calendar needs and that only
+// serve to burn CPU: anything recurring more often than hourly, directly or
+// through BYMINUTE/BYSECOND expansion.
+func ValidateRRule(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	opt, err := rrule.StrToROption(strings.TrimPrefix(raw, "RRULE:"))
+	if err != nil {
+		return fmt.Errorf("the repeat rule is not valid: %w", err)
+	}
+	if opt.Freq == rrule.SECONDLY || opt.Freq == rrule.MINUTELY {
+		return errors.New("events can repeat at most hourly")
+	}
+	// BY* parts multiply: DAILY with 24 hours × 60 minutes is minutely again.
+	perDay := max(1, len(opt.Byhour)) * max(1, len(opt.Byminute)) * max(1, len(opt.Bysecond))
+	if opt.Freq == rrule.HOURLY {
+		perDay = 24 * max(1, len(opt.Byminute)) * max(1, len(opt.Bysecond))
+	}
+	if perDay > 24 {
+		return errors.New("events can repeat at most hourly")
+	}
+	return nil
 }

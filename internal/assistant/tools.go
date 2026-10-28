@@ -506,8 +506,25 @@ func (tb *Toolbox) queryMetric(ctx context.Context, access Access, input json.Ra
 	}, nil
 }
 
-func (tb *Toolbox) listCalendars(ctx context.Context, _ Access, _ json.RawMessage) (any, error) {
-	cals, err := tb.Store.ListCalendars(ctx)
+// visibleCalendars is the calendar list filtered by the caller's view right,
+// the same filter the REST API applies — the tools read the store directly,
+// so they must not see calendars the user could not open in the app.
+func (tb *Toolbox) visibleCalendars(ctx context.Context, access Access) ([]store.Calendar, error) {
+	cals, err := tb.visibleCalendars(ctx, access)
+	if err != nil {
+		return nil, err
+	}
+	out := cals[:0]
+	for _, c := range cals {
+		if access.Can == nil || access.Can("calendar/"+c.ID.String(), "view") {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+func (tb *Toolbox) listCalendars(ctx context.Context, access Access, _ json.RawMessage) (any, error) {
+	cals, err := tb.visibleCalendars(ctx, access)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +541,7 @@ func (tb *Toolbox) listCalendars(ctx context.Context, _ Access, _ json.RawMessag
 	return out, nil
 }
 
-func (tb *Toolbox) listCalendarEvents(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+func (tb *Toolbox) listCalendarEvents(ctx context.Context, access Access, input json.RawMessage) (any, error) {
 	var args struct {
 		Days     int `json:"days"`
 		DaysBack int `json:"daysBack"`
@@ -551,7 +568,7 @@ func (tb *Toolbox) listCalendarEvents(ctx context.Context, _ Access, input json.
 		AddDate(0, 0, -args.DaysBack)
 	to := now.AddDate(0, 0, args.Days)
 
-	cals, err := tb.Store.ListCalendars(ctx)
+	cals, err := tb.visibleCalendars(ctx, access)
 	if err != nil {
 		return nil, err
 	}
@@ -741,7 +758,7 @@ func repeatToRRule(repeat string) string {
 	}
 }
 
-func (tb *Toolbox) createEventDirect(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+func (tb *Toolbox) createEventDirect(ctx context.Context, access Access, input json.RawMessage) (any, error) {
 	var args struct {
 		Title, Start, End, Location, Notes, URL, Calendar, Repeat string
 		AllDay                                                    *bool
@@ -780,7 +797,7 @@ func (tb *Toolbox) createEventDirect(ctx context.Context, _ Access, input json.R
 	}
 
 	// Resolve the target calendar: named, else the first writable local one.
-	cals, err := tb.Store.ListCalendars(ctx)
+	cals, err := tb.visibleCalendars(ctx, access)
 	if err != nil {
 		return nil, err
 	}
@@ -842,7 +859,7 @@ func (tb *Toolbox) createEventDirect(ctx context.Context, _ Access, input json.R
 	}, nil
 }
 
-func (tb *Toolbox) proposeDeleteEvent(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+func (tb *Toolbox) proposeDeleteEvent(ctx context.Context, access Access, input json.RawMessage) (any, error) {
 	var args struct {
 		EventID, Scope, OccurrenceStart string
 	}
@@ -854,7 +871,7 @@ func (tb *Toolbox) proposeDeleteEvent(ctx context.Context, _ Access, input json.
 		return nil, fmt.Errorf("eventId must be an id from list_calendar_events")
 	}
 	ev, err := tb.Store.GetCalendarEvent(ctx, id)
-	if err != nil {
+	if err != nil || (access.Can != nil && !access.Can("calendar/"+ev.CalendarID.String(), "view")) {
 		return nil, fmt.Errorf("no such event — list_calendar_events shows what exists")
 	}
 	scope := strings.ToLower(strings.TrimSpace(args.Scope))
@@ -882,7 +899,7 @@ func (tb *Toolbox) proposeDeleteEvent(ctx context.Context, _ Access, input json.
 // location and notes. Only the fields the model actually sent are applied,
 // and the summary names what moves, so the confirmation is readable without
 // opening the calendar.
-func (tb *Toolbox) proposeUpdateEvent(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+func (tb *Toolbox) proposeUpdateEvent(ctx context.Context, access Access, input json.RawMessage) (any, error) {
 	// Pointers throughout: "not mentioned" and "set to empty" are different
 	// instructions, and only the first means keep.
 	var args struct {
@@ -906,7 +923,7 @@ func (tb *Toolbox) proposeUpdateEvent(ctx context.Context, _ Access, input json.
 		return nil, fmt.Errorf("eventId must be an id from list_calendar_events")
 	}
 	ev, err := tb.Store.GetCalendarEvent(ctx, id)
-	if err != nil {
+	if err != nil || (access.Can != nil && !access.Can("calendar/"+ev.CalendarID.String(), "view")) {
 		return nil, fmt.Errorf("no such event — list_calendar_events shows what exists")
 	}
 

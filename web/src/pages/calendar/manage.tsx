@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
+import { RES } from "@/lib/perms";
 import { useTranslation } from "react-i18next";
 import { CloudDownload, FolderSync, Globe, HardDrive, Pencil, Plus, RefreshCw, Trash2, Recycle, Rss } from "lucide-react";
 import { api, isApiError, unwrap } from "@/lib/api";
@@ -30,9 +32,11 @@ export function ManageCalendarsDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const { can } = useAuth();
   const toast = useToast();
   const invalidate = useInvalidateCalendar();
   const [adding, setAdding] = useState(false);
+  const res = (c: Calendar) => `${RES.calendar}/${c.id}`;
   const [editing, setEditing] = useState<Calendar | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Calendar | null>(null);
   const [sharing, setSharing] = useState<Calendar | null>(null);
@@ -65,10 +69,12 @@ export function ManageCalendarsDialog({
         className="max-w-lg"
         footer={
           <>
-            <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
-              <Plus className="size-3.5" />
-              {t("calendar.manage.add")}
-            </Button>
+            {can(RES.calendar, "configure") && (
+              <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
+                <Plus className="size-3.5" />
+                {t("calendar.manage.add")}
+              </Button>
+            )}
             <span className="flex-1" />
             <Button variant="primary" onClick={onClose}>
               {t("common.done")}
@@ -96,7 +102,7 @@ export function ManageCalendarsDialog({
                         : t(`calendar.kinds.${c.kind}`)}
                     </p>
                   </div>
-                  {c.kind !== "local" && (
+                  {c.kind !== "local" && can(res(c), "control") && (
                     <button
                       type="button"
                       onClick={() => sync.mutate(c.id)}
@@ -106,30 +112,36 @@ export function ManageCalendarsDialog({
                       <RefreshCw className={cn("size-4", sync.isPending && "animate-spin")} />
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setSharing(c)}
-                    className="text-fg-subtle hover:text-fg rounded-md p-1.5"
-                    title={t("calendar.manage.feedTitle")}
-                  >
-                    <Rss className="size-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditing(c)}
-                    className="text-fg-subtle hover:text-fg rounded-md p-1.5"
-                    title={t("common.edit")}
-                  >
-                    <Pencil className="size-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete(c)}
-                    className="text-fg-subtle hover:text-danger rounded-md p-1.5"
-                    title={t("common.delete")}
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
+                  {can(res(c), "configure") && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setSharing(c)}
+                        className="text-fg-subtle hover:text-fg rounded-md p-1.5"
+                        title={t("calendar.manage.feedTitle")}
+                      >
+                        <Rss className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditing(c)}
+                        className="text-fg-subtle hover:text-fg rounded-md p-1.5"
+                        title={t("common.edit")}
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                    </>
+                  )}
+                  {can(res(c), "delete") && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(c)}
+                      className="text-fg-subtle hover:text-danger rounded-md p-1.5"
+                      title={t("common.delete")}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  )}
                 </div>
               );
             })}

@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Settings2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { RES } from "@/lib/perms";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
@@ -35,6 +37,19 @@ export function CalendarPage() {
   const [hiddenCals, setHiddenCals] = useState<Set<string>>(new Set());
 
   const calendars = useCalendars();
+  const { can } = useAuth();
+  // A calendar the caller may not change reads as read-only to the editor,
+  // the same as a subscribed feed: the fields lock and Delete disappears.
+  const editable = useMemo(
+    () =>
+      (calendars.data ?? []).map((c) =>
+        can(`${RES.calendar}/${c.id}`, "control") ? c : { ...c, readOnly: true },
+      ),
+    [calendars.data, can],
+  );
+  const canCreate = editable.some((c) => !c.readOnly);
+  const canManage = (calendars.data ?? []).some((c) => can(`${RES.calendar}/${c.id}`, "configure")) ||
+    can(RES.calendar, "configure");
   // Someone else's edit, the assistant's, or a CalDAV sync: the grid follows
   // without a reload.
   useCalendarLive();
@@ -139,13 +154,17 @@ export function CalendarPage() {
             </button>
           ))}
         </div>
-        <Button size="sm" variant="ghost" onClick={() => setManaging(true)} title={t("calendar.manage.title")}>
-          <Settings2 className="size-4" />
-        </Button>
-        <Button size="sm" variant="primary" onClick={() => setCreating({ start: nextHour() })}>
-          <Plus className="size-3.5" />
-          {t("calendar.newEvent")}
-        </Button>
+        {canManage && (
+          <Button size="sm" variant="ghost" onClick={() => setManaging(true)} title={t("calendar.manage.title")}>
+            <Settings2 className="size-4" />
+          </Button>
+        )}
+        {canCreate && (
+          <Button size="sm" variant="primary" onClick={() => setCreating({ start: nextHour() })}>
+            <Plus className="size-3.5" />
+            {t("calendar.newEvent")}
+          </Button>
+        )}
       </div>
 
       {calendars.isLoading || instances.isLoading ? (
@@ -155,7 +174,7 @@ export function CalendarPage() {
           anchor={anchor}
           instances={visible}
           calColor={calColor}
-          onPickDay={(d) => setCreating({ start: at(d, 9), allDay: false })}
+          onPickDay={(d) => canCreate && setCreating({ start: at(d, 9), allDay: false })}
           onPickEvent={setEditing}
         />
       ) : (
@@ -163,14 +182,14 @@ export function CalendarPage() {
           anchor={anchor}
           instances={visible}
           calColor={calColor}
-          onPickSlot={(d, hour) => setCreating({ start: at(d, hour) })}
+          onPickSlot={(d, hour) => canCreate && setCreating({ start: at(d, hour) })}
           onPickEvent={setEditing}
         />
       )}
 
       {(creating || editing) && (
         <EventEditor
-          calendars={calendars.data ?? []}
+          calendars={editable}
           instance={editing}
           defaults={creating ?? undefined}
           onClose={() => {

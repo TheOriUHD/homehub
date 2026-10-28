@@ -57,6 +57,9 @@ const (
 	// At LevelControl this admits Owner + Operator and excludes read-only
 	// Viewer — the intent, since these drive the server's outbound network.
 	ResTools = "tools"
+	// ResCalendar is the household calendar collection; each calendar is
+	// "calendar/<id>" beneath it. Top-level for the same reason as ResTools.
+	ResCalendar = "calendar"
 )
 
 type Server struct {
