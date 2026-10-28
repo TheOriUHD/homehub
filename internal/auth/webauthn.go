@@ -18,6 +18,11 @@ import (
 
 const webauthnChallengeTTL = 5 * time.Minute
 
+// errPasskeyNoUV is returned when an authenticator proves presence but not
+// the user (no PIN/biometric) — see BeginPasskeyRegistration for why that is
+// not enough here.
+const errPasskeyNoUV = "this passkey did not verify you (no PIN or biometric) — set up a PIN on the security key or use a different passkey"
+
 // rpFor builds a WebAuthn provider for the origin serving the current
 // request. The configured app URL wins when set; otherwise the requesting
 // origin is used, which keeps passkeys working out of the box on whatever
@@ -114,8 +119,12 @@ func (s *Service) BeginPasskeyRegistration(ctx context.Context, user *store.User
 	}
 	creation, sessionData, err := rp.BeginRegistration(wu,
 		webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
-			ResidentKey:      protocol.ResidentKeyRequirementRequired,
-			UserVerification: protocol.VerificationPreferred,
+			ResidentKey: protocol.ResidentKeyRequirementRequired,
+			// Required, not preferred: a passkey signs the user in without a
+			// password or TOTP, so it must itself prove two factors
+			// (possession + PIN/biometric). A bare security key that only
+			// proves presence would turn "has the token" into full access.
+			UserVerification: protocol.VerificationRequired,
 		}),
 		webauthn.WithExclusions(exclusions),
 	)
@@ -153,6 +162,12 @@ func (s *Service) FinishPasskeyRegistration(ctx context.Context, user *store.Use
 	if err != nil {
 		return nil, err
 	}
+	if !parsed.Response.AttestationObject.AuthData.Flags.HasUserVerified() {
+		return nil, &ValidationError{Msg: errPasskeyNoUV}
+	}
+	// Pin the requirement on the session too, so the library enforces it
+	// even for a challenge issued before this policy existed.
+	sess.Data.UserVerification = protocol.VerificationRequired
 	cred, err := rp.CreateCredential(wu, sess.Data, parsed)
 	if err != nil {
 		return nil, &ValidationError{Msg: "passkey verification failed: " + err.Error()}
@@ -187,7 +202,7 @@ func (s *Service) BeginPasskeyLogin(ctx context.Context, requestOrigin string) (
 		return nil, "", err
 	}
 	assertion, sessionData, err := rp.BeginDiscoverableLogin(
-		webauthn.WithUserVerification(protocol.VerificationPreferred),
+		webauthn.WithUserVerification(protocol.VerificationRequired),
 	)
 	if err != nil {
 		return nil, "", fmt.Errorf("begin passkey login: %w", err)
@@ -201,8 +216,9 @@ func (s *Service) BeginPasskeyLogin(ctx context.Context, requestOrigin string) (
 }
 
 // FinishPasskeyLogin validates a discoverable assertion and issues a session.
-// A verified passkey is a strong credential; it does not additionally prompt
-// for TOTP.
+// A passkey with user verification (PIN/biometric on the authenticator) is
+// already two factors, so it does not additionally prompt for TOTP; an
+// assertion without the UV flag is rejected for exactly that reason.
 func (s *Service) FinishPasskeyLogin(ctx context.Context, requestOrigin, challengeToken string, credentialJSON []byte, ip, userAgent string) (*LoginOutcome, error) {
 	if !s.ipLimiter.Allow("ip:" + ip) {
 		return nil, ErrRateLimited
@@ -220,6 +236,12 @@ func (s *Service) FinishPasskeyLogin(ctx context.Context, requestOrigin, challen
 	if err != nil {
 		return nil, &ValidationError{Msg: "malformed authenticator response"}
 	}
+	if !parsed.Response.AuthenticatorData.Flags.HasUserVerified() {
+		s.audit.Log(ctx, audit.Actor{Kind: "user", Name: "unknown", IP: ip},
+			"auth.login", "", audit.OutcomeFailure, map[string]any{"reason": "passkey_no_user_verification"})
+		return nil, &ValidationError{Msg: errPasskeyNoUV}
+	}
+	sess.Data.UserVerification = protocol.VerificationRequired
 
 	var loginUser *store.User
 	cred, err := rp.ValidateDiscoverableLogin(func(rawID, userHandle []byte) (webauthn.User, error) {
@@ -262,7 +284,7 @@ func (s *Service) BeginMFAPasskey(ctx context.Context, mfaToken, requestOrigin s
 	if err != nil {
 		return nil, "", err
 	}
-	assertion, sessionData, err := rp.BeginLogin(wu)
+	assertion, sessionData, err := rp.BeginLogin(wu, webauthn.WithUserVerification(protocol.VerificationRequired))
 	if err != nil {
 		return nil, "", fmt.Errorf("begin passkey verification: %w", err)
 	}
@@ -296,6 +318,10 @@ func (s *Service) FinishMFAPasskey(ctx context.Context, mfaToken, challengeToken
 	if err != nil {
 		return nil, &ValidationError{Msg: "malformed authenticator response"}
 	}
+	if !parsed.Response.AuthenticatorData.Flags.HasUserVerified() {
+		return nil, &ValidationError{Msg: errPasskeyNoUV}
+	}
+	sess.Data.UserVerification = protocol.VerificationRequired
 	wu, err := s.loadWebauthnUser(ctx, pending.UserID)
 	if err != nil {
 		return nil, err
