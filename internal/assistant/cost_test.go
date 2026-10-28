@@ -1,6 +1,50 @@
 package assistant
 
-import "testing"
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+// OpenAI's prompt_tokens includes the cached prefix. Pricing it all as fresh
+// input overstated every turn of a long conversation by most of its history.
+func TestOpenAIUsageSplitsTheCachedPrefix(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"hi"}}],
+			"usage":{"prompt_tokens":10000,"completion_tokens":300,"prompt_tokens_details":{"cached_tokens":8000}}}`))
+	}))
+	defer srv.Close()
+	reply, err := (&OpenAIProvider{BaseURL: srv.URL + "/v1"}).Chat(context.Background(), "m", System{Base: "s"}, []Turn{{Role: "user", Text: "x"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Usage{InputTokens: 2000, OutputTokens: 300, CacheReadTokens: 8000}
+	if reply.Usage != want {
+		t.Fatalf("usage = %+v, want %+v", reply.Usage, want)
+	}
+	if reply.Usage.PromptTokens() != 10000 {
+		t.Errorf("the whole prompt must still read as 10000 tokens, got %d", reply.Usage.PromptTokens())
+	}
+}
+
+// Gemini bills thinking tokens as output but leaves them out of
+// candidatesTokenCount, and its prompt count includes the implicit cache.
+func TestGeminiUsageCountsThinkingAndCache(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]}}],
+			"usageMetadata":{"promptTokenCount":5000,"candidatesTokenCount":200,"cachedContentTokenCount":4000,"thoughtsTokenCount":900}}`))
+	}))
+	defer srv.Close()
+	reply, err := (&GeminiProvider{APIKey: "k", BaseURL: srv.URL}).Chat(context.Background(), "gem", System{Base: "s"}, []Turn{{Role: "user", Text: "x"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Usage{InputTokens: 1000, OutputTokens: 1100, CacheReadTokens: 4000}
+	if reply.Usage != want {
+		t.Fatalf("usage = %+v, want %+v", reply.Usage, want)
+	}
+}
 
 // The figures behind the info tooltip. Wrong prices here are invisible until
 // someone reconciles a bill, so pin the ratios the picker's warnings promise.

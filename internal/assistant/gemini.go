@@ -55,8 +55,13 @@ type gemResponse struct {
 		Content gemContent `json:"content"`
 	} `json:"candidates"`
 	UsageMetadata struct {
-		PromptTokenCount     int64 `json:"promptTokenCount"`
-		CandidatesTokenCount int64 `json:"candidatesTokenCount"`
+		// promptTokenCount includes the implicitly cached part, billed at the
+		// cache rate. Thinking tokens bill as output but are NOT part of
+		// candidatesTokenCount, so they are counted separately.
+		PromptTokenCount        int64 `json:"promptTokenCount"`
+		CandidatesTokenCount    int64 `json:"candidatesTokenCount"`
+		CachedContentTokenCount int64 `json:"cachedContentTokenCount"`
+		ThoughtsTokenCount      int64 `json:"thoughtsTokenCount"`
 	} `json:"usageMetadata"`
 	Error *struct {
 		Message string `json:"message"`
@@ -172,9 +177,12 @@ func (p *GeminiProvider) Chat(ctx context.Context, model string, system System, 
 	}
 
 	var out Reply
+	um := parsed.UsageMetadata
+	cached := min(um.CachedContentTokenCount, um.PromptTokenCount)
 	out.Usage = Usage{
-		InputTokens:  parsed.UsageMetadata.PromptTokenCount,
-		OutputTokens: parsed.UsageMetadata.CandidatesTokenCount,
+		InputTokens:     um.PromptTokenCount - cached,
+		OutputTokens:    um.CandidatesTokenCount + um.ThoughtsTokenCount,
+		CacheReadTokens: cached,
 	}
 	callIdx := 0
 	for _, part := range parsed.Candidates[0].Content.Parts {

@@ -65,8 +65,13 @@ type oaResponse struct {
 		} `json:"message"`
 	} `json:"choices"`
 	Usage struct {
-		PromptTokens     int64 `json:"prompt_tokens"`
-		CompletionTokens int64 `json:"completion_tokens"`
+		// prompt_tokens INCLUDES the automatically cached prefix, which
+		// bills at the cache-read rate; the details say how much of it was.
+		PromptTokens        int64 `json:"prompt_tokens"`
+		CompletionTokens    int64 `json:"completion_tokens"`
+		PromptTokensDetails struct {
+			CachedTokens int64 `json:"cached_tokens"`
+		} `json:"prompt_tokens_details"`
 	} `json:"usage"`
 	Error *struct {
 		Message string `json:"message"`
@@ -144,9 +149,13 @@ func (p *OpenAIProvider) Chat(ctx context.Context, model string, system System, 
 	}
 
 	var out Reply
+	// Split the cached prefix out, so a long conversation is not priced as
+	// though every turn re-sent it at full rate.
+	cached := min(parsed.Usage.PromptTokensDetails.CachedTokens, parsed.Usage.PromptTokens)
 	out.Usage = Usage{
-		InputTokens:  parsed.Usage.PromptTokens,
-		OutputTokens: parsed.Usage.CompletionTokens,
+		InputTokens:     parsed.Usage.PromptTokens - cached,
+		OutputTokens:    parsed.Usage.CompletionTokens,
+		CacheReadTokens: cached,
 	}
 	msg := parsed.Choices[0].Message
 	if msg.Content != nil {
