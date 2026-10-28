@@ -50,7 +50,7 @@ type Deps struct {
 func Handler(deps Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(recoverer(deps.Logger))
-	r.Use(securityHeaders)
+	r.Use(securityHeaders(contentSecurityPolicy(deps.UI)))
 
 	if deps.Helper != nil {
 		registerHelperRoutes(r, deps.Helper)
@@ -107,20 +107,6 @@ func Handler(deps Deps) http.Handler {
 }
 
 // ---- middleware ------------------------------------------------------------
-
-// securityHeaders sets constant defense-in-depth response headers on every
-// route (SPA shell, API, helper). SAMEORIGIN (not DENY) so any same-origin
-// embedding the app may add later keeps working; cross-origin framing —
-// the clickjacking vector — is still blocked.
-func securityHeaders(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h := w.Header()
-		h.Set("X-Frame-Options", "SAMEORIGIN")
-		h.Set("X-Content-Type-Options", "nosniff")
-		h.Set("Referrer-Policy", "no-referrer")
-		next.ServeHTTP(w, r)
-	})
-}
 
 // termReadLimit is the per-message cap on console sockets. Framebuffer
 // updates dominate; 64 MiB is far above any single legitimate message while

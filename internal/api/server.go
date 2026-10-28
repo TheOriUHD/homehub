@@ -214,6 +214,22 @@ func ClientIP(r *http.Request) string {
 	return host
 }
 
+// RequestIsHTTPS reports whether the browser reached us over HTTPS: TLS
+// terminated here, or X-Forwarded-Proto: https from a trusted proxy. The
+// header alone is not enough — any client can send it — and what this gates
+// (HSTS) would otherwise let a plain-http LAN visitor pin an installation to
+// an HTTPS it doesn't serve.
+func RequestIsHTTPS(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	return peerIsTrustedProxy(host) && strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https")
+}
+
 func peerIsTrustedProxy(host string) bool {
 	ip := net.ParseIP(host)
 	if ip == nil {
