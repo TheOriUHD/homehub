@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -54,12 +55,20 @@ func NewHub(logger *slog.Logger, authorize AuthorizeFunc, canView CanViewFunc) *
 	}
 }
 
+// sendBuffer is how many frames may wait for one client before it counts as
+// too slow. A healthy tab drains in milliseconds; a stalled one (asleep,
+// backgrounded on a phone, behind a dead network) is cut loose at this depth
+// instead of making every publisher wait on it.
+const sendBuffer = 256
+
 type Client struct {
 	hub        *Hub
 	conn       *websocket.Conn
 	userID     uuid.UUID
 	viewAsRole *uuid.UUID
 	send       chan []byte
+	cancel     context.CancelFunc
+	dropped    atomic.Bool
 
 	mu   sync.Mutex
 	subs map[string]struct{}
@@ -79,6 +88,22 @@ func (h *Hub) ClientCount() int {
 	return len(h.clients)
 }
 
+// subscribers snapshots the clients subscribed to topic. Publishers work from
+// the copy so that per-client permission checks (database lookups) and sends
+// never run while the hub lock is held — a held lock would also block every
+// tab connecting or disconnecting.
+func (h *Hub) subscribers(topic string, match func(*Client) bool) []*Client {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	out := make([]*Client, 0, len(h.clients))
+	for c := range h.clients {
+		if c.subscribed(topic) && (match == nil || match(c)) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 // Publish fans an event out to every subscribed, still-authorized client.
 func (h *Hub) Publish(topic string, data any) {
 	raw, err := json.Marshal(data)
@@ -88,12 +113,7 @@ func (h *Hub) Publish(topic string, data any) {
 	}
 	msg, _ := json.Marshal(frame{Type: "event", Topic: topic, Data: raw})
 
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	for c := range h.clients {
-		if !c.subscribed(topic) {
-			continue
-		}
+	for _, c := range h.subscribers(topic, nil) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		ok := h.authorize != nil && h.authorize(ctx, c.userID, c.viewAsRole, topic)
 		cancel()
@@ -128,12 +148,7 @@ func (h *Hub) PublishScoped(topic, resource string, data any) {
 	}
 	msg, _ := json.Marshal(frame{Type: "event", Topic: topic, Data: raw})
 
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	for c := range h.clients {
-		if !c.subscribed(topic) {
-			continue
-		}
+	for _, c := range h.subscribers(topic, nil) {
 		if !h.canViewResource(c, resource) {
 			continue
 		}
@@ -156,12 +171,7 @@ func (h *Hub) PublishRows(topic, key string, rows []ScopedRow) {
 	if len(rows) == 0 {
 		return
 	}
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	for c := range h.clients {
-		if !c.subscribed(topic) {
-			continue
-		}
+	for _, c := range h.subscribers(topic, nil) {
 		visible := make([]any, 0, len(rows))
 		for _, row := range rows {
 			if h.canViewResource(c, row.Resource) {
@@ -188,12 +198,8 @@ func (h *Hub) PublishUser(userID uuid.UUID, topic string, data any) {
 		return
 	}
 	msg, _ := json.Marshal(frame{Type: "event", Topic: topic, Data: raw})
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	for c := range h.clients {
-		if c.userID == userID && c.subscribed(topic) {
-			c.trySend(msg)
-		}
+	for _, c := range h.subscribers(topic, func(c *Client) bool { return c.userID == userID }) {
+		c.trySend(msg)
 	}
 }
 
@@ -205,9 +211,13 @@ func (h *Hub) Serve(ctx context.Context, conn *websocket.Conn, userID uuid.UUID,
 		conn:       conn,
 		userID:     userID,
 		viewAsRole: viewAsRole,
-		send:       make(chan []byte, 256),
+		send:       make(chan []byte, sendBuffer),
 		subs:       map[string]struct{}{},
 	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	client.cancel = cancel
+
 	h.mu.Lock()
 	h.clients[client] = struct{}{}
 	h.mu.Unlock()
@@ -217,9 +227,6 @@ func (h *Hub) Serve(ctx context.Context, conn *websocket.Conn, userID uuid.UUID,
 		delete(h.clients, client)
 		h.mu.Unlock()
 	}()
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	go client.writePump(ctx, cancel)
 	client.readPump(ctx)
@@ -232,13 +239,32 @@ func (c *Client) subscribed(topic string) bool {
 	return ok
 }
 
-// trySend queues a message; a client too slow to drain its buffer is
-// disconnected rather than allowed to stall the hub.
+// trySend queues a message without ever blocking the publisher; a client too
+// slow to drain its buffer is disconnected rather than allowed to stall the
+// hub. The browser reconnects and resubscribes, landing on fresh state.
 func (c *Client) trySend(msg []byte) {
+	if c.dropped.Load() {
+		return
+	}
 	select {
 	case c.send <- msg:
 	default:
-		c.conn.Close(websocket.StatusPolicyViolation, "client too slow")
+		c.drop()
+	}
+}
+
+// drop disconnects a slow consumer, once. Close runs a close handshake that
+// waits on the very peer that has stopped reading (and on a writer stuck in
+// its own write timeout), so it goes to its own goroutine; cancelling the
+// client's context stops its pumps straight away.
+func (c *Client) drop() {
+	if !c.dropped.CompareAndSwap(false, true) {
+		return
+	}
+	c.hub.logger.Warn("dropping slow websocket client", "user", c.userID)
+	go func() { _ = c.conn.Close(websocket.StatusPolicyViolation, "client too slow") }()
+	if c.cancel != nil {
+		c.cancel()
 	}
 }
 
