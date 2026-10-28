@@ -45,7 +45,7 @@ func (tb *Toolbox) systemTools() []tool {
 		{
 			def: ToolDef{
 				Name:        "ha_call_service",
-				Description: "Control a Home Assistant entity: service is the action in the entity's own domain (turn_on, turn_off, toggle, set_temperature, …), data carries service fields like brightness_pct or temperature.",
+				Description: "Control a Home Assistant entity: service is the action in the entity's own domain (turn_on, turn_off, toggle, set_temperature, …), data carries service fields like brightness_pct or temperature. Unlocking a lock, disarming the alarm and opening a door, gate, garage or window are NOT executed — they are queued for the user to approve; tell them what you proposed.",
 				InputSchema: obj(`"systemId":{"type":"string"},"entityId":{"type":"string"},"service":{"type":"string"},"data":{"type":"object","additionalProperties":true}`, "systemId", "entityId", "service"),
 			},
 			run: tb.haCallService,
@@ -53,7 +53,7 @@ func (tb *Toolbox) systemTools() []tool {
 		{
 			def: ToolDef{
 				Name:        "docker_container_action",
-				Description: "start, stop, restart, pause, or unpause one Docker container by name.",
+				Description: "start, stop, restart, pause, or unpause one Docker container by name. start and unpause run at once; stop, restart and pause are queued for the user to approve.",
 				InputSchema: obj(`"systemId":{"type":"string"},"name":{"type":"string"},"action":{"type":"string","enum":["start","stop","restart","pause","unpause"]}`, "systemId", "name", "action"),
 			},
 			run: tb.dockerAction,
@@ -61,7 +61,7 @@ func (tb *Toolbox) systemTools() []tool {
 		{
 			def: ToolDef{
 				Name:        "mc_command",
-				Description: "Run a console command on ONE server of a Minecraft network (serverId from system_details; no leading slash). The console has NO player context: @s/@p never work — use exact player names. Use modern item ids (enchanted_golden_apple, not NBT syntax). The result includes the console's reaction — READ it: an error there means the command failed even if dispatch was acknowledged." + mcEssentialsBriefing,
+				Description: "Run a console command on ONE server of a Minecraft network (serverId from system_details; no leading slash). The console has NO player context: @s/@p never work — use exact player names. Use modern item ids (enchanted_golden_apple, not NBT syntax). The result includes the console's reaction — READ it: an error there means the command failed even if dispatch was acknowledged. Commands that hand out power or take the server away (op, deop, ban, pardon, stop, reload, whitelist off, permission plugins, sudo) are queued for the user to approve." + mcEssentialsBriefing,
 				InputSchema: obj(`"systemId":{"type":"string"},"serverId":{"type":"string","description":"The target server's uuid within the network"},"command":{"type":"string"}`, "systemId", "serverId", "command"),
 			},
 			run: tb.mcCommand,
@@ -77,7 +77,7 @@ func (tb *Toolbox) systemTools() []tool {
 		{
 			def: ToolDef{
 				Name:        "mc_power",
-				Description: "Start, stop, or restart ONE Minecraft server over the network's SSH access (start/relaunch from its start.sh; stop = graceful console stop). Needs SSH configured. Disruptive (stop/restart drop players) — only on the user's explicit request.",
+				Description: "Start, stop, or restart ONE Minecraft server over the network's SSH access (start/relaunch from its start.sh; stop = graceful console stop). Needs SSH configured. Disruptive (stop/restart drop players) — only on the user's explicit request; stop and restart are queued for the user to approve.",
 				InputSchema: obj(`"systemId":{"type":"string"},"serverId":{"type":"string"},"action":{"type":"string","enum":["start","stop","restart"]}`, "systemId", "serverId", "action"),
 			},
 			run: tb.mcPower,
@@ -85,7 +85,7 @@ func (tb *Toolbox) systemTools() []tool {
 		{
 			def: ToolDef{
 				Name:        "amp_instance_action",
-				Description: "start, stop, or restart one AMP game-server instance (instanceId from system_details).",
+				Description: "start, stop, or restart one AMP game-server instance (instanceId from system_details). start runs at once; stop and restart are queued for the user to approve.",
 				InputSchema: obj(`"systemId":{"type":"string"},"instanceId":{"type":"string"},"action":{"type":"string","enum":["start","stop","restart"]}`, "systemId", "instanceId", "action"),
 			},
 			run: tb.ampAction,
@@ -93,7 +93,7 @@ func (tb *Toolbox) systemTools() []tool {
 		{
 			def: ToolDef{
 				Name:        "pve_guest_action",
-				Description: "start, shutdown, stop, or reboot one Proxmox VM/container by vmid. shutdown is graceful; stop pulls the plug.",
+				Description: "start, shutdown, stop, or reboot one Proxmox VM/container by vmid. shutdown is graceful; stop pulls the plug. start runs at once; shutdown, stop and reboot are queued for the user to approve.",
 				InputSchema: obj(`"systemId":{"type":"string"},"vmid":{"type":"integer"},"action":{"type":"string","enum":["start","shutdown","stop","reboot"]}`, "systemId", "vmid", "action"),
 			},
 			run: tb.pveAction,
@@ -300,65 +300,38 @@ func (tb *Toolbox) haEntities(ctx context.Context, _ Access, input json.RawMessa
 	return map[string]any{"matched": total, "shown": len(out), "entities": out}, nil
 }
 
+// The lifecycle and Home Assistant tools are plain controls: tools_control.go
+// decides whether each call runs now or waits for the person.
+
 func (tb *Toolbox) haCallService(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
-	id, _, err := parseSystemID(input)
-	if err != nil {
-		return nil, err
-	}
-	var args struct {
-		EntityID string         `json:"entityId"`
-		Service  string         `json:"service"`
-		Data     map[string]any `json:"data"`
-	}
-	if err := json.Unmarshal(input, &args); err != nil || args.EntityID == "" || args.Service == "" {
-		return nil, fmt.Errorf("entityId and service are required")
-	}
-	body := map[string]any{"service": args.Service}
-	if len(args.Data) > 0 {
-		body["data"] = args.Data
-	}
-	raw, err := tb.call(ctx, http.MethodPost,
-		"/ha/"+id.String()+"/entities/"+url.PathEscape(args.EntityID)+"/service", body)
-	if err != nil {
-		return nil, err
-	}
-	return raw, nil
+	return tb.control(ctx, KindHAService, input)
 }
 
 func (tb *Toolbox) dockerAction(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
-	id, _, err := parseSystemID(input)
-	if err != nil {
-		return nil, err
-	}
-	var args struct {
-		Name   string `json:"name"`
-		Action string `json:"action"`
-	}
-	if err := json.Unmarshal(input, &args); err != nil || args.Name == "" || args.Action == "" {
-		return nil, fmt.Errorf("name and action are required")
-	}
-	return tb.call(ctx, http.MethodPost,
-		"/docker/"+id.String()+"/containers/"+url.PathEscape(args.Name)+"/action",
-		map[string]any{"action": args.Action})
+	return tb.control(ctx, KindDockerAction, input)
+}
+
+func (tb *Toolbox) mcPower(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+	return tb.control(ctx, KindMCPower, input)
+}
+
+func (tb *Toolbox) ampAction(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+	return tb.control(ctx, KindAMPAction, input)
+}
+
+func (tb *Toolbox) pveAction(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
+	return tb.control(ctx, KindPVEAction, input)
 }
 
 func (tb *Toolbox) mcCommand(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
-	id, _, err := parseSystemID(input)
+	held, req, err := tb.prepareControl(ctx, KindMCCommand, input)
 	if err != nil {
 		return nil, err
 	}
-	var args struct {
-		ServerID string `json:"serverId"`
-		Command  string `json:"command"`
+	if held != nil {
+		return held, nil
 	}
-	if err := json.Unmarshal(input, &args); err != nil || strings.TrimSpace(args.Command) == "" {
-		return nil, fmt.Errorf("command is required")
-	}
-	serverID, err := uuid.Parse(strings.TrimSpace(args.ServerID))
-	if err != nil {
-		return nil, fmt.Errorf("serverId must be a server uuid from system_details")
-	}
-	base := "/mc/" + id.String() + "/servers/" + serverID.String()
+	base := strings.TrimSuffix(req.Path, "/command")
 
 	// Snapshot the console position, run the command, then read what the
 	// server actually said about it — the ack alone reports dispatch, not
@@ -375,8 +348,7 @@ func (tb *Toolbox) mcCommand(ctx context.Context, _ Access, input json.RawMessag
 		}
 	}
 
-	ack, err := tb.call(ctx, http.MethodPost, base+"/command",
-		map[string]any{"command": strings.TrimPrefix(strings.TrimSpace(args.Command), "/")})
+	ack, err := tb.call(ctx, req.Method, req.Path, req.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -428,65 +400,6 @@ func (tb *Toolbox) mcPlayerDetail(ctx context.Context, _ Access, input json.RawM
 		return nil, err
 	}
 	return capResult(raw), nil
-}
-
-func (tb *Toolbox) mcPower(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
-	id, _, err := parseSystemID(input)
-	if err != nil {
-		return nil, err
-	}
-	var args struct {
-		ServerID string `json:"serverId"`
-		Action   string `json:"action"`
-	}
-	if err := json.Unmarshal(input, &args); err != nil {
-		return nil, fmt.Errorf("serverId and action are required")
-	}
-	serverID, err := uuid.Parse(strings.TrimSpace(args.ServerID))
-	if err != nil {
-		return nil, fmt.Errorf("serverId must be a server uuid from system_details")
-	}
-	switch args.Action {
-	case "start", "stop", "restart":
-	default:
-		return nil, fmt.Errorf("action must be start, stop, or restart")
-	}
-	return tb.call(ctx, http.MethodPost,
-		fmt.Sprintf("/mc/%s/servers/%s/%s", id.String(), serverID.String(), args.Action), nil)
-}
-
-func (tb *Toolbox) ampAction(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
-	id, _, err := parseSystemID(input)
-	if err != nil {
-		return nil, err
-	}
-	var args struct {
-		InstanceID string `json:"instanceId"`
-		Action     string `json:"action"`
-	}
-	if err := json.Unmarshal(input, &args); err != nil || args.InstanceID == "" || args.Action == "" {
-		return nil, fmt.Errorf("instanceId and action are required")
-	}
-	return tb.call(ctx, http.MethodPost,
-		"/amp/"+id.String()+"/instances/"+url.PathEscape(args.InstanceID)+"/lifecycle",
-		map[string]any{"action": args.Action})
-}
-
-func (tb *Toolbox) pveAction(ctx context.Context, _ Access, input json.RawMessage) (any, error) {
-	id, _, err := parseSystemID(input)
-	if err != nil {
-		return nil, err
-	}
-	var args struct {
-		VMID   int    `json:"vmid"`
-		Action string `json:"action"`
-	}
-	if err := json.Unmarshal(input, &args); err != nil || args.VMID <= 0 || args.Action == "" {
-		return nil, fmt.Errorf("vmid and action are required")
-	}
-	return tb.call(ctx, http.MethodPost,
-		fmt.Sprintf("/proxmox/%s/guests/%d/action", id.String(), args.VMID),
-		map[string]any{"action": args.Action})
 }
 
 func (tb *Toolbox) dnsBlocking(ctx context.Context, _ Access, input json.RawMessage) (any, error) {

@@ -429,6 +429,20 @@ func (s *Server) applyAssistantAction(ctx context.Context, id *httpctx.Identity,
 		}
 		return summary, output, nil
 
+	case assistant.KindHAService, assistant.KindDockerAction, assistant.KindPVEAction,
+		assistant.KindAMPAction, assistant.KindMCPower, assistant.KindMCCommand:
+		// Rebuilt from the params by the same function the immediate path
+		// uses, then replayed through the handler for its RBAC and audit.
+		req, err := assistant.ControlRequestFor(a.Kind, a.Params)
+		if err != nil {
+			return a.Summary, "", err
+		}
+		code, body := s.SelfCall(ctx, id, req.Method, req.Path, req.Body)
+		if err := selfCallResult(code, body); err != nil {
+			return req.Label, "", err
+		}
+		return req.Label, "", nil
+
 	case "signals.dismiss":
 		var p struct {
 			Ids []int64 `json:"ids"`

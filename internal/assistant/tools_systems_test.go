@@ -50,9 +50,9 @@ func TestActionToolsBuildCorrectRequests(t *testing.T) {
 			"/ha/11111111-1111-1111-1111-111111111111/entities/light.philipp/service",
 			map[string]any{"service": "turn_on", "data": map[string]any{"brightness_pct": float64(50)}}},
 		{"docker_container_action",
-			`{"systemId":"11111111-1111-1111-1111-111111111111","name":"web-app","action":"restart"}`,
+			`{"systemId":"11111111-1111-1111-1111-111111111111","name":"web-app","action":"start"}`,
 			"/docker/11111111-1111-1111-1111-111111111111/containers/web-app/action",
-			map[string]any{"action": "restart"}},
+			map[string]any{"action": "start"}},
 		{"mc_command",
 			`{"systemId":"11111111-1111-1111-1111-111111111111","serverId":"22222222-2222-2222-2222-222222222222","command":"/say hi"}`,
 			"/mc/11111111-1111-1111-1111-111111111111/servers/22222222-2222-2222-2222-222222222222/command",
@@ -62,9 +62,9 @@ func TestActionToolsBuildCorrectRequests(t *testing.T) {
 			"/amp/11111111-1111-1111-1111-111111111111/instances/i9/lifecycle",
 			map[string]any{"action": "start"}},
 		{"pve_guest_action",
-			`{"systemId":"11111111-1111-1111-1111-111111111111","vmid":104,"action":"shutdown"}`,
+			`{"systemId":"11111111-1111-1111-1111-111111111111","vmid":104,"action":"start"}`,
 			"/proxmox/11111111-1111-1111-1111-111111111111/guests/104/action",
-			map[string]any{"action": "shutdown"}},
+			map[string]any{"action": "start"}},
 		{"dns_blocking",
 			`{"systemId":"11111111-1111-1111-1111-111111111111","enabled":false,"minutes":30}`,
 			"/dns/11111111-1111-1111-1111-111111111111/blocking",
@@ -99,7 +99,7 @@ func TestCallSurfacesHandlerRefusal(t *testing.T) {
 	fake := &fakeCall{status: http.StatusForbidden, response: `{"code":"forbidden","message":"you do not have permission to do that"}`}
 	tb := &Toolbox{Call: fake.fn}
 	_, err := tb.Run(context.Background(), Access{}, "mc_command",
-		json.RawMessage(`{"systemId":"11111111-1111-1111-1111-111111111111","serverId":"22222222-2222-2222-2222-222222222222","command":"stop"}`))
+		json.RawMessage(`{"systemId":"11111111-1111-1111-1111-111111111111","serverId":"22222222-2222-2222-2222-222222222222","command":"say hi"}`))
 	if err == nil || err.Error() != "you do not have permission to do that" {
 		t.Fatalf("refusal not surfaced: %v", err)
 	}
