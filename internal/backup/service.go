@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"filippo.io/age"
@@ -38,13 +40,22 @@ type Manifest struct {
 	Encrypted  bool      `json:"encrypted"`
 }
 
+// secretStore is the slice of the vault the backup service uses.
+type secretStore interface {
+	Open(ctx context.Context, scope, name string) ([]byte, error)
+	Seal(ctx context.Context, scope, name string, plaintext []byte) error
+}
+
 // Service runs application backups, restores, and retention.
 type Service struct {
 	store       *store.Store
-	vault       *vault.Vault
+	vault       secretStore
 	databaseURL string
 	dataDir     string
 	logger      *slog.Logger
+	// identityMu serializes creation of the backup key, so two first
+	// backups running at once cannot each seal a different one.
+	identityMu sync.Mutex
 	// RequestRestart asks the process supervisor for a restart after a
 	// successful restore; wired by the app.
 	RequestRestart func()
@@ -66,21 +77,45 @@ func (s *Service) OpenTarget(ctx context.Context, row *store.BackupTarget) (Targ
 	_ = json.Unmarshal(row.Config, &config)
 	secrets := map[string]string{}
 	for _, name := range TargetTypes[row.Type] {
-		if raw, err := s.vault.Open(ctx, "target:"+row.ID.String(), name); err == nil {
+		raw, err := s.vault.Open(ctx, "target:"+row.ID.String(), name)
+		switch {
+		case err == nil:
 			secrets[name] = string(raw)
+		case errors.Is(err, vault.ErrNotFound):
+			// Optional secrets (e.g. a guest share's password) are simply unset.
+		default:
+			return nil, fmt.Errorf("cannot read the stored %s for this target: %w", name, err)
 		}
 	}
 	return Open(ctx, row.Type, config, secrets)
 }
 
-// encryptionIdentity derives the age key for encrypted archives. It is a
-// dedicated secret so app backups can be decrypted with a key the admin can
-// export, independent of the vault master key (which must never live inside
-// a backup).
-func (s *Service) encryptionIdentity(ctx context.Context) (*age.X25519Identity, error) {
+var errNoBackupKey = errors.New("this installation has no backup encryption key yet, so it cannot have made this encrypted archive")
+
+// loadIdentity returns the age key for encrypted archives. It is a dedicated
+// secret so app backups can be decrypted with a key the admin can export,
+// independent of the vault master key (which must never live inside a
+// backup).
+//
+// A new key is only made when none is stored. Any other failure to read it —
+// the database is down, the master key is wrong, the row is damaged — is
+// returned as is: replacing the key then would leave every archive encrypted
+// with the old one undecryptable, with no sign of it until a restore fails.
+func (s *Service) loadIdentity(ctx context.Context, create bool) (*age.X25519Identity, error) {
+	s.identityMu.Lock()
+	defer s.identityMu.Unlock()
 	raw, err := s.vault.Open(ctx, "backup", "age-identity")
-	if err == nil {
-		return age.ParseX25519Identity(strings.TrimSpace(string(raw)))
+	switch {
+	case err == nil:
+		identity, perr := age.ParseX25519Identity(strings.TrimSpace(string(raw)))
+		if perr != nil {
+			return nil, fmt.Errorf("the stored backup encryption key is damaged: %w", perr)
+		}
+		return identity, nil
+	case !errors.Is(err, vault.ErrNotFound):
+		return nil, fmt.Errorf("cannot read the backup encryption key: %w", err)
+	case !create:
+		return nil, errNoBackupKey
 	}
 	identity, err := age.GenerateX25519Identity()
 	if err != nil {
@@ -90,6 +125,11 @@ func (s *Service) encryptionIdentity(ctx context.Context) (*age.X25519Identity, 
 		return nil, err
 	}
 	return identity, nil
+}
+
+// encryptionIdentity returns the backup key, creating it on first use.
+func (s *Service) encryptionIdentity(ctx context.Context) (*age.X25519Identity, error) {
+	return s.loadIdentity(ctx, true)
 }
 
 // ExportEncryptionKey returns the age identity string for admin download.
@@ -137,6 +177,16 @@ func (s *Service) runAppBackup(ctx context.Context, row *store.BackupTarget) (st
 	}
 	defer target.Close()
 
+	// Settle the backup key before dumping. On the first encrypted backup it
+	// is created here, and a dump taken before that would not contain it:
+	// restoring that archive would then delete the very key it needs.
+	var identity *age.X25519Identity
+	if row.Encrypt {
+		if identity, err = s.encryptionIdentity(ctx); err != nil {
+			return "", 0, err
+		}
+	}
+
 	// pg_dump to a temp file (custom format: compressed, pg_restore-able).
 	tmpDir, err := os.MkdirTemp("", "homehub-backup-*")
 	if err != nil {
@@ -168,12 +218,7 @@ func (s *Service) runAppBackup(ctx context.Context, row *store.BackupTarget) (st
 	}
 
 	var sink io.WriteCloser = archiveFile
-	if row.Encrypt {
-		identity, ierr := s.encryptionIdentity(ctx)
-		if ierr != nil {
-			archiveFile.Close()
-			return "", 0, ierr
-		}
+	if identity != nil {
 		encWriter, eerr := age.Encrypt(archiveFile, identity.Recipient())
 		if eerr != nil {
 			archiveFile.Close()
@@ -296,7 +341,7 @@ func (s *Service) InspectArchive(ctx context.Context, row *store.BackupTarget, p
 
 func (s *Service) readManifest(ctx context.Context, reader io.Reader, encrypted bool) (*Manifest, error) {
 	if encrypted {
-		identity, err := s.encryptionIdentity(ctx)
+		identity, err := s.loadIdentity(ctx, false)
 		if err != nil {
 			return nil, err
 		}
@@ -367,7 +412,7 @@ func (s *Service) restore(ctx context.Context, row *store.BackupTarget, path str
 
 	var stream io.Reader = reader
 	if strings.HasSuffix(path, ".age") {
-		identity, err := s.encryptionIdentity(ctx)
+		identity, err := s.loadIdentity(ctx, false)
 		if err != nil {
 			return err
 		}
