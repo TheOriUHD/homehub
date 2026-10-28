@@ -67,7 +67,7 @@ func (s *Server) assistantRuntime(
 				return s.SelfCall(cctx, id, method, path, body)
 			},
 			SSHRun: func(cctx context.Context, hostID, command string) (string, int, error) {
-				return s.runSSHOnHost(cctx, hostID, command)
+				return s.runSSHOnHost(cctx, id, hostID, command, false)
 			},
 		},
 	}
@@ -414,13 +414,11 @@ func (s *Server) applyAssistantAction(ctx context.Context, id *httpctx.Identity,
 		}
 		// Re-check permission at apply time: the proposal may be minutes old.
 		if !s.canShellOnSSHHost(ctx, id, hostID) {
-			s.deniedAudit(ctx, id, "ssh_host.agent_run", sshHostResource(hostID))
+			s.deniedAudit(ctx, id, "ssh.command", sshHostResource(hostID))
 			return summary, "", errors.New("not permitted")
 		}
-		out, exit, rerr := s.runSSHOnHost(ctx, p.HostID, p.Command)
-		s.audit.Log(ctx, actorFor(id), "ssh_host.agent_run", sshHostResource(hostID),
-			map[bool]string{true: "success", false: "error"}[rerr == nil && exit == 0],
-			map[string]any{"command": p.Command, "exit": exit})
+		// runSSHOnHost writes the audit entry, marked as approved.
+		out, exit, rerr := s.runSSHOnHost(ctx, id, p.HostID, p.Command, true)
 		if rerr != nil {
 			return summary, "", rerr
 		}

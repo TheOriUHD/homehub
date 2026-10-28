@@ -84,7 +84,7 @@ func (s *Server) telegramRuntime(ctx context.Context, userID uuid.UUID) (
 				return s.SelfCall(cctx, id, method, path, body)
 			},
 			SSHRun: func(cctx context.Context, hostID, command string) (string, int, error) {
-				return s.runSSHOnHost(cctx, hostID, command)
+				return s.runSSHOnHost(cctx, id, hostID, command, false)
 			},
 		},
 	}

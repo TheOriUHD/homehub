@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"homehub/internal/audit"
 	"homehub/internal/httpctx"
 	"homehub/internal/rbac"
 	"homehub/internal/sshguard"
@@ -311,25 +312,69 @@ const sshAgentOutputCap = 16 << 10
 // Classification and permission checks happen in the tool layer; this is the
 // execution path, and it re-checks the risk as a defence-in-depth backstop so
 // no future caller can route a blocked command through it.
-func (s *Server) runSSHOnHost(ctx context.Context, hostID, command string) (string, int, error) {
-	if v := sshguard.Classify(command); v.Risk == sshguard.RiskBlocked {
-		return "", 0, errors.New("refused: " + v.Reason)
+//
+// It is also the one place every assistant command passes, so it writes the
+// audit entry — for the read-only ones that ran unattended as much as for the
+// approved ones, since "the assistant looked at /etc/shadow" is exactly what
+// an audit trail is for. The command is recorded, its output is not.
+// approved says whether a person said yes to this exact command first.
+func (s *Server) runSSHOnHost(ctx context.Context, actor *httpctx.Identity, hostID, command string, approved bool) (string, int, error) {
+	// A command nobody can be named for is a command the audit log cannot
+	// account for, so it does not run.
+	if actor == nil {
+		return "", 0, errors.New("no identity to run this command under")
 	}
+	verdict := sshguard.Classify(command)
 	id, err := uuid.Parse(hostID)
 	if err != nil {
 		return "", 0, errors.New("bad host id")
+	}
+	detail := map[string]any{"command": command, "risk": string(verdict.Risk), "approved": approved}
+	logRun := func(outcome string, extra map[string]any) {
+		for k, v := range extra {
+			detail[k] = v
+		}
+		s.audit.Log(ctx, actorFor(actor), "ssh.command", sshHostResource(id), outcome, detail)
+	}
+	if gerr := assistantSSHGate(verdict, approved); gerr != nil {
+		logRun(audit.OutcomeDenied, map[string]any{"reason": gerr.Error()})
+		return "", 0, gerr
 	}
 	h, err := s.store.GetSSHHost(ctx, id)
 	if err != nil {
 		return "", 0, errors.New("that SSH host no longer exists")
 	}
+	detail["host"] = h.Name
 	target, terr := s.sshTargetForHost(ctx, h)
 	if terr != nil {
+		logRun(audit.OutcomeFailure, map[string]any{"error": terr.Error()})
 		return "", 0, terr
 	}
 	rctx, cancel := context.WithTimeout(ctx, sshAgentTimeout)
 	defer cancel()
-	return term.RunSSH(rctx, target, command, sshAgentOutputCap)
+	out, exit, rerr := term.RunSSH(rctx, target, command, sshAgentOutputCap)
+	switch {
+	case rerr != nil:
+		logRun(audit.OutcomeFailure, map[string]any{"error": rerr.Error()})
+	case exit != 0:
+		logRun(audit.OutcomeFailure, map[string]any{"exit": exit})
+	default:
+		logRun(audit.OutcomeSuccess, map[string]any{"exit": exit})
+	}
+	return out, exit, rerr
+}
+
+// assistantSSHGate is the backstop under the tool layer's classification: a
+// catastrophic command never runs, and an unattended run is for a read-only
+// command only — anything else needs the yes it was proposed for.
+func assistantSSHGate(v sshguard.Verdict, approved bool) error {
+	switch {
+	case v.Risk == sshguard.RiskBlocked:
+		return errors.New("refused: " + v.Reason)
+	case !approved && v.Risk != sshguard.RiskSafe:
+		return errors.New("that command needs approval first: " + v.Reason)
+	}
+	return nil
 }
 
 // ProvisionSSHHost is the one-click path to key auth: enter the address, the
