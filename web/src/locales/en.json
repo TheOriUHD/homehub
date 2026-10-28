@@ -2979,6 +2979,8 @@
     "clearTitle": "Clear conversation",
     "clearBody": "Deletes your chat history with the assistant. The assistant keeps no other memory.",
     "emptyHint": "Ask about your homelab.",
+    "remoteImage": "Image not loaded: {{alt}}",
+    "remoteImageUntitled": "Image not loaded",
     "emptyExamples": "“Is everything healthy?” · “How full is the NAS?” · “What alerts fired today?”",
     "placeholder": "Ask about your systems…",
     "send": "Send",

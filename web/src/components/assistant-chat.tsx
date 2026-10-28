@@ -1005,6 +1005,60 @@ function ConfirmCard({
 
 /** Markdown scoped to chat: bold, italics, code, lists, links, tables —
  * styled with design tokens, no raw HTML ever. */
+/**
+ * inlineImageAllowed decides whether an image in an answer may load. The
+ * model's words can carry text it read from a log, a calendar entry or a web
+ * page, so an answer is not trusted markup: a remote <img> would fetch its URL
+ * the moment it renders, and a URL can carry whatever the model was talked
+ * into putting in its query string. Only images that cannot leave the
+ * machine — inline data, or HomeHub's own origin — are drawn.
+ */
+function inlineImageAllowed(src: string | undefined): boolean {
+  if (!src) return false;
+  if (/^data:image\//i.test(src)) return true;
+  try {
+    return new URL(src, window.location.href).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+function hostOf(src: string): string {
+  try {
+    return new URL(src, window.location.href).host;
+  } catch {
+    return src;
+  }
+}
+
+function AssistantImage({ src, alt }: { src?: string; alt?: string }) {
+  const { t } = useTranslation();
+  if (inlineImageAllowed(src)) {
+    return <img src={src} alt={alt ?? ""} className="max-w-full rounded-md" />;
+  }
+  // The link stays: following it is the reader's choice, not a side effect
+  // of reading. Its host is spelled out so the choice is an informed one.
+  return (
+    <span className="text-fg-muted text-[12.5px]">
+      {alt ? t("assistant.remoteImage", { alt }) : t("assistant.remoteImageUntitled")}
+      {src && (
+        <>
+          {" · "}
+          <a
+            href={src}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            referrerPolicy="no-referrer"
+            className="text-accent underline underline-offset-2"
+          >
+            {hostOf(src)}
+          </a>
+        </>
+      )}
+    </span>
+  );
+}
+
 function AssistantMarkdown({ content }: { content: string }) {
   return (
     <div className="min-w-0 space-y-2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
@@ -1023,6 +1077,9 @@ function AssistantMarkdown({ content }: { content: string }) {
             >
               {children}
             </a>
+          ),
+          img: ({ src, alt }) => (
+            <AssistantImage src={typeof src === "string" ? src : undefined} alt={alt} />
           ),
           ul: (props) => <ul className="ml-4 list-disc space-y-1" {...props} />,
           ol: (props) => <ol className="ml-4 list-decimal space-y-1" {...props} />,

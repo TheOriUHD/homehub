@@ -540,7 +540,14 @@ func (b *Bot) send(ctx context.Context, token string, chatID int64, text string)
 }
 
 func (b *Bot) sendParsed(ctx context.Context, token string, chatID int64, text, parseMode string) error {
-	v := url.Values{"chat_id": {fmt.Sprint(chatID)}, "text": {text}}
+	// Link previews stay off: Telegram's servers would fetch any URL in the
+	// text the moment it is sent, so an answer the model was talked into
+	// writing could carry data out without anyone tapping anything.
+	v := url.Values{
+		"chat_id":              {fmt.Sprint(chatID)},
+		"text":                 {text},
+		"link_preview_options": {`{"is_disabled":true}`},
+	}
 	if parseMode != "" {
 		v.Set("parse_mode", parseMode)
 	}

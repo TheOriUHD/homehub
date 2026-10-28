@@ -2979,6 +2979,8 @@
     "clearTitle": "Unterhaltung leeren",
     "clearBody": "Löscht deinen Chatverlauf mit dem Assistenten. Der Assistent behält kein weiteres Gedächtnis.",
     "emptyHint": "Frag etwas über dein Homelab.",
+    "remoteImage": "Bild nicht geladen: {{alt}}",
+    "remoteImageUntitled": "Bild nicht geladen",
     "emptyExamples": "„Ist alles gesund?“ · „Wie voll ist das NAS?“ · „Welche Alarme gab es heute?“",
     "placeholder": "Frag etwas über deine Systeme…",
     "send": "Senden",
