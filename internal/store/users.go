@@ -129,25 +129,16 @@ func (s *Store) RecordLoginSuccess(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-// RecordLoginFailure increments the failure counter and, at or past the
-// threshold, sets locked_until with exponential backoff. Returns the new
-// counter and lock expiry.
-func (s *Store) RecordLoginFailure(ctx context.Context, id uuid.UUID, threshold int, baseLock, maxLock time.Duration) (int, *time.Time, error) {
+// CountLoginFailure increments the account's failure counter without locking
+// it. Lockout lives in the auth service, keyed per client IP, so a remote
+// party can't lock someone else out.
+func (s *Store) CountLoginFailure(ctx context.Context, id uuid.UUID) (int, error) {
 	var count int
-	var lockedUntil *time.Time
 	err := s.pool.QueryRow(ctx, `
-		update users
-		set failed_login_count = failed_login_count + 1,
-		    locked_until = case
-		        when failed_login_count + 1 >= $2 then
-		            now() + least($4::interval, $3::interval * power(2, failed_login_count + 1 - $2))
-		        else locked_until
-		    end,
-		    updated_at = now()
+		update users set failed_login_count = failed_login_count + 1, updated_at = now()
 		where id = $1
-		returning failed_login_count, locked_until`,
-		id, threshold, baseLock.String(), maxLock.String()).Scan(&count, &lockedUntil)
-	return count, lockedUntil, err
+		returning failed_login_count`, id).Scan(&count)
+	return count, err
 }
 
 // UserRoles returns role IDs held by a user.

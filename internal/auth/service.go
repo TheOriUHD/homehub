@@ -64,6 +64,7 @@ type Service struct {
 	state       *stateStore
 	ipLimiter   *keyedLimiter
 	userLimiter *keyedLimiter
+	throttle    *loginThrottle
 
 	// dummyHash equalizes timing between "unknown user" and "wrong password".
 	dummyHash string
@@ -92,6 +93,7 @@ func New(st *store.Store, v *vault.Vault, aud *audit.Service, set *settings.Serv
 		state:       newStateStore(),
 		ipLimiter:   newKeyedLimiter(30, 15),
 		userLimiter: newKeyedLimiter(10, 5),
+		throttle:    newLoginThrottle(),
 		dummyHash:   dummy,
 	}
 }
@@ -117,16 +119,36 @@ type pendingMFA struct {
 
 // PasswordLogin verifies the first factor and either issues a session or
 // opens a pending MFA challenge.
+//
+// Brute-force protection never refuses one client because of another: the
+// per-username token bucket and the lockout are keyed on username AND client
+// IP, the per-IP bucket on the IP alone, and failures from everywhere only
+// slow attempts for a username down (see loginThrottle).
 func (s *Service) PasswordLogin(ctx context.Context, username, password, ip, userAgent string) (*LoginOutcome, error) {
-	if !s.ipLimiter.Allow("ip:"+ip) || !s.userLimiter.Allow("user:"+username) {
+	if !s.ipLimiter.Allow("ip:"+ip) || !s.userLimiter.Allow("user:"+pairKey(username, ip)) {
 		return nil, ErrRateLimited
 	}
-
 	actor := audit.Actor{Kind: "user", Name: username, IP: ip}
+	lockedUntil, delay := s.throttle.check(username, ip)
+	if !lockedUntil.IsZero() {
+		s.audit.Log(ctx, actor, "auth.login", "", audit.OutcomeFailure, map[string]any{"reason": "locked"})
+		return nil, &LockedError{Until: lockedUntil}
+	}
+	if delay > 0 {
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
 	user, err := s.store.GetUserByUsername(ctx, username)
 	if err != nil {
 		if err == store.ErrNotFound {
 			_, _ = VerifyPassword(password, s.dummyHash)
+			// Throttled like a real account, so the lock/delay behaviour
+			// doesn't reveal which usernames exist.
+			s.throttle.fail(username, ip)
 			s.audit.Log(ctx, actor, "auth.login", "", audit.OutcomeFailure, map[string]any{"reason": "unknown_user"})
 			return nil, ErrInvalidCredentials
 		}
@@ -137,12 +159,9 @@ func (s *Service) PasswordLogin(ctx context.Context, username, password, ip, use
 
 	if user.Status != "active" || user.PasswordHash == nil {
 		_, _ = VerifyPassword(password, s.dummyHash)
+		s.throttle.fail(username, ip)
 		s.audit.Log(ctx, actor, "auth.login", "", audit.OutcomeFailure, map[string]any{"reason": "inactive"})
 		return nil, ErrInvalidCredentials
-	}
-	if user.LockedUntil != nil && user.LockedUntil.After(time.Now()) {
-		s.audit.Log(ctx, actor, "auth.login", "", audit.OutcomeFailure, map[string]any{"reason": "locked"})
-		return nil, &LockedError{Until: *user.LockedUntil}
 	}
 
 	ok, err := VerifyPassword(password, *user.PasswordHash)
@@ -150,16 +169,19 @@ func (s *Service) PasswordLogin(ctx context.Context, username, password, ip, use
 		return nil, err
 	}
 	if !ok {
-		count, lockedUntil, ferr := s.store.RecordLoginFailure(ctx, user.ID, lockoutThreshold, lockoutBase, lockoutMax)
+		// The account-wide counter is kept for visibility only; it no longer
+		// locks the account (that was the remote lock-out lever).
+		count, ferr := s.store.CountLoginFailure(ctx, user.ID)
 		if ferr != nil {
 			s.logger.Error("record login failure", "error", ferr)
 		}
 		s.audit.Log(ctx, actor, "auth.login", "", audit.OutcomeFailure, map[string]any{"reason": "bad_password", "failures": count})
-		if lockedUntil != nil && lockedUntil.After(time.Now()) {
-			return nil, &LockedError{Until: *lockedUntil}
+		if until := s.throttle.fail(username, ip); until.After(time.Now()) {
+			return nil, &LockedError{Until: until}
 		}
 		return nil, ErrInvalidCredentials
 	}
+	s.throttle.succeed(username, ip)
 
 	methods, mfaRequired, err := s.mfaMethods(ctx, user.ID)
 	if err != nil {
