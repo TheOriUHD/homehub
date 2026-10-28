@@ -168,11 +168,19 @@ var trustedProxies []*net.IPNet
 func SetTrustedProxies(nets []*net.IPNet) { trustedProxies = nets }
 
 // ClientIP extracts the caller address. Reverse-proxy headers
-// (X-Real-Ip / X-Forwarded-For) are honored ONLY when the direct socket peer
+// (X-Forwarded-For / X-Real-Ip) are honored ONLY when the direct socket peer
 // is a configured trusted proxy — otherwise a direct LAN caller could forge
 // its source IP, defeating the login rate-limiter and poisoning audit/session
 // records. With no trusted proxies configured (the default), the client IP is
 // always the real socket peer.
+//
+// X-Forwarded-For is walked from the RIGHT: each proxy appends the address it
+// received the connection from, so the rightmost entries are the ones our own
+// proxies wrote and the leftmost are whatever the client chose to send. The
+// first address that is not itself a trusted proxy is the real client. Taking
+// the leftmost entry (as a naive parser does) lets any caller pick its IP.
+// X-Real-Ip is a single-hop header many proxies pass through untouched, so it
+// is only a fallback when the proxy sent no X-Forwarded-For at all.
 func ClientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -181,13 +189,27 @@ func ClientIP(r *http.Request) string {
 	if !peerIsTrustedProxy(host) {
 		return host
 	}
-	if ip := strings.TrimSpace(r.Header.Get("X-Real-Ip")); ip != "" {
-		return ip
-	}
-	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-		if first, _, _ := strings.Cut(fwd, ","); strings.TrimSpace(first) != "" {
-			return strings.TrimSpace(first)
+	if fwd := r.Header.Values("X-Forwarded-For"); len(fwd) > 0 {
+		// Multiple header lines are one logical list, in order.
+		hops := strings.Split(strings.Join(fwd, ","), ",")
+		for i := len(hops) - 1; i >= 0; i-- {
+			hop := strings.TrimSpace(hops[i])
+			ip := net.ParseIP(hop)
+			if ip == nil {
+				// Garbage in the chain: everything left of it is unverifiable,
+				// so stop at the last proxy we do trust.
+				return host
+			}
+			if !peerIsTrustedProxy(hop) {
+				return ip.String()
+			}
+			host = ip.String()
 		}
+		// Every hop was a trusted proxy — the leftmost one is the client.
+		return host
+	}
+	if ip := net.ParseIP(strings.TrimSpace(r.Header.Get("X-Real-Ip"))); ip != nil {
+		return ip.String()
 	}
 	return host
 }
