@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type Invite struct {
@@ -64,4 +65,37 @@ func (s *Store) MarkInviteUsed(ctx context.Context, id uuid.UUID) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// RedeemInvite claims an invite and sets the invited user's password in one
+// transaction. Claiming first, under the row's used_at guard, means two
+// concurrent redemptions can't both set a password: the loser's claim
+// matches no row, nothing it did is committed, and it gets ErrNotFound.
+// (Setting the password before claiming let the losing request overwrite
+// the winner's password.)
+func (s *Store) RedeemInvite(ctx context.Context, inviteID, userID uuid.UUID, passwordHash string) error {
+	return s.WithTx(ctx, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `
+			update invites set used_at = now()
+			where id = $1 and user_id = $2 and used_at is null and expires_at > now()`,
+			inviteID, userID)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrNotFound
+		}
+		tag, err = tx.Exec(ctx, `
+			update users
+			set password_hash = $2, must_change_password = false, password_changed_at = now(),
+			    failed_login_count = 0, locked_until = null, updated_at = now()
+			where id = $1 and status = 'active'`, userID, passwordHash)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
 }
