@@ -52,6 +52,10 @@ type Pin struct {
 	port     int
 	expected string // pinned fingerprint, "" if none yet
 	observed string // fingerprint seen during the handshake
+	// loadErr is set when the pin store could not be read. Verify then
+	// refuses every key: "could not look it up" is not "nothing pinned", and
+	// treating it as first contact would let any key through and pin it.
+	loadErr error
 }
 
 // For loads any pinned fingerprint for host:port ahead of dialing. Use the
@@ -60,7 +64,10 @@ type Pin struct {
 func For(ctx context.Context, host string, port int) *Pin {
 	p := &Pin{host: host, port: port}
 	if b := current(); b != nil {
-		if fp, err := b.GetSSHHostKey(ctx, host, port); err == nil {
+		fp, err := b.GetSSHHostKey(ctx, host, port)
+		if err != nil {
+			p.loadErr = err
+		} else {
 			p.expected = fp
 		}
 	}
@@ -70,8 +77,13 @@ func For(ctx context.Context, host string, port int) *Pin {
 // Verify is the HostKeyCallback: it records the presented key's fingerprint and
 // rejects the connection when a pinned key no longer matches (host rebuilt or a
 // LAN man-in-the-middle). On first contact (no pin yet) it accepts and records.
+// When the pin could not be loaded it fails closed.
 func (p *Pin) Verify(_ string, _ net.Addr, key ssh.PublicKey) error {
 	p.observed = ssh.FingerprintSHA256(key)
+	if p.loadErr != nil {
+		return fmt.Errorf("cannot check the host key for %s — the pinned keys could not be read (%v); refusing to connect",
+			net.JoinHostPort(p.host, fmt.Sprint(p.port)), p.loadErr)
+	}
 	if p.expected != "" && p.observed != p.expected {
 		return fmt.Errorf(
 			"host key changed for %s — refusing to connect (pinned %s, now %s). "+
@@ -86,7 +98,7 @@ func (p *Pin) Verify(_ string, _ net.Addr, key ssh.PublicKey) error {
 // once a key is pinned (PinSSHHostKey won't overwrite). Safe to call after any
 // successful dial.
 func (p *Pin) Commit(ctx context.Context) {
-	if p.expected != "" || p.observed == "" {
+	if p.loadErr != nil || p.expected != "" || p.observed == "" {
 		return
 	}
 	if b := current(); b != nil {
