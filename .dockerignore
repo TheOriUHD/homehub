@@ -1,6 +1,14 @@
 .git
+.github
+.claude
 bin
 data
+*.log
 web/node_modules
 web/dist
-*.log
+# Rebuilt inside the image; stale host copies must not leak in.
+companion/dist
+companion/.gradle
+companion/**/.gradle
+companion/**/build
+helper/dist
