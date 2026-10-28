@@ -38,6 +38,11 @@ func openSMB(ctx context.Context, config map[string]any, secrets map[string]stri
 		return nil, errors.New("an SMB username is required (use 'guest' for guest shares)")
 	}
 
+	subdir, err := cleanSubdir("subfolder", cfgString(config, "subdir"))
+	if err != nil {
+		return nil, err
+	}
+
 	dialer := net.Dialer{Timeout: 10 * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", host)
 	if err != nil {
@@ -62,7 +67,6 @@ func openSMB(ctx context.Context, config map[string]any, secrets map[string]stri
 		conn.Close()
 		return nil, fmt.Errorf("cannot open share %q — check the share name and its permissions: %w", shareName, err)
 	}
-	subdir := strings.Trim(cfgString(config, "subdir"), "/")
 	if subdir != "" {
 		if err := share.MkdirAll(toSMBPath(subdir), 0o750); err != nil && !os.IsExist(err) {
 			session.Logoff()
@@ -78,11 +82,15 @@ func toSMBPath(p string) string {
 	return strings.ReplaceAll(p, "/", `\`)
 }
 
-func (t *smbTarget) full(p string) string {
-	if t.subdir == "" {
-		return toSMBPath(p)
+func (t *smbTarget) full(p string) (string, error) {
+	clean, err := cleanObjectPath(p)
+	if err != nil {
+		return "", err
 	}
-	return toSMBPath(path.Join(t.subdir, p))
+	if t.subdir == "" {
+		return toSMBPath(clean), nil
+	}
+	return toSMBPath(path.Join(t.subdir, clean)), nil
 }
 
 func (t *smbTarget) Close() {
@@ -94,7 +102,10 @@ func (t *smbTarget) Close() {
 func (t *smbTarget) Test(ctx context.Context) error { return runProbe(ctx, t) }
 
 func (t *smbTarget) Write(_ context.Context, p string, r io.Reader, _ int64) error {
-	full := t.full(p)
+	full, err := t.full(p)
+	if err != nil {
+		return err
+	}
 	if dir := path.Dir(strings.ReplaceAll(full, `\`, "/")); dir != "." && dir != "/" {
 		_ = t.share.MkdirAll(toSMBPath(dir), 0o750)
 	}
@@ -117,7 +128,11 @@ func (t *smbTarget) Write(_ context.Context, p string, r io.Reader, _ int64) err
 }
 
 func (t *smbTarget) Read(_ context.Context, p string) (io.ReadCloser, error) {
-	return t.share.Open(t.full(p))
+	full, err := t.full(p)
+	if err != nil {
+		return nil, err
+	}
+	return t.share.Open(full)
 }
 
 func (t *smbTarget) List(_ context.Context, prefix string) ([]Entry, error) {
@@ -162,7 +177,11 @@ func (t *smbTarget) List(_ context.Context, prefix string) ([]Entry, error) {
 }
 
 func (t *smbTarget) Delete(_ context.Context, p string) error {
-	return t.share.Remove(t.full(p))
+	full, err := t.full(p)
+	if err != nil {
+		return err
+	}
+	return t.share.Remove(full)
 }
 
 func (t *smbTarget) Capacity(context.Context) (Capacity, error) {

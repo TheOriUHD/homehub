@@ -37,6 +37,11 @@ func openNFS(_ context.Context, config map[string]any) (Target, error) {
 		gid = uint32(v)
 	}
 
+	subdir, err := cleanSubdir("subfolder", cfgString(config, "subdir"))
+	if err != nil {
+		return nil, err
+	}
+
 	mount, err := nfs.DialMount(host)
 	if err != nil {
 		return nil, fmt.Errorf("cannot reach the NFS server at %s (portmapper/mountd): %w", host, err)
@@ -47,7 +52,7 @@ func openNFS(_ context.Context, config map[string]any) (Target, error) {
 		mount.Close()
 		return nil, fmt.Errorf("cannot mount export %q — check the export path and that this host is allowed: %w", export, err)
 	}
-	t := &nfsTarget{mount: mount, target: target, subdir: strings.Trim(cfgString(config, "subdir"), "/")}
+	t := &nfsTarget{mount: mount, target: target, subdir: subdir}
 	if t.subdir != "" {
 		if _, err := target.Mkdir(t.subdir, 0o750); err != nil && !os.IsExist(err) {
 			// Existing directories are fine; report anything else.
@@ -65,17 +70,24 @@ func (t *nfsTarget) Close() {
 	_ = t.mount.Close()
 }
 
-func (t *nfsTarget) full(p string) string {
-	if t.subdir == "" {
-		return p
+func (t *nfsTarget) full(p string) (string, error) {
+	clean, err := cleanObjectPath(p)
+	if err != nil {
+		return "", err
 	}
-	return path.Join(t.subdir, p)
+	if t.subdir == "" {
+		return clean, nil
+	}
+	return path.Join(t.subdir, clean), nil
 }
 
 func (t *nfsTarget) Test(ctx context.Context) error { return runProbe(ctx, t) }
 
 func (t *nfsTarget) Write(_ context.Context, p string, r io.Reader, _ int64) error {
-	full := t.full(p)
+	full, err := t.full(p)
+	if err != nil {
+		return err
+	}
 	if dir := path.Dir(full); dir != "." {
 		mkdirAllNFS(t.target, dir)
 	}
@@ -109,7 +121,11 @@ func mkdirAllNFS(target *nfs.Target, dir string) {
 }
 
 func (t *nfsTarget) Read(_ context.Context, p string) (io.ReadCloser, error) {
-	return t.target.Open(t.full(p))
+	full, err := t.full(p)
+	if err != nil {
+		return nil, err
+	}
+	return t.target.Open(full)
 }
 
 func (t *nfsTarget) List(_ context.Context, prefix string) ([]Entry, error) {
@@ -159,7 +175,11 @@ func (t *nfsTarget) List(_ context.Context, prefix string) ([]Entry, error) {
 }
 
 func (t *nfsTarget) Delete(_ context.Context, p string) error {
-	return t.target.Remove(t.full(p))
+	full, err := t.full(p)
+	if err != nil {
+		return err
+	}
+	return t.target.Remove(full)
 }
 
 func (t *nfsTarget) Capacity(context.Context) (Capacity, error) {

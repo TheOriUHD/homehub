@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
 	"strings"
 	"time"
 )
@@ -67,6 +68,48 @@ func Open(ctx context.Context, typ string, config map[string]any, secrets map[st
 func cfgString(config map[string]any, key string) string {
 	v, _ := config[key].(string)
 	return strings.TrimSpace(v)
+}
+
+// cleanObjectPath validates a path that a target joins onto its configured
+// root: an archive name from the API, or a name the backup service builds. It
+// must stay inside the root, so absolute paths, backslashes (a separator on
+// SMB), NUL and any ".." segment are refused outright rather than cleaned
+// into something that merely looks harmless.
+func cleanObjectPath(p string) (string, error) {
+	if p == "" {
+		return "", errors.New("path is empty")
+	}
+	if strings.HasPrefix(p, "/") {
+		return "", fmt.Errorf("path %q must be relative to the backup location", p)
+	}
+	if strings.ContainsAny(p, "\\\x00") {
+		return "", fmt.Errorf("path %q contains a character that is not allowed", p)
+	}
+	for _, seg := range strings.Split(p, "/") {
+		if seg == ".." {
+			return "", fmt.Errorf("path %q must not contain \"..\"", p)
+		}
+	}
+	clean := path.Clean(p)
+	if clean == "." {
+		return "", fmt.Errorf("path %q names the backup location itself", p)
+	}
+	return clean, nil
+}
+
+// cleanSubdir validates a configured subfolder or key prefix. Leading and
+// trailing slashes are dropped (it is always relative to the share, export or
+// bucket); empty means the root itself.
+func cleanSubdir(field, raw string) (string, error) {
+	trimmed := strings.Trim(raw, "/")
+	if trimmed == "" {
+		return "", nil
+	}
+	clean, err := cleanObjectPath(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", field, err)
+	}
+	return clean, nil
 }
 
 // probeName is the object written and removed by Test.

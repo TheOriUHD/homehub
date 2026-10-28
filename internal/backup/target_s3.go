@@ -30,6 +30,10 @@ func openS3(config map[string]any, secrets map[string]string) (Target, error) {
 	if secrets["accessKey"] == "" || secrets["secretKey"] == "" {
 		return nil, errors.New("access key and secret key are required")
 	}
+	prefix, err := cleanSubdir("key prefix", cfgString(config, "prefix"))
+	if err != nil {
+		return nil, err
+	}
 	useSSL := true
 	if strings.HasPrefix(endpoint, "http://") {
 		useSSL = false
@@ -48,17 +52,25 @@ func openS3(config map[string]any, secrets map[string]string) (Target, error) {
 	return &s3Target{
 		client: client,
 		bucket: bucket,
-		prefix: strings.Trim(cfgString(config, "prefix"), "/"),
+		prefix: prefix,
 	}, nil
 }
 
 func (t *s3Target) Close() {}
 
-func (t *s3Target) full(p string) string {
-	if t.prefix == "" {
-		return p
+// full maps an object path to its key. S3 has no directories to escape, but
+// some gateways (MinIO, Garage on a filesystem backend) map keys onto paths,
+// and a ".." key would still step outside the configured prefix for anything
+// that lists or prunes by it.
+func (t *s3Target) full(p string) (string, error) {
+	clean, err := cleanObjectPath(p)
+	if err != nil {
+		return "", err
 	}
-	return path.Join(t.prefix, p)
+	if t.prefix == "" {
+		return clean, nil
+	}
+	return path.Join(t.prefix, clean), nil
 }
 
 func (t *s3Target) Test(ctx context.Context) error {
@@ -73,14 +85,22 @@ func (t *s3Target) Test(ctx context.Context) error {
 }
 
 func (t *s3Target) Write(ctx context.Context, p string, r io.Reader, size int64) error {
-	_, err := t.client.PutObject(ctx, t.bucket, t.full(p), r, size, minio.PutObjectOptions{
+	key, err := t.full(p)
+	if err != nil {
+		return err
+	}
+	_, err = t.client.PutObject(ctx, t.bucket, key, r, size, minio.PutObjectOptions{
 		ContentType: "application/octet-stream",
 	})
 	return err
 }
 
 func (t *s3Target) Read(ctx context.Context, p string) (io.ReadCloser, error) {
-	obj, err := t.client.GetObject(ctx, t.bucket, t.full(p), minio.GetObjectOptions{})
+	key, err := t.full(p)
+	if err != nil {
+		return nil, err
+	}
+	obj, err := t.client.GetObject(ctx, t.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +114,21 @@ func (t *s3Target) Read(ctx context.Context, p string) (io.ReadCloser, error) {
 
 func (t *s3Target) List(ctx context.Context, prefix string) ([]Entry, error) {
 	entries := []Entry{}
-	listPrefix := t.full(prefix)
+	listPrefix := t.prefix
+	if prefix != "" {
+		key, err := t.full(prefix)
+		if err != nil {
+			return nil, err
+		}
+		// path.Clean drops the trailing slash that makes "homehub/" a
+		// folder prefix rather than a name prefix.
+		if strings.HasSuffix(prefix, "/") {
+			key += "/"
+		}
+		listPrefix = key
+	} else if listPrefix != "" {
+		listPrefix += "/"
+	}
 	for object := range t.client.ListObjects(ctx, t.bucket, minio.ListObjectsOptions{
 		Prefix: listPrefix, Recursive: true,
 	}) {
@@ -112,7 +146,11 @@ func (t *s3Target) List(ctx context.Context, prefix string) ([]Entry, error) {
 }
 
 func (t *s3Target) Delete(ctx context.Context, p string) error {
-	return t.client.RemoveObject(ctx, t.bucket, t.full(p), minio.RemoveObjectOptions{})
+	key, err := t.full(p)
+	if err != nil {
+		return err
+	}
+	return t.client.RemoveObject(ctx, t.bucket, key, minio.RemoveObjectOptions{})
 }
 
 func (t *s3Target) Capacity(context.Context) (Capacity, error) {
