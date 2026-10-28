@@ -21,6 +21,7 @@ export function SetupPage() {
     staleTime: 0,
   });
 
+  const [setupToken, setSetupToken] = useState("");
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
@@ -31,7 +32,12 @@ export function SetupPage() {
     mutationFn: async () =>
       unwrap(
         await api.POST("/setup", {
-          body: { username, displayName, password },
+          body: {
+            setupToken: setupToken.trim(),
+            username,
+            displayName,
+            password,
+          },
         }),
       ),
     onSuccess: async () => {
@@ -51,12 +57,20 @@ export function SetupPage() {
     return <Navigate to="/login" />;
   }
 
-  const apiError = submit.error && isApiError(submit.error) ? submit.error.message : null;
+  const tokenError = isApiError(submit.error, "invalid_setup_token")
+    ? t("setup.tokenWrong")
+    : null;
+  const apiError =
+    submit.error && isApiError(submit.error) && !tokenError
+      ? submit.error.message
+      : null;
 
   return (
     <AuthLayout footer={status.data ? `v${status.data.version}` : undefined}>
       <h1 className="text-fg text-lg font-semibold">{t("setup.welcome")}</h1>
-      <p className="text-fg-muted mt-1.5 mb-5 text-[13px]">{t("setup.intro")}</p>
+      <p className="text-fg-muted mt-1.5 mb-5 text-[13px]">
+        {t("setup.intro")}
+      </p>
 
       <form
         className="space-y-4"
@@ -70,11 +84,32 @@ export function SetupPage() {
           submit.mutate();
         }}
       >
-        <Field label={t("setup.username")} hint={t("setup.usernameHint")}>
+        <Field
+          label={t("setup.token")}
+          hint={
+            status.data?.setupTokenPath
+              ? t("setup.tokenHint", { path: status.data.setupTokenPath })
+              : t("setup.tokenHintNoPath")
+          }
+          error={tokenError}
+        >
           {(p) => (
             <Input
               {...p}
               autoFocus
+              autoComplete="off"
+              spellCheck={false}
+              required
+              className="font-mono"
+              value={setupToken}
+              onChange={(e) => setSetupToken(e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label={t("setup.username")} hint={t("setup.usernameHint")}>
+          {(p) => (
+            <Input
+              {...p}
               autoComplete="username"
               required
               minLength={3}
@@ -106,7 +141,10 @@ export function SetupPage() {
             />
           )}
         </Field>
-        <Field label={t("setup.confirmPassword")} error={localError ?? apiError}>
+        <Field
+          label={t("setup.confirmPassword")}
+          error={localError ?? apiError}
+        >
           {(p) => (
             <PasswordInput
               {...p}
@@ -117,7 +155,13 @@ export function SetupPage() {
             />
           )}
         </Field>
-        <Button type="submit" variant="primary" size="lg" className="w-full" loading={submit.isPending}>
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          className="w-full"
+          loading={submit.isPending}
+        >
           {submit.isPending ? t("setup.creating") : t("setup.createAccount")}
         </Button>
       </form>

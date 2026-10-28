@@ -82,7 +82,11 @@
     "createAccount": "Create account",
     "creating": "Creating…",
     "alreadySetUp": "This HomeHub is already set up.",
-    "goToLogin": "Go to sign-in"
+    "goToLogin": "Go to sign-in",
+    "token": "Setup token",
+    "tokenHint": "Proves you installed this server. Find it in the HomeHub log (homehubctl logs, docker compose logs) or in the file {{path}} on the server.",
+    "tokenHintNoPath": "Proves you installed this server. Find it in the HomeHub log (homehubctl logs, docker compose logs) or in the setup-token file in the data directory.",
+    "tokenWrong": "That setup token is not right — copy it again from the server log or the setup-token file."
   },
   "login": {
     "title": "Sign in to HomeHub",

@@ -32,7 +32,7 @@ export interface paths {
         put?: never;
         /**
          * Create the first administrator account
-         * @description Only succeeds while the instance has zero users. Signs the new administrator in.
+         * @description Only succeeds while the instance has zero users, and only with the one-time setup token the server printed to its log and wrote to the data directory at startup. Exactly one concurrent submission wins; the others get 409. Signs the new administrator in.
          */
         post: operations["completeSetup"];
         delete?: never;
@@ -7267,6 +7267,8 @@ export interface operations {
                     "application/json": {
                         needsSetup: boolean;
                         version: string;
+                        /** @description While setup is pending, the file on the server that holds the one-time setup token (it is also written to the server log). */
+                        setupTokenPath?: string;
                     };
                 };
             };
@@ -7282,6 +7284,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    setupToken: string;
                     username: string;
                     password: string;
                     displayName: string;
@@ -7293,6 +7296,7 @@ export interface operations {
         responses: {
             200: components["responses"]["SessionUser"];
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
         };
     };

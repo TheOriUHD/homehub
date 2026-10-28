@@ -40,12 +40,19 @@ paths:
                 properties:
                   needsSetup: { type: boolean }
                   version: { type: string }
+                  setupTokenPath:
+                    type: string
+                    description: While setup is pending, the file on the server that holds the one-time setup token (it is also written to the server log).
 
   /setup:
     post:
       operationId: completeSetup
       summary: Create the first administrator account
-      description: Only succeeds while the instance has zero users. Signs the new administrator in.
+      description: >-
+        Only succeeds while the instance has zero users, and only with the
+        one-time setup token the server printed to its log and wrote to the
+        data directory at startup. Exactly one concurrent submission wins;
+        the others get 409. Signs the new administrator in.
       security: []
       tags: [setup]
       requestBody:
@@ -54,8 +61,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [username, password, displayName]
+              required: [username, password, displayName, setupToken]
               properties:
+                setupToken: { type: string, minLength: 1, maxLength: 128 }
                 username: { type: string, minLength: 3, maxLength: 64 }
                 password: { type: string, minLength: 12, maxLength: 512 }
                 displayName: { type: string, minLength: 1, maxLength: 128 }
@@ -67,6 +75,8 @@ paths:
           $ref: "#/components/responses/SessionUser"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
 

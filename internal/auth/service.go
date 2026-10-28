@@ -67,7 +67,16 @@ type Service struct {
 
 	// dummyHash equalizes timing between "unknown user" and "wrong password".
 	dummyHash string
+
+	setup *SetupGate
 }
+
+// UseSetupGate installs the first-run setup token gate. Called once during
+// wiring.
+func (s *Service) UseSetupGate(g *SetupGate) { s.setup = g }
+
+// SetupGate returns the first-run setup token gate.
+func (s *Service) SetupGate() *SetupGate { return s.setup }
 
 func New(st *store.Store, v *vault.Vault, aud *audit.Service, set *settings.Service, logger *slog.Logger) *Service {
 	dummy, err := HashPassword(uuid.NewString())

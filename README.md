@@ -124,8 +124,12 @@ Requirements: Docker with the compose plugin.
 docker compose up -d
 ```
 
-Open `http://<host>:8080` and follow the setup wizard: create the
-administrator account and you're in. Everything else — users, roles,
+Open `http://<host>:8080` and follow the setup wizard: enter the one-time
+setup token, then create the administrator account and you're in. The token
+proves you are the one who installed the server: HomeHub prints it to its
+log on startup (`docker compose logs homehub`, `homehubctl logs` or
+`journalctl -u homehub`) and writes it to `<data dir>/setup-token`; it is
+deleted once the account exists. Everything else — users, roles,
 integrations, backups — is configured inside the app.
 
 ### Configuration

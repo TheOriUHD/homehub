@@ -103,6 +103,14 @@ func Run(ctx context.Context) error {
 	auditSvc := audit.New(st, logger)
 	engine := rbac.NewEngine(st)
 	authSvc := auth.New(st, v, auditSvc, settingsSvc, logger)
+	authSvc.UseSetupGate(auth.NewSetupGate(cfg.DataDir, logger))
+	if n, err := st.CountUsers(ctx); err == nil && n == 0 {
+		// Print the token now, so it is in the log the admin is already
+		// watching while the service starts.
+		if err := authSvc.SetupGate().Ensure(); err != nil {
+			return fmt.Errorf("prepare setup token: %w", err)
+		}
+	}
 	jobEngine := jobs.New(st, logger, 4)
 	registerMaintenance(jobEngine, st, logger)
 
