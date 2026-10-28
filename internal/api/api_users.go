@@ -69,6 +69,12 @@ func (s *Server) CreateUser(ctx context.Context, req CreateUserRequestObject) (C
 			return CreateUser400JSONResponse{BadRequestJSONResponse(errBody("no_such_role", "one of the selected roles does not exist"))}, nil
 		}
 	}
+	if ok, err := s.rolesWithinCaller(ctx, id, roleIDs); err != nil {
+		return nil, err
+	} else if !ok {
+		s.deniedAudit(ctx, id, "user.create", ResUsers)
+		return CreateUser403JSONResponse{errExceedsOwn()}, nil
+	}
 
 	result, apiErr, err := s.createUserWithOnboarding(ctx, id, username, displayName, email, roleIDs, string(req.Body.Onboarding))
 	if err != nil {
@@ -210,6 +216,12 @@ func (s *Server) UpdateUser(ctx context.Context, req UpdateUserRequestObject) (U
 		}
 		return nil, err
 	}
+	if ok, err := s.outranks(ctx, id, user.ID); err != nil {
+		return nil, err
+	} else if !ok {
+		s.deniedAudit(ctx, id, "user.update", ResUsers)
+		return UpdateUser403JSONResponse{errExceedsOwn()}, nil
+	}
 
 	changes := map[string]any{}
 
@@ -284,6 +296,12 @@ func (s *Server) UpdateUser(ctx context.Context, req UpdateUserRequestObject) (U
 				return UpdateUser400JSONResponse{BadRequestJSONResponse(errBody("no_such_role", "one of the selected roles does not exist"))}, nil
 			}
 		}
+		if ok, err := s.rolesWithinCaller(ctx, id, *req.Body.RoleIds); err != nil {
+			return nil, err
+		} else if !ok {
+			s.deniedAudit(ctx, id, "user.update", ResUsers)
+			return UpdateUser403JSONResponse{errExceedsOwn()}, nil
+		}
 		if err := s.store.SetUserRoles(ctx, user.ID, *req.Body.RoleIds); err != nil {
 			return nil, err
 		}
@@ -294,6 +312,12 @@ func (s *Server) UpdateUser(ctx context.Context, req UpdateUserRequestObject) (U
 		specs, msg := grantSpecsFromInput(*req.Body.Overrides)
 		if msg != "" {
 			return UpdateUser400JSONResponse{BadRequestJSONResponse(errBody("invalid_grant", msg))}, nil
+		}
+		if ok, err := s.specsWithinCaller(ctx, id, specs); err != nil {
+			return nil, err
+		} else if !ok {
+			s.deniedAudit(ctx, id, "user.update", ResUsers)
+			return UpdateUser403JSONResponse{errExceedsOwn()}, nil
 		}
 		if err := s.store.ReplaceUserGrants(ctx, user.ID, specs); err != nil {
 			return nil, err
@@ -371,6 +395,12 @@ func (s *Server) DeleteUser(ctx context.Context, req DeleteUserRequestObject) (D
 		}
 		return nil, err
 	}
+	if ok, err := s.outranks(ctx, id, user.ID); err != nil {
+		return nil, err
+	} else if !ok {
+		s.deniedAudit(ctx, id, "user.delete", ResUsers)
+		return DeleteUser403JSONResponse{errExceedsOwn()}, nil
+	}
 	if err := s.guardOwnerLockout(ctx, user.ID, nil); err != nil {
 		return DeleteUser400JSONResponse{BadRequestJSONResponse(errBody("last_owner", err.Error()))}, nil
 	}
@@ -397,6 +427,14 @@ func (s *Server) ResetUserCredentials(ctx context.Context, req ResetUserCredenti
 			return ResetUserCredentials404JSONResponse{notFoundErr("user")}, nil
 		}
 		return nil, err
+	}
+	// A reset hands the caller the target's next password — signing in as
+	// them — so it takes outranking them, not just the users grant.
+	if ok, err := s.outranks(ctx, id, user.ID); err != nil {
+		return nil, err
+	} else if !ok {
+		s.deniedAudit(ctx, id, "user.reset_credentials", ResUsers)
+		return ResetUserCredentials403JSONResponse{errExceedsOwn()}, nil
 	}
 
 	result := &CreateUserResult{}
@@ -483,6 +521,12 @@ func (s *Server) RevokeUserSessions(ctx context.Context, req RevokeUserSessionsR
 			return RevokeUserSessions404JSONResponse{notFoundErr("user")}, nil
 		}
 		return nil, err
+	}
+	if ok, err := s.outranks(ctx, id, user.ID); err != nil {
+		return nil, err
+	} else if !ok {
+		s.deniedAudit(ctx, id, "user.revoke_sessions", ResUsers)
+		return RevokeUserSessions403JSONResponse{errExceedsOwn()}, nil
 	}
 	n, err := s.store.RevokeUserSessions(ctx, user.ID, nil)
 	if err != nil {

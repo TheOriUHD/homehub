@@ -258,3 +258,57 @@ func ValidLevels(levels []string) bool {
 	}
 	return true
 }
+
+// Covers reports whether a grant set holds every listed level on the whole
+// subtree a selector names — the test for handing that grant to someone else.
+// An allow must reach the selector itself, and no deny may cut into any part
+// of the subtree: holding "*" minus "system" does not cover "*", since the
+// grant would include the system area its holder is shut out of.
+func Covers(holder []store.Grant, selector string, levels []string) bool {
+	need := append([]string{string(LevelView)}, levels...)
+	for _, lvl := range need {
+		allowed := false
+		for _, g := range holder {
+			if g.Effect == "deny" {
+				if overlaps(g.Selector, selector) &&
+					(slices.Contains(g.Levels, string(LevelView)) || slices.Contains(g.Levels, lvl)) {
+					return false
+				}
+				continue
+			}
+			if Match(g.Selector, selector) && (lvl == string(LevelView) || slices.Contains(g.Levels, lvl)) {
+				allowed = true
+			}
+		}
+		if !allowed {
+			return false
+		}
+	}
+	return true
+}
+
+// CoversAll is Covers over every allow grant in a set; deny grants only ever
+// take rights away, so anyone may hand those out.
+func CoversAll(holder []store.Grant, grants []store.GrantSpec) bool {
+	for _, g := range grants {
+		if g.Effect == "deny" {
+			continue
+		}
+		if !Covers(holder, g.Selector, g.Levels) {
+			return false
+		}
+	}
+	return true
+}
+
+// overlaps reports whether two selectors can name a common resource: one is
+// within the other's subtree, or their wildcards line up.
+func overlaps(a, b string) bool {
+	as, bs := strings.Split(a, "/"), strings.Split(b, "/")
+	for i := range min(len(as), len(bs)) {
+		if as[i] != "*" && bs[i] != "*" && as[i] != bs[i] {
+			return false
+		}
+	}
+	return true
+}

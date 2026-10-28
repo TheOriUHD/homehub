@@ -60,6 +60,12 @@ func (s *Server) CreateRole(ctx context.Context, req CreateRoleRequestObject) (C
 			return CreateRole400JSONResponse{BadRequestJSONResponse(errBody("invalid_grant", msg))}, nil
 		}
 	}
+	if ok, err := s.specsWithinCaller(ctx, id, specs); err != nil {
+		return nil, err
+	} else if !ok {
+		s.deniedAudit(ctx, id, "role.create", ResRoles)
+		return CreateRole403JSONResponse{errExceedsOwn()}, nil
+	}
 	role, err := s.store.CreateRole(ctx, name, deref(req.Body.Description), false, specs)
 	if err != nil {
 		if store.IsUniqueViolation(err) {
@@ -158,6 +164,16 @@ func (s *Server) UpdateRole(ctx context.Context, req UpdateRoleRequestObject) (U
 			return UpdateRole400JSONResponse{BadRequestJSONResponse(errBody("invalid_grant", msg))}, nil
 		}
 	}
+	// Both sides: a role above the caller is not theirs to rewrite, and the
+	// rewrite may not reach above them either.
+	for _, set := range [][]store.GrantSpec{grantsToSpecs(existingGrants), specs} {
+		if ok, err := s.specsWithinCaller(ctx, id, set); err != nil {
+			return nil, err
+		} else if !ok {
+			s.deniedAudit(ctx, id, "role.update", ResRoles)
+			return UpdateRole403JSONResponse{errExceedsOwn()}, nil
+		}
+	}
 
 	if err := s.store.UpdateRole(ctx, role.ID, name, description, specs); err != nil {
 		if store.IsUniqueViolation(err) {
@@ -195,6 +211,14 @@ func (s *Server) DeleteRole(ctx context.Context, req DeleteRoleRequestObject) (D
 	}
 	if role.IsSystem {
 		return DeleteRole409JSONResponse{ConflictJSONResponse(errBody("system_role", "built-in roles cannot be deleted"))}, nil
+	}
+	// Held to the same bar as rewriting it: a role above the caller is not
+	// theirs to remove.
+	if ok, err := s.rolesWithinCaller(ctx, id, []uuid.UUID{role.ID}); err != nil {
+		return nil, err
+	} else if !ok {
+		s.deniedAudit(ctx, id, "role.delete", ResRoles)
+		return DeleteRole403JSONResponse{errExceedsOwn()}, nil
 	}
 	if err := s.store.DeleteRole(ctx, role.ID); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
