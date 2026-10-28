@@ -55,18 +55,6 @@ func (s *Store) InviteByTokenHash(ctx context.Context, tokenHash []byte) (*Invit
 	return &inv, &u, nil
 }
 
-func (s *Store) MarkInviteUsed(ctx context.Context, id uuid.UUID) error {
-	tag, err := s.pool.Exec(ctx,
-		`update invites set used_at = now() where id = $1 and used_at is null`, id)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
 // RedeemInvite claims an invite and sets the invited user's password in one
 // transaction. Claiming first, under the row's used_at guard, means two
 // concurrent redemptions can't both set a password: the loser's claim

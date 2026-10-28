@@ -273,7 +273,7 @@ func (s *Server) UpdateUser(ctx context.Context, req UpdateUserRequestObject) (U
 			return nil, err
 		}
 		if newStatus == "disabled" {
-			if _, err := s.store.RevokeUserSessions(ctx, user.ID, nil); err != nil {
+			if _, err := s.auth.RevokeUserSessions(ctx, user.ID, nil); err != nil {
 				return nil, err
 			}
 		}
@@ -469,7 +469,7 @@ func (s *Server) ResetUserCredentials(ctx context.Context, req ResetUserCredenti
 
 	revoke := req.Body.RevokeSessions == nil || *req.Body.RevokeSessions
 	if revoke {
-		if _, err := s.store.RevokeUserSessions(ctx, user.ID, nil); err != nil {
+		if _, err := s.auth.RevokeUserSessions(ctx, user.ID, nil); err != nil {
 			return nil, err
 		}
 	}
@@ -528,7 +528,7 @@ func (s *Server) RevokeUserSessions(ctx context.Context, req RevokeUserSessionsR
 		s.deniedAudit(ctx, id, "user.revoke_sessions", ResUsers)
 		return RevokeUserSessions403JSONResponse{errExceedsOwn()}, nil
 	}
-	n, err := s.store.RevokeUserSessions(ctx, user.ID, nil)
+	n, err := s.auth.RevokeUserSessions(ctx, user.ID, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -559,12 +559,12 @@ func (s *Server) AcceptInvite(ctx context.Context, req AcceptInviteRequestObject
 	if err != nil {
 		return nil, err
 	}
-	if err := s.store.SetUserPassword(ctx, user.ID, hash, false); err != nil {
+	// Claim and password in one transaction: a losing racer sets nothing.
+	if err := s.store.RedeemInvite(ctx, invite.ID, user.ID, hash); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return AcceptInvite404JSONResponse{NotFoundJSONResponse(errBody("invalid_invite", "this invite link is invalid or has expired"))}, nil
+		}
 		return nil, err
-	}
-	if err := s.store.MarkInviteUsed(ctx, invite.ID); err != nil {
-		// Someone raced this invite; do not sign in.
-		return AcceptInvite404JSONResponse{NotFoundJSONResponse(errBody("invalid_invite", "this invite link is invalid or has expired"))}, nil
 	}
 
 	r := httpctx.Request(ctx)
