@@ -226,21 +226,72 @@ func (b *Bot) Reload(ctx context.Context) {
 	go b.run(runCtx, token)
 }
 
+// retryBase and retryMax bound the backoff between attempts to reach
+// Telegram: quick enough that a bridge started before the network recovers
+// within seconds, slow enough that a rejected token is not hammered.
+var (
+	retryBase = 5 * time.Second
+	retryMax  = 5 * time.Minute
+)
+
+func nextBackoff(d time.Duration) time.Duration {
+	if d *= 2; d > retryMax {
+		return retryMax
+	}
+	return d
+}
+
+// wait sleeps for d unless ctx ends first; false means stop.
+func wait(ctx context.Context, d time.Duration) bool {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-t.C:
+		return true
+	}
+}
+
+// setStatus records what the settings panel shows — unless this run has
+// been replaced: Reload cancels under the same lock, so a superseded poller
+// can never overwrite the status of the one that replaced it.
+func (b *Bot) setStatus(ctx context.Context, username *string, lastErr string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if ctx.Err() != nil {
+		return
+	}
+	if username != nil {
+		b.username = *username
+	}
+	b.lastErr = lastErr
+}
+
 func (b *Bot) run(ctx context.Context, token string) {
-	// Validate the token and learn the bot's identity first.
+	// Validate the token and learn the bot's identity first. A failure here
+	// is usually the network not being up yet (the bridge starts with the
+	// service, at boot) or Telegram being briefly unreachable, so it is
+	// retried with a capped backoff for as long as the bridge is enabled —
+	// Reload cancels ctx when it is switched off or reconfigured.
 	var me struct {
 		Username string `json:"username"`
 	}
-	if err := b.call(ctx, token, "getMe", nil, &me); err != nil {
-		b.mu.Lock()
-		b.lastErr = "getMe failed: " + err.Error()
-		b.mu.Unlock()
-		b.Logger.Warn("telegram bot token rejected", "error", err)
-		return
+	for delay := retryBase; ; delay = nextBackoff(delay) {
+		err := b.call(ctx, token, "getMe", nil, &me)
+		if err == nil {
+			break
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		b.setStatus(ctx, nil, fmt.Sprintf("getMe failed: %v (retrying in %s)", err, delay))
+		b.Logger.Warn("telegram bridge could not start; retrying", "error", err, "retry_in", delay)
+		if !wait(ctx, delay) {
+			return
+		}
 	}
-	b.mu.Lock()
-	b.username, b.lastErr = me.Username, ""
-	b.mu.Unlock()
+	b.setStatus(ctx, &me.Username, "")
 	b.Logger.Info("telegram bridge up", "bot", "@"+me.Username)
 
 	// Advertise the commands so they appear in Telegram's command menu.
@@ -249,21 +300,22 @@ func (b *Bot) run(ctx context.Context, token string) {
 	}, nil)
 
 	offset := int64(0)
+	delay := retryBase
 	for ctx.Err() == nil {
 		updates, err := b.getUpdates(ctx, token, offset)
 		if err != nil {
 			if ctx.Err() != nil {
 				return
 			}
-			b.mu.Lock()
-			b.lastErr = err.Error()
-			b.mu.Unlock()
-			time.Sleep(5 * time.Second)
+			b.setStatus(ctx, nil, err.Error())
+			if !wait(ctx, delay) {
+				return
+			}
+			delay = nextBackoff(delay)
 			continue
 		}
-		b.mu.Lock()
-		b.lastErr = ""
-		b.mu.Unlock()
+		delay = retryBase
+		b.setStatus(ctx, nil, "")
 		for _, u := range updates {
 			if u.UpdateID >= offset {
 				offset = u.UpdateID + 1
@@ -555,7 +607,14 @@ func (b *Bot) sendParsed(ctx context.Context, token string, chatID int64, text, 
 }
 
 // call POSTs one Bot API method and decodes result into out when non-nil.
+// The token is part of the URL, and Go's transport errors quote the URL — so
+// every error leaving here goes through redact first: these strings end up in
+// the journal and in the status line the settings page shows.
 func (b *Bot) call(ctx context.Context, token, method string, params url.Values, out any) error {
+	return redact(b.callRaw(ctx, token, method, params, out), token)
+}
+
+func (b *Bot) callRaw(ctx context.Context, token, method string, params url.Values, out any) error {
 	body := strings.NewReader(params.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBase+token+"/"+method, body)
 	if err != nil {
@@ -564,6 +623,11 @@ func (b *Bot) call(ctx context.Context, token, method string, params url.Values,
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	res, err := b.client.Do(req)
 	if err != nil {
+		var ue *url.Error
+		if errors.As(err, &ue) {
+			// Name the method, drop the URL that carries the token.
+			return fmt.Errorf("telegram %s: %w", method, ue.Err)
+		}
 		return err
 	}
 	defer res.Body.Close()
@@ -589,6 +653,27 @@ func (b *Bot) call(ctx context.Context, token, method string, params url.Values,
 		return json.Unmarshal(envelope.Result, out)
 	}
 	return nil
+}
+
+// redactedError carries an error's message with the bot token cut out. It
+// deliberately does not unwrap: the wrapped error is the one that still
+// says the token.
+type redactedError struct{ msg string }
+
+func (e *redactedError) Error() string { return e.msg }
+
+// redact replaces the bot token wherever an error's text contains it. It is
+// the backstop behind callRaw's URL stripping: whatever a future error
+// quotes, the token comes out as <redacted>.
+func redact(err error, token string) error {
+	if err == nil || token == "" {
+		return err
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, token) {
+		return err
+	}
+	return &redactedError{msg: strings.ReplaceAll(msg, token, "<redacted>")}
 }
 
 // NotifyLinked tells a freshly linked chat who it now belongs to.
