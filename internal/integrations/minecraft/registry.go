@@ -46,6 +46,8 @@ type Registry struct {
 
 	mu       sync.RWMutex
 	sessions map[uuid.UUID]*Session // keyed by SERVER id
+
+	pairs *pairLimiter
 }
 
 // serverResource is a Minecraft server's fine-grained RBAC path, used to scope
@@ -60,6 +62,7 @@ func NewRegistry(st *store.Store, v *vault.Vault, logger *slog.Logger) *Registry
 		vault:         v,
 		logger:        logger.With("component", "minecraft"),
 		sessions:      map[uuid.UUID]*Session{},
+		pairs:         newPairLimiter(),
 		Publish:       func(uuid.UUID, string, string, any) {},
 		StatusChanged: func(uuid.UUID) {},
 	}
@@ -236,7 +239,7 @@ func (r *Registry) HandleAgent(w http.ResponseWriter, req *http.Request, clientI
 	paired := false
 	switch first.Type {
 	case FramePair:
-		server, err = r.pair(ctx, conn, first)
+		server, err = r.pair(ctx, conn, first, clientIP)
 		paired = true
 	case FrameHello:
 		server, err = r.hello(ctx, first)
@@ -314,13 +317,19 @@ func gameVersion(reported string) string {
 // pair redeems a 6-digit code, creates the server row, and issues its
 // permanent token. Tokens are sealed per server in the NETWORK's vault
 // scope so deleting the network sweeps them all.
-func (r *Registry) pair(ctx context.Context, conn *websocket.Conn, f *Frame) (*store.MinecraftServer, error) {
+func (r *Registry) pair(ctx context.Context, conn *websocket.Conn, f *Frame, clientIP string) (*store.MinecraftServer, error) {
+	if !r.pairs.allow(clientIP) {
+		r.logger.Warn("pairing attempt refused: too many wrong codes", "ip", clientIP)
+		return nil, errors.New("too many wrong pairing codes — wait a few minutes, then generate a fresh code in HomeHub")
+	}
 	code := strings.TrimSpace(f.Code)
 	if len(code) != 6 {
+		r.pairFailed(ctx, clientIP)
 		return nil, errors.New("pairing code must be 6 digits")
 	}
 	networkID, label, err := r.store.ConsumeMinecraftPairing(ctx, code)
 	if err != nil {
+		r.pairFailed(ctx, clientIP)
 		return nil, errors.New("pairing code is wrong or expired — generate a fresh one in HomeHub")
 	}
 	if label == "" {
@@ -344,6 +353,20 @@ func (r *Registry) pair(ctx context.Context, conn *websocket.Conn, f *Frame) (*s
 	token := tokenPrefix + "." + server.ID.String() + "." + secret
 	writeFrame(ctx, conn, Frame{Type: FramePaired, Token: token})
 	return server, nil
+}
+
+// pairFailed charges a wrong code to the source IP, the global budget and
+// every live code.
+func (r *Registry) pairFailed(ctx context.Context, clientIP string) {
+	r.pairs.fail(clientIP)
+	n, err := r.store.RecordFailedMinecraftPairing(ctx, pairFailuresPerCode)
+	if err != nil {
+		r.logger.Error("recording failed pairing attempt", "error", err)
+		return
+	}
+	if n > 0 {
+		r.logger.Warn("withdrew pairing codes after repeated wrong guesses", "codes", n, "ip", clientIP)
+	}
 }
 
 // hello validates a previously issued token. The uuid inside is the

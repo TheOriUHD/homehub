@@ -10,7 +10,6 @@ import (
 	"io/fs"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -186,21 +185,39 @@ func toAPIMcPlayer(p minecraft.Player) McPlayer {
 	return out
 }
 
-// mcSkinCache memoizes fetched skins (and default fallbacks) so repeated
-// dialog opens do not re-hit Mojang. Small and process-lifetime.
-var mcSkinCache sync.Map // uuid -> []byte PNG
+// mcSkinCache memoizes fetched skins so repeated dialog opens do not re-hit
+// Mojang. Bounded (LRU + TTL): the key space is every possible uuid.
+var mcSkinCache = minecraft.NewSkinCache(512)
 
+const (
+	mcSkinTTL = time.Hour
+	// A fallback (Mojang unreachable, offline-mode uuid) is kept briefly so a
+	// flaky fetch is retried soon rather than pinning Steve for an hour.
+	mcSkinFallbackTTL = 5 * time.Minute
+)
+
+// McPlayerSkin proxies a skin for the inventory view. Only the signed-in web
+// UI loads it (an <img> on the same origin, so the session cookie rides
+// along); without a session it would be an open proxy into Mojang for anyone.
 func (s *Server) McPlayerSkin(ctx context.Context, req McPlayerSkinRequestObject) (McPlayerSkinResponseObject, error) {
-	if req.Uuid != "" {
-		if v, ok := mcSkinCache.Load(req.Uuid); ok {
-			return McPlayerSkin200ImagepngResponse{Body: bytes.NewReader(v.([]byte)), ContentLength: int64(len(v.([]byte)))}, nil
+	if httpctx.IdentityFrom(ctx) == nil {
+		return nil, ErrUnauthenticated
+	}
+	key := minecraft.NormalizePlayerUUID(req.Uuid)
+	if key == "" {
+		png := minecraft.DefaultSkin()
+		return McPlayerSkin200ImagepngResponse{Body: bytes.NewReader(png), ContentLength: int64(len(png))}, nil
+	}
+	png, ok := mcSkinCache.Get(key)
+	if !ok {
+		png = s.fetchMinecraftSkin(ctx, key)
+		ttl := mcSkinTTL
+		if bytes.Equal(png, minecraft.DefaultSkin()) {
+			ttl = mcSkinFallbackTTL
 		}
+		mcSkinCache.Put(key, png, ttl)
 	}
-	png := s.fetchMinecraftSkin(ctx, req.Uuid)
-	if req.Uuid != "" && png != nil {
-		mcSkinCache.Store(req.Uuid, png)
-	}
-	httpctx.Writer(ctx).Header().Set("Cache-Control", "public, max-age=3600")
+	httpctx.Writer(ctx).Header().Set("Cache-Control", "private, max-age=3600")
 	return McPlayerSkin200ImagepngResponse{Body: bytes.NewReader(png), ContentLength: int64(len(png))}, nil
 }
 
@@ -256,7 +273,9 @@ func (s *Server) fetchMinecraftSkin(ctx context.Context, uuid string) []byte {
 			skinURL = tex.Textures.Skin.URL
 		}
 	}
-	if skinURL == "" {
+	// Only ever fetch from Mojang's texture host: the URL comes from a
+	// profile response, and the server must not follow it anywhere else.
+	if !strings.HasPrefix(skinURL, "http://textures.minecraft.net/") && !strings.HasPrefix(skinURL, "https://textures.minecraft.net/") {
 		return fallback()
 	}
 	sreq, err := http.NewRequestWithContext(ctx, http.MethodGet, skinURL, nil)

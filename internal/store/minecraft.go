@@ -81,6 +81,21 @@ func (s *Store) ConsumeMinecraftPairing(ctx context.Context, code string) (uuid.
 	return id, label, nil
 }
 
+// RecordFailedMinecraftPairing counts one wrong code against every live
+// code and withdraws those that have now seen maxFailures, returning how
+// many were withdrawn. The guess could have been aimed at any of them, so
+// each one's budget shrinks.
+func (s *Store) RecordFailedMinecraftPairing(ctx context.Context, maxFailures int) (int64, error) {
+	if _, err := s.pool.Exec(ctx, `
+		update minecraft_pairings set failed_attempts = failed_attempts + 1
+		where expires_at > now()`); err != nil {
+		return 0, err
+	}
+	tag, err := s.pool.Exec(ctx,
+		`delete from minecraft_pairings where failed_attempts >= $1`, maxFailures)
+	return tag.RowsAffected(), err
+}
+
 // PendingMinecraftPairing reports an unexpired code for the network, if any.
 func (s *Store) PendingMinecraftPairing(ctx context.Context, integrationID uuid.UUID) (string, string, *time.Time, error) {
 	var code, label string
