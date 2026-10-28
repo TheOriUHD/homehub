@@ -48,22 +48,36 @@ const (
 // bridge says so rather than leaving the person wondering what their /yes did.
 var ErrNoPending = errors.New("nothing is waiting for approval")
 
+// ErrSuperseded is what an approval answers with when it names a proposal
+// that a newer one has replaced. Nothing ran; the newer one is still waiting.
+var ErrSuperseded = errors.New("that proposal was replaced by a newer one")
+
+// Proposal is what the agent wants approved: a short code naming exactly this
+// proposal, and one summary line per action in it. The code is how a /yes says
+// which proposal it means — a yes typed at one proposal must never run another
+// that replaced it while the person was reading.
+type Proposal struct {
+	Code      string
+	Summaries []string
+}
+
 // TurnRunner is the bot's window into HomeHub, always scoped to one user's
 // permissions. The API server implements it; the bot stays free of provider
 // and RBAC plumbing.
 //
-// The three turn methods share a shape: the agent's reply, plus a summary line
-// for anything it now wants approved. A non-empty second return means the
-// chat is holding a proposal and the next /yes or /no belongs to it.
+// The three turn methods share a shape: the agent's reply, plus the proposal
+// for anything it now wants approved. A non-nil proposal means the chat is
+// holding it and the next /yes or /no belongs to it.
 type TurnRunner interface {
 	// RunAssistantTurnFor answers a plain message via the LLM tool loop.
-	RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, message string) (string, []string, error)
-	// ConfirmPendingFor runs the held proposal and returns what the agent
-	// makes of the result. ErrNoPending when there was nothing to run.
-	ConfirmPendingFor(ctx context.Context, userID uuid.UUID) (string, []string, error)
-	// DeclinePendingFor discards the held proposal and lets the agent answer
-	// the refusal. ErrNoPending when there was nothing to decline.
-	DeclinePendingFor(ctx context.Context, userID uuid.UUID) (string, []string, error)
+	RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, message string) (string, *Proposal, error)
+	// ConfirmPendingFor runs the held proposal named by code and returns
+	// what the agent makes of the result. ErrNoPending when there was
+	// nothing to run, ErrSuperseded when code names a replaced proposal.
+	ConfirmPendingFor(ctx context.Context, userID uuid.UUID, code string) (string, *Proposal, error)
+	// DeclinePendingFor discards the held proposal named by code and lets
+	// the agent answer the refusal. Errors as for ConfirmPendingFor.
+	DeclinePendingFor(ctx context.Context, userID uuid.UUID, code string) (string, *Proposal, error)
 	// SystemStatusFor returns a formatted health summary of every system the
 	// user may see (the /status command — deterministic, no LLM).
 	SystemStatusFor(ctx context.Context, userID uuid.UUID) (string, error)
@@ -111,11 +125,12 @@ type Bot struct {
 	lastErr  string
 	pending  map[string]pendingLink
 	attempts map[uuid.UUID]*claimAttempts
-	// awaiting marks chats currently holding a proposal, so a bare "yes" can
-	// mean what it obviously means. Only a hint for that shortcut: HomeHub
-	// holds the proposal itself, so /yes and /no work regardless of what this
-	// map remembers across a restart.
-	awaiting map[int64]bool
+	// awaiting holds, per chat, the code of the last proposal this bot showed
+	// it, so a bare /yes or "yes" answers the proposal the person actually
+	// saw. HomeHub holds the proposal itself and checks the code, so a
+	// proposal that replaced it in the meantime is never the one that runs;
+	// after a restart the map is empty and the code has to be typed.
+	awaiting map[int64]string
 
 	client http.Client
 }
@@ -440,13 +455,13 @@ func (b *Bot) handleMessage(ctx context.Context, token string, msg *tgMessage) {
 			b.send(ctx, token, chatID, out)
 			return
 		case "yes", "y", "approve":
-			b.answerProposal(ctx, token, chatID, chat.UserID, true)
+			b.answerProposal(ctx, token, chatID, chat.UserID, true, commandArg(text))
 			return
 		case "no", "n", "deny", "cancel":
-			b.answerProposal(ctx, token, chatID, chat.UserID, false)
+			b.answerProposal(ctx, token, chatID, chat.UserID, false, commandArg(text))
 			return
 		case "start", "help":
-			b.send(ctx, token, chatID, "Linked to HomeHub. Plain messages go to the assistant, which answers here and can act on your homelab — including running commands on your machines over SSH.\n\nAnything that only reads runs straight away. Anything that changes a machine is proposed first and waits for you; commands that could destroy a system are refused outright, even if you ask.\n\nCommands:\n/status — health of every system\n/yes — run what was proposed\n/no — turn it down (I'll suggest something else)\n/unlink — disconnect this chat from HomeHub\n/help — show this")
+			b.send(ctx, token, chatID, "Linked to HomeHub. Plain messages go to the assistant, which answers here and can act on your homelab — including running commands on your machines over SSH.\n\nAnything that only reads runs straight away. Anything that changes a machine is proposed first and waits for you; commands that could destroy a system are refused outright, even if you ask.\n\nCommands:\n/status — health of every system\n/yes — run the latest proposal (or /yes CODE for a specific one)\n/no — turn it down (I'll suggest something else)\n/unlink — disconnect this chat from HomeHub\n/help — show this")
 			return
 		default:
 			b.send(ctx, token, chatID, fmt.Sprintf("Unknown command %q. Try /help. Plain messages talk to the assistant.", "/"+trigger))
@@ -455,9 +470,9 @@ func (b *Bot) handleMessage(ctx context.Context, token string, msg *tgMessage) {
 	}
 
 	// A bare "yes" while something is waiting means what it looks like.
-	if b.isAwaiting(chatID) {
+	if b.awaitingCode(chatID) != "" {
 		if approve, ok := bareAnswer(text); ok {
-			b.answerProposal(ctx, token, chatID, chat.UserID, approve)
+			b.answerProposal(ctx, token, chatID, chat.UserID, approve, "")
 			return
 		}
 	}
@@ -479,7 +494,22 @@ func (b *Bot) handleMessage(ctx context.Context, token string, msg *tgMessage) {
 // being settled here: an approval so it can report what the command actually
 // did, a refusal so it can say what else there is. Either way it may propose
 // something new, which is why this ends the same way a plain turn does.
-func (b *Bot) answerProposal(ctx context.Context, token string, chatID int64, userID uuid.UUID, approve bool) {
+//
+// code is the proposal the answer names; empty means "the one I was just
+// shown", which is the last proposal this bot delivered to the chat. HomeHub
+// only acts if that is still the proposal it holds.
+func (b *Bot) answerProposal(ctx context.Context, token string, chatID int64, userID uuid.UUID, approve bool, code string) {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if code == "" {
+		code = b.awaitingCode(chatID)
+	}
+	if code == "" {
+		// Nothing shown since this bot started: a bare yes cannot say which
+		// proposal it means, so it must not guess.
+		b.send(ctx, token, chatID, "Which proposal? Reply /yes or /no followed by the code shown with it, e.g. /yes K7Q2. If you no longer have it, ask me again.")
+		return
+	}
+
 	stop := b.typing(ctx, token, chatID)
 	defer stop()
 	turnCtx, cancel := context.WithTimeout(ctx, turnDeadline)
@@ -489,24 +519,38 @@ func (b *Bot) answerProposal(ctx context.Context, token string, chatID int64, us
 	if approve {
 		run = b.Runner.ConfirmPendingFor
 	}
-	reply, pending, err := run(turnCtx, userID)
+	reply, proposal, err := run(turnCtx, userID, code)
 	if err != nil {
-		b.setAwaiting(chatID, false)
-		if errors.Is(err, ErrNoPending) {
+		switch {
+		case errors.Is(err, ErrSuperseded):
+			// The newer proposal stays up; only this answer is refused.
+			b.send(ctx, token, chatID, fmt.Sprintf("Nothing ran: proposal %s was replaced by a newer one. Read the newest proposal and answer that one.", code))
+		case errors.Is(err, ErrNoPending):
+			b.clearAwaiting(chatID, code)
 			b.send(ctx, token, chatID, "Nothing is waiting for approval right now.")
-			return
+		default:
+			b.clearAwaiting(chatID, code)
+			b.send(ctx, token, chatID, "That did not go through: "+err.Error())
 		}
-		b.send(ctx, token, chatID, "That did not go through: "+err.Error())
 		return
 	}
-	b.deliverTurn(ctx, token, chatID, reply, pending)
+	b.clearAwaiting(chatID, code)
+	b.deliverTurn(ctx, token, chatID, reply, proposal)
+}
+
+// commandArg is the first word after a command, e.g. the code in /yes K7Q2.
+func commandArg(text string) string {
+	if f := strings.Fields(text); len(f) > 1 {
+		return f[1]
+	}
+	return ""
 }
 
 // deliverTurn sends one answer, and the proposal behind it when there is one.
 // The proposal goes as its own plain-text message: a shell command is full of
 // characters Markdown would mangle, and what it is about to do deserves to be
 // the last thing on the screen rather than a line buried in prose.
-func (b *Bot) deliverTurn(ctx context.Context, token string, chatID int64, reply string, pending []string) {
+func (b *Bot) deliverTurn(ctx context.Context, token string, chatID int64, reply string, proposal *Proposal) {
 	if reply = strings.TrimSpace(reply); reply != "" {
 		// Try Markdown first (the assistant answers in it); Telegram rejects
 		// malformed markup with a 400, in which case plain text still lands.
@@ -514,18 +558,26 @@ func (b *Bot) deliverTurn(ctx context.Context, token string, chatID int64, reply
 			b.send(ctx, token, chatID, clip(reply))
 		}
 	}
-	b.setAwaiting(chatID, len(pending) > 0)
-	if len(pending) == 0 {
+	if proposal == nil || len(proposal.Summaries) == 0 || proposal.Code == "" {
+		// A turn without a proposal: HomeHub cleared the old one when the
+		// turn began, so there is nothing left for a bare yes to answer.
+		b.setAwaiting(chatID, "")
 		return
 	}
+	b.setAwaiting(chatID, proposal.Code)
 	var msg strings.Builder
-	msg.WriteString("Waiting on you:\n")
-	for _, line := range pending {
+	fmt.Fprintf(&msg, "Waiting on you (proposal %s):\n", proposal.Code)
+	for _, line := range proposal.Summaries {
 		msg.WriteString("• " + line + "\n")
 	}
-	msg.WriteString("\n/yes to run it, /no to skip.")
+	fmt.Fprintf(&msg, "\n/yes to run it, /no to skip. Expires in %d minutes.", int(ProposalTTL/time.Minute))
 	b.send(ctx, token, chatID, clip(msg.String()))
 }
+
+// ProposalTTL is how long a proposal stays approvable: long enough to read it
+// and answer, short enough that a stray yes later cannot run a command the
+// person has stopped thinking about. HomeHub enforces it; the bot says it.
+const ProposalTTL = 15 * time.Minute
 
 // bareAnswer reads a one-word reply as an answer to a waiting proposal. Only
 // an exact match counts: "yes, and check the disk too" is a new instruction,
@@ -540,21 +592,31 @@ func bareAnswer(text string) (approve bool, ok bool) {
 	return false, false
 }
 
-// setAwaiting records whether this chat is holding a proposal.
-func (b *Bot) setAwaiting(chatID int64, waiting bool) {
+// setAwaiting records the proposal this chat was last shown ("" for none).
+func (b *Bot) setAwaiting(chatID int64, code string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.awaiting == nil {
-		b.awaiting = map[int64]bool{}
+		b.awaiting = map[int64]string{}
 	}
-	if waiting {
-		b.awaiting[chatID] = true
+	if code != "" {
+		b.awaiting[chatID] = code
 	} else {
 		delete(b.awaiting, chatID)
 	}
 }
 
-func (b *Bot) isAwaiting(chatID int64) bool {
+// clearAwaiting forgets an answered proposal — only if it is still the one
+// on record, since a turn running alongside may have shown a newer one.
+func (b *Bot) clearAwaiting(chatID int64, code string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.awaiting[chatID] == code {
+		delete(b.awaiting, chatID)
+	}
+}
+
+func (b *Bot) awaitingCode(chatID int64) string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.awaiting[chatID]

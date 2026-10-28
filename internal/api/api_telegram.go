@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -35,7 +36,7 @@ func (s *Server) SetTelegramBot(b *telegram.Bot) { s.telegram = b }
 // telegramPendingTTL is how long a proposal stays approvable: long enough to
 // put the phone down and think, short enough that a "yes" tomorrow cannot run
 // a command written for a situation that has since moved on.
-const telegramPendingTTL = 15 * time.Minute
+const telegramPendingTTL = telegram.ProposalTTL
 
 // telegramRuntime resolves one Telegram turn's identity, provider and tools.
 // Same provider config, same tools and same permissions as the in-app chat —
@@ -102,7 +103,7 @@ func (s *Server) telegramRuntime(ctx context.Context, userID uuid.UUID) (
 // Whatever was pending before this message is dropped first: a new instruction
 // supersedes the old proposal, and a "yes" five messages later must never run
 // a command the person has long stopped thinking about.
-func (s *Server) RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, message string) (string, []string, error) {
+func (s *Server) RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, message string) (string, *telegram.Proposal, error) {
 	svc, provider, cfg, id, access, err := s.telegramRuntime(ctx, userID)
 	if err != nil {
 		return "", nil, err
@@ -117,35 +118,40 @@ func (s *Server) RunAssistantTurnFor(ctx context.Context, userID uuid.UUID, mess
 	return turn.Reply, s.holdPendingActions(ctx, id, turn), nil
 }
 
-// holdPendingActions stores what a turn queued and returns the summaries to
-// show. A proposal that cannot be stored is not announced: better that the
-// agent looks like it dropped the idea than that a /yes finds nothing and the
-// person believes something ran.
-func (s *Server) holdPendingActions(ctx context.Context, id *httpctx.Identity, turn assistant.TurnResult) []string {
+// holdPendingActions stores what a turn queued and returns the proposal to
+// show, with the code that names it. A proposal that cannot be stored is not
+// announced: better that the agent looks like it dropped the idea than that a
+// /yes finds nothing and the person believes something ran.
+func (s *Server) holdPendingActions(ctx context.Context, id *httpctx.Identity, turn assistant.TurnResult) *telegram.Proposal {
 	if len(turn.Pending) == 0 {
 		return nil
 	}
 	raw, err := json.Marshal(turn.Pending)
+	var row *store.PendingActions
 	if err == nil {
-		err = s.store.PutPendingActions(ctx, id.User.ID, store.AssistantChannelTelegram,
+		row, err = s.store.PutPendingActions(ctx, id.User.ID, store.AssistantChannelTelegram,
 			turn.MessageID, raw, time.Now().Add(telegramPendingTTL))
 	}
 	if err != nil {
 		s.logger.Warn("telegram: holding proposed actions", "user", id.User.Username, "error", err)
 		return nil
 	}
-	out := make([]string, 0, len(turn.Pending))
+	out := &telegram.Proposal{Code: row.Code(), Summaries: make([]string, 0, len(turn.Pending))}
 	for _, a := range turn.Pending {
-		out = append(out, a.Summary)
+		out.Summaries = append(out.Summaries, a.Summary)
 	}
 	return out
 }
 
-// takeTelegramPending claims the held proposal, or reports that there is
-// nothing (or nothing still valid) to answer. Claiming deletes it, so two
-// approvals arriving together cannot run the same command twice.
-func (s *Server) takeTelegramPending(ctx context.Context, userID uuid.UUID) (int64, []assistant.PendingAction, error) {
-	row, err := s.store.TakePendingActions(ctx, userID, store.AssistantChannelTelegram)
+// takeTelegramPending claims the held proposal the answer names, or reports
+// that there is nothing (or nothing still valid) to answer. Claiming deletes
+// it, so two approvals arriving together cannot run the same command twice;
+// a code naming a proposal that has since been replaced claims nothing.
+func (s *Server) takeTelegramPending(ctx context.Context, userID uuid.UUID, code string) (int64, []assistant.PendingAction, error) {
+	row, err := s.store.TakePendingActions(ctx, userID, store.AssistantChannelTelegram, code)
+	if errors.Is(err, store.ErrPendingSuperseded) {
+		return 0, nil, telegram.ErrSuperseded
+	}
 	if err != nil {
 		return 0, nil, err
 	}
@@ -166,12 +172,12 @@ func (s *Server) takeTelegramPending(ctx context.Context, userID uuid.UUID) (int
 // report on it. The actions replay through applyAssistantAction — the same
 // path the web approve button takes — so each one re-checks permission at the
 // moment it runs and writes its own audit entry.
-func (s *Server) ConfirmPendingFor(ctx context.Context, userID uuid.UUID) (string, []string, error) {
+func (s *Server) ConfirmPendingFor(ctx context.Context, userID uuid.UUID, code string) (string, *telegram.Proposal, error) {
 	svc, provider, cfg, id, access, err := s.telegramRuntime(ctx, userID)
 	if err != nil {
 		return "", nil, err
 	}
-	parentID, actions, err := s.takeTelegramPending(ctx, userID)
+	parentID, actions, err := s.takeTelegramPending(ctx, userID, code)
 	if err != nil {
 		return "", nil, err
 	}
@@ -206,12 +212,12 @@ func (s *Server) ConfirmPendingFor(ctx context.Context, userID uuid.UUID) (strin
 // It is deliberately not a silent cancel: the person still has whatever they
 // asked about, so the model is told what was turned down and asked what else
 // could be done.
-func (s *Server) DeclinePendingFor(ctx context.Context, userID uuid.UUID) (string, []string, error) {
+func (s *Server) DeclinePendingFor(ctx context.Context, userID uuid.UUID, code string) (string, *telegram.Proposal, error) {
 	svc, provider, cfg, id, access, err := s.telegramRuntime(ctx, userID)
 	if err != nil {
 		return "", nil, err
 	}
-	parentID, actions, err := s.takeTelegramPending(ctx, userID)
+	parentID, actions, err := s.takeTelegramPending(ctx, userID, code)
 	if err != nil {
 		return "", nil, err
 	}

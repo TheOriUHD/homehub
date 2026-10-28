@@ -103,25 +103,26 @@ func TestLinkRejectedInGroupChat(t *testing.T) {
 // fakeRunner stands in for the API server. Each turn method reports what it
 // was asked and answers with whatever the test set.
 type fakeRunner struct {
-	called  string
-	reply   string
-	pending []string
-	err     error
+	called   string
+	code     string
+	reply    string
+	proposal *Proposal
+	err      error
 }
 
-func (f *fakeRunner) RunAssistantTurnFor(context.Context, uuid.UUID, string) (string, []string, error) {
+func (f *fakeRunner) RunAssistantTurnFor(context.Context, uuid.UUID, string) (string, *Proposal, error) {
 	f.called = "turn"
-	return f.reply, f.pending, f.err
+	return f.reply, f.proposal, f.err
 }
 
-func (f *fakeRunner) ConfirmPendingFor(context.Context, uuid.UUID) (string, []string, error) {
-	f.called = "confirm"
-	return f.reply, f.pending, f.err
+func (f *fakeRunner) ConfirmPendingFor(_ context.Context, _ uuid.UUID, code string) (string, *Proposal, error) {
+	f.called, f.code = "confirm", code
+	return f.reply, f.proposal, f.err
 }
 
-func (f *fakeRunner) DeclinePendingFor(context.Context, uuid.UUID) (string, []string, error) {
-	f.called = "decline"
-	return f.reply, f.pending, f.err
+func (f *fakeRunner) DeclinePendingFor(_ context.Context, _ uuid.UUID, code string) (string, *Proposal, error) {
+	f.called, f.code = "decline", code
+	return f.reply, f.proposal, f.err
 }
 
 func (f *fakeRunner) SystemStatusFor(context.Context, uuid.UUID) (string, error) { return "", nil }
@@ -170,7 +171,8 @@ func TestBareAnswerOnlyTakesExactWords(t *testing.T) {
 }
 
 // Approving and declining both go back to the agent — the refusal especially,
-// because the person still has the problem they asked about.
+// because the person still has the problem they asked about. A bare answer
+// names the proposal the chat was last shown.
 func TestProposalAnswersReachTheAgent(t *testing.T) {
 	for _, tc := range []struct {
 		approve bool
@@ -180,19 +182,77 @@ func TestProposalAnswersReachTheAgent(t *testing.T) {
 		var sent []string
 		b := &Bot{Runner: runner}
 		recorder(b, &sent)
-		b.setAwaiting(4242, true)
+		b.setAwaiting(4242, "K7Q2")
 
-		b.answerProposal(context.Background(), "tok", 4242, uuid.New(), tc.approve)
+		b.answerProposal(context.Background(), "tok", 4242, uuid.New(), tc.approve, "")
 
 		if runner.called != tc.want {
 			t.Errorf("approve=%v called %q, want %q", tc.approve, runner.called, tc.want)
 		}
+		if runner.code != "K7Q2" {
+			t.Errorf("approve=%v answered proposal %q, want the one shown (K7Q2)", tc.approve, runner.code)
+		}
 		if len(sent) == 0 || !strings.Contains(sent[0], "Done, Sir.") {
 			t.Errorf("approve=%v did not relay the agent's answer: %q", tc.approve, sent)
 		}
-		if b.isAwaiting(4242) {
+		if b.awaitingCode(4242) != "" {
 			t.Errorf("approve=%v left the chat still waiting on an answered proposal", tc.approve)
 		}
+	}
+}
+
+// A code typed with the command wins over the remembered one: it is the
+// person saying exactly which proposal they mean.
+func TestExplicitCodeIsTheOneAnswered(t *testing.T) {
+	runner := &fakeRunner{reply: "ok"}
+	var sent []string
+	b := &Bot{Runner: runner}
+	recorder(b, &sent)
+	b.setAwaiting(5, "AAAA")
+
+	b.answerProposal(context.Background(), "tok", 5, uuid.New(), true, "k7q2")
+
+	if runner.code != "K7Q2" {
+		t.Fatalf("answered %q, want the typed code K7Q2", runner.code)
+	}
+	if commandArg("/yes K7Q2") != "K7Q2" || commandArg("/yes") != "" {
+		t.Error("commandArg does not read the code after the command")
+	}
+}
+
+// With no proposal on record (the bot restarted, or never showed one) a bare
+// yes cannot say what it approves, so nothing is sent to HomeHub at all.
+func TestBareYesWithoutAShownProposalAsksForTheCode(t *testing.T) {
+	runner := &fakeRunner{}
+	var sent []string
+	b := &Bot{Runner: runner}
+	recorder(b, &sent)
+
+	b.answerProposal(context.Background(), "tok", 8, uuid.New(), true, "")
+
+	if runner.called != "" {
+		t.Fatalf("a bare yes with nothing shown reached HomeHub (%s)", runner.called)
+	}
+	if len(sent) != 1 || !strings.Contains(sent[0], "/yes K7Q2") {
+		t.Fatalf("reply = %q, want a prompt for the code", sent)
+	}
+}
+
+// A yes for a proposal that was replaced runs nothing, says so, and leaves
+// the newer proposal — and the chat's memory of it — in place.
+func TestApprovingAReplacedProposalSaysSo(t *testing.T) {
+	var sent []string
+	b := &Bot{Runner: &fakeRunner{err: ErrSuperseded}}
+	recorder(b, &sent)
+	b.setAwaiting(3, "NEWR")
+
+	b.answerProposal(context.Background(), "tok", 3, uuid.New(), true, "OLDR")
+
+	if len(sent) != 1 || !strings.Contains(sent[0], "replaced by a newer one") || !strings.Contains(sent[0], "OLDR") {
+		t.Fatalf("reply = %q, want a plain 'replaced' notice naming the code", sent)
+	}
+	if b.awaitingCode(3) != "NEWR" {
+		t.Error("a stale answer cleared the newer proposal from the chat")
 	}
 }
 
@@ -201,39 +261,40 @@ func TestApprovingNothingSaysSo(t *testing.T) {
 	var sent []string
 	b := &Bot{Runner: &fakeRunner{err: ErrNoPending}}
 	recorder(b, &sent)
-	b.setAwaiting(7, true)
+	b.setAwaiting(7, "K7Q2")
 
-	b.answerProposal(context.Background(), "tok", 7, uuid.New(), true)
+	b.answerProposal(context.Background(), "tok", 7, uuid.New(), true, "")
 
 	if len(sent) != 1 || !strings.Contains(strings.ToLower(sent[0]), "nothing is waiting") {
 		t.Fatalf("reply = %q, want a plain 'nothing is waiting'", sent)
 	}
-	if b.isAwaiting(7) {
+	if b.awaitingCode(7) != "" {
 		t.Error("the chat is still marked as waiting after an empty approval")
 	}
 }
 
 // The proposal arrives as its own message: a shell command survives it intact,
-// and the two replies that answer it are the last thing on the screen.
+// the code that names it is on it, and the two replies that answer it are the
+// last thing on the screen.
 func TestProposalIsSentSeparatelyAndNamesBothReplies(t *testing.T) {
 	var sent []string
 	b := &Bot{Runner: &fakeRunner{}}
 	recorder(b, &sent)
 
 	b.deliverTurn(context.Background(), "tok", 9, "I'd restart nginx to pick the config up.",
-		[]string{"Run on WebHost LXC: systemctl restart nginx"})
+		&Proposal{Code: "K7Q2", Summaries: []string{"Run on WebHost LXC: systemctl restart nginx"}})
 
 	if len(sent) != 2 {
 		t.Fatalf("sent %d messages, want the answer and the proposal separately: %q", len(sent), sent)
 	}
 	proposal := sent[1]
-	for _, want := range []string{"systemctl restart nginx", "/yes", "/no"} {
+	for _, want := range []string{"systemctl restart nginx", "/yes", "/no", "K7Q2", "15 minutes"} {
 		if !strings.Contains(proposal, want) {
 			t.Errorf("proposal message is missing %q:\n%s", want, proposal)
 		}
 	}
-	if !b.isAwaiting(9) {
-		t.Error("a delivered proposal did not mark the chat as waiting")
+	if b.awaitingCode(9) != "K7Q2" {
+		t.Error("a delivered proposal did not mark the chat as waiting on its code")
 	}
 }
 
@@ -243,11 +304,27 @@ func TestAnswerWithoutProposalStopsWaiting(t *testing.T) {
 	var sent []string
 	b := &Bot{Runner: &fakeRunner{}}
 	recorder(b, &sent)
-	b.setAwaiting(11, true)
+	b.setAwaiting(11, "K7Q2")
 
 	b.deliverTurn(context.Background(), "tok", 11, "Everything's quiet.", nil)
 
-	if b.isAwaiting(11) {
+	if b.awaitingCode(11) != "" {
 		t.Error("still waiting after a turn that proposed nothing")
+	}
+}
+
+// Every message the bot sends turns link previews off: a preview is Telegram
+// fetching the URL, which is a request nobody chose to make.
+func TestMessagesDisableLinkPreviews(t *testing.T) {
+	var form url.Values
+	b := &Bot{}
+	b.client.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		body, _ := io.ReadAll(r.Body)
+		form, _ = url.ParseQuery(string(body))
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"ok":true,"result":{}}`)), Header: make(http.Header)}, nil
+	})
+	_ = b.sendParsed(context.Background(), "tok", 1, "see https://example.invalid/?q=secret", "Markdown")
+	if got := form.Get("link_preview_options"); got != `{"is_disabled":true}` {
+		t.Fatalf("link_preview_options = %q", got)
 	}
 }

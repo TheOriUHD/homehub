@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -69,6 +70,15 @@ func summaryOf(t *testing.T, raw json.RawMessage) string {
 	return got[0]["summary"]
 }
 
+func put(t *testing.T, st *store.Store, userID uuid.UUID, msgID int64, summary string, expires time.Time) *store.PendingActions {
+	t.Helper()
+	row, err := st.PutPendingActions(context.Background(), userID, store.AssistantChannelTelegram, msgID, actions(summary), expires)
+	if err != nil || row == nil {
+		t.Fatalf("put %q: %v", summary, err)
+	}
+	return row
+}
+
 // A newer proposal replaces the older one. Two live proposals would mean a
 // "yes" could run something the person had already moved on from.
 func TestPendingActionsKeepOnlyTheNewest(t *testing.T) {
@@ -77,14 +87,10 @@ func TestPendingActionsKeepOnlyTheNewest(t *testing.T) {
 	userID, msgID := scratchThread(t, st)
 	soon := time.Now().Add(15 * time.Minute)
 
-	if err := st.PutPendingActions(ctx, userID, store.AssistantChannelTelegram, msgID, actions("restart nginx"), soon); err != nil {
-		t.Fatalf("first put: %v", err)
-	}
-	if err := st.PutPendingActions(ctx, userID, store.AssistantChannelTelegram, msgID, actions("restart postgres"), soon); err != nil {
-		t.Fatalf("second put: %v", err)
-	}
+	put(t, st, userID, msgID, "restart nginx", soon)
+	newer := put(t, st, userID, msgID, "restart postgres", soon)
 
-	held, err := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram)
+	held, err := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram, newer.Code())
 	if err != nil || held == nil {
 		t.Fatalf("take: %v %v", err, held)
 	}
@@ -96,6 +102,32 @@ func TestPendingActionsKeepOnlyTheNewest(t *testing.T) {
 	}
 }
 
+// An approval names the proposal it answers. A yes meant for the older one
+// must neither run the newer one nor remove it.
+func TestApprovalForAReplacedProposalIsRefused(t *testing.T) {
+	st := dbStore(t)
+	ctx := context.Background()
+	userID, msgID := scratchThread(t, st)
+	soon := time.Now().Add(15 * time.Minute)
+
+	older := put(t, st, userID, msgID, "restart nginx", soon)
+	newer := put(t, st, userID, msgID, "reboot the host", soon)
+	if older.Code() == newer.Code() {
+		t.Fatalf("a replacement kept the old code %s", older.Code())
+	}
+
+	if held, err := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram, older.Code()); !errors.Is(err, store.ErrPendingSuperseded) || held != nil {
+		t.Fatalf("stale code: held=%v err=%v, want ErrPendingSuperseded", held, err)
+	}
+	held, err := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram, newer.Code())
+	if err != nil || held == nil || summaryOf(t, held.Actions) != "reboot the host" {
+		t.Fatalf("the newer proposal did not survive a stale approval: %v %v", held, err)
+	}
+	if held.Code() != newer.Code() {
+		t.Errorf("code changed across the round trip: %s vs %s", held.Code(), newer.Code())
+	}
+}
+
 // Claiming consumes the proposal, so two approvals arriving together cannot
 // both run it, and a second /yes finds nothing rather than running it again.
 func TestPendingActionsAreClaimedOnce(t *testing.T) {
@@ -103,14 +135,11 @@ func TestPendingActionsAreClaimedOnce(t *testing.T) {
 	ctx := context.Background()
 	userID, msgID := scratchThread(t, st)
 
-	if err := st.PutPendingActions(ctx, userID, store.AssistantChannelTelegram, msgID,
-		actions("restart nginx"), time.Now().Add(15*time.Minute)); err != nil {
-		t.Fatalf("put: %v", err)
-	}
-	if held, err := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram); err != nil || held == nil {
+	row := put(t, st, userID, msgID, "restart nginx", time.Now().Add(15*time.Minute))
+	if held, err := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram, row.Code()); err != nil || held == nil {
 		t.Fatalf("first take: %v %v", err, held)
 	}
-	held, err := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram)
+	held, err := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram, row.Code())
 	if err != nil {
 		t.Fatalf("second take: %v", err)
 	}
@@ -126,18 +155,15 @@ func TestExpiredPendingActionsAreReturnedAndRemoved(t *testing.T) {
 	ctx := context.Background()
 	userID, msgID := scratchThread(t, st)
 
-	if err := st.PutPendingActions(ctx, userID, store.AssistantChannelTelegram, msgID,
-		actions("restart nginx"), time.Now().Add(-time.Minute)); err != nil {
-		t.Fatalf("put: %v", err)
-	}
-	held, err := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram)
+	row := put(t, st, userID, msgID, "restart nginx", time.Now().Add(-time.Minute))
+	held, err := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram, row.Code())
 	if err != nil || held == nil {
 		t.Fatalf("take: %v %v", err, held)
 	}
 	if !time.Now().After(held.ExpiresAt) {
 		t.Error("an old proposal did not read as expired")
 	}
-	if again, _ := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram); again != nil {
+	if again, _ := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram, row.Code()); again != nil {
 		t.Error("an expired proposal survived being claimed")
 	}
 }
@@ -149,14 +175,11 @@ func TestClearPendingActionsLeavesNothing(t *testing.T) {
 	ctx := context.Background()
 	userID, msgID := scratchThread(t, st)
 
-	if err := st.PutPendingActions(ctx, userID, store.AssistantChannelTelegram, msgID,
-		actions("restart nginx"), time.Now().Add(15*time.Minute)); err != nil {
-		t.Fatalf("put: %v", err)
-	}
+	row := put(t, st, userID, msgID, "restart nginx", time.Now().Add(15*time.Minute))
 	if err := st.ClearPendingActions(ctx, userID, store.AssistantChannelTelegram); err != nil {
 		t.Fatalf("clear: %v", err)
 	}
-	if held, _ := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram); held != nil {
+	if held, _ := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram, row.Code()); held != nil {
 		t.Fatal("a cleared proposal was still approvable")
 	}
 	// Clearing nothing is the common case (most turns propose nothing).
@@ -172,14 +195,11 @@ func TestPendingActionsGoWithTheirThread(t *testing.T) {
 	ctx := context.Background()
 	userID, msgID := scratchThread(t, st)
 
-	if err := st.PutPendingActions(ctx, userID, store.AssistantChannelTelegram, msgID,
-		actions("restart nginx"), time.Now().Add(15*time.Minute)); err != nil {
-		t.Fatalf("put: %v", err)
-	}
+	row := put(t, st, userID, msgID, "restart nginx", time.Now().Add(15*time.Minute))
 	if _, err := st.Pool().Exec(ctx, `delete from assistant_messages where id = $1`, msgID); err != nil {
 		t.Fatalf("prune: %v", err)
 	}
-	if held, _ := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram); held != nil {
+	if held, _ := st.TakePendingActions(ctx, userID, store.AssistantChannelTelegram, row.Code()); held != nil {
 		t.Fatal("the proposal outlived the message it was going to answer")
 	}
 }
