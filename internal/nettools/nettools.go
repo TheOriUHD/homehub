@@ -5,8 +5,10 @@
 // the session; these functions add the bounds (timeouts, size caps, redirect
 // caps) so a utility can't become an unbounded resource sink. On a single-
 // admin homelab, reaching internal/RFC1918 hosts is the whole point, so that
-// is deliberately allowed; the guards are about resource limits, not target
-// filtering.
+// is deliberately allowed. What is NOT allowed is the HomeHub host's own
+// loopback, link-local and cloud-metadata addresses: every dial here goes
+// through internal/netguard, which checks the resolved address at connect
+// time, so a hostname that resolves to 127.0.0.1 is refused too.
 package nettools
 
 import (
@@ -14,10 +16,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"time"
+
+	"homehub/internal/netguard"
 )
 
 // ---- SSL certificate checker ------------------------------------------------
@@ -68,7 +73,7 @@ func InspectTLS(ctx context.Context, host string, port int, now time.Time) (*SSL
 		port = 443
 	}
 	d := &tls.Dialer{
-		NetDialer: &net.Dialer{Timeout: 8 * time.Second},
+		NetDialer: netguard.Dialer(8 * time.Second),
 		Config:    &tls.Config{InsecureSkipVerify: true, ServerName: host}, //nolint:gosec // reporting tool; validation done explicitly below
 	}
 	dctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -140,11 +145,14 @@ type TCPResult struct {
 // CheckTCP attempts a TCP connection and times it.
 func CheckTCP(ctx context.Context, host string, port int) TCPResult {
 	start := time.Now()
-	d := net.Dialer{Timeout: 5 * time.Second}
-	conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(host, fmt.Sprint(port)))
+	conn, err := netguard.Dialer(5*time.Second).DialContext(ctx, "tcp", net.JoinHostPort(host, fmt.Sprint(port)))
 	lat := float64(time.Since(start).Microseconds()) / 1000.0
 	if err != nil {
 		msg := err.Error()
+		var blocked *netguard.ErrBlocked
+		if errors.As(err, &blocked) {
+			return TCPResult{Port: port, Open: false, Error: blocked.Error()}
+		}
 		// Trim the verbose "dial tcp a.b.c.d:port: " prefix.
 		if i := strings.LastIndex(msg, ": "); i >= 0 {
 			msg = msg[i+2:]

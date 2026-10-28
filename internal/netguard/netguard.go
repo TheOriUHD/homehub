@@ -1,8 +1,13 @@
 // Package netguard supplies a net.Dialer Control hook that blocks server-side
 // outbound connections to loopback, link-local (incl. cloud metadata), and
 // other non-routable targets, while still permitting normal LAN (RFC1918/ULA)
-// and public destinations. It is the SSRF egress guard shared by the user-
-// driven HTTP tester and the calendar feed/CalDAV fetcher.
+// and public destinations. It is the SSRF egress guard shared by every
+// user-driven network tool (HTTP tester, SSL check, TCP/port check, ping,
+// DNS-against-a-server, Wake-on-LAN, the IP scanner) and the calendar
+// feed/CalDAV fetcher. The point is that a signed-in user's "check this host"
+// cannot be aimed at the services only the HomeHub machine itself can reach
+// (its Postgres on 127.0.0.1, a Docker API on a loopback port, the cloud
+// metadata endpoint).
 //
 // Because the hook inspects the RESOLVED ip:port right before connect — and
 // runs again on every redirect dial — it also closes DNS-rebinding: a hostname
@@ -30,6 +35,11 @@ func (e *ErrBlocked) Error() string {
 // link-local (which includes 169.254.169.254 cloud metadata), multicast, and
 // the unspecified address are rejected.
 func blocked(ip net.IP) bool {
+	if ip4 := ip.To4(); ip4 != nil && ip4[0] == 0 {
+		// 0.0.0.0/8 means "this host" to the Linux stack: 0.1.2.3:5432
+		// reaches a loopback-bound Postgres just like 127.0.0.1 does.
+		return true
+	}
 	return ip == nil ||
 		ip.IsLoopback() ||
 		ip.IsLinkLocalUnicast() ||
@@ -50,6 +60,22 @@ func Control(_, address string, _ syscall.RawConn) error {
 	ip := net.ParseIP(host)
 	if blocked(ip) {
 		return &ErrBlocked{Addr: host}
+	}
+	return nil
+}
+
+// Blocked reports whether ip is outside what user-driven tools may reach.
+func Blocked(ip net.IP) bool { return blocked(ip) }
+
+// CheckIP is Blocked as an error, for tools that do not dial through a
+// net.Dialer (raw ICMP) and must refuse before sending anything.
+func CheckIP(ip net.IP) error {
+	if blocked(ip) {
+		s := "<nil>"
+		if ip != nil {
+			s = ip.String()
+		}
+		return &ErrBlocked{Addr: s}
 	}
 	return nil
 }

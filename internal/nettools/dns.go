@@ -2,11 +2,14 @@ package nettools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sort"
 	"strings"
 	"time"
+
+	"homehub/internal/netguard"
 )
 
 // DNSRecord is one answer row.
@@ -27,7 +30,9 @@ type DNSResult struct {
 }
 
 // resolverFor builds a *net.Resolver that queries a specific server, or the
-// system resolver when server is "".
+// system resolver when server is "". A user-named server is dialed through
+// the egress guard (the system resolver, often 127.0.0.53, is HomeHub's own
+// configuration and stays usable).
 func resolverFor(server string) *net.Resolver {
 	if server == "" {
 		return net.DefaultResolver
@@ -35,8 +40,7 @@ func resolverFor(server string) *net.Resolver {
 	return &net.Resolver{
 		PreferGo: true,
 		Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
-			d := net.Dialer{Timeout: 5 * time.Second}
-			return d.DialContext(ctx, network, server)
+			return netguard.Dialer(5*time.Second).DialContext(ctx, network, server)
 		},
 	}
 }
@@ -103,7 +107,10 @@ func Lookup(ctx context.Context, name, rrType, server string) DNSResult {
 	res.QueryMs = float64(time.Since(start).Microseconds()) / 1000.0
 	if err != nil {
 		msg := err.Error()
-		if dnsErr, ok := err.(*net.DNSError); ok {
+		var blocked *netguard.ErrBlocked
+		if errors.As(err, &blocked) {
+			msg = blocked.Error()
+		} else if dnsErr, ok := err.(*net.DNSError); ok {
 			if dnsErr.IsNotFound {
 				msg = "no records found"
 			} else {

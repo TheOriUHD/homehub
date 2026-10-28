@@ -2,6 +2,7 @@ package nettools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -9,6 +10,8 @@ import (
 
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
+
+	"homehub/internal/netguard"
 )
 
 // PingResult is the outcome of an ICMP echo. Alive with an RTT, or a reason.
@@ -29,6 +32,9 @@ func Ping(ctx context.Context, host string) PingResult {
 		return PingResult{Available: true, Error: "could not resolve host"}
 	}
 	dst := &net.IPAddr{IP: net.ParseIP(ipStr)}
+	if err := netguard.CheckIP(dst.IP); err != nil {
+		return PingResult{Available: true, IP: ipStr, Error: err.Error()}
+	}
 
 	conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {
@@ -110,8 +116,16 @@ func SendMagicPacket(mac, broadcast string, port int) error {
 	if err != nil {
 		return fmt.Errorf("invalid broadcast address")
 	}
-	conn, err := net.DialUDP("udp", nil, addr)
+	// Guarded like every other tool: the "broadcast" address is free text, and
+	// aimed at 127.0.0.1 it would drop a datagram on any local UDP service.
+	// Limited (255.255.255.255) and subnet broadcasts are not in a blocked
+	// range, so real wake-ups are unaffected.
+	conn, err := netguard.Dialer(5*time.Second).Dial("udp", addr.String())
 	if err != nil {
+		var blocked *netguard.ErrBlocked
+		if errors.As(err, &blocked) {
+			return blocked
+		}
 		return fmt.Errorf("could not open UDP socket: %w", err)
 	}
 	defer conn.Close()

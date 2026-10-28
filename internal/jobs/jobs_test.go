@@ -108,7 +108,9 @@ func (m *memStore) FailInterruptedJobs(context.Context) (int64, error) {
 	return n, nil
 }
 
-func (m *memStore) JobCounts(context.Context) (*store.JobCounts, error) { return &store.JobCounts{}, nil }
+func (m *memStore) JobCounts(context.Context) (*store.JobCounts, error) {
+	return &store.JobCounts{}, nil
+}
 func (m *memStore) DueSchedules(context.Context, time.Time) ([]store.Schedule, error) {
 	return nil, nil
 }

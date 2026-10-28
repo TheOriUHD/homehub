@@ -4,15 +4,17 @@ import "testing"
 
 func TestControl_BlocksInternalTargets(t *testing.T) {
 	blocked := []string{
-		"127.0.0.1:80",         // loopback admin services
-		"[::1]:80",             // IPv6 loopback
-		"169.254.169.254:80",   // cloud metadata (link-local)
-		"169.254.10.20:443",    // link-local
-		"[fe80::1]:80",         // IPv6 link-local
-		"0.0.0.0:80",           // unspecified
-		"[::]:80",              // IPv6 unspecified
-		"224.0.0.1:80",         // multicast
-		"not-an-ip:80",         // unresolved / malformed host
+		"127.0.0.1:80",          // loopback admin services
+		"[::1]:80",              // IPv6 loopback
+		"169.254.169.254:80",    // cloud metadata (link-local)
+		"169.254.10.20:443",     // link-local
+		"[fe80::1]:80",          // IPv6 link-local
+		"0.0.0.0:80",            // unspecified
+		"[::]:80",               // IPv6 unspecified
+		"224.0.0.1:80",          // multicast
+		"0.1.2.3:5432",          // 0/8 is "this host" on Linux
+		"[::ffff:127.0.0.1]:80", // IPv4-mapped loopback
+		"not-an-ip:80",          // unresolved / malformed host
 	}
 	for _, addr := range blocked {
 		if err := Control("tcp", addr, nil); err == nil {
