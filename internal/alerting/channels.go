@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -88,6 +89,12 @@ func postJSON(ctx context.Context, targetURL string, payload any, decorate func(
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		// A transport error quotes the whole URL, and for Telegram, Gotify
+		// and Discord the URL holds the secret. Keep only what went wrong.
+		var ue *url.Error
+		if errors.As(err, &ue) {
+			return fmt.Errorf("delivery failed: %w", ue.Err)
+		}
 		return err
 	}
 	defer resp.Body.Close()
@@ -235,10 +242,12 @@ func sendTelegram(ctx context.Context, botToken, chatID string, msg Message) err
 		text += "\n" + msg.Body
 	}
 	target := "https://api.telegram.org/bot" + botToken + "/sendMessage"
+	// No link previews: Telegram would fetch any URL an alert body carries.
 	return postJSON(ctx, target, map[string]any{
-		"chat_id":    chatID,
-		"text":       text,
-		"parse_mode": "Markdown",
+		"chat_id":              chatID,
+		"text":                 text,
+		"parse_mode":           "Markdown",
+		"link_preview_options": map[string]any{"is_disabled": true},
 	}, nil)
 }
 
