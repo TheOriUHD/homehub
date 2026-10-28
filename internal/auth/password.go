@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
@@ -21,6 +22,27 @@ const (
 	argonKeyLen    = 32
 	argonSaltLen   = 16
 )
+
+// hashSlots bounds how many argon2id computations run at once. Each one
+// allocates argonMemoryKiB (64 MiB), so a flood of concurrent login attempts
+// — which the per-IP limiter only slows, and which can come from many IPs —
+// would otherwise allocate 64 MiB per request in flight and could exhaust
+// memory. Waiters hold no hash memory; they just queue.
+var hashSlots = make(chan struct{}, hashConcurrency())
+
+func hashConcurrency() int {
+	n := runtime.NumCPU()
+	// More parallel hashes than cores buys no throughput, only memory; keep a
+	// floor of 2 so one slow hash never serializes every login.
+	return min(max(n, 2), 4)
+}
+
+// argon2Key runs one argon2id derivation inside a hashSlots slot.
+func argon2Key(pw, salt []byte, time, mem uint32, threads uint8, keyLen uint32) []byte {
+	hashSlots <- struct{}{}
+	defer func() { <-hashSlots }()
+	return argon2.IDKey(pw, salt, time, mem, threads, keyLen)
+}
 
 // MinPasswordLength applies to every password the system accepts.
 const MinPasswordLength = 12
@@ -45,7 +67,7 @@ func HashPassword(pw string) (string, error) {
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	key := argon2.IDKey([]byte(pw), salt, argonTime, argonMemoryKiB, argonThreads, argonKeyLen)
+	key := argon2Key([]byte(pw), salt, argonTime, argonMemoryKiB, argonThreads, argonKeyLen)
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
 		argon2.Version, argonMemoryKiB, argonTime, argonThreads,
 		base64.RawStdEncoding.EncodeToString(salt),
@@ -77,6 +99,6 @@ func VerifyPassword(pw, encoded string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	got := argon2.IDKey([]byte(pw), salt, time, mem, threads, uint32(len(want)))
+	got := argon2Key([]byte(pw), salt, time, mem, threads, uint32(len(want)))
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
 }
