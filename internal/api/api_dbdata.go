@@ -23,7 +23,7 @@ func (s *Server) dbObjectAccess(ctx context.Context, id *httpctx.Identity, instI
 		return nil, "", err
 	}
 	dbRes := resource + "/database/" + database
-	if !s.visibleDbName(ctx, id, resource, database) {
+	if !s.visibleDbName(ctx, id, resource, database) || isSystemDB(conn, database) {
 		return nil, "", store.ErrNotFound
 	}
 	if !s.can(ctx, id, dbRes, level) {
@@ -36,6 +36,29 @@ func (s *Server) dbObjectAccess(ctx context.Context, id *httpctx.Identity, instI
 }
 
 var errForbidden = errors.New("forbidden")
+
+// isSystemDB is the server's own schema — mysql.user, admin.system.users.
+// The listings already hide these, but the browser endpoints took any name,
+// so a Viewer could read every account's password hash by typing the URL.
+// They stay reachable from the SQL console, which needs the shell level.
+func isSystemDB(conn any, database string) bool {
+	switch conn.(type) {
+	case *dbsql.Conn:
+		return dbsql.IsSystemSchema(database)
+	case *mongodb.Conn:
+		return mongodb.IsSystemDatabase(database)
+	}
+	return false
+}
+
+// isSystemDBName is isSystemDB by integration type, for callers that may have
+// no live connection (a dump runs as a job).
+func isSystemDBName(integrationType, database string) bool {
+	if integrationType == mongodb.TypeID {
+		return mongodb.IsSystemDatabase(database)
+	}
+	return dbsql.IsSystemSchema(database)
+}
 
 // dbErr classifies an access error for the per-op response mappers.
 func dbErrKind(err error) string {

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
@@ -179,7 +180,7 @@ func (s *Server) DbListObjects(ctx context.Context, req DbListObjectsRequestObje
 		}
 		return DbListObjects502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
 	}
-	if !s.visibleDbName(ctx, id, resource, req.Database) {
+	if !s.visibleDbName(ctx, id, resource, req.Database) || isSystemDB(conn, req.Database) {
 		return DbListObjects404JSONResponse{notFoundErr("database")}, nil
 	}
 	out := []DbObject{}
@@ -222,7 +223,7 @@ func (s *Server) DbPeek(ctx context.Context, req DbPeekRequestObject) (DbPeekRes
 		return DbPeek400JSONResponse{BadRequestJSONResponse(errBody("wrong_engine", "peek is for MongoDB collections — use the SQL console for this instance"))}, nil
 	}
 	dbRes := resource + "/database/" + req.Database
-	if !s.visibleDbName(ctx, id, resource, req.Database) {
+	if !s.visibleDbName(ctx, id, resource, req.Database) || isSystemDB(conn, req.Database) {
 		return DbPeek404JSONResponse{notFoundErr("database")}, nil
 	}
 	if !s.can(ctx, id, dbRes, rbac.LevelControl) {
@@ -289,11 +290,11 @@ func (s *Server) DbQuery(ctx context.Context, req DbQueryRequestObject) (DbQuery
 	result, err := sqlConn.Query(qctx, database, req.Body.Statement)
 	if err != nil {
 		s.audit.Log(ctx, actorFor(id), "db.query", target, "error",
-			map[string]any{"statement": req.Body.Statement, "error": err.Error()})
+			map[string]any{"statement": redactSQLSecrets(req.Body.Statement), "error": err.Error()})
 		return DbQuery502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
 	}
 	s.audit.Log(ctx, actorFor(id), "db.query", target, "success",
-		map[string]any{"statement": req.Body.Statement, "rows": result.RowsAffected})
+		map[string]any{"statement": redactSQLSecrets(req.Body.Statement), "rows": result.RowsAffected})
 	return DbQuery200JSONResponse{
 		Columns:      result.Columns,
 		Rows:         result.Rows,
@@ -308,12 +309,19 @@ func (s *Server) DbSessions(ctx context.Context, req DbSessionsRequestObject) (D
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	conn, _, _, err := s.dbConn(ctx, id, req.Id)
+	conn, _, resource, err := s.dbConn(ctx, id, req.Id)
 	if err != nil {
 		if err == store.ErrNotFound {
 			return DbSessions404JSONResponse{notFoundErr("instance")}, nil
 		}
 		return DbSessions502JSONResponse{UpstreamErrorJSONResponse(errBody("upstream", err.Error()))}, nil
+	}
+	// The processlist carries every client's live statement text — other
+	// databases' queries and any literal passwords in them — so it is an
+	// operator's view of the instance, not a read-only one.
+	if !s.can(ctx, id, resource, rbac.LevelControl) {
+		s.deniedAudit(ctx, id, "db.sessions", resource)
+		return DbSessions403JSONResponse{forbidden()}, nil
 	}
 	out := []DbSession{}
 	switch c := conn.(type) {
@@ -396,7 +404,7 @@ func (s *Server) DbDump(ctx context.Context, req DbDumpRequestObject) (DbDumpRes
 		return DbDump404JSONResponse{notFoundErr("instance")}, nil
 	}
 	dbRes := resource + "/database/" + req.Body.Database
-	if !s.visibleDbName(ctx, id, resource, req.Body.Database) {
+	if !s.visibleDbName(ctx, id, resource, req.Body.Database) || isSystemDBName(row.Type, req.Body.Database) {
 		return DbDump404JSONResponse{notFoundErr("database")}, nil
 	}
 	if !s.can(ctx, id, dbRes, rbac.LevelControl) || !s.can(ctx, id, ResBackups, rbac.LevelView) {
@@ -418,4 +426,14 @@ func (s *Server) DbDump(ctx context.Context, req DbDumpRequestObject) (DbDumpRes
 	s.audit.Log(ctx, actorFor(id), "db.dump", dbRes, "success",
 		map[string]any{"target": req.Body.TargetId.String()})
 	return DbDump202JSONResponse{JobQueuedJSONResponse{JobId: job.ID}}, nil
+}
+
+// sqlSecret matches the places a statement carries a password in the clear:
+// IDENTIFIED BY / IDENTIFIED WITH … BY / SET PASSWORD = / PASSWORD(…) and
+// literal hashes after AS. The audit log keeps the statement for
+// accountability, so the secret in it is replaced, not the whole line.
+var sqlSecret = regexp.MustCompile(`(?i)(\bIDENTIFIED\s+(?:WITH\s+\S+\s+)?(?:BY|AS)\s+|\bPASSWORD\s*(?:FOR\s+\S+\s*)?(?:=\s*|\(\s*)|\bPASSWORD\s+)('(?:[^'\\]|\\.|'')*'|"(?:[^"\\]|\\.|"")*")`)
+
+func redactSQLSecrets(stmt string) string {
+	return sqlSecret.ReplaceAllString(stmt, "${1}'<redacted>'")
 }

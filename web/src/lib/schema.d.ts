@@ -11114,6 +11114,7 @@ export interface operations {
                     "application/json": components["schemas"]["DbSession"][];
                 };
             };
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             502: components["responses"]["UpstreamError"];
         };

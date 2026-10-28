@@ -57,6 +57,10 @@ type Document = string
 // systemDatabases are hidden from listings.
 var systemDatabases = map[string]bool{"admin": true, "config": true, "local": true}
 
+// IsSystemDatabase reports whether a database is the server's own; admin holds
+// system.users with every account's credential hashes.
+func IsSystemDatabase(name string) bool { return systemDatabases[name] }
+
 // ---- connection ------------------------------------------------------------
 
 type Conn struct {

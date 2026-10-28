@@ -71,6 +71,10 @@ var systemSchemas = map[string]bool{
 	"information_schema": true, "performance_schema": true, "mysql": true, "sys": true,
 }
 
+// IsSystemSchema reports whether a schema is one of the server's own — the
+// ones holding accounts and password hashes (mysql.user) and live query text.
+func IsSystemSchema(name string) bool { return systemSchemas[strings.ToLower(name)] }
+
 // ---- connection ------------------------------------------------------------
 
 type Conn struct {

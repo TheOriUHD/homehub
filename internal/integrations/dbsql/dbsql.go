@@ -53,6 +53,13 @@ func openPool(config map[string]any, secrets map[string]string) (*sql.DB, error)
 		cfg.TLSConfig = "skip-verify"
 	} else if tlsOn, _ := config["tls"].(bool); tlsOn {
 		cfg.TLSConfig = "true"
+	} else {
+		// Unticked used to mean plaintext: the monitoring password and every
+		// row read crossed the LAN in the clear. "preferred" encrypts whenever
+		// the server offers TLS (almost every MySQL/MariaDB does) and still
+		// works with one that doesn't; ticking TLS makes it mandatory and
+		// verified.
+		cfg.TLSConfig = "preferred"
 	}
 	connector, err := mysql.NewConnector(cfg)
 	if err != nil {

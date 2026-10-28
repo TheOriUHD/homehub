@@ -359,6 +359,24 @@ var columnTypePattern = regexp.MustCompile(`^(?i)(TINYINT|SMALLINT|INT|INTEGER|B
 
 var identPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
 
+var numericDefault = regexp.MustCompile(`^-?\d+(\.\d+)?$`)
+
+// sqlStringLiteral quotes a default value for DDL, where nothing can be bound
+// as a parameter. Doubling quotes alone is not enough on MySQL/MariaDB: unless
+// NO_BACKSLASH_ESCAPES is set, a backslash escapes the next quote, so `\'`
+// closed the string and the rest of the "default" ran as SQL. Backslashes are
+// doubled first, and control characters (NUL above all) are refused outright.
+func sqlStringLiteral(v string) (string, error) {
+	for _, r := range v {
+		if r < 0x20 || r == 0x7f {
+			return "", fmt.Errorf("a default may not contain control characters")
+		}
+	}
+	v = strings.ReplaceAll(v, `\`, `\\`)
+	v = strings.ReplaceAll(v, "'", "''")
+	return "'" + v + "'", nil
+}
+
 // CreateTable builds and runs a CREATE TABLE from the visual builder's
 // column list. Identifiers are validated and quoted; types are whitelisted;
 // defaults are bound expressions only when simple literals.
@@ -392,10 +410,14 @@ func (c *Conn) CreateTable(ctx context.Context, database, table string, columns 
 				def += " DEFAULT NULL"
 			case strings.EqualFold(d, "CURRENT_TIMESTAMP"):
 				def += " DEFAULT CURRENT_TIMESTAMP"
-			case regexp.MustCompile(`^-?\d+(\.\d+)?$`).MatchString(d):
+			case numericDefault.MatchString(d):
 				def += " DEFAULT " + d
 			default:
-				def += " DEFAULT '" + strings.ReplaceAll(d, "'", "''") + "'"
+				lit, err := sqlStringLiteral(d)
+				if err != nil {
+					return fmt.Errorf("column %q: %w", col.Name, err)
+				}
+				def += " DEFAULT " + lit
 			}
 		}
 		defs = append(defs, def)

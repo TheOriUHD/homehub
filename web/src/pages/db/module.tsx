@@ -49,7 +49,8 @@ export function DbModulePage() {
   const tabs = [
     { to: base, label: t("db.tabs.databases"), exact: true },
     ...(consoleVisible ? [{ to: `${base}/console`, label: t("db.tabs.console") }] : []),
-    { to: `${base}/sessions`, label: t("db.tabs.sessions") },
+    // Live statements of every client — an operator's view, as on the server.
+    ...(can(dbResource(instance), "control") ? [{ to: `${base}/sessions`, label: t("db.tabs.sessions") }] : []),
     { to: `${base}/performance`, label: t("db.tabs.performance") },
   ];
 
