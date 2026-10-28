@@ -326,7 +326,9 @@ func (s *Server) caddyMutate(ctx context.Context, instID uuid.UUID, action strin
 	if err != nil {
 		return caddyMutationOutcome{code: 502, message: err.Error()}
 	}
-	if !s.can(ctx, id, resource, rbac.LevelControl) {
+	// Adding, re-pointing or removing a site rewrites the public reverse
+	// proxy's configuration — configure, which the Operator role lacks.
+	if !s.can(ctx, id, resource, rbac.LevelConfigure) {
 		s.deniedAudit(ctx, id, action, resource)
 		return caddyMutationOutcome{code: 403}
 	}

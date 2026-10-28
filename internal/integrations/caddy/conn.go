@@ -201,6 +201,9 @@ func buildEntry(site SiteEntry) (caddyfile.Entry, error) {
 			Args: strings.TrimSpace(site.DNSArgs),
 		}
 	}
+	if err := caddyfile.ValidateEntry(entry); err != nil {
+		return entry, err
+	}
 	return entry, nil
 }
 

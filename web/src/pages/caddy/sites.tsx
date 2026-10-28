@@ -49,7 +49,7 @@ export function CaddySitesPage() {
   }
 
   const state = sites.data!;
-  const editable = state.writable && !state.refusal && can(caddyResource(instanceId), "control");
+  const editable = state.writable && !state.refusal && can(caddyResource(instanceId), "configure");
 
   // When the file was refused wholesale, the refusal IS the panel.
   if (state.refusal) {

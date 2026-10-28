@@ -634,3 +634,66 @@ func ValidatePort(port string) error {
 	}
 	return nil
 }
+
+// ---- injection guard ---------------------------------------------------------
+//
+// Every field below lands in the live Caddyfile as raw text. A newline, a
+// brace or a comment marker in any of them ends the line or block it sits in,
+// so a "header value" could append whole directives — or sites — to the
+// public reverse proxy. ValidateEntry admits only what each field can mean.
+
+var (
+	upstreamHostPattern = regexp.MustCompile(`^[A-Za-z0-9._\-:%\[\]]+$`)
+	headerNamePattern   = regexp.MustCompile(`^[+\-]?[A-Za-z0-9\-]+$`)
+	dnsProviderPattern  = regexp.MustCompile(`^[a-z0-9_]+$`)
+	// One argument: a Caddy placeholder ({env.X}, {http.request.host}) or a
+	// plain token. Nothing else may carry braces.
+	argPattern     = regexp.MustCompile(`^(\{[A-Za-z0-9_.\-]+\}|[A-Za-z0-9_.:/@=+\-]+)$`)
+	headerValueBad = regexp.MustCompile("[\\x00-\\x1f\\x7f\"`#\\\\]")
+	placeholder    = regexp.MustCompile(`\{[A-Za-z0-9_.\-]+\}`)
+)
+
+var upstreamSchemes = map[string]bool{"": true, "http": true, "https": true, "h2c": true}
+var encodings = map[string]bool{"gzip": true, "zstd": true, "br": true}
+
+// ValidateEntry refuses any field that could break out of its line.
+func ValidateEntry(e Entry) error {
+	if !upstreamSchemes[e.Upstream.Scheme] {
+		return fmt.Errorf("the upstream scheme must be http, https or h2c")
+	}
+	if !upstreamHostPattern.MatchString(e.Upstream.Host) {
+		return fmt.Errorf("the upstream host may only hold a hostname or IP address")
+	}
+	if e.Encode != "" {
+		for _, enc := range strings.Fields(e.Encode) {
+			if !encodings[enc] {
+				return fmt.Errorf("encode accepts gzip, zstd and br, not %q", enc)
+			}
+		}
+	}
+	for _, h := range e.HeaderUp {
+		if !headerNamePattern.MatchString(h.Name) {
+			return fmt.Errorf("%q is not a header name", h.Name)
+		}
+		if strings.TrimSpace(h.Value) == "" {
+			return fmt.Errorf("header %s needs a value", h.Name)
+		}
+		if headerValueBad.MatchString(h.Value) {
+			return fmt.Errorf("the value of header %s may not contain line breaks, quotes, backslashes or #", h.Name)
+		}
+		if strings.ContainsAny(placeholder.ReplaceAllString(h.Value, ""), "{}") {
+			return fmt.Errorf("braces in header %s are only allowed as a {placeholder}", h.Name)
+		}
+	}
+	if e.DNSChallenge != nil {
+		if !dnsProviderPattern.MatchString(e.DNSChallenge.Provider) {
+			return fmt.Errorf("%q is not a DNS provider name", e.DNSChallenge.Provider)
+		}
+		for _, a := range strings.Fields(e.DNSChallenge.Args) {
+			if !argPattern.MatchString(a) {
+				return fmt.Errorf("the DNS challenge argument %q is not allowed — use a {env.NAME} placeholder or a plain value", a)
+			}
+		}
+	}
+	return nil
+}
