@@ -397,7 +397,7 @@
     "appUrl": "Externe URL",
     "appUrlHint": "Wie Benutzer HomeHub erreichen, z. B. https://hub.example.com. Leer: HomeHub antwortet auf jeder Adresse, die der Browser verwendet. Setze sie, um diesen Origin auch hinter einem Reverse Proxy zu erlauben und Passkeys daran zu binden — eine HTTPS-Adresse schaltet Passkey-Anmeldung und Zwischenablage überall frei. Der Zugriff per IP im LAN funktioniert so oder so weiter.",
     "sessionTtl": "Sitzungsdauer (Stunden)",
-    "sessionTtlHint": "Angemeldete Sitzungen verlängern sich bei Aktivität und laufen nach dieser Zeit ohne Nutzung ab.",
+    "sessionTtlHint": "Angemeldete Sitzungen verlängern sich bei Aktivität und laufen nach dieser Zeit ohne Nutzung ab. Spätestens 90 Tage nach der Anmeldung endet jede Sitzung.",
     "saved": "Einstellungen gespeichert",
     "retention": {
       "title": "Metrik-Aufbewahrung",

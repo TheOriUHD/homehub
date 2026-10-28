@@ -65,6 +65,7 @@ type Service struct {
 	ipLimiter   *keyedLimiter
 	userLimiter *keyedLimiter
 	throttle    *loginThrottle
+	conns       *liveConns
 
 	// dummyHash equalizes timing between "unknown user" and "wrong password".
 	dummyHash string
@@ -94,6 +95,7 @@ func New(st *store.Store, v *vault.Vault, aud *audit.Service, set *settings.Serv
 		ipLimiter:   newKeyedLimiter(30, 15),
 		userLimiter: newKeyedLimiter(10, 5),
 		throttle:    newLoginThrottle(),
+		conns:       &liveConns{bySession: map[uuid.UUID]map[uint64]trackedConn{}},
 		dummyHash:   dummy,
 	}
 }
@@ -335,7 +337,8 @@ func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, ip, userAg
 	if err != nil {
 		return "", nil, err
 	}
-	sess, err := s.store.CreateSession(ctx, userID, hash, time.Now().Add(s.settings.SessionTTL(ctx)), ip, userAgent)
+	now := time.Now()
+	sess, err := s.store.CreateSession(ctx, userID, hash, sessionExpiry(now, now, s.settings.SessionTTL(ctx)), ip, userAgent)
 	if err != nil {
 		return "", nil, err
 	}
@@ -343,23 +346,33 @@ func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, ip, userAg
 }
 
 // ValidateSession resolves a presented token to a live session and user,
-// refreshing the rolling expiry at most once a minute.
+// refreshing the rolling expiry at most once a minute but never past the
+// absolute lifetime cap.
 func (s *Service) ValidateSession(ctx context.Context, token, ip string) (*store.Session, *store.User, error) {
 	sess, user, err := s.store.SessionByTokenHash(ctx, HashToken(token))
 	if err != nil {
 		return nil, nil, err
 	}
-	if time.Since(sess.LastSeenAt) > time.Minute {
-		if terr := s.store.TouchSession(ctx, sess.ID, ip, time.Now().Add(s.settings.SessionTTL(ctx))); terr != nil {
+	now := time.Now()
+	if now.Sub(sess.CreatedAt) > sessionMaxLifetime {
+		// Sessions issued before the cap existed can carry a later
+		// expires_at; end them here rather than trusting the column.
+		if rerr := s.RevokeSession(ctx, sess.ID); rerr != nil && rerr != store.ErrNotFound {
+			s.logger.Warn("revoke over-age session", "error", rerr)
+		}
+		return nil, nil, store.ErrNotFound
+	}
+	if now.Sub(sess.LastSeenAt) > time.Minute {
+		if terr := s.store.TouchSession(ctx, sess.ID, ip, sessionExpiry(sess.CreatedAt, now, s.settings.SessionTTL(ctx))); terr != nil {
 			s.logger.Warn("touch session", "error", terr)
 		}
 	}
 	return sess, user, nil
 }
 
-// Logout revokes the current session.
+// Logout revokes the current session and closes the sockets it opened.
 func (s *Service) Logout(ctx context.Context, sessionID uuid.UUID, actor audit.Actor) {
-	if err := s.store.RevokeSession(ctx, sessionID); err != nil && err != store.ErrNotFound {
+	if err := s.RevokeSession(ctx, sessionID); err != nil && err != store.ErrNotFound {
 		s.logger.Error("revoke session", "error", err)
 	}
 	s.audit.Log(ctx, actor, "auth.logout", "", audit.OutcomeSuccess, nil)
@@ -389,7 +402,7 @@ func (s *Service) ChangePassword(ctx context.Context, user *store.User, currentS
 	if err := s.store.SetUserPassword(ctx, user.ID, hash, false); err != nil {
 		return err
 	}
-	if _, err := s.store.RevokeUserSessions(ctx, user.ID, &currentSessionID); err != nil {
+	if _, err := s.RevokeUserSessions(ctx, user.ID, &currentSessionID); err != nil {
 		s.logger.Error("revoke other sessions after password change", "error", err)
 	}
 	s.audit.Log(ctx, actor, "auth.password_change", "", audit.OutcomeSuccess, nil)

@@ -4,6 +4,7 @@
 package httpserver
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -292,7 +293,9 @@ func wsHandler(deps Deps) http.HandlerFunc {
 		if err != nil {
 			return // Accept already replied
 		}
-		deps.Hub.Serve(r.Context(), conn, id.User.ID, id.ViewAsRole)
+		ctx, release := bindToSession(r.Context(), deps, id, conn)
+		defer release()
+		deps.Hub.Serve(ctx, conn, id.User.ID, id.ViewAsRole)
 		conn.Close(websocket.StatusNormalClosure, "bye")
 	}
 }
@@ -343,11 +346,52 @@ func termHandler(deps Deps) http.HandlerFunc {
 		// moments after it connected. Consoles are raw byte pipes — give them
 		// room, while still bounding a hostile message.
 		conn.SetReadLimit(termReadLimit)
-		if err := session.Open(r.Context(), conn); err != nil {
+		ctx, release := bindToSession(r.Context(), deps, id, conn)
+		defer release()
+		if err := session.Open(ctx, conn); err != nil && ctx.Err() == nil {
 			deps.Logger.Warn("terminal session ended with error", "error", err)
-			term.SendControl(r.Context(), conn, term.ControlFrame{Type: "error", Message: err.Error()})
+			term.SendControl(ctx, conn, term.ControlFrame{Type: "error", Message: err.Error()})
 		}
 		conn.Close(websocket.StatusNormalClosure, "session closed")
+	}
+}
+
+// sessionRecheckInterval is how often a long-lived socket re-checks the
+// session it was opened under, for revocations that bypass the auth service
+// (an admin disabling the user, the session simply expiring).
+const sessionRecheckInterval = 30 * time.Second
+
+// bindToSession ties a WebSocket to the login session that opened it: the
+// socket authenticated once at upgrade, so without this a terminal or
+// console stayed open after its session was logged out or revoked. Logout and
+// revocation through the auth service close it immediately; anything else is
+// noticed within sessionRecheckInterval. Closing the conn (not just
+// cancelling ctx) is what unblocks bridges sitting in a read.
+func bindToSession(parent context.Context, deps Deps, id *httpctx.Identity, conn *websocket.Conn) (context.Context, func()) {
+	ctx, cancel := context.WithCancel(parent)
+	kill := func() {
+		cancel()
+		conn.Close(websocket.StatusPolicyViolation, "signed out")
+	}
+	untrack := deps.Auth.TrackConnection(id.SessionID, id.User.ID, kill)
+	go func() {
+		t := time.NewTicker(sessionRecheckInterval)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if !deps.Auth.SessionActive(ctx, id.SessionID) {
+					kill()
+					return
+				}
+			}
+		}
+	}()
+	return ctx, func() {
+		untrack()
+		cancel()
 	}
 }
 

@@ -252,7 +252,7 @@ func (s *Server) RevokeMySession(ctx context.Context, req RevokeMySessionRequest
 	if err != nil || sess.UserID != id.User.ID {
 		return RevokeMySession404JSONResponse{notFoundErr("session")}, nil
 	}
-	if err := s.store.RevokeSession(ctx, sess.ID); err != nil {
+	if err := s.auth.RevokeSession(ctx, sess.ID); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return RevokeMySession404JSONResponse{notFoundErr("session")}, nil
 		}
@@ -270,7 +270,7 @@ func (s *Server) RevokeOtherSessions(ctx context.Context, _ RevokeOtherSessionsR
 	if id == nil {
 		return nil, ErrUnauthenticated
 	}
-	n, err := s.store.RevokeUserSessions(ctx, id.User.ID, &id.SessionID)
+	n, err := s.auth.RevokeUserSessions(ctx, id.User.ID, &id.SessionID)
 	if err != nil {
 		return nil, err
 	}

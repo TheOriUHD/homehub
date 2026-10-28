@@ -397,7 +397,7 @@
     "appUrl": "External URL",
     "appUrlHint": "How users reach HomeHub, e.g. https://hub.example.com. Empty: HomeHub answers on whatever address the browser used. Set it to also allow that origin behind a reverse proxy and to pin passkeys to it — an HTTPS address unlocks passkey sign-in and clipboard everywhere. LAN access by IP keeps working either way.",
     "sessionTtl": "Session lifetime (hours)",
-    "sessionTtlHint": "Signed-in sessions roll forward on activity and expire after this long unused.",
+    "sessionTtlHint": "Signed-in sessions roll forward on activity and expire after this long unused. Every session ends 90 days after sign-in regardless.",
     "saved": "Settings saved",
     "retention": {
       "title": "Metric retention",
