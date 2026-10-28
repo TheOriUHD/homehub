@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,15 +28,64 @@ const jobCols = `id, kind, payload, status, priority, run_at, started_at, finish
 	attempts, max_attempts, last_error, created_at`
 
 func (s *Store) EnqueueJob(ctx context.Context, kind string, payload any, runAt time.Time, priority, maxAttempts int) (*Job, error) {
+	job, _, err := s.EnqueueJobDedup(ctx, kind, payload, runAt, priority, maxAttempts, "")
+	return job, err
+}
+
+// EnqueueJobDedup queues a job unless one with the same non-empty dedup key
+// is already pending or running, in which case that job is returned and
+// created is false. The partial unique index jobs_dedup_active_idx makes the
+// check atomic, so two racing callers can never both insert.
+func (s *Store) EnqueueJobDedup(ctx context.Context, kind string, payload any, runAt time.Time, priority, maxAttempts int, dedupKey string) (job *Job, created bool, err error) {
 	raw, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return scanOne[Job](s.pool.Query(ctx, `
-		insert into jobs (kind, payload, run_at, priority, max_attempts)
-		values ($1, $2, $3, $4, $5)
-		returning `+jobCols,
-		kind, raw, runAt, priority, maxAttempts))
+	if dedupKey == "" {
+		job, err = scanOne[Job](s.pool.Query(ctx, `
+			insert into jobs (kind, payload, run_at, priority, max_attempts)
+			values ($1, $2, $3, $4, $5)
+			returning `+jobCols,
+			kind, raw, runAt, priority, maxAttempts))
+		return job, err == nil, err
+	}
+	// The existing job can finish between the failed insert and the lookup;
+	// a couple of attempts covers that window without looping forever.
+	for range 3 {
+		job, err = scanOne[Job](s.pool.Query(ctx, `
+			insert into jobs (kind, payload, run_at, priority, max_attempts, dedup_key)
+			values ($1, $2, $3, $4, $5, $6)
+			on conflict (dedup_key) where dedup_key is not null and status in ('pending', 'running')
+			do nothing
+			returning `+jobCols,
+			kind, raw, runAt, priority, maxAttempts, dedupKey))
+		if err == nil {
+			return job, true, nil
+		}
+		if err != ErrNotFound {
+			return nil, false, err
+		}
+		job, err = scanOne[Job](s.pool.Query(ctx, `
+			select `+jobCols+` from jobs
+			where dedup_key = $1 and status in ('pending', 'running')`, dedupKey))
+		if err == nil {
+			return job, false, nil
+		}
+		if err != ErrNotFound {
+			return nil, false, err
+		}
+	}
+	return nil, false, fmt.Errorf("enqueue %s: dedup key %q kept changing hands", kind, dedupKey)
+}
+
+// FailInterruptedJobs closes out jobs a previous process left "running". A
+// worker that died mid-job can never report back, so without this they would
+// read as running forever and, with a dedup key, block their target too.
+func (s *Store) FailInterruptedJobs(ctx context.Context) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `
+		update jobs set status = 'failed', finished_at = now(), last_error = 'interrupted by restart'
+		where status = 'running'`)
+	return tag.RowsAffected(), err
 }
 
 // ClaimJob atomically claims the highest-priority due job, if any. The
@@ -74,6 +124,15 @@ func (s *Store) FailJob(ctx context.Context, id int64, errMsg string, retryIn ti
 			last_error = $2
 		where id = $1`,
 		id, errMsg, retryIn.String())
+	return err
+}
+
+// FailJobFinal records a failure that must not be retried, whatever attempts
+// remain — a job that ran out its time limit would only run it out again.
+func (s *Store) FailJobFinal(ctx context.Context, id int64, errMsg string) error {
+	_, err := s.pool.Exec(ctx, `
+		update jobs set status = 'failed', finished_at = now(), last_error = $2
+		where id = $1`, id, errMsg)
 	return err
 }
 

@@ -116,6 +116,14 @@ func Run(ctx context.Context) error {
 		}
 	}
 	jobEngine := jobs.New(st, logger, 4)
+	// Anything still "running" belongs to the process that just stopped; its
+	// worker is gone, so the row would otherwise read as running forever.
+	if n, err := jobEngine.RecoverInterrupted(ctx); err != nil {
+		logger.Error("failing interrupted jobs", "error", err)
+	} else if n > 0 {
+		logger.Warn("marked jobs interrupted by restart as failed", "count", n)
+	}
+	configureJobKinds(jobEngine)
 	registerMaintenance(jobEngine, st, logger)
 
 	hub := ws.NewHub(logger, func(ctx context.Context, userID uuid.UUID, viewAsRole *uuid.UUID, topic string) bool {
@@ -486,6 +494,30 @@ func statusNotifier(engine *rbac.Engine, notifySvc *notify.Service) func(integra
 				return err == nil && ok
 			}, severity, title, body, eventType)
 	}
+}
+
+// configureJobKinds sets the time limit and "one at a time per target" rule
+// for the kinds that need more than the defaults (an hour, no dedup).
+// Scheduled kinds are deduplicated per schedule by the engine itself.
+func configureJobKinds(e *jobs.Engine) {
+	// Backups stream a full database dump and the data dir to a remote
+	// target; restores replay it. Two of either for the same target at once
+	// only fight over the same files.
+	e.Configure("backup.app", jobs.KindOptions{Timeout: 3 * time.Hour, DedupKey: jobs.TargetKey("targetId")})
+	e.Configure("backup.restore", jobs.KindOptions{Timeout: 3 * time.Hour, DedupKey: jobs.TargetKey()})
+	e.Configure("db.dump", jobs.KindOptions{Timeout: 3 * time.Hour, DedupKey: jobs.TargetKey("integrationId", "database", "targetId")})
+	// A pull/recreate/redeploy of the same container or stack while one is
+	// in flight would race the first one's container swap.
+	dockerTarget := jobs.TargetKey("integrationId", "container", "project", "reference")
+	for _, kind := range []string{docker.JobPull, docker.JobRecreate, docker.JobRedeploy} {
+		e.Configure(kind, jobs.KindOptions{Timeout: time.Hour, DedupKey: dockerTarget})
+	}
+	// One batch can hold many videos at up to 15 minutes each; the per-file
+	// limits inside the converter are the real bound.
+	e.Configure(convert.JobKindBatch, jobs.KindOptions{Timeout: 12 * time.Hour})
+	// Delivery hits one external webhook, mail server or bot, none of which
+	// set their own deadline; five minutes is far past any healthy send.
+	e.Configure("notify.deliver", jobs.KindOptions{Timeout: 5 * time.Minute})
 }
 
 // registerMaintenance binds the recurring housekeeping job.
