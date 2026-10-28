@@ -1080,6 +1080,8 @@ paths:
                 metricsRawRetentionHours: { type: integer, minimum: 6, maximum: 720 }
                 metrics5mRetentionDays: { type: integer, minimum: 1, maximum: 365 }
                 metrics1hRetentionDays: { type: integer, minimum: 7, maximum: 3650 }
+                auditRetentionDays: { type: integer, minimum: 30, maximum: 3650 }
+                patchpilotRetentionDays: { type: integer, minimum: 7, maximum: 3650 }
       responses:
         "200":
           description: Updated settings
@@ -7849,7 +7851,7 @@ components:
 
     AppSettings:
       type: object
-      required: [appUrl, sessionTtlHours, metricsRawRetentionHours, metrics5mRetentionDays, metrics1hRetentionDays]
+      required: [appUrl, sessionTtlHours, metricsRawRetentionHours, metrics5mRetentionDays, metrics1hRetentionDays, auditRetentionDays, patchpilotRetentionDays]
       properties:
         appUrl:
           type: string
@@ -7858,6 +7860,12 @@ components:
         metricsRawRetentionHours: { type: integer }
         metrics5mRetentionDays: { type: integer }
         metrics1hRetentionDays: { type: integer }
+        auditRetentionDays:
+          type: integer
+          description: Days audit log entries are kept before the nightly maintenance job prunes them
+        patchpilotRetentionDays:
+          type: integer
+          description: Days finished PatchPilot runs (with their captured package-manager logs) are kept
 
     BackupTarget:
       type: object

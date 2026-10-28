@@ -286,14 +286,21 @@ func (s *Server) GetSettings(ctx context.Context, _ GetSettingsRequestObject) (G
 	if !s.can(ctx, id, ResSettings, rbac.LevelView) {
 		return GetSettings403JSONResponse{forbidden()}, nil
 	}
+	return GetSettings200JSONResponse(s.appSettings(ctx)), nil
+}
+
+func (s *Server) appSettings(ctx context.Context) AppSettings {
 	rawHours, fiveMinDays, hourDays := s.settings.MetricsRetentionValues(ctx)
-	return GetSettings200JSONResponse(AppSettings{
+	auditDays, patchpilotDays := s.settings.HistoryRetentionDays(ctx)
+	return AppSettings{
 		AppUrl:                   s.settings.AppURL(ctx),
 		SessionTtlHours:          s.settings.SessionTTLHours(ctx),
 		MetricsRawRetentionHours: rawHours,
 		Metrics5mRetentionDays:   fiveMinDays,
 		Metrics1hRetentionDays:   hourDays,
-	}), nil
+		AuditRetentionDays:       auditDays,
+		PatchpilotRetentionDays:  patchpilotDays,
+	}
 }
 
 func (s *Server) UpdateSettings(ctx context.Context, req UpdateSettingsRequestObject) (UpdateSettingsResponseObject, error) {
@@ -334,13 +341,19 @@ func (s *Server) UpdateSettings(ctx context.Context, req UpdateSettingsRequestOb
 		}
 		changes["metricsRetention"] = []int{rawHours, fiveMinDays, hourDays}
 	}
+	if req.Body.AuditRetentionDays != nil || req.Body.PatchpilotRetentionDays != nil {
+		auditDays, patchpilotDays := s.settings.HistoryRetentionDays(ctx)
+		if req.Body.AuditRetentionDays != nil {
+			auditDays = *req.Body.AuditRetentionDays
+		}
+		if req.Body.PatchpilotRetentionDays != nil {
+			patchpilotDays = *req.Body.PatchpilotRetentionDays
+		}
+		if err := s.settings.SetHistoryRetentionDays(ctx, auditDays, patchpilotDays); err != nil {
+			return UpdateSettings400JSONResponse{BadRequestJSONResponse(errBody("invalid_retention", err.Error()))}, nil
+		}
+		changes["historyRetention"] = map[string]int{"auditDays": auditDays, "patchpilotDays": patchpilotDays}
+	}
 	s.audit.Log(ctx, actorFor(id), "settings.update", ResSettings, "success", changes)
-	rawHours, fiveMinDays, hourDays := s.settings.MetricsRetentionValues(ctx)
-	return UpdateSettings200JSONResponse(AppSettings{
-		AppUrl:                   s.settings.AppURL(ctx),
-		SessionTtlHours:          s.settings.SessionTTLHours(ctx),
-		MetricsRawRetentionHours: rawHours,
-		Metrics5mRetentionDays:   fiveMinDays,
-		Metrics1hRetentionDays:   hourDays,
-	}), nil
+	return UpdateSettings200JSONResponse(s.appSettings(ctx)), nil
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type AuditEntry struct {
@@ -43,6 +44,25 @@ func (s *Store) InsertAudit(ctx context.Context, e *AuditEntry) error {
 		values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 		e.ActorKind, e.ActorID, e.ActorName, e.SessionID, e.Action, e.Resource, e.Outcome, e.IP, detail)
 	return err
+}
+
+// PruneAudit deletes entries older than the retention window. It is the only
+// delete the audit log allows: the append-only trigger (migration 00042)
+// refuses every update and delete unless the transaction sets
+// homehub.audit_retention, which only this function does — and only for
+// rows past retention, never newer ones.
+func (s *Store) PruneAudit(ctx context.Context, olderThan time.Duration) (int64, error) {
+	var n int64
+	err := s.WithTx(ctx, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `select set_config('homehub.audit_retention', 'on', true)`); err != nil {
+			return err
+		}
+		tag, err := tx.Exec(ctx,
+			`delete from audit_log where ts < now() - $1::interval`, olderThan.String())
+		n = tag.RowsAffected()
+		return err
+	})
+	return n, err
 }
 
 // ListAudit pages newest-first with a keyset cursor. Resource filtering is a

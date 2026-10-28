@@ -346,6 +346,17 @@ func (s *Store) RecoverPatchpilotRuns(ctx context.Context) error {
 	return err
 }
 
+// PrunePatchpilotRuns removes finished runs older than the retention window;
+// their host runs and captured package-manager logs (the bulk of the bytes)
+// cascade. A run still going is never touched, however old.
+func (s *Store) PrunePatchpilotRuns(ctx context.Context, olderThan time.Duration) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `
+		delete from patchpilot_runs
+		where status <> 'running' and coalesce(finished_at, started_at) < now() - $1::interval`,
+		olderThan.String())
+	return tag.RowsAffected(), err
+}
+
 // ---- host runs --------------------------------------------------------------
 
 type PatchpilotHostRun struct {

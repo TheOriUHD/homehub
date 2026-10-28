@@ -408,6 +408,14 @@
       "fiveMinHint": "5-Minuten-Mittelwerte, 1–365 Tage. Grundlage für die 24h- und 7d-Ansichten.",
       "hourly": "Stunden-Verdichtung (Tage)",
       "hourlyHint": "Stunden-Mittelwerte, 7–3650 Tage. Grundlage für die 30d-Ansicht und darüber hinaus."
+    },
+    "history": {
+      "title": "Verlaufs-Aufbewahrung",
+      "intro": "Wie lange das Audit-Protokoll und der PatchPilot-Laufverlauf aufbewahrt werden. Ältere Einträge entfernt die nächtliche Wartung; sonst wird kein Audit-Eintrag je gelöscht oder geändert.",
+      "audit": "Audit-Protokoll (Tage)",
+      "auditHint": "30–3650 Tage. Standard 365.",
+      "patchpilot": "PatchPilot-Läufe und -Protokolle (Tage)",
+      "patchpilotHint": "Abgeschlossene Update-Läufe mit der aufgezeichneten Paketmanager-Ausgabe, 7–3650 Tage. Standard 90."
     }
   },
   "account": {

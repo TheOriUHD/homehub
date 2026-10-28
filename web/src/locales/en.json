@@ -408,6 +408,14 @@
       "fiveMinHint": "5-minute averages, 1–365 days. Powers the 24h and 7d views.",
       "hourly": "Hourly rollups (days)",
       "hourlyHint": "Hourly averages, 7–3650 days. Powers the 30d view and beyond."
+    },
+    "history": {
+      "title": "History retention",
+      "intro": "How long the audit log and PatchPilot run history are kept. Older entries are removed by the nightly maintenance job; nothing else ever deletes or edits an audit entry.",
+      "audit": "Audit log (days)",
+      "auditHint": "30–3650 days. Default 365.",
+      "patchpilot": "PatchPilot runs and logs (days)",
+      "patchpilotHint": "Finished update runs with their captured package-manager output, 7–3650 days. Default 90."
     }
   },
   "account": {

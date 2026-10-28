@@ -124,7 +124,7 @@ func Run(ctx context.Context) error {
 		logger.Warn("marked jobs interrupted by restart as failed", "count", n)
 	}
 	configureJobKinds(jobEngine)
-	registerMaintenance(jobEngine, st, logger)
+	registerMaintenance(jobEngine, st, settingsSvc, logger)
 
 	hub := ws.NewHub(logger, func(ctx context.Context, userID uuid.UUID, viewAsRole *uuid.UUID, topic string) bool {
 		return authorizeTopic(ctx, engine, st, userID, viewAsRole, topic)
@@ -522,7 +522,7 @@ func configureJobKinds(e *jobs.Engine) {
 }
 
 // registerMaintenance binds the recurring housekeeping job.
-func registerMaintenance(engine *jobs.Engine, st *store.Store, logger *slog.Logger) {
+func registerMaintenance(engine *jobs.Engine, st *store.Store, settingsSvc *settings.Service, logger *slog.Logger) {
 	engine.Register("maintenance.cleanup", func(ctx context.Context, _ json.RawMessage) error {
 		if n, err := st.CleanupSessions(ctx); err != nil {
 			return fmt.Errorf("cleanup sessions: %w", err)
@@ -559,6 +559,20 @@ func registerMaintenance(engine *jobs.Engine, st *store.Store, logger *slog.Logg
 			return fmt.Errorf("prune notifications: %w", err)
 		} else if n > 0 {
 			logger.Info("pruned notifications", "count", n)
+		}
+		// History that otherwise grows for the life of the install: the
+		// audit trail and PatchPilot runs with their captured apt/dnf output.
+		// Windows are admin settings (defaults 365 and 90 days).
+		auditKeep, patchpilotKeep := settingsSvc.HistoryRetention(ctx)
+		if n, err := st.PruneAudit(ctx, auditKeep); err != nil {
+			return fmt.Errorf("prune audit log: %w", err)
+		} else if n > 0 {
+			logger.Info("pruned audit log past retention", "count", n, "days", int(auditKeep.Hours()/24))
+		}
+		if n, err := st.PrunePatchpilotRuns(ctx, patchpilotKeep); err != nil {
+			return fmt.Errorf("prune patchpilot runs: %w", err)
+		} else if n > 0 {
+			logger.Info("pruned patchpilot run history", "count", n, "days", int(patchpilotKeep.Hours()/24))
 		}
 		return nil
 	})

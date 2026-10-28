@@ -5136,6 +5136,10 @@ export interface components {
             metricsRawRetentionHours: number;
             metrics5mRetentionDays: number;
             metrics1hRetentionDays: number;
+            /** @description Days audit log entries are kept before the nightly maintenance job prunes them */
+            auditRetentionDays: number;
+            /** @description Days finished PatchPilot runs (with their captured package-manager logs) are kept */
+            patchpilotRetentionDays: number;
         };
         BackupTarget: {
             /** Format: uuid */
@@ -8434,6 +8438,8 @@ export interface operations {
                     metricsRawRetentionHours?: number;
                     metrics5mRetentionDays?: number;
                     metrics1hRetentionDays?: number;
+                    auditRetentionDays?: number;
+                    patchpilotRetentionDays?: number;
                 };
             };
         };

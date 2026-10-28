@@ -45,6 +45,7 @@ export function AppSettingsPage() {
 
       <GeneralCard />
       <RetentionCard />
+      <HistoryRetentionCard />
       <ChannelsCard />
     </div>
   );
@@ -255,6 +256,98 @@ function RetentionCard() {
                 className="max-w-32"
                 value={hourlyDays}
                 onChange={(e) => setHourlyDays(e.target.value)}
+              />
+            )}
+          </Field>
+          <div className="flex justify-end">
+            <Button type="submit" variant="primary" loading={save.isPending}>
+              {save.isPending ? t("common.saving") : t("common.save")}
+            </Button>
+          </div>
+        </form>
+      </CardBody>
+    </Card>
+  );
+}
+
+// ---- history retention -----------------------------------------------------
+
+function HistoryRetentionCard() {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const settings = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => unwrap(await api.GET("/settings")),
+  });
+
+  const [auditDays, setAuditDays] = useState("");
+  const [patchpilotDays, setPatchpilotDays] = useState("");
+  useEffect(() => {
+    if (settings.data) {
+      setAuditDays(String(settings.data.auditRetentionDays));
+      setPatchpilotDays(String(settings.data.patchpilotRetentionDays));
+    }
+  }, [settings.data]);
+
+  const save = useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await api.PATCH("/settings", {
+          body: {
+            auditRetentionDays: Number(auditDays),
+            patchpilotRetentionDays: Number(patchpilotDays),
+          },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["settings"] });
+      toast("success", t("settingsPage.saved"));
+    },
+  });
+
+  const error = save.error && isApiError(save.error) ? save.error.message : null;
+
+  // The general card surfaces load errors; the metric card shows the skeleton.
+  if (settings.isError || settings.isLoading) return null;
+
+  return (
+    <Card className="max-w-xl">
+      <CardHeader title={t("settingsPage.history.title")} description={t("settingsPage.history.intro")} />
+      <CardBody>
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save.mutate();
+          }}
+        >
+          <Field label={t("settingsPage.history.audit")} hint={t("settingsPage.history.auditHint")} error={error}>
+            {(p) => (
+              <Input
+                {...p}
+                type="number"
+                min={30}
+                max={3650}
+                required
+                className="max-w-32"
+                value={auditDays}
+                onChange={(e) => setAuditDays(e.target.value)}
+              />
+            )}
+          </Field>
+          <Field label={t("settingsPage.history.patchpilot")} hint={t("settingsPage.history.patchpilotHint")}>
+            {(p) => (
+              <Input
+                {...p}
+                type="number"
+                min={7}
+                max={3650}
+                required
+                className="max-w-32"
+                value={patchpilotDays}
+                onChange={(e) => setPatchpilotDays(e.target.value)}
               />
             )}
           </Field>
