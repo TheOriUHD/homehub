@@ -57,12 +57,12 @@ func (s *Store) ListAudit(ctx context.Context, f AuditFilter) ([]AuditEntry, err
 		from audit_log
 		where ($1::uuid is null or actor_id = $1)
 		  and ($2 = '' or action = $2)
-		  and ($3 = '' or resource = $3 or resource like $3 || '/%')
+		  and ($3 = '' or resource = $3 or resource like $9 escape '\')
 		  and ($4 = '' or outcome = $4)
 		  and ($5::timestamptz is null or ts >= $5)
 		  and ($6::timestamptz is null or ts <= $6)
 		  and ($7::bigint is null or id < $7)
 		order by id desc
 		limit $8`,
-		f.ActorID, f.Action, f.Resource, f.Outcome, f.From, f.To, f.BeforeID, limit))
+		f.ActorID, f.Action, f.Resource, f.Outcome, f.From, f.To, f.BeforeID, limit, likeUnder(f.Resource)))
 }

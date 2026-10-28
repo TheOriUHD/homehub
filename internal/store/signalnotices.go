@@ -139,8 +139,8 @@ func (s *Store) ListSentNotices(ctx context.Context, since time.Time, contains s
 		select id, key, event, severity, title, source_name, text, sent_at
 		from signal_notice_log
 		where sent_at >= $1
-		  and ($2 = '' or text ilike '%' || $2 || '%' or title ilike '%' || $2 || '%' or source_name ilike '%' || $2 || '%')
-		order by sent_at desc limit $3`, since, contains, limit))
+		  and ($2 = '' or text ilike $4 escape '\' or title ilike $4 escape '\' or source_name ilike $4 escape '\')
+		order by sent_at desc limit $3`, since, contains, limit, likeContains(contains)))
 }
 
 // PruneSentNotices ages the log out with the notices themselves.

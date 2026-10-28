@@ -46,6 +46,6 @@ func (s *Store) DeleteSSHCredential(ctx context.Context, resource string) error 
 // used when an integration instance is deleted.
 func (s *Store) DeleteSSHCredentialsUnder(ctx context.Context, prefix string) error {
 	_, err := s.pool.Exec(ctx,
-		`delete from ssh_credentials where resource = $1 or resource like $1 || '/%'`, prefix)
+		`delete from ssh_credentials where resource = $1 or resource like $2 escape '\'`, prefix, likeUnder(prefix))
 	return err
 }

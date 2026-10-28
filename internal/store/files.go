@@ -240,8 +240,8 @@ func (s *Store) DeleteUserFolder(ctx context.Context, userID, id uuid.UUID) (fou
 	}
 
 	rows, err := tx.Query(ctx,
-		`DELETE FROM user_files WHERE user_id=$1 AND (folder=$2 OR folder LIKE $3) RETURNING id, is_binary`,
-		userID, path, path+"/%")
+		`DELETE FROM user_files WHERE user_id=$1 AND (folder=$2 OR folder LIKE $3 ESCAPE '\') RETURNING id, is_binary`,
+		userID, path, likeUnder(path))
 	if err != nil {
 		return false, nil, err
 	}
@@ -262,8 +262,8 @@ func (s *Store) DeleteUserFolder(ctx context.Context, userID, id uuid.UUID) (fou
 	}
 
 	if _, err := tx.Exec(ctx,
-		`DELETE FROM user_folders WHERE user_id=$1 AND (path=$2 OR path LIKE $3)`,
-		userID, path, path+"/%"); err != nil {
+		`DELETE FROM user_folders WHERE user_id=$1 AND (path=$2 OR path LIKE $3 ESCAPE '\')`,
+		userID, path, likeUnder(path)); err != nil {
 		return false, nil, err
 	}
 	return true, blobIDs, tx.Commit(ctx)
